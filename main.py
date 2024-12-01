@@ -21,5 +21,9 @@ app.include_router(internal_router, prefix="/api")
 if __name__ == "__main__":
     settings = get_settings()
     uvicorn.run(
-        "main:app",host="127.0.0.1",port=(settings.SERVER_PORT or 7050),reload=settings.APP_ENV == "dev",reload_dirs=["src", "tests"],
+        "main:app",
+        host="127.0.0.1",
+        port=(settings.SERVER_PORT or 7050),
+        reload=settings.APP_ENV == "dev",
+        reload_dirs=["src", "tests"],
     )
