@@ -1,7 +1,7 @@
 import logging
-from fastapi import APIRouter, HTTPException, UploadFile, Form
+from fastapi import APIRouter
 
-from src.schemas.auth_schema import LoginPayload, LoginResponse
+from src.auth.schemas import LoginPayload, LoginResponse
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
