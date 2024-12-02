@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  ci-job:
     runs-on: ubuntu-latest
     services:
       postgres:
