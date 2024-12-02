@@ -1,13 +1,19 @@
 import logging
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Request
+
+from src.middlewares.auth_middleware import auth_middleware
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
 @router.get("/")
-async def boilerplate():
+async def boilerplate(
+    request: Request,
+):
     """
     Boilerplate
     """
-    return {"success": 1}
+    body = request.query_params
+    logger.info(body)
+    return {"success": 1, "state": request.state.foo}
