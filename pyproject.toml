@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "fastapi-boilerplate"
+name = "AI Platform"
 version = "0.1.0"
-description = "A fully Async FastAPI boilerplate using SQLAlchemy and Pydantic 2"
+description = "AI Platform"
 authors = ["Sourabh Lodha"]
 license = "MIT"
 readme = "README.md"

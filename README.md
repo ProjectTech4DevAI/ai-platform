@@ -1,37 +1,4 @@
-<h1 align="center"> Fast FastAPI boilerplate</h1>
-<p align="center" markdown=1>
-  <i>Yet another template to speed your FastAPI development up.</i>
-</p>
-
-<p align="center">
-  <a>
-    <img src="https://user-images.githubusercontent.com/43156212/277095260-ef5d4496-8290-4b18-99b2-0c0b5500504e.png" alt="Blue Rocket with FastAPI Logo as its window. There is a word FAST written" width="35%" height="auto">
-  </a>
-</p>
-
-<p align="center">
-  <a href="">
-      <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
-  </a>
-  <a href="https://fastapi.tiangolo.com">
-      <img src="https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi" alt="FastAPI">
-  </a>
-  <a href="https://docs.pydantic.dev/2.4/">
-      <img src="https://img.shields.io/badge/Pydantic-E92063?logo=pydantic&logoColor=fff&style=for-the-badge" alt="Pydantic">
-  </a>
-  <a href="https://www.postgresql.org">
-      <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL">
-  </a>
-  <a href="https://redis.io">
-      <img src="https://img.shields.io/badge/Redis-DC382D?logo=redis&logoColor=fff&style=for-the-badge" alt="Redis">
-  </a>
-  <a href="https://docs.docker.com/compose/">
-      <img src="https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=fff&style=for-the-badge" alt="Docker">
-  </a>
-  <a href="https://nginx.org/en/">
-      <img src="https://img.shields.io/badge/NGINX-009639?logo=nginx&logoColor=fff&style=for-the-badge" alt=NGINX>
-  </a>
-</p>
+<h1 align="center"> AI Platform</h1>
 
 ## 0. About
 
@@ -109,10 +76,7 @@
       1. [One Server](#621-one-server)
       1. [Multiple Servers](#622-multiple-servers)
 1. [Testing](#7-testing)
-1. [Contributing](#8-contributing)
-1. [References](#9-references)
-1. [License](#10-license)
-1. [Contact](#11-contact)
+
 
 ______________________________________________________________________
 
