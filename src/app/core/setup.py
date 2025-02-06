@@ -27,6 +27,35 @@ from .config import (
 from .db.database import Base, async_engine as engine
 from .utils import cache, queue, rate_limit
 from ..models import *
+from pathlib import Path
+import importlib
+import pkgutil
+import sys
+# Define the base module path
+MODULES_PATH = Path(__file__).parent / "modules"
+
+def auto_import_modules(package: str) -> None:
+    """Dynamically imports all submodules within a given package."""
+    package_dir = MODULES_PATH / package.replace(".", "/")
+
+    if not package_dir.exists():
+        return
+
+    for _, module_name, is_pkg in pkgutil.iter_modules([str(package_dir)]):
+        full_module_name = f"modules.{package}.{module_name}"
+        if full_module_name not in sys.modules:
+            importlib.import_module(full_module_name)
+
+
+def register_routers(app: FastAPI, base_package: str = "modules"):
+    """Automatically finds and registers routers from controller modules."""
+    for module_info in pkgutil.walk_packages([str(MODULES_PATH / "user/controller")]):
+        module_name = f"{base_package}.user.controller.{module_info.name}"
+        module = importlib.import_module(module_name)
+
+        if hasattr(module, "router"):  # Ensure module has `router`
+            app.include_router(module.router)
+
 
 # -------------- database --------------
 async def create_tables() -> None:
@@ -184,6 +213,12 @@ def create_application(
     lifespan = lifespan_factory(settings, create_tables_on_start=create_tables_on_start)
 
     application = FastAPI(lifespan=lifespan, **kwargs)
+    # Load all necessary modules dynamically
+    for module in ["user.controller", "user.schema", "user.service", "user.models"]:
+        auto_import_modules(module)
+
+    # Register routers dynamically
+    register_routers(application)
     application.include_router(router)
 
     if isinstance(settings, ClientSideCacheSettings):
