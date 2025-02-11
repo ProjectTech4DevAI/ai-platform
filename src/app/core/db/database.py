@@ -24,3 +24,4 @@ async def async_get_db() -> AsyncSession:
     async_session = local_session
     async with async_session() as db:
         yield db
+
