@@ -1,10 +1,15 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..core.db.database import Base
+
+def now():
+    return (datetime
+            .now(timezone.utc)
+            .replace(tzinfo=None))
 
 #
 #
@@ -49,7 +54,7 @@ class Document(Base):
     #
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default_factory=datetime.utcnow,
+        default_factory=now,
     )
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
