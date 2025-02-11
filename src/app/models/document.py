@@ -34,11 +34,14 @@ class Document(Base):
     # Data representation
     #
     fname_internal: Mapped[uuid.UUID] = mapped_column(
-        default_factory=uuid.uuid4,
-        primary_key=True,
+        index=True,
         unique=True,
+        default_factory=uuid.uuid4,
     )
-    fname_external: Mapped[str] = mapped_column(String(512))
+    fname_external: Mapped[str] = mapped_column(
+        String(512),
+        nullable=False,
+    )
     object_store_url: Mapped[str] = mapped_column(String(2048))
 
     #
