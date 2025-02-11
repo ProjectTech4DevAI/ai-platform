@@ -55,8 +55,8 @@ class PostgresSettings(DatabaseSettings):
     POSTGRES_DB: str = config("POSTGRES_DB", default="postgres")
     POSTGRES_SYNC_PREFIX: str = config("POSTGRES_SYNC_PREFIX", default="postgresql://")
     POSTGRES_ASYNC_PREFIX: str = config("POSTGRES_ASYNC_PREFIX", default="postgresql+asyncpg://")
-    # POSTGRES_URI: str = f"{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}:{POSTGRES_PORT}/{POSTGRES_DB}"
-    POSTGRES_URI: str = "postgres://postgres:JBvq7qWHfOWsvPJ7@dpcmodgyhdccahhcewnt.supabase.co:5432/postgres"
+    POSTGRES_URI: str = f"{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}:{POSTGRES_PORT}/{POSTGRES_DB}"
+    #POSTGRES_URI: str = "postgres://postgres:JBvq7qWHfOWsvPJ7@dpcmodgyhdccahhcewnt.supabase.co:5432/postgres"
     POSTGRES_URL: str | None = config("POSTGRES_URL", default=None)
 
 
@@ -106,6 +106,8 @@ class EnvironmentOption(Enum):
 class EnvironmentSettings(BaseSettings):
     ENVIRONMENT: EnvironmentOption = config("ENVIRONMENT", default="local")
 
+class OPENSettings(BaseSettings):
+    OPENAI_API_KEY: str = config("OPENAI_API_KEY", default="")
 
 class Settings(
     AppSettings,
@@ -119,6 +121,7 @@ class Settings(
     RedisQueueSettings,
     RedisRateLimiterSettings,
     DefaultRateLimitSettings,
+    OPENSettings
 ):
     pass
 
