@@ -42,7 +42,7 @@ class Document(Base):
         String(512),
         nullable=False,
     )
-    object_store_url: Mapped[str] = mapped_column(String(2048))
+    object_store_url: Mapped[str] = mapped_column(String(2083))
 
     #
     # Record management
