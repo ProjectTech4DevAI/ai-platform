@@ -9,9 +9,10 @@ class Base(DeclarativeBase, MappedAsDataclass):
     pass
 
 
-DATABASE_URI = settings.POSTGRES_URI
-DATABASE_PREFIX = settings.POSTGRES_ASYNC_PREFIX
-DATABASE_URL = f"{DATABASE_PREFIX}{DATABASE_URI}"
+#DATABASE_URI = settings.POSTGRES_URI
+#DATABASE_PREFIX = settings.POSTGRES_ASYNC_PREFIX
+#DATABASE_URL = f"{DATABASE_PREFIX}{DATABASE_URI}"
+DATABASE_URL = "postgresql+asyncpg://postgres:password@localhost:5431/postgres"
 
 async_engine = create_async_engine(DATABASE_URL, echo=False, future=True)
 
@@ -22,3 +23,4 @@ async def async_get_db() -> AsyncSession:
     async_session = local_session
     async with async_session() as db:
         yield db
+
