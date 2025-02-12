@@ -33,10 +33,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
+      - name: Install Poetry
         run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          curl -sSL https://install.python-poetry.org | python -
+          # Ensure Poetry is in PATH for the subsequent steps
+          echo "${HOME}/.local/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: poetry install
 
       - name: Run pre-commit
         run: pre-commit run --all-files
