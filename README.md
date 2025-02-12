@@ -13,8 +13,6 @@
 - [`Docker Compose`](https://docs.docker.com/compose/) With a single command, create and start all the services from your configuration.
 - [`NGINX`](https://nginx.org/en/) High-performance low resource consumption web server used for Reverse Proxy and Load Balancing.
 
-> \[!TIP\] 
-> If you want the `SQLModel` version instead, head to [SQLModel-boilerplate].
 
 ## 1. Features
 
@@ -41,14 +39,10 @@
 1. [Contents](#2-contents)
 1. [Prerequisites](#3-prerequisites)
    1. [Environment Variables (.env)](#31-environment-variables-env)
-   1. [Docker Compose](#32-docker-compose-preferred)
-   1. [From Scratch](#33-from-scratch)
+
 1. [Usage](#4-usage)
-   1. [Docker Compose](#41-docker-compose)
    1. [From Scratch](#42-from-scratch)
       1. [Packages](#421-packages)
-      1. [Running PostgreSQL With Docker](#422-running-postgresql-with-docker)
-      1. [Running Redis with Docker](#423-running-redis-with-docker)
       1. [Running the API](#424-running-the-api)
    1. [Creating the first superuser](#43-creating-the-first-superuser)
    1. [Database Migrations](#44-database-migrations)
@@ -84,27 +78,11 @@ ______________________________________________________________________
 
 ### 3.0 Start
 
-Start by using the template, and naming the repository to what you want.
-
-<p align="left">
-    <img src="https://user-images.githubusercontent.com/43156212/277866726-975d1c98-b1c9-4c8e-b4bd-001c8a5728cb.png" alt="clicking use this template button, then create a new repository option" width="35%" height="auto">
-</p>
-
-Then clone your created repository (I'm using the base for the example)
+Clone your created repository (I'm using the base for the example)
 
 ```sh
 git clone https://github.com/ProjectTech4DevAI/ai-platform.git
 ```
-
-> \[!TIP\]
-> If you are in a hurry, you may use one of the following templates (containing a `.env`, `docker-compose.yml` and `Dockerfile`):
-
-- [Running locally with uvicorn]
-- [Runing in staging with gunicorn managing uvicorn workers]
-- [Running in production with NGINX]
-
-> \[!WARNING\]
-> Do not forget to place `docker-compose.yml` and `Dockerfile` in the `root` folder, while `.env` should be in the `src` folder.
 
 ### 3.1 Environment Variables (.env)
 
@@ -132,8 +110,8 @@ For the database ([`if you don't have a database yet, click here`](#422-running-
 # ------------- database -------------
 POSTGRES_USER="your_postgres_user"
 POSTGRES_PASSWORD="your_password"
-POSTGRES_SERVER="your_server" # default "localhost", if using docker compose you should use "db"
-POSTGRES_PORT=5432 # default "5432", if using docker compose you should use "5432"
+POSTGRES_SERVER="your_server" # default "localhost"
+POSTGRES_PORT=5432 # default "5432"
 POSTGRES_DB="your_db"
 ```
 
@@ -184,13 +162,15 @@ ADMIN_EMAIL="your_email"
 ADMIN_USERNAME="your_username"
 ADMIN_PASSWORD="your_password"
 ```
+> \[!TIP\]
+>Do not forget to "Brew install redis" and start the services before running the API
 
 For redis caching:
 
 ```
 # ------------- redis cache-------------
-REDIS_CACHE_HOST="your_host" # default "localhost", if using docker compose you should use "redis"
-REDIS_CACHE_PORT=6379 # default "6379", if using docker compose you should use "6379"
+REDIS_CACHE_HOST="your_host" # default "localhost"
+REDIS_CACHE_PORT=6379 # default "6379"
 ```
 
 And for client-side caching:
@@ -204,12 +184,9 @@ For ARQ Job Queues:
 
 ```
 # ------------- redis queue -------------
-REDIS_QUEUE_HOST="your_host" # default "localhost", if using docker compose you should use "redis"
-REDIS_QUEUE_PORT=6379 # default "6379", if using docker compose you should use "6379"
-```
-
-> \[!WARNING\]
-> You may use the same redis for both caching and queue while developing, but the recommendation is using two separate containers for production.
+REDIS_QUEUE_HOST="your_host" # default "localhost"
+REDIS_QUEUE_PORT=6379 # default "6379"
+``` 
 
 To create the first tier:
 
@@ -244,19 +221,9 @@ ENVIRONMENT="local"
 - **staging:** `/docs`, `/redoc` and `/openapi.json` available for superusers
 - **production:** `/docs`, `/redoc` and `/openapi.json` not available
 
-### 3.2 Docker Compose (preferred)
+## 4. Usage
 
-To do it using docker compose, ensure you have docker and docker compose installed, then:
-While in the base project directory (FastAPI-boilerplate here), run:
-
-```sh
-docker compose up
-```
-
-You should have a `web` container, `postgres` container, a `worker` container and a `redis` container running.
-Then head to `http://127.0.0.1:8000/docs`.
-
-### 3.3 From Scratch
+### 4.1 From Scratch
 
 Install poetry:
 
@@ -264,31 +231,7 @@ Install poetry:
 pip install poetry
 ```
 
-## 4. Usage
-
-### 4.1 Docker Compose
-
-If you used docker compose, your setup is done. You just need to ensure that when you run (while in the base folder):
-
-```sh
-docker compose up
-```
-
-You get the following outputs (in addition to many other outputs):
-
-```sh
-fastapi-boilerplate-worker-1  | ... redis_version=x.x.x mem_usage=999K clients_connected=1 db_keys=0
-...
-fastapi-boilerplate-db-1      | ... [1] LOG:  database system is ready to accept connections
-...
-fastapi-boilerplate-web-1     | INFO:     Application startup complete.
-```
-
-So you may skip to [5. Extending](#5-extending).
-
-### 4.2 From Scratch
-
-#### 4.2.1. Packages
+#### 4.1.1. Packages
 
 In the `root` directory (`FastAPI-boilerplate` if you didn't change anything), run to install required packages:
 
@@ -298,69 +241,10 @@ poetry install
 
 Ensuring it ran without any problem.
 
-#### 4.2.2. Running PostgreSQL With Docker
+> \[!TIP\]
+> When dowloading dependencies, if you are having an issue while downloading "greenlet", try to update or degrade your python version to 3.11
 
-> \[!NOTE\]
-> If you already have a PostgreSQL running, you may skip this step.
-
-Install docker if you don't have it yet, then run:
-
-```sh
-docker pull postgres
-```
-
-And pick the port, name, user and password, replacing the fields:
-
-```sh
-docker run -d \
-    -p {PORT}:{PORT} \
-    --name {NAME} \
-    -e POSTGRES_PASSWORD={PASSWORD} \
-    -e POSTGRES_USER={USER} \
-    postgres
-```
-
-Such as:
-
-```sh
-docker run -d \
-    -p 5432:5432 \
-    --name postgres \
-    -e POSTGRES_PASSWORD=1234 \
-    -e POSTGRES_USER=postgres \
-    postgres
-```
-
-#### 4.2.3. Running redis With Docker
-
-> \[!NOTE\]
-> If you already have a redis running, you may skip this step.
-
-Install docker if you don't have it yet, then run:
-
-```sh
-docker pull redis:alpine
-```
-
-And pick the name and port, replacing the fields:
-
-```sh
-docker run -d \
-  --name {NAME}  \
-  -p {PORT}:{PORT} \
-redis:alpine
-```
-
-Such as
-
-```sh
-docker run -d \
-  --name redis  \
-  -p 6379:6379 \
-redis:alpine
-```
-
-#### 4.2.4. Running the API
+#### 4.1.2. Running the API
 
 While in the `root` folder, run to start the application with uvicorn server:
 
@@ -373,64 +257,7 @@ poetry run uvicorn src.app.main:app --reload
 
 ### 4.3 Creating the first superuser
 
-#### 4.3.1 Docker Compose
-
-> \[!WARNING\]
-> Make sure DB and tables are created before running create_superuser (db should be running and the api should run at least once before)
-
-If you are using docker compose, you should uncomment this part of the docker-compose.yml:
-
-```
-  #-------- uncomment to create first superuser --------
-  # create_superuser:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   env_file:
-  #     - ./src/.env
-  #   depends_on:
-  #     - db
-  #   command: python -m src.scripts.create_first_superuser
-  #   volumes:
-  #     - ./src:/code/src
-```
-
-Getting:
-
-```
-  #-------- uncomment to create first superuser --------
-  create_superuser:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    env_file:
-      - ./src/.env
-    depends_on:
-      - db
-    command: python -m src.scripts.create_first_superuser
-    volumes:
-      - ./src:/code/src
-```
-
-While in the base project folder run to start the services:
-
-```sh
-docker-compose up -d
-```
-
-It will automatically run the create_superuser script as well, but if you want to rerun eventually:
-
-```sh
-docker-compose run --rm create_superuser
-```
-
-to stop the create_superuser service:
-
-```sh
-docker-compose stop create_superuser
-```
-
-#### 4.3.2 From Scratch
+#### 4.3.1 From Poetry
 
 While in the `root` folder, run (after you started the application at least once to create the tables):
 
@@ -449,33 +276,6 @@ To create the first tier it's similar, you just replace `create_superuser` for `
 
 > \[!WARNING\]
 > To create the tables if you did not create the endpoints, ensure that you import the models in src/app/models/__init__.py. This step is crucial to create the new tables.
-
-If you are using the db in docker, you need to change this in `docker-compose.yml` to run migrations:
-
-```sh
-  db:
-    image: postgres:13
-    env_file:
-      - ./src/.env
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    # -------- replace with comment to run migrations with docker --------
-    expose:
-      - "5432"
-    # ports:
-    #  - 5432:5432
-```
-
-Getting:
-
-```sh
-  db:
-    ...
-    # expose:
-    #  - "5432"
-    ports:
-      - 5432:5432
-```
 
 While in the `src` folder, run Alembic migrations:
 
