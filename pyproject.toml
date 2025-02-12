@@ -21,7 +21,7 @@ asyncpg = "^0.29.0"
 SQLAlchemy-Utils = "^0.41.1"
 python-jose = "^3.3.0"
 SQLAlchemy = "^2.0.25"
-pytest = "^7.4.2"
+pytest = "^8.3.4"
 python-multipart = "^0.0.9"
 greenlet = "^2.0.2"
 httpx = "^0.26.0"
@@ -36,6 +36,9 @@ psycopg2-binary = "^2.9.9"
 pytest-mock = "^3.14.0"
 openai = "^1.61.1"
 
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^4.1.0"
 
 [build-system]
 requires = ["poetry-core"]
