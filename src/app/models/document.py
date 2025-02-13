@@ -64,3 +64,9 @@ class Document(Base):
         DateTime(timezone=True),
         default=None,
     )
+
+    # Enable CRUD soft delete
+    is_deleted: Mapped[bool] = mapped_column(
+        default=False,
+        index=True,
+    )
