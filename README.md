@@ -12,9 +12,7 @@ If you have not done so already, setup a Postgres user that can
 connect to a known database. As an example (in Bash):
 
 ```bash
-$> cat <<EOF | sudo -u postgres psql postgres
-ALTER USER postgres with encrypted password 'postgres123';
-EOF
+$> sudo -u postgres psql postgres <<< "ALTER USER postgres with encrypted password 'postgres123';"
 ```
 
 ### Platform setup
