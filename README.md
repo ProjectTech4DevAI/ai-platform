@@ -2,16 +2,7 @@
 
 ## Getting starting
 
-Clone the repository and enter its root:
-
-```bash
-$> git clone https://github.com/ProjectTech4DevAI/ai-platform.git
-$> cd ai-platform
-```
-
-### Setup
-
-#### Prerequisite services
+### Prerequisite services
 
 Ensure Redis and Postgres are installed and running on your
 machine. This section assumes that both are accessible on localhost
@@ -24,6 +15,15 @@ connect to a known database. As an example (in Bash):
 $> cat <<EOF | sudo -u postgres psql postgres
 ALTER USER postgres with encrypted password 'postgres123';
 EOF
+```
+
+### Platform setup
+
+Clone the repository and enter its root:
+
+```bash
+$> git clone https://github.com/ProjectTech4DevAI/ai-platform.git
+$> cd ai-platform
 ```
 
 #### Repository configuration
