@@ -78,4 +78,4 @@ The platform can then be started with Uvicorn:
 $> poetry run uvicorn src.app.main:app --reload
 ```
 
-For more advanced usage and developer documentation, see our Wiki.
+For more advanced usage and developer documentation, see our [Wiki](https://github.com/ProjectTech4DevAI/ai-platform/wiki).
