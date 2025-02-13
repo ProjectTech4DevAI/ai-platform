@@ -1,10 +1,10 @@
-______________________________________________________________________
 
-## 3. Prerequisites
+
+## 1. Prerequisites
 
 Install the Redis and Postgres as pre-requisites 
 
-### 3.0 Start
+### 1.0 Start
 
 Clone your created repository (I'm using the base for the example)
 
@@ -13,7 +13,7 @@ git clone https://github.com/ProjectTech4DevAI/ai-platform.git
 ```
 
 
-### 3.1 Environment Variables (.env)
+### 1.1 Environment Variables (.env)
 
 Then create a `.env` file inside `src` directory:
 
@@ -150,9 +150,9 @@ ENVIRONMENT="local"
 - **staging:** `/docs`, `/redoc` and `/openapi.json` available for superusers
 - **production:** `/docs`, `/redoc` and `/openapi.json` not available
 
-## 4. Usage
+## 2. Usage
 
-### 4.1 From Scratch
+### 2.1 From Scratch
 
 Install poetry:
 
@@ -160,7 +160,7 @@ Install poetry:
 pip install poetry
 ```
 
-#### 4.1.1. Packages
+#### 2.1.1. Packages
 
 In the `root` directory (`FastAPI-boilerplate` if you didn't change anything), run to install required packages:
 
@@ -173,7 +173,7 @@ Ensuring it ran without any problem.
 > \[!TIP\]
 > When dowloading dependencies, if you are having an issue while downloading "greenlet", try to update or degrade your python version to 3.11
 
-#### 4.1.2. Running the API
+#### 2.1.2. Running the API
 
 While in the `root` folder, run to start the application with uvicorn server:
 
