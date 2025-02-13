@@ -38,7 +38,7 @@ $> cp .env.example src/.env
 ```
 
 Many of the options in this file pertain to non-trivial usage of the
-platform. The bare minimum variables you need configure relate to
+platform. The bare minimum variables you need to configure relate to
 Postgres:
 
 ```
