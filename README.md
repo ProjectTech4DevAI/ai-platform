@@ -12,7 +12,7 @@ If you have not done so already, setup a Postgres user that can
 connect to a known database. As an example (in Bash):
 
 ```bash
-$> sudo -u postgres psql postgres <<< "ALTER USER postgres with encrypted password 'postgres123';"
+sudo -u postgres psql postgres <<< "ALTER USER postgres with encrypted password 'postgres123';"
 ```
 
 ### Platform setup
@@ -20,8 +20,8 @@ $> sudo -u postgres psql postgres <<< "ALTER USER postgres with encrypted passwo
 Clone the repository and enter its root:
 
 ```bash
-$> git clone https://github.com/ProjectTech4DevAI/ai-platform.git
-$> cd ai-platform
+git clone https://github.com/ProjectTech4DevAI/ai-platform.git
+cd ai-platform
 ```
 
 #### Repository configuration
@@ -32,7 +32,7 @@ repository. You can generate the file by copying the skeleton that is
 included:
 
 ```bash
-$> cp .env.example src/.env
+cp .env.example src/.env
 ```
 
 Many of the options in this file pertain to non-trivial usage of the
@@ -66,14 +66,14 @@ Your Python version should be 3.11 or higher. Package management is
 done via Poetry:
 
 ```bash
-$> pip install poetry
-$> poetry install
+pip install poetry
+poetry install
 ```
 
 The platform can then be started with Uvicorn:
 
 ```bash
-$> poetry run uvicorn src.app.main:app --reload
+poetry run uvicorn src.app.main:app --reload
 ```
 
 For more advanced usage and developer documentation, see our [Wiki](https://github.com/ProjectTech4DevAI/ai-platform/wiki).
