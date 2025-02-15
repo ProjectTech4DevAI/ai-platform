@@ -39,6 +39,9 @@ jobs:
           # Ensure Poetry is in PATH for the subsequent steps
           echo "${HOME}/.local/bin" >> $GITHUB_PATH
 
+      - name: Making env file
+        run: cp .env.example src/.env
+
       - name: Install dependencies
         run: poetry install
 
