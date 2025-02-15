@@ -2,9 +2,12 @@ import os
 import requests
 import openai
 from openai import OpenAI
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import APIRouter, HTTPException, FastAPI, BackgroundTasks
 from pydantic import BaseModel
 from typing import Optional
+from pydantic import BaseModel
+from typing import Optional, List
+router = APIRouter()
 
 app = FastAPI()
 
