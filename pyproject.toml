@@ -82,3 +82,8 @@ max-complexity = 24
 
 [tool.ruff.pydocstyle]
 convention = "numpy"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+  "ignore:.*Please use `import python_multipart` instead.*:PendingDeprecationWarning"
+]
