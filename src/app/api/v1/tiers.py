@@ -29,18 +29,28 @@ async def write_tier(
 
 @router.get("/tiers", response_model=PaginatedListResponse[TierRead])
 async def read_tiers(
-    request: Request, db: Annotated[AsyncSession, Depends(async_get_db)], page: int = 1, items_per_page: int = 10
+    request: Request,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    page: int = 1,
+    items_per_page: int = 10,
 ) -> dict:
     tiers_data = await crud_tiers.get_multi(
-        db=db, offset=compute_offset(page, items_per_page), limit=items_per_page, schema_to_select=TierRead
+        db=db,
+        offset=compute_offset(page, items_per_page),
+        limit=items_per_page,
+        schema_to_select=TierRead,
     )
 
-    response: dict[str, Any] = paginated_response(crud_data=tiers_data, page=page, items_per_page=items_per_page)
+    response: dict[str, Any] = paginated_response(
+        crud_data=tiers_data, page=page, items_per_page=items_per_page
+    )
     return response
 
 
 @router.get("/tier/{name}", response_model=TierRead)
-async def read_tier(request: Request, name: str, db: Annotated[AsyncSession, Depends(async_get_db)]) -> dict:
+async def read_tier(
+    request: Request, name: str, db: Annotated[AsyncSession, Depends(async_get_db)]
+) -> dict:
     db_tier: TierRead | None = await crud_tiers.get(db=db, schema_to_select=TierRead, name=name)
     if db_tier is None:
         raise NotFoundException("Tier not found")
@@ -50,7 +60,10 @@ async def read_tier(request: Request, name: str, db: Annotated[AsyncSession, Dep
 
 @router.patch("/tier/{name}", dependencies=[Depends(get_current_superuser)])
 async def patch_tier(
-    request: Request, values: TierUpdate, name: str, db: Annotated[AsyncSession, Depends(async_get_db)]
+    request: Request,
+    values: TierUpdate,
+    name: str,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict[str, str]:
     db_tier = await crud_tiers.get(db=db, schema_to_select=TierRead, name=name)
     if db_tier is None:
@@ -61,7 +74,9 @@ async def patch_tier(
 
 
 @router.delete("/tier/{name}", dependencies=[Depends(get_current_superuser)])
-async def erase_tier(request: Request, name: str, db: Annotated[AsyncSession, Depends(async_get_db)]) -> dict[str, str]:
+async def erase_tier(
+    request: Request, name: str, db: Annotated[AsyncSession, Depends(async_get_db)]
+) -> dict[str, str]:
     db_tier = await crud_tiers.get(db=db, schema_to_select=TierRead, name=name)
     if db_tier is None:
         raise NotFoundException("Tier not found")

@@ -29,9 +29,13 @@ def get_password_hash(password: str) -> str:
     return hashed_password
 
 
-async def authenticate_user(username_or_email: str, password: str, db: AsyncSession) -> dict[str, Any] | Literal[False]:
+async def authenticate_user(
+    username_or_email: str, password: str, db: AsyncSession
+) -> dict[str, Any] | Literal[False]:
     if "@" in username_or_email:
-        db_user: dict | None = await crud_users.get(db=db, email=username_or_email, is_deleted=False)
+        db_user: dict | None = await crud_users.get(
+            db=db, email=username_or_email, is_deleted=False
+        )
     else:
         db_user = await crud_users.get(db=db, username=username_or_email, is_deleted=False)
 
@@ -49,7 +53,9 @@ async def create_access_token(data: dict[str, Any], expires_delta: timedelta | N
     if expires_delta:
         expire = datetime.now(UTC).replace(tzinfo=None) + expires_delta
     else:
-        expire = datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(UTC).replace(tzinfo=None) + timedelta(
+            minutes=ACCESS_TOKEN_EXPIRE_MINUTES
+        )
     to_encode.update({"exp": expire})
     encoded_jwt: str = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -99,4 +105,6 @@ async def verify_token(token: str, db: AsyncSession) -> TokenData | None:
 async def blacklist_token(token: str, db: AsyncSession) -> None:
     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     expires_at = datetime.fromtimestamp(payload.get("exp"))
-    await crud_token_blacklist.create(db, object=TokenBlacklistCreate(**{"token": token, "expires_at": expires_at}))
+    await crud_token_blacklist.create(
+        db, object=TokenBlacklistCreate(**{"token": token, "expires_at": expires_at})
+    )
