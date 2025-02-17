@@ -31,7 +31,7 @@ class DocumentCreate(BaseModel):
 # UpdateSchemaType
 #
 class DocumentUpdate(BaseModel):
-    fname_internal: UUID
+    fname_external: Path
 
 #
 # UpdateSchemaInternalType
@@ -44,7 +44,6 @@ class DocumentUpdateInternal(DocumentUpdate):
 #
 class DocumentDelete(BaseModel):
     fname_internal: UUID
-    deleted_at: datetime
 
 #
 # SelectSchemaType
