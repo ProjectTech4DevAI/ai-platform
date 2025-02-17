@@ -53,8 +53,7 @@ def process_run(request: MessageRequest, client: OpenAI):
         )
 
         if run.status == "completed":
-            messages = client.beta.threads.messages.list(
-                thread_id=request.thread_id)
+            messages = client.beta.threads.messages.list(thread_id=request.thread_id)
             latest_message = messages.data[0]
             message_content = latest_message.content[0].text.value
             callback_response = {
@@ -62,14 +61,18 @@ def process_run(request: MessageRequest, client: OpenAI):
                 "message": message_content,
                 "thread_id": request.thread_id,
                 # Include any additional fields from request except the ones we don’t need to re-send
-                **request.model_dump(exclude={"question", "assistant_id", "callback_url", "thread_id"}),
+                **request.model_dump(
+                    exclude={"question", "assistant_id", "callback_url", "thread_id"}
+                ),
             }
         else:
             callback_response = {
                 "status": "error",
                 "message": f"Run failed with status: {run.status}",
                 "thread_id": request.thread_id,
-                **request.model_dump(exclude={"question", "assistant_id", "callback_url", "thread_id"}),
+                **request.model_dump(
+                    exclude={"question", "assistant_id", "callback_url", "thread_id"}
+                ),
             }
 
         # Send callback with results
@@ -81,7 +84,7 @@ def process_run(request: MessageRequest, client: OpenAI):
         if "'message': " in error_str:
             # Extract text between 'message': " and the next "
             start = error_str.find("'message': ") + len("'message': \"")
-            end = error_str.find("\"", start)
+            end = error_str.find('"', start)
             error_message = error_str[start:end]
         else:
             error_message = error_str
