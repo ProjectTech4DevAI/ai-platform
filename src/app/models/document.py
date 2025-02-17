@@ -28,7 +28,7 @@ class Document(Base):
         primary_key=True,
         init=False,
     )
-    owner: Mapped[int | None] = mapped_column(
+    owner: Mapped[int] = mapped_column(
         ForeignKey("user.id"), # XXX Does user correspond to client-project?
         index=True,
         default=None,
