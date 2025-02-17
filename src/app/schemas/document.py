@@ -48,5 +48,5 @@ class DocumentDelete(BaseModel):
 #
 # SelectSchemaType
 #
-class DocumentSelect(BaseModel):
+class DocumentSelect(Document):
     pass
