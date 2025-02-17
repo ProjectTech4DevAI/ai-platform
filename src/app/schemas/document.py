@@ -37,7 +37,7 @@ class DocumentUpdate(BaseModel):
 # UpdateSchemaInternalType
 #
 class DocumentUpdateInternal(DocumentUpdate):
-    updated_at: datetime
+    pass
 
 #
 # DeleteSchemaType
