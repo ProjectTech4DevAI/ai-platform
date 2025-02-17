@@ -56,6 +56,10 @@ class Document(Base):
         DateTime(timezone=True),
         default_factory=now,
     )
+
+    #
+    # Enable FastCRUD update/deletion features
+    #
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         default=None,
@@ -64,8 +68,6 @@ class Document(Base):
         DateTime(timezone=True),
         default=None,
     )
-
-    # Enable CRUD soft delete
     is_deleted: Mapped[bool] = mapped_column(
         default=False,
         index=True,
