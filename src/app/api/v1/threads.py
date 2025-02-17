@@ -1,15 +1,18 @@
 import os
 import requests
 import openai
-from openai import OpenAI
-from fastapi import APIRouter, HTTPException, FastAPI, BackgroundTasks
-from pydantic import BaseModel
-from typing import Optional
 from pydantic import BaseModel
 from typing import Optional, List
-router = APIRouter()
+from openai import OpenAI
+from fastapi import FastAPI, APIRouter, HTTPException, BackgroundTasks
+from pydantic import BaseModel
+from typing import Optional
+from dotenv import load_dotenv
 
-app = FastAPI()
+# Load variables from .env
+load_dotenv()
+
+router = APIRouter()
 
 
 # Define the request body schema using Pydantic
@@ -92,7 +95,7 @@ def process_run(request: MessageRequest, client: OpenAI):
         send_callback(request.callback_url, callback_response)
 
 
-@app.post("/threads")
+@router.post("/threads")
 async def threads(request: MessageRequest, background_tasks: BackgroundTasks):
     """
     Accepts a question, assistant_id, callback_url, and optional thread_id from the request body.
