@@ -1,4 +1,4 @@
-import uuid
+from uuid import UUID, uuid4
 from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, ForeignKey, String
@@ -38,10 +38,10 @@ class Document(Base):
     #
     # Data representation
     #
-    fname_internal: Mapped[uuid.UUID] = mapped_column(
+    fname_internal: Mapped[UUID] = mapped_column(
         index=True,
         unique=True,
-        default_factory=uuid.uuid4,
+        default_factory=uuid4,
     )
     fname_external: Mapped[str] = mapped_column(
         String(512),
