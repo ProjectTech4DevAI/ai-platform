@@ -1,4 +1,4 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, Dict
 
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -99,3 +99,25 @@ async def rate_limiter(
     is_limited = await is_rate_limited(db=db, user_id=user_id, path=path, limit=limit, period=period)
     if is_limited:
         raise RateLimitException("Rate limit exceeded.")
+    
+# Remove this once project and organization are setup
+async def get_current_project() -> Dict[str, int]:
+    """
+    Mock function to get project
+    Replace this with the actual implementation when available.
+    """
+    # Simulating retrieved project and organization IDs (static values for now)
+    project_id = 1
+
+    return {"id": project_id}
+
+# Remove this once project and organization are setup
+async def get_current_organization() -> Dict[str, int]:
+    """
+    Mock function to get  organization.
+    Replace this with the actual implementation when available.
+    """
+    # Simulating retrieved project and organization IDs (static values for now)
+    org_id = 1
+
+    return {"id": org_id}
