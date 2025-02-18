@@ -10,10 +10,10 @@ from ..schemas.document import (
 )
 
 crud_docs = FastCRUD[
-    Document,               # ModelType
-    DocumentCreate,         # CreateSchemaType
-    DocumentUpdate,         # UpdateSchemaType
-    DocumentUpdateInternal, # UpdateSchemaInternalType
-    DocumentDelete,         # DeleteSchemaType
-    DocumentSelect,         # SelectSchemaType
+    Document,  # ModelType
+    DocumentCreate,  # CreateSchemaType
+    DocumentUpdate,  # UpdateSchemaType
+    DocumentUpdateInternal,  # UpdateSchemaInternalType
+    DocumentDelete,  # DeleteSchemaType
+    DocumentSelect,  # SelectSchemaType
 ](Document)

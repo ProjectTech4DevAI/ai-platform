@@ -6,10 +6,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from ..core.db.database import Base
 
+
 def now():
-    return (datetime
-            .now(timezone.utc)
-            .replace(tzinfo=None))
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
 
 #
 #
@@ -29,7 +29,7 @@ class Document(Base):
         init=False,
     )
     owner: Mapped[int] = mapped_column(
-        ForeignKey("user.id"), # XXX Does user correspond to client-project?
+        ForeignKey("user.id"),  # XXX Does user correspond to client-project?
         index=True,
         default=None,
         init=False,
