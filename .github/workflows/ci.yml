@@ -11,18 +11,18 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:15
+        image: postgres:16
         env:
-          POSTGRES_USER: ai_plat
-          POSTGRES_PASSWORD: password
-          POSTGRES_DB: ai_plat
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ai_platform
         ports:
           - 5432:5432
-        options: --health-cmd "pg_isready -U ai_plat" --health-interval 10s --health-timeout 5s --health-retries 5
+        options: --health-cmd "pg_isready -U postgres" --health-interval 10s --health-timeout 5s --health-retries 5
 
     strategy:
       matrix:
-        python-version: ["3.11.11"]
+        python-version: ["3.13.2"]
         redis-version: [6]
 
     steps:
@@ -39,6 +39,9 @@ jobs:
           # Ensure Poetry is in PATH for the subsequent steps
           echo "${HOME}/.local/bin" >> $GITHUB_PATH
 
+      - name: Making env file
+        run: cp .env.example src/.env
+
       - name: Install dependencies
         run: poetry install
 
@@ -49,3 +52,6 @@ jobs:
         uses: supercharge/redis-github-action@1.5.0
         with:
           redis-version: ${{ matrix.redis-version }}
+
+      - name: Run tests
+        run: poetry run pytest
