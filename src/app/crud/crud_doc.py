@@ -16,4 +16,5 @@ crud_docs = FastCRUD[
     DocumentUpdateInternal,  # UpdateSchemaInternalType
     DocumentDelete,  # DeleteSchemaType
     DocumentSelect,  # SelectSchemaType
+    None,
 ](Document)
