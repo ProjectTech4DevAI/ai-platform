@@ -10,7 +10,12 @@ class RateLimit(Base):
     __tablename__ = "rate_limit"
 
     id: Mapped[int] = mapped_column(
-        "id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False
+        "id",
+        autoincrement=True,
+        nullable=False,
+        unique=True,
+        primary_key=True,
+        init=False,
     )
     tier_id: Mapped[int] = mapped_column(ForeignKey("tier.id"), index=True)
     name: Mapped[str] = mapped_column(String, nullable=False, unique=True)

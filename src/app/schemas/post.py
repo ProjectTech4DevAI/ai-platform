@@ -9,7 +9,8 @@ from ..core.schemas import PersistentDeletion, TimestampSchema, UUIDSchema
 class PostBase(BaseModel):
     title: Annotated[str, Field(min_length=2, max_length=30, examples=["This is my post"])]
     text: Annotated[
-        str, Field(min_length=1, max_length=63206, examples=["This is the content of my post."])
+        str,
+        Field(min_length=1, max_length=63206, examples=["This is the content of my post."]),
     ]
 
 
@@ -29,7 +30,8 @@ class PostRead(BaseModel):
     id: int
     title: Annotated[str, Field(min_length=2, max_length=30, examples=["This is my post"])]
     text: Annotated[
-        str, Field(min_length=1, max_length=63206, examples=["This is the content of my post."])
+        str,
+        Field(min_length=1, max_length=63206, examples=["This is the content of my post."]),
     ]
     media_url: Annotated[
         str | None,
@@ -61,7 +63,12 @@ class PostUpdate(BaseModel):
 
     title: Annotated[
         str | None,
-        Field(min_length=2, max_length=30, examples=["This is my updated post"], default=None),
+        Field(
+            min_length=2,
+            max_length=30,
+            examples=["This is my updated post"],
+            default=None,
+        ),
     ]
     text: Annotated[
         str | None,

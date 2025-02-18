@@ -78,7 +78,10 @@ async def read_posts(
 @router.get("/{username}/post/{id}", response_model=PostRead)
 @cache(key_prefix="{username}_post_cache", resource_id_name="id")
 async def read_post(
-    request: Request, username: str, id: int, db: Annotated[AsyncSession, Depends(async_get_db)]
+    request: Request,
+    username: str,
+    id: int,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict:
     db_user = await crud_users.get(
         db=db, schema_to_select=UserRead, username=username, is_deleted=False
@@ -87,7 +90,11 @@ async def read_post(
         raise NotFoundException("User not found")
 
     db_post: PostRead | None = await crud_posts.get(
-        db=db, schema_to_select=PostRead, id=id, created_by_user_id=db_user["id"], is_deleted=False
+        db=db,
+        schema_to_select=PostRead,
+        id=id,
+        created_by_user_id=db_user["id"],
+        is_deleted=False,
     )
     if db_post is None:
         raise NotFoundException("Post not found")
@@ -164,7 +171,10 @@ async def erase_post(
     to_invalidate_extra={"{username}_posts": "{username}"},
 )
 async def erase_db_post(
-    request: Request, username: str, id: int, db: Annotated[AsyncSession, Depends(async_get_db)]
+    request: Request,
+    username: str,
+    id: int,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict[str, str]:
     db_user = await crud_users.get(
         db=db, schema_to_select=UserRead, username=username, is_deleted=False

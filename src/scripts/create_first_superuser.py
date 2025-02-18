@@ -49,7 +49,11 @@ async def create_first_user(session: AsyncSession) -> None:
                 Column("hashed_password", String, nullable=False),
                 Column("profile_image_url", String, default="https://profileimageurl.com"),
                 Column(
-                    "uuid", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True
+                    "uuid",
+                    UUID(as_uuid=True),
+                    primary_key=True,
+                    default=uuid.uuid4,
+                    unique=True,
                 ),
                 Column(
                     "created_at",

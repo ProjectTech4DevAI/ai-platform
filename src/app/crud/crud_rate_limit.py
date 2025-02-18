@@ -15,6 +15,5 @@ CRUDRateLimit = FastCRUD[
     RateLimitUpdate,
     RateLimitUpdateInternal,
     RateLimitDelete,
-    RateLimitRead,
 ]
 crud_rate_limits = CRUDRateLimit(RateLimit)

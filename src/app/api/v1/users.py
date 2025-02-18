@@ -17,14 +17,22 @@ from ...crud.crud_tier import crud_tiers
 from ...crud.crud_users import crud_users
 from ...models.tier import Tier
 from ...schemas.tier import TierRead
-from ...schemas.user import UserCreate, UserCreateInternal, UserRead, UserTierUpdate, UserUpdate
+from ...schemas.user import (
+    UserCreate,
+    UserCreateInternal,
+    UserRead,
+    UserTierUpdate,
+    UserUpdate,
+)
 
 router = APIRouter(tags=["users"])
 
 
 @router.post("/user", response_model=UserRead, status_code=201)
 async def write_user(
-    request: Request, user: UserCreate, db: Annotated[AsyncSession, Depends(async_get_db)]
+    request: Request,
+    user: UserCreate,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> UserRead:
     email_row = await crud_users.exists(db=db, email=user.email)
     if email_row:

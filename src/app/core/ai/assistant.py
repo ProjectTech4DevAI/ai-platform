@@ -53,7 +53,9 @@ class AIAssistant:
         """Run the assistant on the thread"""
         try:
             run = await self.client.beta.threads.runs.create(
-                thread_id=thread_id, assistant_id=assistant_id, instructions=instructions
+                thread_id=thread_id,
+                assistant_id=assistant_id,
+                instructions=instructions,
             )
 
             # Wait for completion
