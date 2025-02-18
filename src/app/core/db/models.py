@@ -7,10 +7,7 @@ from sqlalchemy.dialects.postgresql import UUID
 
 class UUIDMixin:
     uuid: uuid_pkg.UUID = Column(
-        UUID,
-        primary_key=True,
-        default=uuid_pkg.uuid4,
-        server_default=text("gen_random_uuid()"),
+        UUID, primary_key=True, default=uuid_pkg.uuid4, server_default=text("gen_random_uuid()")
     )
 
 

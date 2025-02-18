@@ -11,12 +11,7 @@ class User(Base):
     __tablename__ = "user"
 
     id: Mapped[int] = mapped_column(
-        "id",
-        autoincrement=True,
-        nullable=False,
-        unique=True,
-        primary_key=True,
-        init=False,
+        "id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False
     )
 
     name: Mapped[str] = mapped_column(String(30))

@@ -209,9 +209,7 @@ def create_application(
             @docs_router.get("/openapi.json", include_in_schema=False)
             async def openapi() -> dict[str, Any]:
                 out: dict = get_openapi(
-                    title=application.title,
-                    version=application.version,
-                    routes=application.routes,
+                    title=application.title, version=application.version, routes=application.routes
                 )
                 return out
 

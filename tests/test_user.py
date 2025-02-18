@@ -63,8 +63,7 @@ def test_delete_user(db: Session, client: TestClient, mocker: MockerFixture) -> 
     override_dependency(oauth2_scheme, mocks.oauth2_scheme())
 
     mocker.patch(
-        "src.app.core.security.jwt.decode",
-        return_value={"sub": user.username, "exp": 9999999999},
+        "src.app.core.security.jwt.decode", return_value={"sub": user.username, "exp": 9999999999}
     )
 
     response = client.delete(f"/api/v1/user/{user.username}")
@@ -79,8 +78,7 @@ def test_delete_db_user(db: Session, mocker: MockerFixture, client: TestClient) 
     override_dependency(oauth2_scheme, mocks.oauth2_scheme())
 
     mocker.patch(
-        "src.app.core.security.jwt.decode",
-        return_value={"sub": user.username, "exp": 9999999999},
+        "src.app.core.security.jwt.decode", return_value={"sub": user.username, "exp": 9999999999}
     )
 
     response = client.delete(f"/api/v1/db_user/{user.username}")

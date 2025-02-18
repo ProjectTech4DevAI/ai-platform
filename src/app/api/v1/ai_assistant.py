@@ -21,10 +21,7 @@ class MessageCreate(BaseModel):
 async def create_assistant(data: AssistantCreate):
     ai = AIAssistant()
     result = await ai.create_assistant(
-        name=data.name,
-        instructions=data.instructions,
-        model=data.model,
-        tools=data.tools,
+        name=data.name, instructions=data.instructions, model=data.model, tools=data.tools
     )
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])

@@ -11,12 +11,7 @@ class Post(Base):
     __tablename__ = "post"
 
     id: Mapped[int] = mapped_column(
-        "id",
-        autoincrement=True,
-        nullable=False,
-        unique=True,
-        primary_key=True,
-        init=False,
+        "id", autoincrement=True, nullable=False, unique=True, primary_key=True, init=False
     )
     created_by_user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), index=True)
     title: Mapped[str] = mapped_column(String(30))
