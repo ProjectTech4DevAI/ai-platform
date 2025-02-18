@@ -6,9 +6,7 @@ from datetime import datetime
 from pydantic import BaseModel, AnyUrl
 
 
-#
 # ModelType
-#
 class Document(BaseModel):
     id: int
     owner: int
@@ -21,38 +19,28 @@ class Document(BaseModel):
     is_deleted: bool
 
 
-#
 # CreateSchemaType
-#
 class DocumentCreate(BaseModel):
     owner: int
     fname_external: Path
     object_store_url: AnyUrl
 
 
-#
 # UpdateSchemaType
-#
 class DocumentUpdate(BaseModel):
     fname_external: Path
 
 
-#
 # UpdateSchemaInternalType
-#
 class DocumentUpdateInternal(DocumentUpdate):
     pass
 
 
-#
 # DeleteSchemaType
-#
 class DocumentDelete(BaseModel):
     fname_internal: UUID
 
 
-#
 # SelectSchemaType
-#
 class DocumentSelect(Document):
     pass

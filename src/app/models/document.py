@@ -11,15 +11,10 @@ def now():
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
-#
-#
-#
 class Document(Base):
     __tablename__ = "document"
 
-    #
     # Keys
-    #
     id: Mapped[int] = mapped_column(
         "id",
         autoincrement=True,
@@ -35,9 +30,7 @@ class Document(Base):
         init=False,
     )
 
-    #
     # Data representation
-    #
     fname_internal: Mapped[UUID] = mapped_column(
         index=True,
         unique=True,
@@ -49,17 +42,13 @@ class Document(Base):
     )
     object_store_url: Mapped[str] = mapped_column(String(2083))
 
-    #
     # Record management
-    #
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default_factory=now,
     )
 
-    #
     # Enable FastCRUD update/deletion features
-    #
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         default=None,
