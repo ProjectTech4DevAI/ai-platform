@@ -125,6 +125,7 @@ class Settings(
     RedisQueueSettings,
     RedisRateLimiterSettings,
     DefaultRateLimitSettings,
+    OPENSettings,
 ):
     pass
 
