@@ -1,30 +1,11 @@
-import os
 import requests
 import openai
-from pydantic import BaseModel
-from typing import Optional, List
 from openai import OpenAI
-from fastapi import FastAPI, APIRouter, HTTPException, BackgroundTasks
-from pydantic import BaseModel
-from typing import Optional
-from dotenv import load_dotenv
-
-# Load variables from .env
-load_dotenv()
+from fastapi import APIRouter, BackgroundTasks
+from ...schemas.threads import MessageRequest
+from ...core.config import settings
 
 router = APIRouter()
-
-
-# Define the request body schema using Pydantic
-class MessageRequest(BaseModel):
-    question: str
-    assistant_id: str
-    callback_url: str
-    thread_id: Optional[str] = None
-    # Allow additional fields
-
-    class Config:
-        extra = "allow"
 
 
 def send_callback(callback_url: str, data: dict):
@@ -80,14 +61,10 @@ def process_run(request: MessageRequest, client: OpenAI):
 
     except openai.OpenAIError as e:
         # Handle any other OpenAI API errors
-        error_str = str(e)
-        if "'message': " in error_str:
-            # Extract text between 'message': " and the next "
-            start = error_str.find("'message': ") + len("'message': \"")
-            end = error_str.find('"', start)
-            error_message = error_str[start:end]
+        if isinstance(e.body, dict) and "error" in e.body and "message" in e.body["error"]:
+            error_message = e.body["error"]["message"]
         else:
-            error_message = error_str
+            error_message = str(e)
 
         callback_response = {
             "status": "error",
@@ -105,9 +82,7 @@ async def threads(request: MessageRequest, background_tasks: BackgroundTasks):
     Returns an immediate "processing" response, then continues to run create_and_poll in background.
     Once completed, calls send_callback with the final result.
     """
-    client = OpenAI(
-        api_key=os.environ.get("OPENAI_API_KEY"),
-    )
+    client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
     # 1. Validate or check if there's an existing thread with an in-progress run
     if request.thread_id:
