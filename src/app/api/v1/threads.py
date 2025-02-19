@@ -4,7 +4,9 @@ from openai import OpenAI
 from fastapi import APIRouter, BackgroundTasks
 from ...schemas.threads import MessageRequest
 from ...core.config import settings
+from ...core.logger import logging
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -17,7 +19,7 @@ def send_callback(callback_url: str, data: dict):
         response.raise_for_status()
         return True
     except requests.RequestException as e:
-        print(f"Callback failed: {str(e)}")
+        logger.error(f"Callback failed: {str(e)}")
         return False
 
 
