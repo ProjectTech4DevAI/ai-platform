@@ -16,7 +16,7 @@ class OrganizationCreate(OrganizationBase):
 
 
 class OrganizationResponse(OrganizationBase):
-    id: UUID
+    id: int
     projects: Optional[List["ProjectResponse"]] = []
     credentials: Optional[List["CredentialsResponse"]] = []
 

@@ -1,5 +1,4 @@
 from typing import List, Optional
-from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -8,7 +7,7 @@ from .credentials import CredentialsResponse
 
 class ProjectBase(BaseModel):
     name: str
-    organization_id: UUID
+    organization_id: int
 
 
 class ProjectCreate(ProjectBase):
@@ -16,7 +15,7 @@ class ProjectCreate(ProjectBase):
 
 
 class ProjectResponse(ProjectBase):
-    id: UUID
+    id: int
     credentials: Optional[List["CredentialsResponse"]] = []
 
     class Config:

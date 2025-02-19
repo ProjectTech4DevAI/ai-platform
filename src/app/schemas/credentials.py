@@ -6,8 +6,8 @@ from pydantic import BaseModel
 
 
 class CredentialsBase(BaseModel):
-    organization_id: UUID
-    project_id: UUID
+    organization_id: int
+    project_id: int
     secrets: Dict[str, str]
     email: str
 
@@ -17,7 +17,7 @@ class CredentialsCreate(CredentialsBase):
 
 
 class CredentialsResponse(CredentialsBase):
-    id: UUID
+    id: int
     token: UUID
     creation: datetime
 
