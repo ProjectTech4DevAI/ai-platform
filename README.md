@@ -4,18 +4,6 @@
 
 ### Prerequisite services
 
-You'lll need Python 3.13.2(latest). You can either download the installer directly from the official [Python website](https://www.python.org/) or, if you prefer using conda, simply run the following command in your terminal to create new environment:
-
-```bash
-conda create -n ai_platform python=3.13.2
-```
-
-then activate this environment
-
-```bash
-conda activate ai_platform
-```
-
 Ensure Redis and Postgres are installed and running on your
 machine. This section assumes that both are accessible on localhost
 via their default ports.
