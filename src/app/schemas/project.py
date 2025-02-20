@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from .credentials import CredentialsResponse
+from .credentials import CredentialsRead
 
 
 class ProjectBase(BaseModel):
@@ -22,7 +22,7 @@ class ProjectCreateInternal(ProjectBase):
 
 class ProjectRead(ProjectBase):
     id: int
-    credentials: Optional[List[CredentialsResponse]] = []
+    credentials: Optional[List[CredentialsRead]] = []
 
     class Config:
         orm_mode = True

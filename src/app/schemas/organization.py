@@ -4,8 +4,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from .project import ProjectResponse
-from .credentials import CredentialsResponse
+from .project import ProjectRead
+from .credentials import CredentialsRead
 
 
 class OrganizationBase(BaseModel):
@@ -22,8 +22,8 @@ class OrganizationCreateInternal(OrganizationBase):
 
 class OrganizationRead(OrganizationBase):
     id: int
-    projects: Optional[List[ProjectResponse]] = []
-    credentials: Optional[List[CredentialsResponse]] = []
+    projects: Optional[List[ProjectRead]] = []
+    credentials: Optional[List[CredentialsRead]] = []
 
     class Config:
         orm_mode = True
