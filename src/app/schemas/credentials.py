@@ -1,25 +1,52 @@
-from typing import Dict
+from typing import Dict, Optional
 from uuid import UUID
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CredentialsBase(BaseModel):
     organization_id: int
     project_id: int
     secrets: Dict[str, str]
-    email: str
+    email: str = Field(examples=["user@example.com"])
 
 
 class CredentialsCreate(CredentialsBase):
     pass
 
 
-class CredentialsResponse(CredentialsBase):
+class CredentialsCreateInternal(CredentialsBase):
     id: int
     token: UUID
-    creation: datetime
+    created_at: datetime
+
+
+class CredentialsRead(CredentialsBase):
+    id: int
+    token: UUID
+    created_at: datetime
 
     class Config:
         orm_mode = True
+
+
+class CredentialsUpdate(BaseModel):
+    secrets: Optional[Dict[str, str]] = None
+    email: Optional[str] = Field(None, examples=["updated@example.com"])
+
+
+class CredentialsUpdateInternal(CredentialsUpdate):
+    updated_at: datetime
+
+
+class CredentialsDelete(BaseModel):
+    is_deleted: bool
+    deleted_at: datetime
+
+
+class CredentialsRestoreDeleted(BaseModel):
+    is_deleted: bool
+
+
+CredentialsRead.update_forward_refs()

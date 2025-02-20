@@ -15,7 +15,8 @@ class Credentials(Base):
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
     token = Column(UUID(as_uuid=True), unique=True, default=uuid.uuid4)
-    creation = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     secrets = Column(JSON)
     email = Column(String, nullable=False)
 
