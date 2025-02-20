@@ -63,8 +63,8 @@ def process_run(request: MessageRequest, client: OpenAI):
 
     except openai.OpenAIError as e:
         # Handle any other OpenAI API errors
-        if isinstance(e.body, dict) and "error" in e.body and "message" in e.body["error"]:
-            error_message = e.body["error"]["message"]
+        if isinstance(e.body, dict) and "message" in e.body:
+            error_message = e.body["message"]
         else:
             error_message = str(e)
 
@@ -77,6 +77,17 @@ def process_run(request: MessageRequest, client: OpenAI):
         send_callback(request.callback_url, callback_response)
 
 
+def validate_assistant_id(assistant_id: str, client: OpenAI):
+    try:
+        client.beta.assistants.retrieve(assistant_id=assistant_id)
+    except openai.NotFoundError:
+        return {
+            "status": "error",
+            "message": f"Invalid assistant ID provided {assistant_id}",
+        }
+    return None
+
+
 @router.post("/threads")
 async def threads(request: MessageRequest, background_tasks: BackgroundTasks):
     """
@@ -85,6 +96,10 @@ async def threads(request: MessageRequest, background_tasks: BackgroundTasks):
     Once completed, calls send_callback with the final result.
     """
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+    assistant_error = validate_assistant_id(request.assistant_id, client)
+    if assistant_error:
+        return assistant_error
 
     # 1. Validate or check if there's an existing thread with an in-progress run
     if request.thread_id:
@@ -110,12 +125,23 @@ async def threads(request: MessageRequest, background_tasks: BackgroundTasks):
             thread_id=request.thread_id, role="user", content=request.question
         )
     else:
-        # Create new thread
-        thread = client.beta.threads.create()
-        client.beta.threads.messages.create(
-            thread_id=thread.id, role="user", content=request.question
-        )
-        request.thread_id = thread.id
+        try:
+            # Create new thread
+            thread = client.beta.threads.create()
+            client.beta.threads.messages.create(
+                thread_id=thread.id, role="user", content=request.question
+            )
+            request.thread_id = thread.id
+        except openai.OpenAIError as e:
+            # Handle any other OpenAI API errors
+            if isinstance(e.body, dict) and "message" in e.body:
+                error_message = e.body["message"]
+            else:
+                error_message = str(e)
+            return {
+                "status": "error",
+                "message": error_message,
+            }
 
     # 2. Send immediate response to complete the API call
     initial_response = {
