@@ -2,7 +2,7 @@ import requests
 import openai
 from openai import OpenAI
 from fastapi import APIRouter, BackgroundTasks
-from ...schemas.threads import MessageRequest, AckPayload
+from ...schemas.threads import MessageRequest, AckPayload, CallbackPayload
 from ...core.config import settings
 from ...core.logger import logging
 
@@ -23,6 +23,25 @@ def send_callback(callback_url: str, data: dict):
         return False
 
 
+def build_callback_payload(request: MessageRequest, status: str, message: str) -> CallbackPayload:
+    """
+    Helper function to build the CallbackPayload from a MessageRequest.
+    """
+    data = {
+        "status": status,
+        "message": message,
+        "thread_id": request.thread_id,
+        "endpoint": getattr(request, "endpoint", "some-default-endpoint"),
+    }
+
+    # Update with any additional fields from request that we haven't excluded
+    data.update(
+        request.model_dump(exclude={"question", "assistant_id", "callback_url", "thread_id"})
+    )
+
+    return CallbackPayload(**data)
+
+
 def process_run(request: MessageRequest, client: OpenAI):
     """
     Background task to run create_and_poll, then send the callback with the result.
@@ -39,27 +58,17 @@ def process_run(request: MessageRequest, client: OpenAI):
             messages = client.beta.threads.messages.list(thread_id=request.thread_id)
             latest_message = messages.data[0]
             message_content = latest_message.content[0].text.value
-            callback_response = {
-                "status": "success",
-                "message": message_content,
-                "thread_id": request.thread_id,
-                # Include any additional fields from request except the ones we don’t need to re-send
-                **request.model_dump(
-                    exclude={"question", "assistant_id", "callback_url", "thread_id"}
-                ),
-            }
+
+            callback_response = build_callback_payload(
+                request=request, status="success", message=message_content
+            )
         else:
-            callback_response = {
-                "status": "error",
-                "message": f"Run failed with status: {run.status}",
-                "thread_id": request.thread_id,
-                **request.model_dump(
-                    exclude={"question", "assistant_id", "callback_url", "thread_id"}
-                ),
-            }
+            callback_response = build_callback_payload(
+                request=request, status="error", message=f"Run failed with status: {run.status}"
+            )
 
         # Send callback with results
-        send_callback(request.callback_url, callback_response)
+        send_callback(request.callback_url, callback_response.model_dump())
 
     except openai.OpenAIError as e:
         # Handle any other OpenAI API errors
@@ -68,13 +77,11 @@ def process_run(request: MessageRequest, client: OpenAI):
         else:
             error_message = str(e)
 
-        callback_response = {
-            "status": "error",
-            "message": error_message,
-            "thread_id": request.thread_id,
-            **request.model_dump(exclude={"question", "assistant_id", "callback_url", "thread_id"}),
-        }
-        send_callback(request.callback_url, callback_response)
+        callback_response = build_callback_payload(
+            request=request, status="error", message=error_message
+        )
+
+        send_callback(request.callback_url, callback_response.model_dump())
 
 
 def validate_assistant_id(assistant_id: str, client: OpenAI):
@@ -151,7 +158,7 @@ async def threads(request: MessageRequest, background_tasks: BackgroundTasks):
         status="processing",
         message="Run started",
         thread_id=request.thread_id,
-        success=False,
+        success=True,
     )
 
     # 3. Schedule the background task to run create_and_poll and send callback

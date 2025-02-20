@@ -16,3 +16,12 @@ class AckPayload(BaseModel):
     message: str
     success: bool
     thread_id: Optional[str] = None
+
+
+class CallbackPayload(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    status: str
+    message: str
+    thread_id: str
+    endpoint: str
