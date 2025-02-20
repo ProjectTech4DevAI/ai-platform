@@ -2,12 +2,12 @@
 
 Thank you for considering contributing to **Tech4Dev AI Platform**! We welcome contributions of all kinds, including bug reports, feature requests, documentation improvements, and code contributions.
 
-Before you begin, **please refer to the repository's [README](https://github.com/ProjectTech4DevAI/ai-platform/blob/main/README.md) and [Wiki](https://github.com/ProjectTech4DevAI/ai-platform/wiki)** for an overview of the project and setup instructions.
-
 ---
 
 ## 📌 Getting Started
-To contribute effectively, you need to set up the project on your local machine. Follow the steps below to get started.
+To contribute successfully, you must first set up the project on your local machine. Please follow the instructions outlined in the project's README to configure the repository and begin your contributions.
+
+Before you proceed, **make sure to check the repository's [README](https://github.com/ProjectTech4DevAI/ai-platform/blob/main/README.md) and [Wiki](https://github.com/ProjectTech4DevAI/ai-platform/wiki)** for a comprehensive overview of the project and detailed setup guidelines.
 
 ---
 
@@ -22,24 +22,34 @@ To contribute effectively, you need to set up the project on your local machine.
    ```
 
 ###  Create a Branch
-Always work in a new branch based on main (or develop). Use a descriptive branch name:
+• Always work in a new branch based on main (or develop).  
+• For branch name, follow this convention: ``type/one-line-description``
+     e.g. ``enhancement/support-openai-citation-new-format`` 
+   
+**Type** can be 
+
+- enhancement
+- bugfix
+- feature
+
    ```
-   git checkout -b feature/new-feature-name
+   git checkout -b type/one-line-description
    ```
 
 ###  Make and Test Changes
 1. Adhere to the project's established coding style for consistency.
 2. Ensure the code is well-documented.
-3. If you've resolved a bug or implemented a new feature, make sure to include appropriate test cases and confirm they pass successfully. Execute tests before committing your changes:
-   ```
-   pytest
-   ```
+3. If you've resolved a bug or implemented a new feature, make sure to include appropriate test cases and confirm they pass successfully. Execute tests before committing your changes.
 
 ###  Run Pre-Commit Hooks
-Before pushing your changes, ensure they follow project conventions by running:
-   ```
-   poetry run pre-commit run --all-files
-   ```
+Make sure you have pre-commit setup :-
+```
+poetry add pre-commit --dev
+```
+Check if pre-commit runs smoothly using :-
+```
+poetry run pre-commit run --all-files
+```
 This ensures that your code is properly formatted and meets style guidelines.
 
 ###  Verify Application Functionality
@@ -56,11 +66,16 @@ Use descriptive commit messages:
    ```
 
 ###  Push and Open a Pull Request (PR)
-Don't forget to link the PR to the issue if you are solving one. Push your changes to GitHub:
+• For PR name, follow this convention:
+    ``Module Name: One liner of changes``
+
+• Don't forget to link the PR to the issue if you are solving one.
+
+• Push your changes to GitHub:
    ```
-   git push origin feature/your-feature-name
+   git push origin Module Name: One liner of changes
    ```
 Open a Pull Request (PR) in the main repository.
 
-###  Code Style and Best Practices
+
 
