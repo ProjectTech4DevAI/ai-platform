@@ -9,3 +9,10 @@ class MessageRequest(BaseModel):
     assistant_id: str
     callback_url: str
     thread_id: Optional[str] = None
+
+
+class AckPayload(BaseModel):
+    status: str
+    message: str
+    success: bool
+    thread_id: Optional[str] = None

@@ -2,7 +2,7 @@ import requests
 import openai
 from openai import OpenAI
 from fastapi import APIRouter, BackgroundTasks
-from ...schemas.threads import MessageRequest
+from ...schemas.threads import MessageRequest, AckPayload
 from ...core.config import settings
 from ...core.logger import logging
 
@@ -81,10 +81,11 @@ def validate_assistant_id(assistant_id: str, client: OpenAI):
     try:
         client.beta.assistants.retrieve(assistant_id=assistant_id)
     except openai.NotFoundError:
-        return {
-            "status": "error",
-            "message": f"Invalid assistant ID provided {assistant_id}",
-        }
+        return AckPayload(
+            status="error",
+            message=f"Invalid assistant ID provided {assistant_id}",
+            success=False,
+        )
     return None
 
 
@@ -115,10 +116,11 @@ async def threads(request: MessageRequest, background_tasks: BackgroundTasks):
                     }
         except openai.NotFoundError:
             # Handle invalid thread ID
-            return {
-                "status": "error",
-                "message": f"Invalid thread ID provided {request.thread_id}",
-            }
+            return AckPayload(
+                status="error",
+                message=f"Invalid thread ID provided {request.thread_id}",
+                success=False,
+            )
 
         # Use existing thread
         client.beta.threads.messages.create(
@@ -138,17 +140,19 @@ async def threads(request: MessageRequest, background_tasks: BackgroundTasks):
                 error_message = e.body["message"]
             else:
                 error_message = str(e)
-            return {
-                "status": "error",
-                "message": error_message,
-            }
+            return AckPayload(
+                status="error",
+                message=error_message,
+                success=False,
+            )
 
     # 2. Send immediate response to complete the API call
-    initial_response = {
-        "status": "processing",
-        "message": "Run started",
-        "thread_id": request.thread_id,
-    }
+    initial_response = AckPayload(
+        status="processing",
+        message="Run started",
+        thread_id=request.thread_id,
+        success=False,
+    )
 
     # 3. Schedule the background task to run create_and_poll and send callback
     background_tasks.add_task(process_run, request, client)
