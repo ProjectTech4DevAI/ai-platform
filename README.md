@@ -1,6 +1,6 @@
 # Tech4Dev AI Platform
 
-## Getting starting
+## Getting started
 
 ### Prerequisite services
 
@@ -62,24 +62,12 @@ POSTGRES_DB=postgres
 
 #### Python configuration
 
-Your Python version should be 3.11 or higher. Package management is
+Your Python version should be 3.13.2 or higher. Package management is
 done via Poetry:
 
 ```bash
 pip install poetry
 poetry install
-```
-
-Make sure you have pre-commit setup
-
-```bash
-poetry add pre-commit --dev
-```
-
-Check if pre-commit runs smoothly using
-
-```bash
-poetry run pre-commit run --all-files
 ```
 
 The platform can then be started with Uvicorn:
@@ -88,4 +76,17 @@ The platform can then be started with Uvicorn:
 poetry run uvicorn src.app.main:app --reload
 ```
 
-For more advanced usage and developer documentation, see our [Wiki](https://github.com/ProjectTech4DevAI/ai-platform/wiki).
+## Contributing
+
+When contributing to this codebase, make sure pre-commit is
+setup and running smoothly:
+
+```bash
+poetry add pre-commit --dev
+poetry run pre-commit run --all-files
+```
+
+## Further reading
+
+For more advanced usage and developer documentation, see our
+[Wiki](https://github.com/ProjectTech4DevAI/ai-platform/wiki).
