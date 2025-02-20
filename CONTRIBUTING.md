@@ -38,7 +38,7 @@ cd ai-platform
 
 ### Make and Test Changes
 1. Adhere to the project's established coding style for consistency.
-2. Ensure the code is well-documented.
+2. Make sure the code adheres to best practices.
 3. If you've resolved a bug or implemented a new feature, make sure to include appropriate test cases and confirm they pass successfully. Execute tests before committing your changes.
 ```
 poetry run pytest
