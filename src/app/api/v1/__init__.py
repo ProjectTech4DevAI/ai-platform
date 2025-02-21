@@ -8,6 +8,7 @@ from .tasks import router as tasks_router
 from .tiers import router as tiers_router
 from .users import router as users_router
 from .ai_assistant import router as ai_router
+from .threads import router as threads_router
 
 router = APIRouter(prefix="/v1")
 router.include_router(login_router)
@@ -18,3 +19,4 @@ router.include_router(tasks_router)
 router.include_router(tiers_router)
 router.include_router(rate_limits_router)
 router.include_router(ai_router)
+router.include_router(threads_router)
