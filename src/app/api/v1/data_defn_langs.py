@@ -1,6 +1,7 @@
 from io import StringIO
 
 from fastapi import APIRouter
+from pydantic import BaseModel
 from sqlalchemy import create_engine
 from sqlalchemy.schema import CreateTable
 
@@ -14,6 +15,11 @@ from ...core.db.database import async_engine
 from ...core.exceptions.http_exceptions import NotFoundException
 
 router = APIRouter(tags=['ddls'])
+
+class DatabaseDefinition(BaseModel):
+    model: str
+    engine: str
+    sql: str
 
 class AlchemyCompiler:
     _models = {
@@ -41,13 +47,13 @@ class AlchemyCompiler:
             create = CreateTable(table)
             yield create.compile(self.engine)
 
-@router.get('/ddl/{model}')
-async def get_ddl(model: str) -> dict:
+@router.get('/ddl/{model}', response_model=DatabaseDefinition)
+async def get_ddl_single(model: str) -> DatabaseDefinition:
     engine = create_engine(async_engine.url)
     compiler = AlchemyCompiler(model, engine)
 
-    return {
-        'model': model,
-        'engine': async_engine.url.drivername,
-        'schema':str(compiler),
-    }
+    return DatabaseDefinition(
+        model=model,
+        engine=async_engine.url.drivername,
+        sql=str(compiler),
+    )
