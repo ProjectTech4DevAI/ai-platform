@@ -1,5 +1,3 @@
-from io import StringIO
-
 from fastapi import APIRouter
 from pydantic import BaseModel
 from sqlalchemy import create_engine
