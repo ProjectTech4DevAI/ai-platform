@@ -61,10 +61,8 @@ def process_run(request: MessageRequest, client: OpenAI):
             message_content = latest_message.content[0].text.value
 
             if request.remove_citation:
-                # Remove matches of the pattern
                 message = re.sub(r"【\d+(?::\d+)?†[^】]*】", "", message_content)
             else:
-                # Leave the message as-is
                 message = message_content
             callback_response = build_callback_payload(
                 request=request, status="success", message=message
