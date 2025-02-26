@@ -25,4 +25,3 @@ router.include_router(ai_router)
 router.include_router(heartbeat_router)
 router.include_router(ddl_router)
 router.include_router(threads_router)
-
