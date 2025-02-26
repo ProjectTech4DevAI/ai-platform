@@ -36,6 +36,7 @@ psycopg2-binary = "^2.9.9"
 pytest-mock = "^3.14.0"
 openai = "^1.61.1"
 starlette = "0.45.3"
+requests = "^2.32.3"
 
 
 [tool.poetry.group.dev.dependencies]

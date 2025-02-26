@@ -1,6 +1,6 @@
 # Tech4Dev AI Platform
 
-## Getting starting
+## Getting started
 
 ### Prerequisite services
 
@@ -12,7 +12,7 @@ If you have not done so already, setup a Postgres user that can
 connect to a known database. As an example (in Bash):
 
 ```bash
-sudo -u postgres psql postgres <<< "ALTER USER postgres with encrypted password 'postgres123';"
+sudo -u postgres psql postgres <<< "ALTER USER postgres with encrypted password 'postgres';"
 ```
 
 ### Platform setup
@@ -54,7 +54,7 @@ would be:
 ```
 # ------------- database -------------
 POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres123
+POSTGRES_PASSWORD=postgres
 POSTGRES_SERVER=localhost
 POSTGRES_PORT=5432
 POSTGRES_DB=postgres
@@ -62,7 +62,7 @@ POSTGRES_DB=postgres
 
 #### Python configuration
 
-Your Python version should be 3.11 or higher. Package management is
+Your Python version should be 3.13.2 or higher. Package management is
 done via Poetry:
 
 ```bash
@@ -72,8 +72,24 @@ poetry install
 
 The platform can then be started with Uvicorn:
 
+Make sure you have pre-commit setup
+
 ```bash
 poetry run uvicorn src.app.main:app --reload
 ```
+
+## Contributing
+
+When contributing to this codebase, make sure pre-commit is
+setup and running smoothly:
+
+```bash
+poetry add pre-commit --dev
+poetry run pre-commit run --all-files
+```
+
+Check if pre-commit runs smoothly using
+
+## Further reading
 
 For more advanced usage and developer documentation, see our [Wiki](https://github.com/ProjectTech4DevAI/ai-platform/wiki).
