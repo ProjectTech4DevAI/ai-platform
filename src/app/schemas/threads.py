@@ -9,6 +9,7 @@ class MessageRequest(BaseModel):
     assistant_id: str
     callback_url: str
     thread_id: Optional[str] = None
+    remove_citation: Optional[bool] = False
 
 
 class AckPayload(BaseModel):

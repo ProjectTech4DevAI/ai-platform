@@ -1,5 +1,6 @@
-import requests
 import openai
+import re
+import requests
 from openai import OpenAI
 from fastapi import APIRouter, BackgroundTasks
 from ...schemas.threads import MessageRequest, AckPayload, CallbackPayload
@@ -14,7 +15,6 @@ def send_callback(callback_url: str, data: dict):
     """Send results to the callback URL (synchronously)."""
     try:
         session = requests.Session()
-        session.verify = False
         response = session.post(callback_url, json=data)
         response.raise_for_status()
         return True
@@ -59,8 +59,12 @@ def process_run(request: MessageRequest, client: OpenAI):
             latest_message = messages.data[0]
             message_content = latest_message.content[0].text.value
 
+            if request.remove_citation:
+                message = re.sub(r"【\d+(?::\d+)?†[^】]*】", "", message_content)
+            else:
+                message = message_content
             callback_response = build_callback_payload(
-                request=request, status="success", message=message_content
+                request=request, status="success", message=message
             )
         else:
             callback_response = build_callback_payload(
