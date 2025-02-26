@@ -2,7 +2,7 @@ from typing import Dict, Optional
 from uuid import UUID
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 
 
 class CredentialsBase(BaseModel):
@@ -33,7 +33,7 @@ class CredentialsRead(CredentialsBase):
 
 class CredentialsUpdate(BaseModel):
     secrets: Optional[Dict[str, str]] = None
-    email: Optional[str] = Field(None, examples=["updated@example.com"])
+    email: Optional[EmailStr] = Field(None, examples=["updated@example.com"])
 
 
 class CredentialsUpdateInternal(CredentialsUpdate):
@@ -49,4 +49,4 @@ class CredentialsRestoreDeleted(BaseModel):
     is_deleted: bool
 
 
-CredentialsRead.update_forward_refs()
+CredentialsRead.model_rebuild()
