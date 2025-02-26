@@ -70,13 +70,22 @@ pip install poetry
 poetry install
 ```
 
-The platform can then be started with Uvicorn:
+### Run!
 
-Make sure you have pre-commit setup
+The platform can then be started with Uvicorn:
 
 ```bash
 poetry run uvicorn src.app.main:app --reload
 ```
+
+If everything has gone correctly, requesting the "heartbeat" end
+point...
+
+```bash
+curl http://localhost:8000/api/v1/hello
+```
+
+... should provide the current server time.
 
 ## Contributing
 
