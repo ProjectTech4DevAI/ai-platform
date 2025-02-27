@@ -52,4 +52,4 @@ class OrganizationRestoreDeleted(BaseModel):
     is_deleted: bool
 
 
-OrganizationRead.update_forward_refs()
+OrganizationRead.model_rebuild()
