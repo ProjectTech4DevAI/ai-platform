@@ -9,7 +9,7 @@ class CredentialsBase(BaseModel):
     organization_id: int
     project_id: int
     secrets: Dict[str, str]
-    email: str = Field(examples=["user@example.com"])
+    email: EmailStr = Field(examples=["user@example.com"])
 
 
 class CredentialsCreate(CredentialsBase):
