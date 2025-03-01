@@ -11,7 +11,7 @@ from .ai_assistant import router as ai_router
 from .heartbeat import router as heartbeat_router
 from .data_defn_langs import router as ddl_router
 from .threads import router as threads_router
-from .API_creation import router as token_router
+from .Authentication import router as token_router
 
 
 router = APIRouter(prefix="/v1")
@@ -27,4 +27,3 @@ router.include_router(heartbeat_router)
 router.include_router(ddl_router)
 router.include_router(threads_router)
 router.include_router(token_router)
-
