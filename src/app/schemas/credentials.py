@@ -8,8 +8,8 @@ from pydantic import BaseModel, Field, EmailStr
 class CredentialsBase(BaseModel):
     organization_id: int
     project_id: int
-    secrets: Dict[str, str]
-    email: EmailStr = Field(examples=["user@example.com"])
+    secrets: Optional[Dict[str, str]] = {}
+    email: Optional[EmailStr] = Field(None, examples=["updated@example.com"])
 
 
 class CredentialsCreate(CredentialsBase):
