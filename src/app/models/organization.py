@@ -29,7 +29,9 @@ class Organization(Base):
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
 
     # Relationships
-    projects = relationship("Project", back_populates="organization", cascade="all, delete-orphan")
+    projects = relationship(
+        "Project", back_populates="organization", lazy="selectin", cascade="all, delete-orphan"
+    )
     credentials = relationship(
-        "Credentials", back_populates="organization", cascade="all, delete-orphan"
+        "Credentials", back_populates="organization", lazy="selectin", cascade="all, delete-orphan"
     )
