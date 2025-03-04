@@ -11,9 +11,7 @@ router = APIRouter(tags=["login"])
 
 @router.post("/logout")
 async def logout(
-    response: Response,
-    access_token: str = Depends(oauth2_scheme),
-    db: AsyncSession = Depends(async_get_db),
+    response: Response, access_token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(async_get_db)
 ) -> dict[str, str]:
     try:
         await blacklist_token(token=access_token, db=db)

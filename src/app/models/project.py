@@ -1,35 +1,34 @@
-import uuid
 from datetime import UTC, datetime
+from sqlalchemy import DateTime
 
-from sqlalchemy import Column, String, ForeignKey, Integer, DateTime
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlmodel import SQLModel, Field, Relationship
 
 
-from ..core.db.database import Base
-
-
-class Project(Base):
+class Project(SQLModel, table=True):
     __tablename__ = "projects"
 
-    id: Mapped[int] = mapped_column(
-        "id",
-        autoincrement=True,
-        nullable=False,
-        unique=True,
-        primary_key=True,
-        init=False,
+    id: int | None = Field(default=None, primary_key=True)
+    organization_id: int = Field(foreign_key="organizations.id", index=True)
+    name: str = Field(unique=True)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_type=DateTime(timezone=True)
     )
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), index=True)
-    name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default_factory=lambda: datetime.now(UTC)
+    updated_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True)
     )
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    deleted_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True)
+    )
 
     # Relationships
-    organization = relationship("Organization", back_populates="projects", lazy="selectin")
-    credentials = relationship(
-        "Credentials", back_populates="project", cascade="all, delete-orphan", lazy="selectin"
+    organization: "Organization" = Relationship(
+        back_populates="projects",
+        sa_relationship_kwargs={"lazy": "selectin"}
+    )
+    credentials: list["Credentials"] = Relationship(
+        back_populates="project",
+        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )

@@ -12,14 +12,9 @@ class UUIDMixin:
 
 
 class TimestampMixin:
-    created_at: datetime = Column(
-        DateTime, default=datetime.now(UTC), server_default=text("current_timestamp(0)")
-    )
+    created_at: datetime = Column(DateTime, default=datetime.now(UTC), server_default=text("current_timestamp(0)"))
     updated_at: datetime = Column(
-        DateTime,
-        nullable=True,
-        onupdate=datetime.now(UTC),
-        server_default=text("current_timestamp(0)"),
+        DateTime, nullable=True, onupdate=datetime.now(UTC), server_default=text("current_timestamp(0)")
     )
 
 

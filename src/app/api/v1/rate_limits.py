@@ -6,31 +6,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import get_current_superuser
 from ...core.db.database import async_get_db
-from ...core.exceptions.http_exceptions import (
-    DuplicateValueException,
-    NotFoundException,
-    RateLimitException,
-)
+from ...core.exceptions.http_exceptions import DuplicateValueException, NotFoundException, RateLimitException
 from ...crud.crud_rate_limit import crud_rate_limits
 from ...crud.crud_tier import crud_tiers
-from ...schemas.rate_limit import (
-    RateLimitCreate,
-    RateLimitCreateInternal,
-    RateLimitRead,
-    RateLimitUpdate,
-)
+from ...models.rate_limit import RateLimitCreate, RateLimitCreateInternal, RateLimitRead, RateLimitUpdate
 
 router = APIRouter(tags=["rate_limits"])
 
 
-@router.post(
-    "/tier/{tier_name}/rate_limit", dependencies=[Depends(get_current_superuser)], status_code=201
-)
+@router.post("/tier/{tier_name}/rate_limit", dependencies=[Depends(get_current_superuser)], status_code=201)
 async def write_rate_limit(
-    request: Request,
-    tier_name: str,
-    rate_limit: RateLimitCreate,
-    db: Annotated[AsyncSession, Depends(async_get_db)],
+    request: Request, tier_name: str, rate_limit: RateLimitCreate, db: Annotated[AsyncSession, Depends(async_get_db)]
 ) -> RateLimitRead:
     db_tier = await crud_tiers.get(db=db, name=tier_name)
     if not db_tier:
@@ -44,9 +30,7 @@ async def write_rate_limit(
         raise DuplicateValueException("Rate Limit Name not available")
 
     rate_limit_internal = RateLimitCreateInternal(**rate_limit_internal_dict)
-    created_rate_limit: RateLimitRead = await crud_rate_limits.create(
-        db=db, object=rate_limit_internal
-    )
+    created_rate_limit: RateLimitRead = await crud_rate_limits.create(db=db, object=rate_limit_internal)
     return created_rate_limit
 
 
@@ -70,9 +54,7 @@ async def read_rate_limits(
         tier_id=db_tier["id"],
     )
 
-    response: dict[str, Any] = paginated_response(
-        crud_data=rate_limits_data, page=page, items_per_page=items_per_page
-    )
+    response: dict[str, Any] = paginated_response(crud_data=rate_limits_data, page=page, items_per_page=items_per_page)
     return response
 
 
@@ -105,15 +87,11 @@ async def patch_rate_limit(
     if db_tier is None:
         raise NotFoundException("Tier not found")
 
-    db_rate_limit = await crud_rate_limits.get(
-        db=db, schema_to_select=RateLimitRead, tier_id=db_tier["id"], id=id
-    )
+    db_rate_limit = await crud_rate_limits.get(db=db, schema_to_select=RateLimitRead, tier_id=db_tier["id"], id=id)
     if db_rate_limit is None:
         raise NotFoundException("Rate Limit not found")
 
-    db_rate_limit_path = await crud_rate_limits.exists(
-        db=db, tier_id=db_tier["id"], path=values.path
-    )
+    db_rate_limit_path = await crud_rate_limits.exists(db=db, tier_id=db_tier["id"], path=values.path)
     if db_rate_limit_path:
         raise DuplicateValueException("There is already a rate limit for this path")
 
@@ -133,9 +111,7 @@ async def erase_rate_limit(
     if not db_tier:
         raise NotFoundException("Tier not found")
 
-    db_rate_limit = await crud_rate_limits.get(
-        db=db, schema_to_select=RateLimitRead, tier_id=db_tier["id"], id=id
-    )
+    db_rate_limit = await crud_rate_limits.get(db=db, schema_to_select=RateLimitRead, tier_id=db_tier["id"], id=id)
     if db_rate_limit is None:
         raise NotFoundException("Rate Limit not found")
 

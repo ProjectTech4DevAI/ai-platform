@@ -1,7 +1,7 @@
 from collections.abc import AsyncGenerator, Callable
 from contextlib import _AsyncGeneratorContextManager, asynccontextmanager
 from typing import Any
-
+from sqlmodel import SQLModel
 import anyio
 import fastapi
 import redis.asyncio as redis
@@ -32,7 +32,7 @@ from ..models import *
 # -------------- database --------------
 async def create_tables() -> None:
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(SQLModel.metadata.create_all)
 
 
 # -------------- cache --------------

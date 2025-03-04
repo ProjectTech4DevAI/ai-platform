@@ -1,52 +1,38 @@
-from typing import Dict, Optional
+from typing import Dict
 from uuid import UUID
 from datetime import datetime
 
-from pydantic import BaseModel, Field, EmailStr
+from sqlmodel import SQLModel
+from pydantic import EmailStr, Field
 
 
-class CredentialsBase(BaseModel):
+class CredentialsBase(SQLModel):
     organization_id: int
     project_id: int
-    secrets: Optional[Dict[str, str]] = {}
-    email: Optional[EmailStr] = Field(None, examples=["updated@example.com"])
+    secrets: Dict[str, str] | None = {}
+    email: EmailStr | None = Field(None, examples=["updated@example.com"])
 
 
 class CredentialsCreate(CredentialsBase):
     pass
 
 
-class CredentialsCreateInternal(CredentialsBase):
-    id: int
-    token: UUID
-    created_at: datetime
-
-
 class CredentialsRead(CredentialsBase):
     id: int
     token: UUID
     created_at: datetime
-
-    class Config:
-        orm_mode = True
+    updated_at: datetime | None = None
 
 
-class CredentialsUpdate(BaseModel):
-    secrets: Optional[Dict[str, str]] = None
-    email: Optional[EmailStr] = Field(None, examples=["updated@example.com"])
+class CredentialsUpdate(SQLModel):
+    secrets: Dict[str, str] | None = None
+    email: EmailStr | None = Field(None, examples=["updated@example.com"])
 
 
-class CredentialsUpdateInternal(CredentialsUpdate):
-    updated_at: datetime
-
-
-class CredentialsDelete(BaseModel):
+class CredentialsDelete(SQLModel):
     is_deleted: bool
     deleted_at: datetime
 
 
-class CredentialsRestoreDeleted(BaseModel):
+class CredentialsRestoreDeleted(SQLModel):
     is_deleted: bool
-
-
-CredentialsRead.model_rebuild()

@@ -1,37 +1,33 @@
-import uuid
 from datetime import UTC, datetime
+from sqlalchemy import DateTime
 
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey
-from sqlalchemy.sql import func
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlmodel import SQLModel, Field, Relationship
 
 
-from ..core.db.database import Base
-
-
-class Organization(Base):
+class Organization(SQLModel, table=True):
     __tablename__ = "organizations"
 
-    id: Mapped[int] = mapped_column(
-        "id",
-        autoincrement=True,
-        nullable=False,
-        unique=True,
-        primary_key=True,
-        init=False,
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(unique=True)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_type=DateTime(timezone=True)
     )
-    name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default_factory=lambda: datetime.now(UTC)
+    updated_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True)
     )
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    deleted_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True)
+    )
 
     # Relationships
-    projects = relationship(
-        "Project", back_populates="organization", lazy="selectin", cascade="all, delete-orphan"
+    projects: list["Project"] = Relationship(
+        back_populates="organization",
+        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )
-    credentials = relationship(
-        "Credentials", back_populates="organization", lazy="selectin", cascade="all, delete-orphan"
+    credentials: list["Credentials"] = Relationship(
+        back_populates="organization",
+        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )

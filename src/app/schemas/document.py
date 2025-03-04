@@ -1,46 +1,33 @@
 from uuid import UUID
-from typing import Annotated
 from pathlib import Path
 from datetime import datetime
 
-from pydantic import BaseModel, AnyUrl
+from sqlmodel import SQLModel
 
 
-# ModelType
-class Document(BaseModel):
+class DocumentBase(SQLModel):
+    fname_external: Path
+    object_store_url: str
+
+
+class DocumentCreate(DocumentBase):
+    owner: int
+
+
+class DocumentRead(DocumentBase):
     id: int
     owner: int
     fname_internal: UUID
-    fname_external: Path
-    object_store_url: AnyUrl
     created_at: datetime
-    updated_at: datetime | None
-    deleted_at: datetime | None
-    is_deleted: bool
+    updated_at: datetime | None = None
+    deleted_at: datetime | None = None
+    is_deleted: bool = False
 
 
-# CreateSchemaType
-class DocumentCreate(BaseModel):
-    owner: int
-    fname_external: Path
-    object_store_url: AnyUrl
-
-
-# UpdateSchemaType
-class DocumentUpdate(BaseModel):
+class DocumentUpdate(SQLModel):
     fname_external: Path
 
 
-# UpdateSchemaInternalType
-class DocumentUpdateInternal(DocumentUpdate):
-    pass
-
-
-# DeleteSchemaType
-class DocumentDelete(BaseModel):
+# For internal operations
+class DocumentDelete(SQLModel):
     fname_internal: UUID
-
-
-# SelectSchemaType
-class DocumentSelect(Document):
-    pass

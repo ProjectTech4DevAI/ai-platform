@@ -1,37 +1,33 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import Column, String, ForeignKey, JSON, DateTime, Integer
+from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy import JSON, DateTime, String
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
-from sqlalchemy.orm import Mapped, mapped_column
 from pydantic import EmailStr
 
-from ..core.db.database import Base
 
-
-class Credentials(Base):
+class Credentials(SQLModel, table=True):
     __tablename__ = "credentials"
 
-    id: Mapped[int] = mapped_column(
-        "id",
-        autoincrement=True,
-        nullable=False,
-        unique=True,
-        primary_key=True,
-        init=False,
+    id: int | None = Field(default=None, primary_key=True)
+    organization_id: int = Field(foreign_key="organizations.id", index=True)
+    project_id: int = Field(foreign_key="projects.id", index=True)
+    secrets: dict | None = Field(default=None, sa_type=JSON)
+    email: str | None = Field(default=None, max_length=255, sa_type=String)
+    token: uuid.UUID = Field(
+        default_factory=uuid.uuid4,
+        sa_column_kwargs={"unique": True}
     )
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
-    secrets: Mapped[dict] = mapped_column(JSON, nullable=True)
-    email: Mapped[EmailStr] = mapped_column(String(255), nullable=True)
-    token: Mapped[str] = mapped_column(UUID(as_uuid=True), unique=True, default=uuid.uuid4)
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default_factory=lambda: datetime.now(UTC)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_type=DateTime(timezone=True)
     )
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    updated_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True)
+    )
 
     # Relationships
-    organization = relationship("Organization", back_populates="credentials", lazy="selectin")
-    project = relationship("Project", back_populates="credentials", lazy="selectin")
+    organization: "Organization" = Relationship(back_populates="credentials", sa_relationship_kwargs={"lazy": "selectin"})
+    project: "Project" = Relationship(back_populates="credentials", sa_relationship_kwargs={"lazy": "selectin"})

@@ -113,6 +113,7 @@ class OPENSettings(BaseSettings):
     OPENAI_API_KEY: str = config("OPENAI_API_KEY", default="")
 
 
+
 class Settings(
     AppSettings,
     PostgresSettings,
@@ -126,6 +127,7 @@ class Settings(
     RedisRateLimiterSettings,
     DefaultRateLimitSettings,
     OPENSettings,
+
 ):
     pass
 
