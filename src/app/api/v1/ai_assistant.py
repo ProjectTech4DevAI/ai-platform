@@ -29,8 +29,12 @@ async def create_assistant(data: AssistantCreate):
 
 
 @router.post("/chat/{assistant_id}")
-async def chat_with_assistant(assistant_id: str, message: MessageCreate):
-    ai = AIAssistant()
+async def chat_with_assistant(
+    assistant_id: str, 
+    message: MessageCreate, 
+    project_id: Optional[str] = None
+):
+    ai = AIAssistant(project_id=project_id)
 
     # Create a thread
     thread_result = await ai.create_thread()

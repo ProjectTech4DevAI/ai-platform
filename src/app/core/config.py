@@ -1,11 +1,14 @@
 import os
 from enum import Enum
 
+from dotenv import load_dotenv
+
 from pydantic_settings import BaseSettings
 from starlette.config import Config
 
 current_file_dir = os.path.dirname(os.path.realpath(__file__))
 env_path = os.path.join(current_file_dir, "..", "..", ".env")
+load_dotenv(env_path)
 config = Config(env_path)
 
 
@@ -113,6 +116,12 @@ class OPENSettings(BaseSettings):
     OPENAI_API_KEY: str = config("OPENAI_API_KEY", default="")
 
 
+class LangfuseSettings(BaseSettings):
+    LANGFUSE_HOST: str = config("LANGFUSE_HOST", default="")
+    LANGFUSE_SECRET_KEY: str = config("LANGFUSE_SECRET_KEY", default="")
+    LANGFUSE_PUBLIC_KEY: str = config("LANGFUSE_PUBLIC_KEY", default="")
+
+
 class Settings(
     AppSettings,
     PostgresSettings,
@@ -126,6 +135,7 @@ class Settings(
     RedisRateLimiterSettings,
     DefaultRateLimitSettings,
     OPENSettings,
+    LangfuseSettings,
 ):
     pass
 
