@@ -37,6 +37,7 @@ pytest-mock = "^3.14.0"
 openai = "^1.61.1"
 starlette = "0.45.3"
 requests = "^2.32.3"
+sqlmodel = "^0.0.18"
 
 
 [tool.poetry.group.dev.dependencies]
