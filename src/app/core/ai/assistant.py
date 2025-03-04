@@ -189,7 +189,7 @@ class AIAssistant:
                 "assistant_id": assistant.id,
                 "name": assistant.name,
                 "model": assistant.model,
-                "created_at": assistant.created_at
+                "created_at": assistant.created_at,
             }
         except Exception as e:
-            return {"error": str(e)} 
+            return {"error": str(e)}

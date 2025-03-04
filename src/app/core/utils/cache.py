@@ -8,13 +8,19 @@ from fastapi import Request, Response
 from fastapi.encoders import jsonable_encoder
 from redis.asyncio import ConnectionPool, Redis
 
-from ..exceptions.cache_exceptions import CacheIdentificationInferenceError, InvalidRequestError, MissingClientError
+from ..exceptions.cache_exceptions import (
+    CacheIdentificationInferenceError,
+    InvalidRequestError,
+    MissingClientError,
+)
 
 pool: ConnectionPool | None = None
 client: Redis | None = None
 
 
-def _infer_resource_id(kwargs: dict[str, Any], resource_id_type: type | tuple[type, ...]) -> int | str:
+def _infer_resource_id(
+    kwargs: dict[str, Any], resource_id_type: type | tuple[type, ...]
+) -> int | str:
     """Infer the resource ID from a dictionary of keyword arguments.
 
     Parameters
@@ -114,7 +120,9 @@ def _format_prefix(prefix: str, kwargs: dict[str, Any]) -> str:
     return formatted_prefix
 
 
-def _format_extra_data(to_invalidate_extra: dict[str, str], kwargs: dict[str, Any]) -> dict[str, Any]:
+def _format_extra_data(
+    to_invalidate_extra: dict[str, str], kwargs: dict[str, Any]
+) -> dict[str, Any]:
     """Format extra data based on provided templates and keyword arguments.
 
     This function takes a dictionary of templates and their associated values and a dictionary of keyword arguments.

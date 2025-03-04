@@ -37,7 +37,7 @@ services:
       - ./src/.env:/code/.env
 
   db:
-    image: postgres:13
+    image: postgres:16
     env_file:
       - ./src/.env
     volumes:
@@ -54,7 +54,6 @@ services:
       - redis-data:/data
     expose:
       - "6379"
-
   #-------- uncomment to run with pgadmin --------
   # pgadmin:
   #   container_name: pgadmin4
@@ -123,5 +122,4 @@ services:
 
 volumes:
   postgres-data:
-  redis-data:
-  #pgadmin-data:
+  redis-data: #pgadmin-data:

@@ -11,41 +11,47 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:15
+        image: postgres:16
         env:
-          POSTGRES_USER: ai_plat
-          POSTGRES_PASSWORD: password
-          POSTGRES_DB: ai_plat
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ai_platform
         ports:
           - 5432:5432
-        options: --health-cmd "pg_isready -U ai_plat" --health-interval 10s --health-timeout 5s --health-retries 5
+        options: --health-cmd "pg_isready -U postgres" --health-interval 10s --health-timeout 5s --health-retries 5
 
     strategy:
       matrix:
-        python-version: ["3.10"]
+        python-version: ["3.13.2"]
         redis-version: [6]
 
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
+      - name: Install Poetry
         run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          curl -sSL https://install.python-poetry.org | python -
+          # Ensure Poetry is in PATH for the subsequent steps
+          echo "${HOME}/.local/bin" >> $GITHUB_PATH
+
+      - name: Making env file
+        run: cp .env.example src/.env
+
+      - name: Install dependencies
+        run: poetry install
 
       - name: Run pre-commit
-        run: pre-commit run --all-files
+        run: poetry run pre-commit run --all-files
 
       - name: Start Redis
         uses: supercharge/redis-github-action@1.5.0
         with:
           redis-version: ${{ matrix.redis-version }}
 
-      - name: Test with pytest
-        run: |
-          pytest tests
+      - name: Run tests
+        run: poetry run pytest
