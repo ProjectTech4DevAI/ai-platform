@@ -1,28 +1,29 @@
 import os
 from enum import Enum
-
 from pydantic_settings import BaseSettings
-from starlette.config import Config
+from dotenv import load_dotenv
 
-current_file_dir = os.path.dirname(os.path.realpath(__file__))
-env_path = os.path.join(current_file_dir, "..", "..", ".env")
-config = Config(env_path)
+# Load environment variables from .env if running locally
+ENVIRONMENT = os.getenv("ENVIRONMENT", "local")
+
+if ENVIRONMENT == "local" and os.path.exists(".env"):
+    load_dotenv()
 
 
 class AppSettings(BaseSettings):
-    APP_NAME: str = config("APP_NAME", default="FastAPI app")
-    APP_DESCRIPTION: str | None = config("APP_DESCRIPTION", default=None)
-    APP_VERSION: str | None = config("APP_VERSION", default=None)
-    LICENSE_NAME: str | None = config("LICENSE", default=None)
-    CONTACT_NAME: str | None = config("CONTACT_NAME", default=None)
-    CONTACT_EMAIL: str | None = config("CONTACT_EMAIL", default=None)
+    APP_NAME: str = os.getenv("APP_NAME", "FastAPI app")
+    APP_DESCRIPTION: str | None = os.getenv("APP_DESCRIPTION", None)
+    APP_VERSION: str | None = os.getenv("APP_VERSION", None)
+    LICENSE_NAME: str | None = os.getenv("LICENSE", None)
+    CONTACT_NAME: str | None = os.getenv("CONTACT_NAME", None)
+    CONTACT_EMAIL: str | None = os.getenv("CONTACT_EMAIL", None)
 
 
 class CryptSettings(BaseSettings):
-    SECRET_KEY: str = config("SECRET_KEY")
-    ALGORITHM: str = config("ALGORITHM", default="HS256")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = config("ACCESS_TOKEN_EXPIRE_MINUTES", default=30)
-    REFRESH_TOKEN_EXPIRE_DAYS: int = config("REFRESH_TOKEN_EXPIRE_DAYS", default=7)
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "default-secret")
+    ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
+    REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7))
 
 
 class DatabaseSettings(BaseSettings):
@@ -30,73 +31,70 @@ class DatabaseSettings(BaseSettings):
 
 
 class SQLiteSettings(DatabaseSettings):
-    SQLITE_URI: str = config("SQLITE_URI", default="./sql_app.db")
-    SQLITE_SYNC_PREFIX: str = config("SQLITE_SYNC_PREFIX", default="sqlite:///")
-    SQLITE_ASYNC_PREFIX: str = config("SQLITE_ASYNC_PREFIX", default="sqlite+aiosqlite:///")
+    SQLITE_URI: str = os.getenv("SQLITE_URI", "./sql_app.db")
+    SQLITE_SYNC_PREFIX: str = os.getenv("SQLITE_SYNC_PREFIX", "sqlite:///")
+    SQLITE_ASYNC_PREFIX: str = os.getenv("SQLITE_ASYNC_PREFIX", "sqlite+aiosqlite:///")
 
 
 class MySQLSettings(DatabaseSettings):
-    MYSQL_USER: str = config("MYSQL_USER", default="username")
-    MYSQL_PASSWORD: str = config("MYSQL_PASSWORD", default="password")
-    MYSQL_SERVER: str = config("MYSQL_SERVER", default="localhost")
-    MYSQL_PORT: int = config("MYSQL_PORT", default=5432)
-    MYSQL_DB: str = config("MYSQL_DB", default="dbname")
-    MYSQL_URI: str = f"{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_SERVER}:{MYSQL_PORT}/{MYSQL_DB}"
-    MYSQL_SYNC_PREFIX: str = config("MYSQL_SYNC_PREFIX", default="mysql://")
-    MYSQL_ASYNC_PREFIX: str = config("MYSQL_ASYNC_PREFIX", default="mysql+aiomysql://")
-    MYSQL_URL: str = config("MYSQL_URL", default=None)
+    MYSQL_USER: str = os.getenv("MYSQL_USER", "username")
+    MYSQL_PASSWORD: str = os.getenv("MYSQL_PASSWORD", "password")
+    MYSQL_SERVER: str = os.getenv("MYSQL_SERVER", "localhost")
+    MYSQL_PORT: int = int(os.getenv("MYSQL_PORT", 5432))
+    MYSQL_DB: str = os.getenv("MYSQL_DB", "dbname")
+    MYSQL_SYNC_PREFIX: str = os.getenv("MYSQL_SYNC_PREFIX", "mysql://")
+    MYSQL_ASYNC_PREFIX: str = os.getenv("MYSQL_ASYNC_PREFIX", "mysql+aiomysql://")
+    MYSQL_URL: str | None = os.getenv("MYSQL_URL", None)
+
+    # Construct full DB URI
+    MYSQL_URI: str = f"{MYSQL_SYNC_PREFIX}{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_SERVER}:{MYSQL_PORT}/{MYSQL_DB}"
 
 
 class PostgresSettings(DatabaseSettings):
-    POSTGRES_USER: str = config("POSTGRES_USER", default="postgres")
-    POSTGRES_PASSWORD: str = config("POSTGRES_PASSWORD", default="postgres")
-    POSTGRES_SERVER: str = config("POSTGRES_SERVER", default="localhost")
-    POSTGRES_PORT: int = config("POSTGRES_PORT", default=5432)
-    POSTGRES_DB: str = config("POSTGRES_DB", default="postgres")
-    POSTGRES_SYNC_PREFIX: str = config("POSTGRES_SYNC_PREFIX", default="postgresql://")
-    POSTGRES_ASYNC_PREFIX: str = config("POSTGRES_ASYNC_PREFIX", default="postgresql+asyncpg://")
-    POSTGRES_URI: str = (
-        f"{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}:{POSTGRES_PORT}/{POSTGRES_DB}"
-    )
-    # POSTGRES_URI: str = "postgres://postgres:JBvq7qWHfOWsvPJ7@dpcmodgyhdccahhcewnt.supabase.co:5432/postgres"
-    POSTGRES_URL: str | None = config("POSTGRES_URL", default=None)
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "postgres")
+    POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
+    POSTGRES_PORT: int = int(os.getenv("POSTGRES_PORT", 5432))
+    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "postgres")
+    POSTGRES_SYNC_PREFIX: str = os.getenv("POSTGRES_SYNC_PREFIX", "postgresql://")
+    POSTGRES_ASYNC_PREFIX: str = os.getenv("POSTGRES_ASYNC_PREFIX", "postgresql+asyncpg://")
+    POSTGRES_URL: str | None = os.getenv("POSTGRES_URL", None)
+
+    # Construct full DB URI
+    POSTGRES_URI: str = f"{POSTGRES_SYNC_PREFIX}{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}:{POSTGRES_PORT}/{POSTGRES_DB}"
 
 
 class FirstUserSettings(BaseSettings):
-    ADMIN_NAME: str = config("ADMIN_NAME", default="admin")
-    ADMIN_EMAIL: str = config("ADMIN_EMAIL", default="admin@admin.com")
-    ADMIN_USERNAME: str = config("ADMIN_USERNAME", default="admin")
-    ADMIN_PASSWORD: str = config("ADMIN_PASSWORD", default="!Ch4ng3Th1sP4ssW0rd!")
-
-
-class TestSettings(BaseSettings):
-    ...
+    ADMIN_NAME: str = os.getenv("ADMIN_NAME", "admin")
+    ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "admin@admin.com")
+    ADMIN_USERNAME: str = os.getenv("ADMIN_USERNAME", "admin")
+    ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "!Ch4ng3Th1sP4ssW0rd!")
 
 
 class RedisCacheSettings(BaseSettings):
-    REDIS_CACHE_HOST: str = config("REDIS_CACHE_HOST", default="localhost")
-    REDIS_CACHE_PORT: int = config("REDIS_CACHE_PORT", default=6379)
+    REDIS_CACHE_HOST: str = os.getenv("REDIS_CACHE_HOST", "localhost")
+    REDIS_CACHE_PORT: int = int(os.getenv("REDIS_CACHE_PORT", 6379))
     REDIS_CACHE_URL: str = f"redis://{REDIS_CACHE_HOST}:{REDIS_CACHE_PORT}"
 
 
 class ClientSideCacheSettings(BaseSettings):
-    CLIENT_CACHE_MAX_AGE: int = config("CLIENT_CACHE_MAX_AGE", default=60)
+    CLIENT_CACHE_MAX_AGE: int = int(os.getenv("CLIENT_CACHE_MAX_AGE", 60))
 
 
 class RedisQueueSettings(BaseSettings):
-    REDIS_QUEUE_HOST: str = config("REDIS_QUEUE_HOST", default="localhost")
-    REDIS_QUEUE_PORT: int = config("REDIS_QUEUE_PORT", default=6379)
+    REDIS_QUEUE_HOST: str = os.getenv("REDIS_QUEUE_HOST", "localhost")
+    REDIS_QUEUE_PORT: int = int(os.getenv("REDIS_QUEUE_PORT", 6379))
 
 
 class RedisRateLimiterSettings(BaseSettings):
-    REDIS_RATE_LIMIT_HOST: str = config("REDIS_RATE_LIMIT_HOST", default="localhost")
-    REDIS_RATE_LIMIT_PORT: int = config("REDIS_RATE_LIMIT_PORT", default=6379)
+    REDIS_RATE_LIMIT_HOST: str = os.getenv("REDIS_RATE_LIMIT_HOST", "localhost")
+    REDIS_RATE_LIMIT_PORT: int = int(os.getenv("REDIS_RATE_LIMIT_PORT", 6379))
     REDIS_RATE_LIMIT_URL: str = f"redis://{REDIS_RATE_LIMIT_HOST}:{REDIS_RATE_LIMIT_PORT}"
 
 
 class DefaultRateLimitSettings(BaseSettings):
-    DEFAULT_RATE_LIMIT_LIMIT: int = config("DEFAULT_RATE_LIMIT_LIMIT", default=10)
-    DEFAULT_RATE_LIMIT_PERIOD: int = config("DEFAULT_RATE_LIMIT_PERIOD", default=3600)
+    DEFAULT_RATE_LIMIT_LIMIT: int = int(os.getenv("DEFAULT_RATE_LIMIT_LIMIT", 10))
+    DEFAULT_RATE_LIMIT_PERIOD: int = int(os.getenv("DEFAULT_RATE_LIMIT_PERIOD", 3600))
 
 
 class EnvironmentOption(Enum):
@@ -106,11 +104,11 @@ class EnvironmentOption(Enum):
 
 
 class EnvironmentSettings(BaseSettings):
-    ENVIRONMENT: EnvironmentOption = config("ENVIRONMENT", default="local")
+    ENVIRONMENT: EnvironmentOption = EnvironmentOption(os.getenv("ENVIRONMENT", "local"))
 
 
 class OPENSettings(BaseSettings):
-    OPENAI_API_KEY: str = config("OPENAI_API_KEY", default="")
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 
 
 class Settings(
@@ -118,7 +116,6 @@ class Settings(
     PostgresSettings,
     CryptSettings,
     FirstUserSettings,
-    TestSettings,
     EnvironmentSettings,
     RedisCacheSettings,
     ClientSideCacheSettings,
