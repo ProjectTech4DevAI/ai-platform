@@ -1,6 +1,6 @@
 # --------- requirements ---------
 
-FROM python:3.11 as requirements-stage
+FROM python:3.13 as requirements-stage
 
 WORKDIR /tmp
 
@@ -12,7 +12,7 @@ RUN poetry export -f requirements.txt --output requirements.txt --without-hashes
 
 
 # --------- final image build ---------
-FROM python:3.11
+FROM python:3.13
 
 WORKDIR /code
 
