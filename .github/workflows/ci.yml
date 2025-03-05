@@ -1,57 +1,44 @@
-name: Python package
+name: Deploy AI Platform to ECS
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    branches:
+      - master
 
 jobs:
-  ci-job:
+  build:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: ai_platform
-        ports:
-          - 5432:5432
-        options: --health-cmd "pg_isready -U postgres" --health-interval 10s --health-timeout 5s --health-retries 5
 
-    strategy:
-      matrix:
-        python-version: ["3.13.2"]
-        redis-version: [6]
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+
 
     steps:
-      - uses: actions/checkout@v3
+      - name: checkout the repo
+        uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4 # More information on this action can be found below in the 'AWS Credentials' section
         with:
-          python-version: ${{ matrix.python-version }}
+          role-to-assume: arn:aws:iam::024209611402:role/github-action-role
+          aws-region: ap-south-1
 
-      - name: Install Poetry
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+
+      - name: Build and Push Docker Image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ github.event.repository.name }}-repo
         run: |
-          curl -sSL https://install.python-poetry.org | python -
-          # Ensure Poetry is in PATH for the subsequent steps
-          echo "${HOME}/.local/bin" >> $GITHUB_PATH
+          docker build -t $REGISTRY/$REPOSITORY:latest .
+          docker push $REGISTRY/$REPOSITORY:latest
 
-      - name: Making env file
-        run: cp .env.example src/.env
-
-      - name: Install dependencies
-        run: poetry install
-
-      - name: Run pre-commit
-        run: poetry run pre-commit run --all-files
-
-      - name: Start Redis
-        uses: supercharge/redis-github-action@1.5.0
-        with:
-          redis-version: ${{ matrix.redis-version }}
-
-      - name: Run tests
-        run: poetry run pytest
+      - name: Deploy to ECS
+        run: |
+          aws ecs update-service --cluster ${{ github.event.repository.name }}-cluster --service ${{ github.event.repository.name }}-service --force-new-deployment
