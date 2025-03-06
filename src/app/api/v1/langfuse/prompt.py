@@ -33,6 +33,8 @@ async def create_prompt_version(
     if not is_member:
         raise ForbiddenException("You do not have access to this project.")
 
+    if prompt_data.tags is None:
+        prompt_data.tags = []
     # Ensure project_id is part of the tags for filtering
     prompt_data.tags.append(f"project-{project_id}")
 

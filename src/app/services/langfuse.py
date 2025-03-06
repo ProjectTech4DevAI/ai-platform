@@ -1,8 +1,6 @@
-from datetime import datetime
 from typing import Optional
 import httpx
 from httpx import HTTPStatusError
-from pydantic import TypeAdapter
 
 from ..schemas.langfuse.prompt import PromptMetaListResponse, PromptQueryParams, PromptDetailResponse, PromptCreateRequest
 from ..core.config import settings
@@ -25,8 +23,7 @@ class LangfuseClient:
             response.raise_for_status()
             data = response.json()
         
-            # Validate response with TypeAdapter
-            return TypeAdapter(PromptDetailResponse).validate_python(data)
+            return PromptDetailResponse.model_validate(data)
 
     async def get_prompts(self, query_params: PromptQueryParams) -> PromptMetaListResponse:
         """Fetch a list of prompt names with versions and labels."""
@@ -57,7 +54,7 @@ class LangfuseClient:
                     auth=(self.public_key, self.secret_key),
                 )
                 response.raise_for_status()
-                return TypeAdapter(PromptDetailResponse).validate_python(response.json())
+                return PromptDetailResponse.model_validate(response.json())
             except HTTPStatusError as e:
                 if e.response.status_code == 404:
                     return None
