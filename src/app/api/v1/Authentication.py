@@ -1,14 +1,12 @@
-import logging
 import uuid
 from uuid import UUID
-import hashlib
-import os
 
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from starlette import status
+from pydantic import BaseModel
 
 from ...core.db.database import async_get_db
 
@@ -21,6 +19,12 @@ from ...schemas.organization import (
 )
 from ...schemas.project import ProjectCreateInternal, ProjectRead, ProjectUpdate, ProjectCreate
 from ...schemas.credentials import CredentialsRead
+
+
+class APIKeyRequest(BaseModel):
+    organization_name: str
+    project_name: str
+
 
 router = APIRouter(tags=["token"])
 
@@ -91,13 +95,13 @@ def generate_api_key() -> str:
 
 @router.post("/generate-api-key")
 async def generate_and_store_api_key(
-    organization_name: OrganizationCreate,
-    project_name: str,
+    request: APIKeyRequest,
     db: AsyncSession = Depends(async_get_db),
-):
-    result = await db.execute(
-        select(Organization).where(Organization.name == organization_name.name)
-    )
+) -> dict:
+    organization_name = request.organization_name
+    project_name = request.project_name
+
+    result = await db.execute(select(Organization).where(Organization.name == organization_name))
     org = result.scalars().first()
 
     if not org:
