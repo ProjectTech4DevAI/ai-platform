@@ -1,8 +1,5 @@
-import logging
 import uuid
 from uuid import UUID
-import hashlib
-import os
 
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_response
@@ -98,7 +95,7 @@ def generate_api_key() -> str:
 
 @router.post("/generate-api-key")
 async def generate_and_store_api_key(
-    request: APIKeyRequest,  # ✅ Correctly passing request schema
+    request: APIKeyRequest,
     db: AsyncSession = Depends(async_get_db),
 ) -> dict:
     organization_name = request.organization_name
