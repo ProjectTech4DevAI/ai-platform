@@ -12,7 +12,7 @@ from .heartbeat import router as heartbeat_router
 from .data_defn_langs import router as ddl_router
 from .threads import router as threads_router
 from .Authentication import router as token_router
-
+from .documents import router as document_router
 
 router = APIRouter(prefix="/v1")
 router.include_router(login_router)
@@ -27,3 +27,4 @@ router.include_router(heartbeat_router)
 router.include_router(ddl_router)
 router.include_router(threads_router)
 router.include_router(token_router)
+router.include_router(document_router)
