@@ -36,7 +36,7 @@ jobs:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: ${{ github.event.repository.name }}-repo
         run: |
-          docker build -t $REGISTRY/$REPOSITORY:latest .
+          docker build -t $REGISTRY/$REPOSITORY:latest ./backend
           docker push $REGISTRY/$REPOSITORY:latest
 
       - name: Deploy to ECS
