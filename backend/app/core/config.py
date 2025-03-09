@@ -1,7 +1,7 @@
 import secrets
 import warnings
 from typing import Annotated, Any, Literal
-
+from functools import lru_cache
 from pydantic import (
     AnyUrl,
     BeforeValidator,
@@ -24,6 +24,7 @@ def parse_cors(v: Any) -> list[str] | str:
     raise ValueError(v)
 
 
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         # Use top level .env file (one level above ./backend/)
@@ -31,6 +32,10 @@ class Settings(BaseSettings):
         env_ignore_empty=True,
         extra="ignore",
     )
+    OPENAI_API_KEY: str
+    OPENAI_MODEL: str = "gpt-4-turbo-preview"
+    OPENAI_TEMPERATURE: float = 0.7
+    OPENAI_MAX_TOKENS: int = 2000
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = secrets.token_urlsafe(32)
     # 60 minutes * 24 hours * 8 days = 8 days
@@ -118,3 +123,9 @@ class Settings(BaseSettings):
 
 
 settings = Settings()  # type: ignore
+
+# Use OpenAI settings
+api_key = settings.OPENAI_API_KEY
+model = settings.OPENAI_MODEL
+temperature = settings.OPENAI_TEMPERATURE
+max_tokens = settings.OPENAI_MAX_TOKENS
