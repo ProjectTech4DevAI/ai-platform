@@ -7,19 +7,25 @@ ENV PYTHONUNBUFFERED=1
 # Set working directory
 WORKDIR /app/
 
-# Install system dependencies and Poetry
-RUN apt-get update && apt-get install -y \
-    curl \
-    && curl -sSL https://install.python-poetry.org | python -
+# Install system dependencies
+RUN apt-get update && apt-get install -y curl
 
-# Add Poetry's virtual environment to PATH
-ENV PATH="/root/.local/bin:$PATH"
+# Install uv package manager
+COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /uvx /bin/
 
-# Copy dependency files for installation
-COPY pyproject.toml poetry.lock ./
+# Place executables in the environment at the front of the path
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Enable bytecode compilation and efficient dependency linking
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
+
+# Copy dependency files
+COPY pyproject.toml uv.lock ./
 
 # Install dependencies
-RUN poetry install --no-root
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-install-project
 
 # Set Python path
 ENV PYTHONPATH=/app
@@ -32,5 +38,5 @@ COPY alembic.ini /app/alembic.ini
 # Expose port 80
 EXPOSE 80
 
-# Command to run the application
-CMD ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80", "--workers", "4"]
+# Command to run the application using uv
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80", "--workers", "4"]
