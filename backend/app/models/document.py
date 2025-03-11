@@ -28,6 +28,8 @@ class Document(SQLModel, table=True):
     updated_at: datetime | None
     deleted_at: datetime | None
 
+    owner: User = Relationship(back_populates='documents')
+
 class DocumentList(SQLModel):
     docs: list[Document]
 
