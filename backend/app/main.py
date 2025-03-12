@@ -6,9 +6,9 @@ from starlette.middleware.cors import CORSMiddleware
 from app.api.main import api_router
 from app.core.config import settings
 
+
 def custom_generate_unique_id(route: APIRoute) -> str:
-    tag = route.tags[0] if route.tags else "untagged"
-    return f"{tag}-{route.name}"
+    return f"{route.tags[0]}-{route.name}"
 
 
 if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
