@@ -12,3 +12,17 @@ from .user import (
     NewPassword,
     UpdatePassword,
 )
+from .organization import (
+    Organization,
+    OrganizationCreate,
+    OrganizationPublic,
+    OrganizationsPublic,
+    OrganizationUpdate,
+)
+from .project import (
+    Project,
+    ProjectCreate,
+    ProjectPublic,
+    ProjectsPublic,
+    ProjectUpdate,
+)
