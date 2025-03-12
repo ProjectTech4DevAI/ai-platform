@@ -24,8 +24,7 @@ ENV UV_LINK_MODE=copy
 COPY pyproject.toml uv.lock ./
 
 # Install dependencies
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-project
+RUN uv sync --frozen --no-install-project
 
 # Set Python path
 ENV PYTHONPATH=/app
