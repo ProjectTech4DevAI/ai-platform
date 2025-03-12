@@ -49,7 +49,6 @@ class ThreadService:
         """Send results to the callback URL"""
         try:
             session = requests.Session()
-            session.verify = False
             response = session.post(callback_url, json=data, timeout=10)
             response.raise_for_status()
             return True
