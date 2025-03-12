@@ -17,15 +17,15 @@ def list_docs(
         skip: int = 0,
         limit: int = 100,
 ):
-    statement = (select(Document)
-                 .where(
-                     and_(
-                         Document.owner_id == current_user.id,
-                         Document.deleted_at.is_(None),
-                     ),
-                 )
-                 .offset(skip)
-                 .limit(limit))
+    statement = (
+        select(Document)
+        .where(and_(
+            Document.owner_id == current_user.id,
+            Document.deleted_at.is_(None),
+        ))
+        .offset(skip)
+        .limit(limit)
+    )
     docs = (session
             .exec(statement)
             .all())
