@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 
-from app.api.routes import items, login, private, users, utils,ai_assistant_controller,health
+from app.api.routes import items, login, private, users, utils,ai_assistant_controller,health,thread
 
 
 from app.core.config import settings
@@ -13,7 +13,7 @@ api_router.include_router(users.router)
 api_router.include_router(utils.router)
 api_router.include_router(items.router)
 api_router.include_router(ai_assistant_controller.router)
-
+api_router.include_router(thread.router)
 if settings.ENVIRONMENT == "local":
     api_router.include_router(private.router)
 
