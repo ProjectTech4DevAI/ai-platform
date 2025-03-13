@@ -11,8 +11,12 @@ from .user import (
     UserUpdateMe,
     NewPassword,
     UpdatePassword,
-    UserProjectOrg
+   UserProjectOrg
+
 )
+from .thread import MessageRequest, AckPayload, CallbackPayload
+   
+
 from .organization import (
     Organization,
     OrganizationCreate,
@@ -32,3 +36,4 @@ from .project_user import (
     ProjectUserPublic,
     ProjectUsersPublic,
 )
+
