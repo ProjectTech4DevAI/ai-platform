@@ -58,6 +58,8 @@ Ensure you are using Python 3.13.2 or higher. Set up a virtual environment and i
 uv sync  # If using uv
 # OR
 poetry install  # If using Poetry
+
+source .venv/bin/activate  # Activate the .venv
 ```
 
 ### Database Migrations
