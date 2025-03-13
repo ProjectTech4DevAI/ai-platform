@@ -11,6 +11,7 @@ from .user import (
     UserUpdateMe,
     NewPassword,
     UpdatePassword,
+    UserProjectOrg
 )
 from .organization import (
     Organization,
@@ -25,4 +26,9 @@ from .project import (
     ProjectPublic,
     ProjectsPublic,
     ProjectUpdate,
+)
+from .project_user import (
+    ProjectUser,
+    ProjectUserPublic,
+    ProjectUsersPublic,
 )

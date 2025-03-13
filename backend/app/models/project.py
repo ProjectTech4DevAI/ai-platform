@@ -1,6 +1,5 @@
 from sqlmodel import Field, Relationship, SQLModel
 
-
 # Shared properties for a Project
 class ProjectBase(SQLModel):
     name: str = Field(index=True, max_length=255)
@@ -24,6 +23,8 @@ class ProjectUpdate(SQLModel):
 class Project(ProjectBase, table=True):
     id: int = Field(default=None, primary_key=True)
     organization_id: int = Field(foreign_key="organization.id")
+    
+    users: list["ProjectUser"] = Relationship(back_populates="project", cascade_delete=True)
 
 
 # Properties to return via API
