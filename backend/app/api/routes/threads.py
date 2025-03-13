@@ -15,7 +15,6 @@ def send_callback(callback_url: str, data: dict):
     """Send results to the callback URL (synchronously)."""
     try:
         session = requests.Session()
-        session.verify = False
         response = session.post(callback_url, json=data)
         response.raise_for_status()
         return True
