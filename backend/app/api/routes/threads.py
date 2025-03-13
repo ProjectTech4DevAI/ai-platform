@@ -1,5 +1,6 @@
-import requests
 import openai
+import re
+import requests
 from openai import OpenAI
 from fastapi import APIRouter, BackgroundTasks
 from app.models import ( MessageRequest, AckPayload, CallbackPayload)
@@ -7,16 +8,14 @@ from ...core.config import settings
 from ...core.logger import logging
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/threads", tags=["threads"])
+router = APIRouter(tags=["threads"])
 
 
 def send_callback(callback_url: str, data: dict):
     """Send results to the callback URL (synchronously)."""
     try:
-        print("completed")
         session = requests.Session()
         session.verify = False
-        print(data)
         response = session.post(callback_url, json=data)
         response.raise_for_status()
         return True
@@ -50,7 +49,6 @@ def process_run(request: MessageRequest, client: OpenAI):
     This function is run in the background after we have already returned an initial response.
     """
     try:
-        print("Thread run started")
         # Start the run
         run = client.beta.threads.runs.create_and_poll(
             thread_id=request.thread_id,
@@ -58,13 +56,16 @@ def process_run(request: MessageRequest, client: OpenAI):
         )
 
         if run.status == "completed":
-            print("Thread run completed")
             messages = client.beta.threads.messages.list(thread_id=request.thread_id)
             latest_message = messages.data[0]
             message_content = latest_message.content[0].text.value
 
+            if request.remove_citation:
+                message = re.sub(r"【\d+(?::\d+)?†[^】]*】", "", message_content)
+            else:
+                message = message_content
             callback_response = build_callback_payload(
-                request=request, status="success", message=message_content
+                request=request, status="success", message=message
             )
         else:
             callback_response = build_callback_payload(
@@ -100,7 +101,7 @@ def validate_assistant_id(assistant_id: str, client: OpenAI):
     return None
 
 
-@router.post("/")
+@router.post("/threads")
 async def threads(request: MessageRequest, background_tasks: BackgroundTasks):
     """
     Accepts a question, assistant_id, callback_url, and optional thread_id from the request body.
