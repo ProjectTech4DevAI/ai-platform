@@ -11,6 +11,7 @@ from pydantic import (
     computed_field,
     model_validator,
 )
+import logging
 from pydantic_core import MultiHostUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
@@ -23,7 +24,8 @@ def parse_cors(v: Any) -> list[str] | str:
         return v
     raise ValueError(v)
 
-
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -118,7 +120,18 @@ class Settings(BaseSettings):
         self._check_default_secret(
             "FIRST_SUPERUSER_PASSWORD", self.FIRST_SUPERUSER_PASSWORD
         )
-
+        logger.info("Environment Settings:")
+        logger.info(f"ENVIRONMENT: {self.ENVIRONMENT}")
+        logger.info(f"PROJECT_NAME: {self.PROJECT_NAME}")
+        logger.info(f"API_V1_STR: {self.API_V1_STR}")
+        logger.info(f"FRONTEND_HOST: {self.FRONTEND_HOST}")
+        logger.info(f"BACKEND_CORS_ORIGINS: {self.BACKEND_CORS_ORIGINS}")
+        logger.info(f"POSTGRES_SERVER: {self.POSTGRES_SERVER}")
+        logger.info(f"POSTGRES_PORT: {self.POSTGRES_PORT}")
+        logger.info(f"POSTGRES_DB: {self.POSTGRES_DB}")
+        logger.info(f"OPENAI_MODEL: {self.OPENAI_MODEL}")
+        logger.info(f"OPENAI_TEMPERATURE: {self.OPENAI_TEMPERATURE}")
+        logger.info(f"OPENAI_MAX_TOKENS: {self.OPENAI_MAX_TOKENS}")
         return self
 
 
