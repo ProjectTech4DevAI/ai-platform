@@ -122,7 +122,7 @@ class Settings(BaseSettings):
         return self
 
 
-settings = Settings()  # type: ignore
+settings = Settings() 
 
 # Use OpenAI settings
 api_key = settings.OPENAI_API_KEY
