@@ -1,7 +1,13 @@
 from fastapi import APIRouter
 
 
-from app.api.routes import items, login, private, users, utils,ai_assistant_controller,health,thread
+from app.api.routes import (
+    login,
+    private,
+    users,
+    utils,
+    ai_assistant_controller
+)
 
 
 from app.core.config import settings
