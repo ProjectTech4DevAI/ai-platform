@@ -2,7 +2,7 @@ import os
 from logging.config import fileConfig
 
 from alembic import context
-from sqlmodel import SQLModel
+from app.models import User
 from sqlalchemy import engine_from_config, pool
 
 # this is the Alembic Config object, which provides
@@ -21,7 +21,7 @@ fileConfig(config.config_file_name)
 
 from app.core.config import settings # noqa
 
-target_metadata = SQLModel.metadata
+target_metadata = User.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
