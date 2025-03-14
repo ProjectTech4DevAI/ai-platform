@@ -1,4 +1,4 @@
-# AI Platform Template
+# AI Platform
 
 ## Pre-requisites
 
