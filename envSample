@@ -13,8 +13,10 @@ FRONTEND_HOST=http://localhost:5173
 # Environment: local, staging, production
 ENVIRONMENT=local
 
+
 PROJECT_NAME="AI Platform"
 STACK_NAME=ai-platform
+
 
 # Backend
 BACKEND_CORS_ORIGINS="http://localhost"
