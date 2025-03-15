@@ -26,6 +26,6 @@ def test_email(email_to: EmailStr) -> Message:
     return Message(message="Test email sent")
 
 
-@router.get("/health-check/")
+@router.get("/health/")
 async def health_check() -> bool:
     return True
