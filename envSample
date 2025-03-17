@@ -18,7 +18,7 @@ PROJECT_NAME="AI Platform"
 STACK_NAME=ai-platform
 
 # Backend
-BACKEND_CORS_ORIGINS="http://localhost"
+BACKEND_CORS_ORIGINS="http://localhost:5173"
 SECRET_KEY=changethis
 FIRST_SUPERUSER=admin@example.com
 FIRST_SUPERUSER_PASSWORD=changethis
@@ -33,7 +33,7 @@ SMTP_SSL=False
 SMTP_PORT=587
 
 # Postgres
-POSTGRES_SERVER=localhost
+# POSTGRES_SERVER=localhost
 POSTGRES_PORT=5432
 POSTGRES_DB=app
 POSTGRES_USER=postgres
