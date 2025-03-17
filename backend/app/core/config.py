@@ -68,7 +68,11 @@ class Settings(BaseSettings):
             port=self.POSTGRES_PORT,
             path=self.POSTGRES_DB,
         )
-
+    OPENAI_API_KEY: str
+    OPENAI_MODEL: str = "gpt-4-turbo-preview"
+    OPENAI_TEMPERATURE: float = 0.7
+    OPENAI_MAX_TOKENS: int = 2000
+    API_V1_STR: str = "/api/v1"
     SMTP_TLS: bool = True
     SMTP_SSL: bool = False
     SMTP_PORT: int = 587
@@ -117,4 +121,8 @@ class Settings(BaseSettings):
         return self
 
 
-settings = Settings()  # type: ignore
+settings = Settings()  
+api_key = settings.OPENAI_API_KEY
+model = settings.OPENAI_MODEL
+temperature = settings.OPENAI_TEMPERATURE
+max_tokens = settings.OPENAI_MAX_TOKENS
