@@ -1,43 +1,42 @@
-FROM python:3.10
+# Use Python 3.12 base image
+FROM python:3.12
 
+# Set environment variables
 ENV PYTHONUNBUFFERED=1
 
+# Set working directory
 WORKDIR /app/
 
-# Install uv
-# Ref: https://docs.astral.sh/uv/guides/integration/docker/#installing-uv
+# Install system dependencies
+RUN apt-get update && apt-get install -y curl
+
+# Install uv package manager
 COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /uvx /bin/
 
 # Place executables in the environment at the front of the path
-# Ref: https://docs.astral.sh/uv/guides/integration/docker/#using-the-environment
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Compile bytecode
-# Ref: https://docs.astral.sh/uv/guides/integration/docker/#compiling-bytecode
+# Enable bytecode compilation and efficient dependency linking
 ENV UV_COMPILE_BYTECODE=1
-
-# uv Cache
-# Ref: https://docs.astral.sh/uv/guides/integration/docker/#caching
 ENV UV_LINK_MODE=copy
 
+# Copy dependency files
+COPY pyproject.toml uv.lock ./
+
 # Install dependencies
-# Ref: https://docs.astral.sh/uv/guides/integration/docker/#intermediate-layers
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-install-project
 
+# Set Python path
 ENV PYTHONPATH=/app
 
-COPY ./scripts /app/scripts
+# Copy application files
+COPY scripts /app/scripts
+COPY app /app/app
+COPY alembic.ini /app/alembic.ini
 
-COPY ./pyproject.toml ./uv.lock ./alembic.ini /app/
+# Expose port 80
+EXPOSE 80
 
-COPY ./app /app/app
-
-# Sync the project
-# Ref: https://docs.astral.sh/uv/guides/integration/docker/#intermediate-layers
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync
-
-CMD ["fastapi", "run", "--workers", "4", "app/main.py"]
+# Command to run the application using uv
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80", "--workers", "4"]
