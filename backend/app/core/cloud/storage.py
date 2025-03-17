@@ -37,12 +37,15 @@ class SimpleStorageName:
         return ParseResult(**kwargs)
 
 class CloudStorage:
-    def put(self, user: CurrentUser, source: UploadFile):
+    def __init__(self, user: CurrentUser):
+        self.user = user
+
+    def put(self, source: UploadFile):
         raise NotImplementedError()
 
 class AmazonCloudStorage(CloudStorage):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, user: CurrentUser):
+        super().__init__(user)
         self.client = boto3.client('s3')
 
     def test_and_create(self, target: SimpleStorageName):
@@ -56,13 +59,13 @@ class AmazonCloudStorage(CloudStorage):
             # ... if not create it
             self.client.create_bucket(Bucket=target.Bucket)
 
-    def put(self, user: CurrentUser, source: UploadFile):
+    def put(self, source: UploadFile):
         fname_external = Path(source.filename)
         assert not fname_external.parent.name, 'Source is not a basename'
-        destination = SimpleStorageName(user, fname_external)
+        destination = SimpleStorageName(self.user, fname_external)
 
         kwargs = asdict(destination)
-        metadata = user.dict()
+        metadata = self.user.dict()
         try:
             self.test_and_create(destination)
             self.client.upload_fileobj(
