@@ -4,8 +4,8 @@ from app.models import Project, ProjectCreate
 
 
 # Create a new project linked to an organization
-def create_project(*, session: Session, project_create: ProjectCreate, org_id: int) -> Project:
-    db_project = Project.model_validate(project_create, update={"organization_id": org_id})
+def create_project(*, session: Session, project_create: ProjectCreate) -> Project:
+    db_project = Project.model_validate(project_create)
     session.add(db_project)
     session.commit()
     session.refresh(db_project)

@@ -1,4 +1,4 @@
-rom sqlmodel import Session
+from sqlmodel import Session
 from app.crud.organization import create_organization, get_organization_by_id
 from app.models import Organization, OrganizationCreate
 from app.tests.utils.utils import random_lower_string

@@ -16,3 +16,8 @@ def create_organization(*, session: Session, org_create: OrganizationCreate) -> 
 def get_organization_by_id(*, session: Session, org_id: int) -> Optional[Organization]:
     statement = select(Organization).where(Organization.id == org_id)
     return session.exec(statement).first()
+
+def get_organization_by_name(*, session: Session, name: str) -> Optional[Organization]:
+    statement = select(Organization).where(Organization.name == name)
+    return session.exec(statement).first()
+

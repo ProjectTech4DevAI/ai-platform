@@ -14,7 +14,7 @@ def test_create_project(db: Session) -> None:
     project_name = random_lower_string()  
     project_data = ProjectCreate(name=project_name, description="Test description", is_active=True, organization_id=org.id)
 
-    project = create_project(session=db, project_create=project_data, org_id=org.id)
+    project = create_project(session=db, project_create=project_data)
 
     assert project.id is not None
     assert project.name == project_name
@@ -32,7 +32,7 @@ def test_get_project_by_id(db: Session) -> None:
     project_name = random_lower_string()  
     project_data = ProjectCreate(name=project_name, description="Test", organization_id=org.id)
 
-    project = create_project(session=db, project_create=project_data, org_id=org.id)
+    project = create_project(session=db, project_create=project_data)
 
     fetched_project = get_project_by_id(session=db, project_id=project.id)
     assert fetched_project is not None
@@ -48,8 +48,8 @@ def test_get_projects_by_organization(db: Session) -> None:
     db.commit()
     db.refresh(org)
 
-    project_1 = create_project(session=db, project_create=ProjectCreate(name=random_lower_string(), organization_id=org.id), org_id=org.id)
-    project_2 = create_project(session=db, project_create=ProjectCreate(name=random_lower_string(), organization_id=org.id), org_id=org.id)
+    project_1 = create_project(session=db, project_create=ProjectCreate(name=random_lower_string(), organization_id=org.id))
+    project_2 = create_project(session=db, project_create=ProjectCreate(name=random_lower_string(), organization_id=org.id))
 
     projects = get_projects_by_organization(session=db, org_id=org.id)
 
@@ -62,3 +62,4 @@ def test_get_non_existent_project(db: Session) -> None:
     """Test retrieving a non-existent project should return None."""
     fetched_project = get_project_by_id(session=db, project_id=999)  
     assert fetched_project is None
+
