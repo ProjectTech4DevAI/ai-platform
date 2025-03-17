@@ -7,10 +7,7 @@ from app.models import Document, DocumentList
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-@router.get(
-    "/ls",
-    response_model=DocumentList,
-)
+@router.get("/ls", response_model=DocumentList)
 def list_docs(
         session: SessionDep,
         current_user: CurrentUser,
