@@ -1,4 +1,3 @@
-from backend.app.api.routes import oganization
 from fastapi import APIRouter
 
 
@@ -11,7 +10,7 @@ api_router.include_router(login.router)
 api_router.include_router(users.router)
 api_router.include_router(utils.router)
 api_router.include_router(items.router)
-api_router.include_router(oganization.router)
+api_router.include_router(organization.router)
 api_router.include_router(project.router)
 
 
