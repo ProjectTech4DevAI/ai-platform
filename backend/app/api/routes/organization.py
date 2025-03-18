@@ -11,7 +11,7 @@ from app.api.deps import (
     get_current_active_superuser,
 )
 from app.crud.organization import create_organization, get_organization_by_id
-from app.responses import APIResponse 
+from app.utils import APIResponse 
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
 
