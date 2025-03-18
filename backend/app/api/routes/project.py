@@ -34,7 +34,7 @@ def create_new_project(*, session: SessionDep, project_in: ProjectCreate):
     return create_project(session=session, project_create=project_in)
 
 @router.get("/{project_id}", dependencies=[Depends(get_current_active_superuser)], response_model=APIResponse[ProjectPublic])
-def read_project(*, session: SessionDep, project_id: int) -> Any:
+def read_project(*, session: SessionDep, project_id: int) :
     """
     Retrieve a project by ID.
     """
