@@ -1,7 +1,8 @@
+from typing import Any, List
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlmodel import Session, select
-from typing import Any, List
 
 from app.models import Organization, OrganizationCreate, OrganizationUpdate, OrganizationPublic
 from app.api.deps import (
