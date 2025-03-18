@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
@@ -6,8 +7,6 @@ from app.core.config import settings
 from app.core.security import verify_password
 from app.models import User, UserCreate
 from app.tests.utils.utils import random_email, random_lower_string
-
-import pytest
 from app.models import Organization, OrganizationCreate, OrganizationUpdate
 from app.api.deps import get_db
 from app.main import app
