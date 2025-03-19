@@ -29,9 +29,10 @@ def read_projects(session: SessionDep, skip: int = 0, limit: int = 100):
 
 
 # Create a new project
-@router.post("/",dependencies=[Depends(get_current_active_superuser)], response_model=APIResponse[ProjectPublic])
+@router.post("/", dependencies=[Depends(get_current_active_superuser)], response_model=APIResponse[ProjectPublic])
 def create_new_project(*, session: SessionDep, project_in: ProjectCreate):
-    return create_project(session=session, project_create=project_in)
+    project = create_project(session=session, project_create=project_in)
+    return APIResponse.success_response(project)
 
 @router.get("/{project_id}", dependencies=[Depends(get_current_active_superuser)], response_model=APIResponse[ProjectPublic])
 def read_project(*, session: SessionDep, project_id: int) :
@@ -54,9 +55,16 @@ def update_project(*, session: SessionDep, project_id: int, project_in: ProjectU
     project_data = project_in.model_dump(exclude_unset=True)
     project = project.model_copy(update=project_data)
 
-    session.add(project)
+    # Re-attach the object to the session
+    session.merge(project)
+
+    # Commit the changes to the database
     session.commit()
+
+    # Refresh the project object with the latest data from the database
     session.refresh(project)
+
+    # Return the response
     return APIResponse.success_response(project)
 
 
