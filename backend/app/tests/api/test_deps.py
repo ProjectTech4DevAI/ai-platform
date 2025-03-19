@@ -37,7 +37,6 @@ def create_user(db: Session, is_superuser=False) -> User:
     return user
 
 
-# ✅ Success Test Cases
 def test_verify_success(db: Session):
     """Valid user in a project passes verification."""
     user = create_user(db)

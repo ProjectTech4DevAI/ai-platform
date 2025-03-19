@@ -58,7 +58,7 @@ def test_add_user_to_project(client: TestClient, db: Session, superuser_token_he
     )
 
     assert response.status_code == 200, response.text
-    added_user = response.json()
+    added_user = response.json()['data']
     assert added_user["user_id"] == str(user.id)
     assert added_user["project_id"] == project.id
     assert added_user["is_admin"] is True
@@ -76,7 +76,7 @@ def test_add_user_not_found(client: TestClient, db: Session, superuser_token_hea
     )
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "User not found"
+    assert response.json()["error"] == "User not found"
 
 
 def test_add_existing_user_to_project(client: TestClient, db: Session, superuser_token_headers: dict[str, str]) -> None:
@@ -98,7 +98,7 @@ def test_add_existing_user_to_project(client: TestClient, db: Session, superuser
     )
 
     assert response.status_code == 400
-    assert "User is already a member of this project" in response.json()["detail"]
+    assert "User is already a member of this project" in response.json()["error"]
 
 
 def test_remove_user_from_project(
@@ -124,7 +124,7 @@ def test_remove_user_from_project(
 
     # Assertions
     assert response.status_code == 200, response.text
-    assert response.json() == {"message": "User removed from project successfully."}
+    assert response.json()['data'] == {"message": "User removed from project successfully."}
 
     # Ensure user is marked as deleted in the database (Fixed)
     project_user = db.exec(
@@ -163,7 +163,7 @@ def test_normal_user_cannot_add_user(
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Only project admins or superusers can add users."
+    assert response.json()["error"] == "Only project admins or superusers can add users."
 
 
 def test_normal_user_cannot_remove_user(
@@ -191,4 +191,4 @@ def test_normal_user_cannot_remove_user(
 
     # Assertions
     assert response.status_code == 403
-    assert response.json()["detail"] == "Only project admins or superusers can remove users."
+    assert response.json()["error"] == "Only project admins or superusers can remove users."

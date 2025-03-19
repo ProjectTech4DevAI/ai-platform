@@ -58,6 +58,7 @@ def get_current_active_superuser(current_user: CurrentUser) -> User:
         )
     return current_user
 
+
 async def http_exception_handler(request: Request, exc: HTTPException):
     """
     Global handler for HTTPException to return standardized response format.
