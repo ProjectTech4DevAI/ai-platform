@@ -9,5 +9,12 @@ python app/backend_pre_start.py
 # Run migrations
 alembic upgrade head
 
-# Create initial data in DB
-python app/initial_data.py
+# Initialize services
+services=(
+    app/initial_data.py
+    app/initial_storage.py
+)
+
+for i in ${services[@]}; do
+    python $i
+done
