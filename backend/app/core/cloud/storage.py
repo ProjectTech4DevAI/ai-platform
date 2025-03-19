@@ -1,6 +1,5 @@
 import functools as ft
 from uuid import uuid4
-from typing import ClassVar
 from pathlib import Path
 from dataclasses import dataclass, asdict
 from urllib.parse import ParseResult
