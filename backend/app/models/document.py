@@ -23,7 +23,7 @@ class Document(SQLModel, table=True):
     created_at: datetime = Field(
         default_factory=now,
     )
-    updated_at: datetime | None
+    # updated_at: datetime | None
     deleted_at: datetime | None
 
     owner: User = Relationship(back_populates='documents')
