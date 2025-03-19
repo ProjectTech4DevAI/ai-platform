@@ -1,5 +1,5 @@
 import uuid
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
 from typing import Annotated
 from app.api.deps import get_db, verify_user_project_organization
@@ -42,14 +42,22 @@ def add_user(
 @router.get("/", response_model=APIResponse[list[ProjectUserPublic]])
 def list_project_users(
     session: Session = Depends(get_db),
-    current_user: UserProjectOrg = Depends(verify_user_project_organization)
+    current_user: UserProjectOrg = Depends(verify_user_project_organization),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100)
 ):
     """
     Get all users in a project.
     """
-    users = get_users_by_project(session, current_user.project_id)
-    return APIResponse.success_response(users)
+    users, total_count = get_users_by_project(session, current_user.project_id, skip, limit)
 
+    metadata = {
+        "total_count": total_count,
+        "limit": limit,
+        "skip": skip
+    }
+
+    return APIResponse.success_response(data=users, metadata=metadata)
 
 # Remove a user from a project
 @router.delete("/{user_id}", response_model=APIResponse[Message])

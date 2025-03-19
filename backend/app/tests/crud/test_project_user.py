@@ -129,5 +129,7 @@ def test_get_users_by_project(db: Session) -> None:
     project_user_crud.add_user_to_project(db, project.id, user1.id)
     project_user_crud.add_user_to_project(db, project.id, user2.id)
 
-    users = project_user_crud.get_users_by_project(db, project.id)
+    users, total_count = project_user_crud.get_users_by_project(db, project.id, skip=0, limit=10)
+
+    assert total_count == 2
     assert len(users) == 2

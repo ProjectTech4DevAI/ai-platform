@@ -1,5 +1,5 @@
 import uuid
-from sqlmodel import Session, select, delete
+from sqlmodel import Session, select, delete, func
 from app.models import ProjectUser, ProjectUserPublic, User
 from datetime import datetime
 
@@ -60,10 +60,23 @@ def remove_user_from_project(session: Session, project_id: uuid.UUID, user_id: u
     session.commit()
 
 
-def get_users_by_project(session: Session, project_id: uuid.UUID) -> list[ProjectUserPublic]:
+def get_users_by_project(
+    session: Session, project_id: uuid.UUID, skip: int = 0, limit: int = 100
+) -> tuple[list[ProjectUserPublic], int]:
     """
-    Returns all users in a given project.
+    Returns paginated users in a given project along with the total count.
     """
-    statement = select(ProjectUser).where(ProjectUser.project_id == project_id, ProjectUser.is_deleted == False)
+    count_statement = select(func.count()).select_from(ProjectUser).where(
+        ProjectUser.project_id == project_id, ProjectUser.is_deleted == False
+    )
+    total_count = session.exec(count_statement).one()
+
+    statement = (
+        select(ProjectUser)
+        .where(ProjectUser.project_id == project_id, ProjectUser.is_deleted == False)
+        .offset(skip)
+        .limit(limit)
+    )
     users = session.exec(statement).all()
-    return [ProjectUserPublic.model_validate(user) for user in users]
+
+    return [ProjectUserPublic.model_validate(user) for user in users], total_count
