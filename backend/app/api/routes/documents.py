@@ -1,7 +1,7 @@
+from uuid import uuid4
 from pathlib import Path
-from urllib.parse import urlunparse
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, UploadFile, HTTPException
 from sqlmodel import select, and_
 
 from app.api.deps import CurrentUser, SessionDep
@@ -36,9 +36,9 @@ def list_docs(
 
 @router.post("/cp")
 def upload_doc(
-        doc: UploadFile,
         session: SessionDep,
         current_user: CurrentUser,
+        src: UploadFile = File(...),
 ):
     storage = AmazonCloudStorage(current_user)
     try:
