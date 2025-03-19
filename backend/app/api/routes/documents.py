@@ -74,7 +74,11 @@ def delete_doc(
         ))
         .values(deleted_at=deleted_at)
     )
-    session.exec(statement)
+    result = session.exec(statement)
+    if not result.rowcount:
+        detail = f'Item "{doc_id}" not found'
+        raise HTTPException(status_code=404, detail=detail)
+    session.commit()
 
     # TODO: perform delete on the collection
 
