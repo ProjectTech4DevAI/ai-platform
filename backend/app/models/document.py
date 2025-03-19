@@ -17,8 +17,7 @@ class Document(SQLModel, table=True):
         nullable=False,
         ondelete='CASCADE',
     )
-    fname_external: Path
-    fname_internal: Path
+    fname: str
     object_store_url: str
     created_at: datetime = Field(
         default_factory=now,
