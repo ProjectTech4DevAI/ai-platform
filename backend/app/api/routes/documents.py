@@ -1,8 +1,8 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 from pathlib import Path
 
 from fastapi import APIRouter, File, UploadFile, HTTPException
-from sqlmodel import select, and_
+from sqlmodel import select, update, and_
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.cloud import AmazonCloudStorage
@@ -63,6 +63,7 @@ def upload_doc(
 def delete_doc(
         session: SessionDep,
         current_user: CurrentUser,
+        doc_id: UUID,
 ):
     deleted_at = now()
     statement = (
@@ -81,6 +82,7 @@ def delete_doc(
 def doc_info(
         session: SessionDep,
         current_user: CurrentUser,
+        doc_id: UUID,
 ):
     statement = (
         select(Document)
