@@ -3,6 +3,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, UploadFile, HTTPException
 from sqlmodel import select, update, and_
+from sqlalchemy.exc import NoResultFound, MultipleResultsFound
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.cloud import AmazonCloudStorage
@@ -92,17 +93,14 @@ def doc_info(
         select(Document)
         .where(Document.id == doc_id)
     )
-    docs = (session
-            .exec(statement)
-            .all())
-    n = len(docs)
-    if n == 1:
-        return docs[0]
+    result = session.exec(statement)
 
-    (status_code, reason) = (500, 'not unique') if n else (400, 'not found')
-    detail = f'Document "{doc_id}" {reason}'
-
-    raise HTTPException(status_code=status_code, detail=detail)
+    try:
+        return result.one()
+    except NoResultFound as err:
+        raise HTTPException(status_code=404, detail=str(err))
+    except MultipleResultsFound as err:
+        raise HTTPException(status_code=500, detail=str(err))
 
 # @router.get("/assign", response_model=DocumentList)
 # def assign_doc(
