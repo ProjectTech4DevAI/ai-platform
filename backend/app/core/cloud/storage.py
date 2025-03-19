@@ -1,3 +1,4 @@
+import functools as ft
 from uuid import uuid4
 from typing import ClassVar
 from pathlib import Path
@@ -11,19 +12,23 @@ from botocore.exceptions import ClientError
 from app.api.deps import CurrentUser
 from app.core.config import settings
 
+class AmazonCloudStorageClient:
+    @ft.cached_property
+    def client(self):
+        return boto3.client(
+            's3',
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            region_name=settings.AWS_DEFAULT_REGION,
+        )
+
 @dataclass(frozen=True)
 class SimpleStorageName:
     Bucket: str
     Key: str
-    _bucket_delimiter: ClassVar[str] = '-'
 
-    def __init__(self, user: CurrentUser, basename: Path):
-        org_proj = (
-            user.organization,
-            user.project,
-        )
-        parts = ('_'.join(x.strip().split()) for x in org_proj)
-        self.Bucket = self._bucket_delimiter.join(parts)
+    def __init__(self, basename: Path):
+        self.Bucket = settings.AWS_S3_BUCKET
         self.Key = str(basename.with_name(str(uuid4())))
 
     def to_url(self):
@@ -47,34 +52,17 @@ class CloudStorage:
 class AmazonCloudStorage(CloudStorage):
     def __init__(self, user: CurrentUser):
         super().__init__(user)
-        self.client = boto3.client(
-            's3',
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            region_name=settings.AWS_DEFAULT_REGION,
-        )
-
-    def test_and_create(self, target: SimpleStorageName):
-        try:
-            # does the bucket exist...
-            self.client.head_bucket(Bucket=target.Bucket)
-        except ClientError as err:
-            response = int(err.response['Error']['Code'])
-            if response != 404:
-                raise
-            # ... if not create it
-            self.client.create_bucket(Bucket=target.Bucket)
+        self.aws = AmazonCloudStorageClient()
 
     def put(self, source: UploadFile):
         fname_external = Path(source.filename)
         assert not fname_external.parent.name, 'Source is not a basename'
-        destination = SimpleStorageName(self.user, fname_external)
+        destination = SimpleStorageName(fname_external)
 
         kwargs = asdict(destination)
         metadata = self.user.dict()
         try:
-            self.test_and_create(destination)
-            self.client.upload_fileobj(
+            self.aws.client.upload_fileobj(
                 source.file,
                 ExtraArgs={
                     'Metadata': metadata,
