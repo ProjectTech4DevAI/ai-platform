@@ -1,6 +1,9 @@
 import logging
 
+from botocore.exceptions import ClientError
+
 from app.core.cloud import AmazonCloudStorageClient
+from app.core.config import settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
