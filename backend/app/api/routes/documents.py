@@ -41,17 +41,17 @@ def upload_doc(
         src: UploadFile = File(...),
 ):
     storage = AmazonCloudStorage(current_user)
+    basename = uuid4()
     try:
-        object_store_url = storage.put(doc)
+        object_store_url = storage.put(src, str(basename))
     except ConnectionError as err:
         raise HTTPException(status_code=500, detail=str(err))
-    fname_internal = Path(object_store_url.path)
 
     document = Document(
-        owner_id=user.id,
-        fname_external=Path(doc.filename),
-        fname_internal=fname_internal.stem,
-        object_store_url=urlunparse(object_store_url),
+        id=basename,
+        owner_id=current_user.id,
+        fname=src.filename,
+        object_store_url=str(object_store_url),
     )
     session.add(document)
     session.commit()
