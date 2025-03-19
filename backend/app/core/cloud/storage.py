@@ -1,8 +1,8 @@
+import logging
 import functools as ft
-from uuid import uuid4
 from pathlib import Path
 from dataclasses import dataclass, asdict
-from urllib.parse import ParseResult
+from urllib.parse import ParseResult, urlunparse
 
 import boto3
 from fastapi import UploadFile
@@ -23,12 +23,11 @@ class AmazonCloudStorageClient:
 
 @dataclass(frozen=True)
 class SimpleStorageName:
-    Bucket: str
     Key: str
+    Bucket: str = settings.AWS_S3_BUCKET
 
-    def __init__(self, basename: Path):
-        self.Bucket = settings.AWS_S3_BUCKET
-        self.Key = str(basename.with_name(str(uuid4())))
+    def __str__(self):
+        return urlunparse(self.to_url())
 
     def to_url(self):
         kwargs = {
@@ -45,7 +44,7 @@ class CloudStorage:
     def __init__(self, user: CurrentUser):
         self.user = user
 
-    def put(self, source: UploadFile):
+    def put(self, source: UploadFile, basename: str):
         raise NotImplementedError()
 
 class AmazonCloudStorage(CloudStorage):
@@ -53,10 +52,10 @@ class AmazonCloudStorage(CloudStorage):
         super().__init__(user)
         self.aws = AmazonCloudStorageClient()
 
-    def put(self, source: UploadFile):
-        fname_external = Path(source.filename)
-        assert not fname_external.parent.name, 'Source is not a basename'
-        destination = SimpleStorageName(fname_external)
+    def put(self, source: UploadFile, basename: str):
+        # key = Path(user.organization, user.project, basename)
+        key = Path('test-org', 'test-project', basename)
+        destination = SimpleStorageName(str(key))
 
         kwargs = asdict(destination)
         metadata = self.user.dict()
@@ -64,7 +63,7 @@ class AmazonCloudStorage(CloudStorage):
             self.aws.client.upload_fileobj(
                 source.file,
                 ExtraArgs={
-                    'Metadata': metadata,
+                    # 'Metadata': metadata,
                     'ContentType': source.content_type,
                 },
                 **kwargs,
@@ -72,4 +71,4 @@ class AmazonCloudStorage(CloudStorage):
         except ClientError as err:
             raise ConnectionError(f'AWS Error: "{err}"') from err
 
-        return destination.to_url()
+        return destination
