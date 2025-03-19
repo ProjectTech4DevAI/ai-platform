@@ -18,7 +18,12 @@ def init() -> None:
         if response != 404:
             raise
         # ... if not create it
-        aws.client.create_bucket(Bucket=settings.AWS_S3_BUCKET)
+        aws.client.create_bucket(
+            Bucket=settings.AWS_S3_BUCKET,
+            CreateBucketConfiguration={
+                'LocationConstraint': settings.AWS_DEFAULT_REGION,
+            },
+        )
 
 def main() -> None:
     logger.info("START: setup cloud storage")
