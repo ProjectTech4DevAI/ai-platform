@@ -15,6 +15,8 @@ def send_callback(callback_url: str, data: dict):
     """Send results to the callback URL (synchronously)."""
     try:
         session = requests.Session()
+        # uncomment this to run locally without SSL    
+        # session.verify = False
         response = session.post(callback_url, json=data)
         response.raise_for_status()
         return True
@@ -45,11 +47,16 @@ def process_run(request: dict, client: OpenAI):
                 message = re.sub(r"【\d+(?::\d+)?†[^】]*】", "", message_content)
             else:
                 message = message_content
+
+            # Update the data dictionary with additional fields from the request, excluding specific keys
+            additional_data = {k: v for k, v in request.items(
+            ) if k not in {"question", "assistant_id", "callback_url", "thread_id"}}
             callback_response = APIResponse.success_response(data={
                 "status": "success",
                 "message": message,
                 "thread_id": request["thread_id"],
                 "endpoint": getattr(request, "endpoint", "some-default-endpoint"),
+                **additional_data
             })
         else:
             callback_response = APIResponse.failure_response(
@@ -86,16 +93,17 @@ async def threads(request: dict, background_tasks: BackgroundTasks):
     Once completed, calls send_callback with the final result.
     """
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
-
     assistant_error = validate_assistant_id(request["assistant_id"], client)
     if assistant_error:
         return assistant_error
 
+    # Use get method to safely access thread_id
+    thread_id = request.get("thread_id")
+
     # 1. Validate or check if there's an existing thread with an in-progress run
-    if request["thread_id"]:
+    if thread_id:
         try:
-            runs = client.beta.threads.runs.list(
-                thread_id=request["thread_id"])
+            runs = client.beta.threads.runs.list(thread_id=thread_id)
             # Get the most recent run (first in the list) if any
             if runs.data and len(runs.data) > 0:
                 latest_run = runs.data[0]
@@ -106,11 +114,11 @@ async def threads(request: dict, background_tasks: BackgroundTasks):
                     }
         except openai.NotFoundError:
             # Handle invalid thread ID
-            return APIResponse.failure_response(error=f"Invalid thread ID provided {request['thread_id']}")
+            return APIResponse.failure_response(error=f"Invalid thread ID provided {thread_id}")
 
         # Use existing thread
         client.beta.threads.messages.create(
-            thread_id=request["thread_id"], role="user", content=request["question"]
+            thread_id=thread_id, role="user", content=request["question"]
         )
     else:
         try:
@@ -132,7 +140,7 @@ async def threads(request: dict, background_tasks: BackgroundTasks):
     initial_response = APIResponse.success_response(data={
         "status": "processing",
         "message": "Run started",
-        "thread_id": request["thread_id"],
+        "thread_id": request.get("thread_id"),
         "success": True,
     })
 
