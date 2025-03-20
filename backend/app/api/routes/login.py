@@ -1,7 +1,7 @@
 from datetime import timedelta
-from typing import Annotated, Any
+from typing import Annotated, Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Form
 from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -23,10 +23,13 @@ router = APIRouter(tags=["login"])
 
 @router.post("/login/access-token")
 def login_access_token(
-    session: SessionDep, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
+    session: SessionDep,
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    token_expiry_minutes: Optional[int] = Form(default=settings.ACCESS_TOKEN_EXPIRE_MINUTES, ge=1, le=60 * 24 * 360),
 ) -> Token:
     """
-    OAuth2 compatible token login, get an access token for future requests
+    OAuth2 compatible token login with customizable expiration time.
+    Specify an expiration time (in minutes), with a default of 30 days and a max of 360 days.
     """
     user = authenticate(
         session=session, email=form_data.username, password=form_data.password
@@ -35,7 +38,9 @@ def login_access_token(
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     elif not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+
+    access_token_expires = timedelta(minutes=token_expiry_minutes)
+
     return Token(
         access_token=security.create_access_token(
             user.id, expires_delta=access_token_expires
