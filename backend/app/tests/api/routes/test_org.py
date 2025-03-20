@@ -26,23 +26,30 @@ def test_organization(db: Session, superuser_token_headers: dict[str, str]):
 def test_read_organizations(db: Session, superuser_token_headers: dict[str, str]):
     response = client.get(f"{settings.API_V1_STR}/organizations/", headers=superuser_token_headers)
     assert response.status_code == 200
-    assert isinstance(response.json(), list)
+    response_data = response.json()
+    assert "data" in response_data
+    assert isinstance(response_data["data"], list)
 
 # Test creating an organization
 def test_create_organization(db: Session, superuser_token_headers: dict[str, str]):
-        unique_name = f"Org-{random_lower_string()}"
-        org_data = {"name": unique_name, "is_active": True}
-        response = client.post(
-            f"{settings.API_V1_STR}/organizations/", json=org_data, headers=superuser_token_headers
-        )
-        assert 200 <= response.status_code < 300
-        created_org = response.json()
-        org = get_organization_by_id(session=db, org_id=created_org["id"])
-        assert org
-        assert org.name == created_org["name"]
+    unique_name = f"Org-{random_lower_string()}"
+    org_data = {"name": unique_name, "is_active": True}
+    response = client.post(
+        f"{settings.API_V1_STR}/organizations/", json=org_data, headers=superuser_token_headers
+    )
+
+    assert 200 <= response.status_code < 300
+    created_org = response.json()
+    assert "data" in created_org  # Make sure there's a 'data' field
+    created_org_data = created_org["data"]
+    org = get_organization_by_id(session=db, org_id=created_org_data["id"])
+    assert org is not None  # The organization should be found in the DB
+    assert org.name == created_org_data["name"]
+    assert org.is_active == created_org_data["is_active"]
+
 
 def test_update_organization(db: Session, test_organization: Organization, superuser_token_headers: dict[str, str]):
-    unique_name = f"UpdatedOrg-{random_lower_string()}"  # ✅ Ensure a unique name
+    unique_name = f"UpdatedOrg-{random_lower_string()}"  # Ensure a unique name
     update_data = {"name": unique_name, "is_active": False}
     
     response = client.patch(
@@ -52,11 +59,12 @@ def test_update_organization(db: Session, test_organization: Organization, super
     )
     
     assert response.status_code == 200
-    updated_org = response.json()
+    updated_org = response.json()["data"]    
     assert "name" in updated_org
     assert updated_org["name"] == update_data["name"]
     assert "is_active" in updated_org
     assert updated_org["is_active"] == update_data["is_active"]
+
 
 # Test deleting an organization
 def test_delete_organization(db: Session, test_organization: Organization, superuser_token_headers: dict[str, str]):

@@ -27,7 +27,6 @@ def read_organizations(session: SessionDep, skip: int = 0, limit: int = 100):
 
     return APIResponse.success_response(organizations)
 
-
 # Create a new organization
 @router.post("/", dependencies=[Depends(get_current_active_superuser)], response_model=APIResponse[OrganizationPublic])
 def create_new_organization(*, session: SessionDep, org_in: OrganizationCreate):
@@ -53,13 +52,13 @@ def update_organization(*, session: SessionDep, org_id: int, org_in: Organizatio
     if org is None:
         raise HTTPException(status_code=404, detail="Organization not found")
 
-    org_data = org_in.model_dump(exclude_unset=True)
+    org_data = org_in.model_dump(exclude_unset=True)   
     org = org.model_copy(update=org_data)
 
 
     session.add(org)
     session.commit()
-    session.refresh(org)
+    session.flush()
 
     return APIResponse.success_response(org)
 

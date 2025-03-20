@@ -55,16 +55,9 @@ def update_project(*, session: SessionDep, project_id: int, project_in: ProjectU
     project_data = project_in.model_dump(exclude_unset=True)
     project = project.model_copy(update=project_data)
 
-    # Re-attach the object to the session
-    session.merge(project)
-
-    # Commit the changes to the database
+    session.add(project)
     session.commit()
-
-    # Refresh the project object with the latest data from the database
-    session.refresh(project)
-
-    # Return the response
+    session.flush()
     return APIResponse.success_response(project)
 
 
