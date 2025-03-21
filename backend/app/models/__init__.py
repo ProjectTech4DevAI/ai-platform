@@ -40,5 +40,6 @@ from .user import (
     UserUpdateMe,
     NewPassword,
     UpdatePassword,
-    UserProjectOrg
+    UserProjectOrg,
+    UserOrganization
 )

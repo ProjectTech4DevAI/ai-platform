@@ -12,7 +12,7 @@ def create_api_key(session: Session, organization_id: uuid.UUID, user_id: uuid.U
     Generates a new API key for an organization and associates it with a user.
     """
     api_key = APIKey(
-        key=secrets.token_urlsafe(32),
+        key='ApiKey '+secrets.token_urlsafe(32),
         organization_id=organization_id,
         user_id=user_id
     )
@@ -63,3 +63,19 @@ def delete_api_key(session: Session, api_key_id: int) -> None:
 
     session.add(api_key)
     session.commit()
+
+def get_api_key_by_value(session: Session, api_key_value: str) -> APIKey | None:
+    """
+    Retrieve an API Key record by its value.
+    """
+    return session.exec(select(APIKey).where(APIKey.key == api_key_value, APIKey.is_deleted == False)).first()
+
+def get_api_key_by_user_org(session: Session, organization_id: int, user_id: str) -> APIKey | None:
+    """
+    Retrieve an API key for a specific user and organization.
+    """
+    statement = select(APIKey).where(
+        APIKey.organization_id == organization_id,
+        APIKey.user_id == user_id
+    )
+    return session.exec(statement).first()
