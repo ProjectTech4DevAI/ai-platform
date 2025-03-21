@@ -15,7 +15,7 @@ def send_callback(callback_url: str, data: dict):
     """Send results to the callback URL (synchronously)."""
     try:
         session = requests.Session()
-        # uncomment this to run locally without SSL    
+        # uncomment this to run locally without SSL
         # session.verify = False
         response = session.post(callback_url, json=data)
         response.raise_for_status()
@@ -108,11 +108,8 @@ async def threads(request: dict, background_tasks: BackgroundTasks):
             if runs.data and len(runs.data) > 0:
                 latest_run = runs.data[0]
                 if latest_run.status in ["queued", "in_progress", "requires_action"]:
-                    return {
-                        "status": "error",
-                        "message": f"There is an active run on this thread (status: {latest_run.status}). Please wait for it to complete.",
-                    }
-        except openai.NotFoundError:
+                    return APIResponse.failure_response(error=f"There is an active run on this thread (status: {latest_run.status}). Please wait for it to complete.")
+        except openai.OpenAIError:
             # Handle invalid thread ID
             return APIResponse.failure_response(error=f"Invalid thread ID provided {thread_id}")
 
