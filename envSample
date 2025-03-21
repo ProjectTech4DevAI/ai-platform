@@ -18,7 +18,7 @@ PROJECT_NAME="AI Platform"
 STACK_NAME=ai-platform
 
 # Backend
-BACKEND_CORS_ORIGINS="http://localhost"
+BACKEND_CORS_ORIGINS="http://localhost:5173"
 SECRET_KEY=changethis
 FIRST_SUPERUSER=admin@example.com
 FIRST_SUPERUSER_PASSWORD=changethis
