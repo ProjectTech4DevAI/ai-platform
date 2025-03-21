@@ -17,27 +17,28 @@ from app.crud.organization import validate_organization
 from app.crud.api_key import get_api_key_by_value
 from app.models import TokenPayload, User, UserProjectOrg, UserOrganization, ProjectUser, Project, Organization
 
-# reusable_oauth2 = OAuth2PasswordBearer(
-#     tokenUrl=f"{settings.API_V1_STR}/login/access-token"
-# )
+reusable_oauth2 = OAuth2PasswordBearer(
+    tokenUrl=f"{settings.API_V1_STR}/login/access-token",
+    auto_error= False
+)
 
 
 def get_db() -> Generator[Session, None, None]:
     with Session(engine) as session:
         yield session
 
-api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
+api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
 SessionDep = Annotated[Session, Depends(get_db)]
-# TokenDep = Annotated[str, Depends(reusable_oauth2)]
+TokenDep = Annotated[str, Depends(reusable_oauth2)]
 
 def get_current_user(
     session: SessionDep,
-    auth_header: str = Security(api_key_header),
+    token: TokenDep,
+    api_key: Annotated[str, Depends(api_key_header)],
 ) -> UserOrganization:
     """Authenticate user via API Key first, fallback to JWT token."""
 
-    if auth_header.startswith("ApiKey "):
-        api_key = auth_header.split(" ", 1)[1]
+    if api_key:
         api_key_record = get_api_key_by_value(session, api_key)
         if not api_key_record:
             raise HTTPException(status_code=401, detail="Invalid API Key")
@@ -51,9 +52,8 @@ def get_current_user(
         # Return UserOrganization model with organization ID
         return UserOrganization(**user.model_dump(), organization_id=api_key_record.organization_id)
 
-    if auth_header.startswith("Bearer "):
+    if token:
         try:
-            token = auth_header.split(" ", 1)[1]
             payload = jwt.decode(
                 token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
             )
@@ -70,7 +70,8 @@ def get_current_user(
             raise HTTPException(status_code=400, detail="Inactive user")
 
         return UserOrganization(**user.model_dump(), organization_id=None)
-    raise HTTPException(status_code=401, detail="Invalid Authorization header format")
+
+    raise HTTPException(status_code=401, detail="Invalid Authorization format")
 
 CurrentUser = Annotated[UserOrganization, Depends(get_current_user)]
 
