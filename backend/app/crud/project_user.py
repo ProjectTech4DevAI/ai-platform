@@ -1,6 +1,6 @@
 import uuid
 from sqlmodel import Session, select, delete, func
-from app.models import ProjectUser, ProjectUserPublic, User
+from app.models import ProjectUser, ProjectUserPublic, User, Project
 from datetime import datetime
 
 
@@ -80,3 +80,21 @@ def get_users_by_project(
     users = session.exec(statement).all()
 
     return [ProjectUserPublic.model_validate(user) for user in users], total_count
+
+
+# Check if a user belongs to an at least one project in organization
+def is_user_part_of_organization(session: Session, user_id: uuid.UUID, org_id: int) -> bool:
+    """
+    Checks if a user is part of at least one project within the organization.
+    """
+    user_in_org = session.exec(
+        select(ProjectUser)
+        .join(Project, ProjectUser.project_id == Project.id)
+        .where(
+            Project.organization_id == org_id,
+            ProjectUser.user_id == user_id,
+            ProjectUser.is_deleted == False
+        )
+    ).first()
+
+    return bool(user_in_org)

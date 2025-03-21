@@ -18,6 +18,12 @@ from .project import (
     ProjectUpdate,
 )
 
+from .api_key import (
+    APIKey,
+    APIKeyBase,
+    APIKeyPublic
+)
+
 from .organization import (
     Organization,
     OrganizationCreate,
@@ -36,6 +42,6 @@ from .user import (
     UserUpdateMe,
     NewPassword,
     UpdatePassword,
-   UserProjectOrg
-
+    UserProjectOrg,
+    UserOrganization
 )
