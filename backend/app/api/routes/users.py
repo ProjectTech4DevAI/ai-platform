@@ -178,7 +178,7 @@ def read_user_by_id(
     dependencies=[Depends(get_current_active_superuser)],
     response_model=UserPublic,
 )
-def update_user(
+def update_user_endpoint(
     *,
     session: SessionDep,
     user_id: uuid.UUID,
