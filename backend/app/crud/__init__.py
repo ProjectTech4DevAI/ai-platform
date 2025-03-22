@@ -5,3 +5,5 @@ from .user import (
     get_user_by_email,
     update_user,
 )
+
+from .document import DocumentCrud

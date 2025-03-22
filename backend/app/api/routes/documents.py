@@ -2,13 +2,13 @@ from uuid import UUID, uuid4
 from pathlib import Path
 
 from fastapi import APIRouter, File, UploadFile, HTTPException
-from sqlmodel import select, update, and_
+
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound
 
+from app.crud import DocumentCrud
+from app.models import Document, DocumentList
 from app.api.deps import CurrentUser, SessionDep
 from app.core.cloud import AmazonCloudStorage
-from app.core.util import now
-from app.models import Document, DocumentList
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -20,20 +20,8 @@ def list_docs(
         skip: int = 0,
         limit: int = 100,
 ):
-    statement = (
-        select(Document)
-        .where(and_(
-            Document.owner_id == current_user.id,
-            Document.deleted_at.is_(None),
-        ))
-        .offset(skip)
-        .limit(limit)
-    )
-    docs = (session
-            .exec(statement)
-            .all())
-
-    return DocumentList(docs=docs)
+    crud = DocumentCrud(session)
+    return crud.read_many(current_user.id, skip, limit)
 
 @router.post("/cp")
 def upload_doc(
@@ -48,15 +36,14 @@ def upload_doc(
     except ConnectionError as err:
         raise HTTPException(status_code=500, detail=str(err))
 
+    crud = DocumentCrud(session)
     document = Document(
         id=basename,
         owner_id=current_user.id,
         fname=src.filename,
         object_store_url=str(object_store_url),
     )
-    session.add(document)
-    session.commit()
-    session.refresh(document)
+    crud.update(document)
 
     return document.id
 
@@ -66,20 +53,11 @@ def delete_doc(
         current_user: CurrentUser,
         doc_id: UUID,
 ):
-    deleted_at = now()
-    statement = (
-        update(Document)
-        .where(and_(
-            Document.id == doc_id,
-            Document.owner_id == current_user.id,
-        ))
-        .values(deleted_at=deleted_at)
-    )
-    result = session.exec(statement)
-    if not result.rowcount:
-        detail = f'Item "{doc_id}" not found'
-        raise HTTPException(status_code=404, detail=detail)
-    session.commit()
+    crud = DocumentCrud(session)
+    try:
+        crud.delete(doc_id, current_user.id)
+    except FileNotFoundError as err:
+        raise HTTPException(status_code=404, detail=str(err))
 
     # TODO: perform delete on the collection
 
@@ -89,14 +67,9 @@ def doc_info(
         current_user: CurrentUser,
         doc_id: UUID,
 ):
-    statement = (
-        select(Document)
-        .where(Document.id == doc_id)
-    )
-    result = session.exec(statement)
-
+    crud = DocumentCrud(session)
     try:
-        return result.one()
+        return crud.read_one(doc_id)
     except NoResultFound as err:
         raise HTTPException(status_code=404, detail=str(err))
     except MultipleResultsFound as err:
