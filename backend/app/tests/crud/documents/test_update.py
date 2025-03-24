@@ -45,8 +45,8 @@ class TestDatabaseUpdate:
         assert len(before) + 1 == len(after)
 
     def test_sequential_update_is_ordered(self, state: State):
-        (a, b) = map(state.add, range(2))
-        assert a.create_at >= b.created_at
+        (a, b) = (state.add() for _ in range(2))
+        assert a.created_at <= b.created_at
 
     def test_insert_does_not_delete(self, state: State):
         document = state.add()
