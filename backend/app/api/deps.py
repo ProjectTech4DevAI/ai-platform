@@ -155,6 +155,7 @@ def verify_user_project_organization(
     
     # Superuser bypasses all checks and If Api key request we give access to all the project in organization
     if current_user.is_superuser or current_user.organization_id:
+        current_user.organization_id = organization_id
         return UserProjectOrg(**current_user.model_dump(), project_id=project_id)
 
     # Check if the user is part of the project

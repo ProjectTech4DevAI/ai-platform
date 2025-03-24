@@ -3,7 +3,7 @@ import uuid
 from sqlmodel import Session, select
 from fastapi import HTTPException
 from app.api.deps import verify_user_project_organization
-from app.models import User, Organization, Project, ProjectUser, UserProjectOrg
+from app.models import User, Organization, Project, ProjectUser, UserProjectOrg, UserOrganization
 from app.tests.utils.utils import random_email
 from app.core.security import get_password_hash
 
@@ -34,7 +34,8 @@ def create_user(db: Session, is_superuser=False) -> User:
     db.add(user)
     db.commit()
     db.refresh(user)
-    return user
+    user_org = UserOrganization(**user.model_dump(), organization_id=None)
+    return user_org
 
 
 def test_verify_success(db: Session):
