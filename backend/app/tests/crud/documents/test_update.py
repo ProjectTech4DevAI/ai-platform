@@ -25,7 +25,6 @@ class State:
     def add(self):
         document = mk_document(self.owner_id, self.doc_id)
         self.doc_id += 1
-
         return self.crud.update(document)
 
     def get(self):
