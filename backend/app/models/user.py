@@ -11,6 +11,13 @@ class UserBase(SQLModel):
     is_superuser: bool = False
     full_name: str | None = Field(default=None, max_length=255)
 
+class UserOrganization(UserBase):
+    id: uuid.UUID
+    organization_id: int | None
+
+class UserProjectOrg(UserOrganization):
+    project_id: int
+    
 
 # Properties to receive via API on creation
 class UserCreate(UserBase):
@@ -49,6 +56,8 @@ class User(UserBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     hashed_password: str
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
+    projects: list["ProjectUser"] = Relationship(back_populates="user", cascade_delete=True)
+    api_keys: list["APIKey"] = Relationship(back_populates="user")
 
 
 # Properties to return via API, id is always required

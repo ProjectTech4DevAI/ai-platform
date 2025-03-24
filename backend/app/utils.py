@@ -24,10 +24,11 @@ class APIResponse(BaseModel, Generic[T]):
     success: bool
     data: Optional[T] = None
     error: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
 
     @classmethod
-    def success_response(cls, data: T) -> "APIResponse[T]":
-        return cls(success=True, data=data, error=None)
+    def success_response(cls, data: T, metadata: Optional[Dict[str, Any]] = None) -> "APIResponse[T]":
+        return cls(success=True, data=data, error=None, metadata=metadata)
 
     @classmethod
     def failure_response(cls, error: str) -> "APIResponse[None]":
