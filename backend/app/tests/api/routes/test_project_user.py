@@ -25,15 +25,10 @@ def create_user(db: Session) -> User:
 def create_organization_and_project(db: Session) -> tuple[Organization, Project]:
     """Helper function to create an organization and a project."""
 
-    # Check if an organization already exists to avoid duplicate key errors
-    existing_org = db.exec(select(Organization).where(Organization.name == "Test Organization")).first()
-    if existing_org:
-        organization = existing_org
-    else:
-        organization = Organization(name="Test Organization", is_active=True)
-        db.add(organization)
-        db.commit()
-        db.refresh(organization)
+    organization = Organization(name=f"Test Organization {uuid.uuid4()}", is_active=True)
+    db.add(organization)
+    db.commit()
+    db.refresh(organization)
 
     # Ensure project with unique name
     project_name = f"Test Project {uuid.uuid4()}"  # Ensuring unique project name

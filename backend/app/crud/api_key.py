@@ -56,7 +56,7 @@ def delete_api_key(session: Session, api_key_id: int) -> None:
     api_key = session.get(APIKey, api_key_id)
 
     if not api_key or api_key.is_deleted:
-        raise ValueError("API key not found or already deleted.")
+        raise ValueError("API key not found or already deleted")
 
     api_key.is_deleted = True
     api_key.deleted_at = datetime.utcnow()
@@ -76,6 +76,7 @@ def get_api_key_by_user_org(session: Session, organization_id: int, user_id: str
     """
     statement = select(APIKey).where(
         APIKey.organization_id == organization_id,
-        APIKey.user_id == user_id
+        APIKey.user_id == user_id,
+        APIKey.is_deleted == False
     )
     return session.exec(statement).first()

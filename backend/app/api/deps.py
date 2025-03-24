@@ -35,8 +35,8 @@ def get_current_user(
     session: SessionDep,
     token: TokenDep,
     api_key: Annotated[str, Depends(api_key_header)],
-) -> UserOrganization:
-    """Authenticate user via API Key first, fallback to JWT token."""
+) -> User:
+    """Authenticate user via API Key first, fallback to JWT token. Returns only User."""
 
     if api_key:
         api_key_record = get_api_key_by_value(session, api_key)
@@ -47,10 +47,7 @@ def get_current_user(
         if not user:
             raise HTTPException(status_code=404, detail="User linked to API Key not found")
 
-        validate_organization(session, api_key_record.organization_id)
-
-        # Return UserOrganization model with organization ID
-        return UserOrganization(**user.model_dump(), organization_id=api_key_record.organization_id)
+        return user  # Return only User object
 
     if token:
         try:
@@ -63,18 +60,37 @@ def get_current_user(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Could not validate credentials",
             )
+
         user = session.get(User, token_data.sub)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         if not user.is_active:
             raise HTTPException(status_code=400, detail="Inactive user")
 
-        return UserOrganization(**user.model_dump(), organization_id=None)
+        return user  # Return only User object
 
     raise HTTPException(status_code=401, detail="Invalid Authorization format")
 
-CurrentUser = Annotated[UserOrganization, Depends(get_current_user)]
+CurrentUser = Annotated[User, Depends(get_current_user)]
 
+def get_current_user_org(
+    current_user: CurrentUser,
+    session: SessionDep,
+    request: Request
+) -> UserOrganization:
+    """Extend `User` with organization_id if available, otherwise return UserOrganization without it."""
+    
+    organization_id = None
+    api_key = request.headers.get("X-API-KEY")
+    if api_key:
+        api_key_record = get_api_key_by_value(session, api_key)
+        if api_key_record:
+            validate_organization(session, api_key_record.organization_id)
+            organization_id = api_key_record.organization_id
+
+    return UserOrganization(**current_user.model_dump(), organization_id=organization_id)
+
+CurrentUserOrg = Annotated[UserOrganization, Depends(get_current_user_org)]
 
 def get_current_active_superuser(current_user: CurrentUser) -> User:
     if not current_user.is_superuser:
@@ -83,6 +99,12 @@ def get_current_active_superuser(current_user: CurrentUser) -> User:
         )
     return current_user
 
+def get_current_active_superuser_org(current_user: CurrentUserOrg) -> User:
+    if not current_user.is_superuser:
+        raise HTTPException(
+            status_code=403, detail="The user doesn't have enough privileges"
+        )
+    return current_user
 
 async def http_exception_handler(request: Request, exc: HTTPException):
     """
@@ -95,7 +117,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 def verify_user_project_organization(
     db: SessionDep,
-    current_user: CurrentUser,
+    current_user: CurrentUserOrg,
     project_id: int,
     organization_id: int,
 ) -> UserProjectOrg:
@@ -104,7 +126,7 @@ def verify_user_project_organization(
     and that the project belongs to the organization.
     """
     if current_user.organization_id and current_user.organization_id != organization_id:
-        raise HTTPException(status_code=403, detail="User does not belong to the specified organization")
+        raise HTTPException(status_code=403, detail="User is not part of organization")
     
     project_organization = db.exec(
         select(Project, Organization)
@@ -130,12 +152,10 @@ def verify_user_project_organization(
             raise HTTPException(status_code=400, detail="Project is not active")  # Use 400 for inactive resources
         
         raise HTTPException(status_code=403, detail="Project does not belong to the organization")
-
-
-    current_user.organization_id = organization_id
     
-    # Superuser bypasses all checks
-    if current_user.is_superuser:
+    # Superuser bypasses all checks and If Api key request we give access to all the project in organization
+    if current_user.is_superuser or current_user.organization_id:
+        current_user.organization_id = organization_id
         return UserProjectOrg(**current_user.model_dump(), project_id=project_id)
 
     # Check if the user is part of the project
@@ -150,4 +170,5 @@ def verify_user_project_organization(
     if not user_in_project:
         raise HTTPException(status_code=403, detail="User is not part of the project")
 
+    current_user.organization_id = organization_id
     return UserProjectOrg(**current_user.model_dump(), project_id=project_id)
