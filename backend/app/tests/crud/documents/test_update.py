@@ -1,17 +1,14 @@
-import pytest
 from uuid import UUID
 from typing import ClassVar
-from sqlmodel import Session
 from dataclasses import dataclass
 
+import pytest
+from sqlmodel import Session
+
 from app.crud import DocumentCrud
-from app.core.config import settings
 
 from _utils import (
-    Constants,
     get_user_id_by_email,
-    insert_documents,
-    int_to_uuid,
     mk_document,
     rm_documents,
 )
@@ -51,6 +48,6 @@ class TestDatabaseUpdate:
         (a, b) = map(state.add, range(2))
         assert a.create_at >= b.created_at
 
-    def test_sequential_update_is_ordered(self, state: State):
+    def test_insert_does_not_delete(self, state: State):
         document = state.add()
         assert document.deleted_at is None
