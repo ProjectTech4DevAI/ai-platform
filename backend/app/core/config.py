@@ -1,5 +1,6 @@
 import secrets
 import warnings
+import os
 from typing import Annotated, Any, Literal
 
 from pydantic import (
@@ -95,6 +96,9 @@ class Settings(BaseSettings):
     EMAIL_TEST_USER: EmailStr = "test@example.com"
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
+
+    LOG_DIR: str = os.path.join(os.path.dirname(
+        os.path.dirname(__file__)), "logs")
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":

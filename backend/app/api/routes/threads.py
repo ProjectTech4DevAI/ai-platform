@@ -1,8 +1,10 @@
-import openai
 import re
 import requests
+
+import openai
 from openai import OpenAI
 from fastapi import APIRouter, BackgroundTasks
+
 from app.utils import APIResponse
 from app.core import settings, logging
 
@@ -81,7 +83,6 @@ def validate_assistant_id(assistant_id: str, client: OpenAI):
         client.beta.assistants.retrieve(assistant_id=assistant_id)
     except openai.NotFoundError:
         return APIResponse.failure_response(error=f"Invalid assistant ID provided {assistant_id}")
-    return None
 
 
 @router.post("/threads")
