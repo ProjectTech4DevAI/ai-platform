@@ -39,6 +39,9 @@ jobs:
           version: "0.4.15"
           enable-cache: true
 
+      - name: Making env file
+        run: cp envSample .env
+
       - name: Run tests
         run: uv run bash scripts/tests-start.sh "Coverage for ${{ github.sha }}"
         working-directory: backend
