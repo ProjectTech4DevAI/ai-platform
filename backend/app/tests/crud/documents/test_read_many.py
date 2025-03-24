@@ -2,7 +2,6 @@ import pytest
 from sqlmodel import Session
 
 from app.crud import DocumentCrud
-from app.core.config import settings
 
 from _utils import (
     Constants,

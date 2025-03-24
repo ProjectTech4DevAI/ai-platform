@@ -1,6 +1,3 @@
-from uuid import UUID
-from typing import ClassVar
-
 import pytest
 from sqlmodel import Session
 

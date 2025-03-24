@@ -3,13 +3,10 @@ from uuid import UUID
 from pathlib import Path
 
 from sqlmodel import Session, delete
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.dialects.sqlite import insert
 
-from app.crud import DocumentCrud
 from app.core.config import settings
 from app.crud.user import get_user_by_email
-from app.models import Document, UserCreate
+from app.models import Document
 
 @ft.cache
 def get_user_id_by_email(session: Session):
@@ -25,14 +22,12 @@ def rm_documents(session: Session):
     session.commit()
 
 def insert_documents(session: Session, n: int):
-    crud = DocumentCrud(session)
-    docs = DocumentMaker(session)
-
-    for (_, d) in zip(range(n), docs):
-        session.add(d)
+    documents = DocumentMaker(session)
+    for (_, doc) in zip(range(n), documents):
+        session.add(doc)
         session.commit()
-        session.refresh(d)
-        yield d
+        session.refresh(doc)
+        yield doc
 
 def insert_document(session: Session):
     (document, ) = insert_documents(session, 1)
