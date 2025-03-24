@@ -18,7 +18,7 @@ jobs:
           POSTGRES_DB: ai_platform
         ports:
           - 5432:5432
-        options: --health-cmd "pg_isready -U ddp" --health-interval 10s --health-timeout 5s --health-retries 5
+        options: --health-cmd "pg_isready -U ai_platform" --health-interval 10s --health-timeout 5s --health-retries 5
 
     strategy:
       matrix:
@@ -41,6 +41,10 @@ jobs:
 
       - name: Making env file
         run: cp envSample .env
+
+      - name: Run migrations
+        run: alembic upgrade head
+        working-directory: backend
 
       - name: Run tests
         run: uv run bash scripts/tests-start.sh "Coverage for ${{ github.sha }}"
