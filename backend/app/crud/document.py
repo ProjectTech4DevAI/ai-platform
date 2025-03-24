@@ -41,7 +41,7 @@ class DocumentCrud(CrudObject):
 
         return DocumentList(docs=docs)
 
-    def update(self, doc: Document):
+    def update(self, document: Document):
         self.session.add(document)
         self.session.commit()
         self.session.refresh(document)
