@@ -12,10 +12,25 @@ def create_organization(*, session: Session, org_create: OrganizationCreate) -> 
     return db_org
 
 
-def get_organization_by_id(*, session: Session, org_id: int) -> Optional[Organization]:
+# Get organization by ID
+def get_organization_by_id(session: Session, org_id: int) -> Optional[Organization]:
     statement = select(Organization).where(Organization.id == org_id)
     return session.exec(statement).first()
 
 def get_organization_by_name(*, session: Session, name: str) -> Optional[Organization]:
     statement = select(Organization).where(Organization.name == name)
     return session.exec(statement).first()
+
+# Validate if organization exists and is active
+def validate_organization(session: Session, org_id: int) -> Organization:
+    """
+    Ensures that an organization exists and is active.
+    """
+    organization = get_organization_by_id(session, org_id)
+    if not organization:
+        raise ValueError("Organization not found")
+
+    if not organization.is_active:
+        raise ValueError("Organization is not active")
+
+    return organization

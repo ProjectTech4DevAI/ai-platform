@@ -1,10 +1,10 @@
 from collections.abc import Generator
-from typing import Annotated
+from typing import Annotated, Optional
 
 import jwt
-from fastapi import Depends, HTTPException, status, Request
+from fastapi import Depends, HTTPException, status, Request, Header, Security
 from fastapi.responses import JSONResponse
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, APIKeyHeader
 from jwt.exceptions import InvalidTokenError
 from pydantic import ValidationError
 from sqlmodel import Session, select
@@ -13,10 +13,13 @@ from app.core import security
 from app.core.config import settings
 from app.core.db import engine
 from app.utils import APIResponse
-from app.models import TokenPayload, User, UserProjectOrg, ProjectUser, Project, Organization
+from app.crud.organization import validate_organization
+from app.crud.api_key import get_api_key_by_value
+from app.models import TokenPayload, User, UserProjectOrg, UserOrganization, ProjectUser, Project, Organization
 
 reusable_oauth2 = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/login/access-token"
+    tokenUrl=f"{settings.API_V1_STR}/login/access-token",
+    auto_error= False
 )
 
 
@@ -24,32 +27,70 @@ def get_db() -> Generator[Session, None, None]:
     with Session(engine) as session:
         yield session
 
-
+api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
 SessionDep = Annotated[Session, Depends(get_db)]
 TokenDep = Annotated[str, Depends(reusable_oauth2)]
 
+def get_current_user(
+    session: SessionDep,
+    token: TokenDep,
+    api_key: Annotated[str, Depends(api_key_header)],
+) -> User:
+    """Authenticate user via API Key first, fallback to JWT token. Returns only User."""
 
-def get_current_user(session: SessionDep, token: TokenDep) -> User:
-    try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
-        )
-        token_data = TokenPayload(**payload)
-    except (InvalidTokenError, ValidationError):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Could not validate credentials",
-        )
-    user = session.get(User, token_data.sub)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    if not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    return user
+    if api_key:
+        api_key_record = get_api_key_by_value(session, api_key)
+        if not api_key_record:
+            raise HTTPException(status_code=401, detail="Invalid API Key")
 
+        user = session.get(User, api_key_record.user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User linked to API Key not found")
+
+        return user  # Return only User object
+
+    if token:
+        try:
+            payload = jwt.decode(
+                token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
+            )
+            token_data = TokenPayload(**payload)
+        except (InvalidTokenError, ValidationError):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Could not validate credentials",
+            )
+
+        user = session.get(User, token_data.sub)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        if not user.is_active:
+            raise HTTPException(status_code=400, detail="Inactive user")
+
+        return user  # Return only User object
+
+    raise HTTPException(status_code=401, detail="Invalid Authorization format")
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
+def get_current_user_org(
+    current_user: CurrentUser,
+    session: SessionDep,
+    request: Request
+) -> UserOrganization:
+    """Extend `User` with organization_id if available, otherwise return UserOrganization without it."""
+    
+    organization_id = None
+    api_key = request.headers.get("X-API-KEY")
+    if api_key:
+        api_key_record = get_api_key_by_value(session, api_key)
+        if api_key_record:
+            validate_organization(session, api_key_record.organization_id)
+            organization_id = api_key_record.organization_id
+
+    return UserOrganization(**current_user.model_dump(), organization_id=organization_id)
+
+CurrentUserOrg = Annotated[UserOrganization, Depends(get_current_user_org)]
 
 def get_current_active_superuser(current_user: CurrentUser) -> User:
     if not current_user.is_superuser:
@@ -58,6 +99,12 @@ def get_current_active_superuser(current_user: CurrentUser) -> User:
         )
     return current_user
 
+def get_current_active_superuser_org(current_user: CurrentUserOrg) -> User:
+    if not current_user.is_superuser:
+        raise HTTPException(
+            status_code=403, detail="The user doesn't have enough privileges"
+        )
+    return current_user
 
 async def http_exception_handler(request: Request, exc: HTTPException):
     """
@@ -70,7 +117,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 def verify_user_project_organization(
     db: SessionDep,
-    current_user: CurrentUser,
+    current_user: CurrentUserOrg,
     project_id: int,
     organization_id: int,
 ) -> UserProjectOrg:
@@ -78,6 +125,8 @@ def verify_user_project_organization(
     Verify that the authenticated user is part of the project
     and that the project belongs to the organization.
     """
+    if current_user.organization_id and current_user.organization_id != organization_id:
+        raise HTTPException(status_code=403, detail="User is not part of organization")
     
     project_organization = db.exec(
         select(Project, Organization)
@@ -103,11 +152,11 @@ def verify_user_project_organization(
             raise HTTPException(status_code=400, detail="Project is not active")  # Use 400 for inactive resources
         
         raise HTTPException(status_code=403, detail="Project does not belong to the organization")
-
-
-    # Superuser bypasses all checks
-    if current_user.is_superuser:
-        return UserProjectOrg(**current_user.model_dump(), project_id=project_id, organization_id=organization_id)
+    
+    # Superuser bypasses all checks and If Api key request we give access to all the project in organization
+    if current_user.is_superuser or current_user.organization_id:
+        current_user.organization_id = organization_id
+        return UserProjectOrg(**current_user.model_dump(), project_id=project_id)
 
     # Check if the user is part of the project
     user_in_project = db.exec(
@@ -121,4 +170,5 @@ def verify_user_project_organization(
     if not user_in_project:
         raise HTTPException(status_code=403, detail="User is not part of the project")
 
-    return UserProjectOrg(**current_user.model_dump(), project_id=project_id, organization_id=organization_id)
+    current_user.organization_id = organization_id
+    return UserProjectOrg(**current_user.model_dump(), project_id=project_id)

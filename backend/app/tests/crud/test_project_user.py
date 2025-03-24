@@ -4,22 +4,35 @@ from datetime import datetime
 import pytest
 
 from app.crud import project_user as project_user_crud
-from app.models import ProjectUser, ProjectUserPublic, User, Project
+from app.models import ProjectUser, ProjectUserPublic, User, Project, Organization
 from app.tests.utils.utils import random_email
 from app.core.security import get_password_hash
 
 
+def create_organization_and_project(db: Session) -> tuple[Organization, Project]:
+    """Helper function to create an organization and a project."""
+
+    organization = Organization(name=f"Test Organization {uuid.uuid4()}", is_active=True)
+    db.add(organization)
+    db.commit()
+    db.refresh(organization)
+
+    # Ensure project with unique name
+    project_name = f"Test Project {uuid.uuid4()}"  # Ensuring unique project name
+    project = Project(name=project_name, description="A test project", organization_id=organization.id, is_active=True)
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+
+    return organization, project
+
 def test_is_project_admin(db: Session) -> None:
+    organization, project = create_organization_and_project(db)
+
     user = User(email=random_email(), hashed_password=get_password_hash("password123"))
     db.add(user)
     db.commit()
     db.refresh(user)
-
-    # Ensure the project exists
-    project = Project(name="Test Project", description="A test project", organization_id=1)
-    db.add(project)
-    db.commit()
-    db.refresh(project)
 
     project_user = ProjectUser(project_id=project.id, user_id=user.id, is_admin=True)
     db.add(project_user)
@@ -30,16 +43,12 @@ def test_is_project_admin(db: Session) -> None:
 
 
 def test_add_user_to_project(db: Session) -> None:
+    organization, project = create_organization_and_project(db)
+
     user = User(email=random_email(), hashed_password=get_password_hash("password123"))
     db.add(user)
     db.commit()
     db.refresh(user)
-
-    # Ensure the project exists
-    project = Project(name="Test Project", description="A test project", organization_id=1)
-    db.add(project)
-    db.commit()
-    db.refresh(project)
 
     project_user = project_user_crud.add_user_to_project(db, project.id, user.id, is_admin=True)
 
@@ -49,16 +58,12 @@ def test_add_user_to_project(db: Session) -> None:
 
 
 def test_add_user_to_project_duplicate(db: Session) -> None:
+    organization, project = create_organization_and_project(db)
+
     user = User(email=random_email(), hashed_password=get_password_hash("password123"))
     db.add(user)
     db.commit()
     db.refresh(user)
-
-    # Ensure the project exists
-    project = Project(name="Test Project", description="A test project", organization_id=1)
-    db.add(project)
-    db.commit()
-    db.refresh(project)
 
     project_user_crud.add_user_to_project(db, project.id, user.id)
 
@@ -67,16 +72,12 @@ def test_add_user_to_project_duplicate(db: Session) -> None:
 
 
 def test_remove_user_from_project(db: Session) -> None:
+    organization, project = create_organization_and_project(db)
+
     user = User(email=random_email(), hashed_password=get_password_hash("password123"))
     db.add(user)
     db.commit()
     db.refresh(user)
-
-    # Ensure the project exists
-    project = Project(name="Test Project", description="A test project", organization_id=1)
-    db.add(project)
-    db.commit()
-    db.refresh(project)
 
     # Add user to project
     project_user_crud.add_user_to_project(db, project.id, user.id)
@@ -98,11 +99,7 @@ def test_remove_user_from_project(db: Session) -> None:
 
 
 def test_remove_user_from_project_not_member(db: Session) -> None:
-    # Ensure the project exists
-    project = Project(name="Test Project", description="A test project", organization_id=1)
-    db.add(project)
-    db.commit()
-    db.refresh(project)
+    organization, project = create_organization_and_project(db)
 
     project_id = project.id
     user_id = uuid.uuid4()
@@ -112,11 +109,7 @@ def test_remove_user_from_project_not_member(db: Session) -> None:
 
 
 def test_get_users_by_project(db: Session) -> None:
-    # Ensure the project exists
-    project = Project(name="Test Project", description="A test project", organization_id=1)
-    db.add(project)
-    db.commit()
-    db.refresh(project)
+    organization, project = create_organization_and_project(db)
 
     user1 = User(email=random_email(), hashed_password=get_password_hash("password123"))
     user2 = User(email=random_email(), hashed_password=get_password_hash("password123"))
