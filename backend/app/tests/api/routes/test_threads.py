@@ -1,8 +1,10 @@
 import pytest
 import openai
+
 from unittest.mock import MagicMock, patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
 from app.api.routes.threads import router, process_run, validate_assistant_id
 from app.utils import APIResponse
 
