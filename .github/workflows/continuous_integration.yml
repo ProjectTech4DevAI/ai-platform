@@ -63,6 +63,5 @@ jobs:
           fail_ci_if_error: true
 
       - name: Check coverage percentage
-        run: |
-          coverage report --fail-under=70
+        run: coverage report --fail-under=70
         working-directory: backend
