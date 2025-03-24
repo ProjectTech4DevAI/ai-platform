@@ -16,7 +16,7 @@ You can **just fork or clone** this repository and use it as is.
 Create env file using example file
 
 ```bash
-cp envSample .env
+cp .env.example .env
 ```
 
 You can then update configs in the `.env` files to customize your configurations.
@@ -26,7 +26,8 @@ Before deploying it, make sure you change at least the values for:
 - `SECRET_KEY`
 - `FIRST_SUPERUSER_PASSWORD`
 - `POSTGRES_PASSWORD`
-```bash
+
+````bash
 
 ### Generate Secret Keys
 
@@ -36,7 +37,7 @@ You have to change them with a secret key, to generate secret keys you can run t
 
 ```bash
 python -c "import secrets; print(secrets.token_urlsafe(32))"
-```
+````
 
 Copy the content and use that as password / secret key. And run that again to generate another secure key.
 
@@ -61,7 +62,6 @@ or by visiting: http://[your-domain]:8000/api/v1/utils/health-check/ in the brow
 ## Backend Development
 
 Backend docs: [backend/README.md](./backend/README.md).
-
 
 ## Deployment
 
