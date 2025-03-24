@@ -76,6 +76,7 @@ def get_api_key_by_user_org(session: Session, organization_id: int, user_id: str
     """
     statement = select(APIKey).where(
         APIKey.organization_id == organization_id,
-        APIKey.user_id == user_id
+        APIKey.user_id == user_id,
+        APIKey.is_deleted == False
     )
     return session.exec(statement).first()
