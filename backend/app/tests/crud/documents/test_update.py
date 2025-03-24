@@ -17,11 +17,11 @@ from _utils import (
 class State:
     crud: DocumentCrud
     owner_id: UUID
-    doc_id: ClassVar[int] = 0
+    _doc_id: ClassVar[int] = 0
 
     def add(self):
-        document = mk_document(self.owner_id, self.doc_id)
-        self.doc_id += 1
+        document = mk_document(self.owner_id, self._doc_id)
+        self._doc_id += 1
         return self.crud.update(document)
 
     def get(self):
