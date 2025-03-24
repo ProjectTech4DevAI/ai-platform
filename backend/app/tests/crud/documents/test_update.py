@@ -4,6 +4,7 @@ from sqlmodel import Session
 from app.crud import DocumentCrud
 
 from _utils import (
+    clean_db_fixture,
     DocumentMaker,
     rm_documents,
 )
@@ -24,6 +25,7 @@ def state(db: Session):
     rm_documents(db)
     return TestState(db)
 
+@pytest.mark.usefixtures('clean_db_fixture')
 class TestDatabaseUpdate:
     def test_update_adds_one(self, state: TestState):
         before = state.get()

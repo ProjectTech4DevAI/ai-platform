@@ -5,6 +5,7 @@ from app.crud import DocumentCrud
 from app.models import Document
 
 from _utils import (
+    clean_db_fixture,
     insert_document,
     rm_documents,
 )
@@ -23,6 +24,7 @@ def document(db: Session):
     )
     return db.exec(statement).one()
 
+@pytest.mark.usefixtures('clean_db_fixture')
 class TestDatabaseUpdate:
     def test_delete_is_soft(self, document: Document):
         assert document is not None

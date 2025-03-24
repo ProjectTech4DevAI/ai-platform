@@ -5,6 +5,7 @@ from app.crud import DocumentCrud
 
 from _utils import (
     Constants,
+    clean_db_fixture,
     get_user_id_by_email,
     insert_documents,
     int_to_uuid,
@@ -15,11 +16,6 @@ from _utils import (
 def document_collection(db: Session):
     rm_documents(db)
     return list(insert_documents(db, Constants.n_documents))
-
-@pytest.fixture(scope='class')
-def clean_db_fixture(db: Session):
-    yield
-    rm_documents(db)
 
 @pytest.mark.usefixtures('clean_db_fixture')
 class TestDatabaseReadMany:

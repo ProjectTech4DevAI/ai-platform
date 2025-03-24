@@ -2,6 +2,7 @@ import functools as ft
 from uuid import UUID
 from pathlib import Path
 
+import pytest
 from sqlmodel import Session, delete
 
 from app.core.config import settings
@@ -32,6 +33,12 @@ def insert_documents(session: Session, n: int):
 def insert_document(session: Session):
     (document, ) = insert_documents(session, 1)
     return document
+
+@pytest.fixture(scope='class')
+def clean_db_fixture(db: Session):
+    rm_documents(db)
+    yield
+    rm_documents(db)
 
 class Constants:
     n_documents = 10

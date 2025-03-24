@@ -4,7 +4,12 @@ from sqlalchemy.exc import NoResultFound
 
 from app.crud import DocumentCrud
 
-from _utils import insert_document, int_to_uuid, rm_documents
+from _utils import (
+    clean_db_fixture,
+    insert_document,
+    int_to_uuid,
+    rm_documents,
+)
 
 @pytest.fixture
 def clean_db_fixture(db: Session):
@@ -12,6 +17,7 @@ def clean_db_fixture(db: Session):
     yield
     rm_documents(db)
 
+@pytest.mark.usefixtures('clean_db_fixture')
 class TestDatabaseReadOne:
     def test_can_select_valid_id(
             self,
