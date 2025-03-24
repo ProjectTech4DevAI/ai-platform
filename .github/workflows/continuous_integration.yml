@@ -50,6 +50,7 @@ jobs:
         run: |
           source .venv/bin/activate
           alembic upgrade head
+        working-directory: backend
 
       - name: Run tests
         run: uv run bash scripts/tests-start.sh "Coverage for ${{ github.sha }}"
