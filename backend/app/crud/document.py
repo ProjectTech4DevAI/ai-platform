@@ -46,6 +46,8 @@ class DocumentCrud(CrudObject):
         self.session.commit()
         self.session.refresh(document)
 
+        return document
+
     def delete(self, doc_id: UUID, owner_id: UUID):
         statement = (
             update(Document)
