@@ -32,3 +32,6 @@ class DocumentList(SQLModel):
 
     def __len__(self):
         return len(self.docs)
+
+    def __iter__(self):
+        yield from self.docs
