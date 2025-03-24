@@ -28,19 +28,25 @@ def rm_documents(session: Session):
     session.exec(delete(Document))
     session.commit()
 
+def mk_document(owner_id, index=0):
+    doc_id = int_to_uuid(index)
+
+    args = str(doc_id).split('-')
+    fname = Path('/', *args).with_suffix('.xyz')
+    return Document(
+        id=doc_id,
+        owner_id=owner_id,
+        fname=fname.name,
+        object_store_url=fname.as_uri(),
+    )
+
 def insert_documents(session: Session, n: int):
     owner_id = get_user_id_by_email(session)
 
     crud = DocumentCrud(session)
     for i in range(n):
-        args = str(int_to_uuid(i)).split('-')
-        fname = Path('/', *args).with_suffix('.xyz')
-        document = Document(
-            id=int_to_uuid(i),
-            owner_id=owner_id,
-            fname=fname.name,
-            object_store_url=fname.as_uri(),
-        )
+        document = mk_document(owner_id, i)
+
         session.add(document)
         session.commit()
         session.refresh(document)
