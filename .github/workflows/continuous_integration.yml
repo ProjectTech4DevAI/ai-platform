@@ -61,7 +61,6 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
-        working-directory: backend
 
       - name: Check coverage percentage
         run: |
