@@ -4,8 +4,7 @@ import requests
 from openai import OpenAI
 from fastapi import APIRouter, BackgroundTasks
 from app.utils import APIResponse
-from ...core.config import settings
-from ...core.logger import logging
+from app.core import settings, logging
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["threads"])
@@ -16,7 +15,7 @@ def send_callback(callback_url: str, data: dict):
     try:
         session = requests.Session()
         # uncomment this to run locally without SSL
-        # session.verify = False
+        session.verify = False
         response = session.post(callback_url, json=data)
         response.raise_for_status()
         return True
