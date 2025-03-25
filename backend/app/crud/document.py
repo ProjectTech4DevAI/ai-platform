@@ -64,5 +64,6 @@ class DocumentCrud(CrudObject):
         result = self.session.exec(statement)
         if not result.rowcount:
             raise FileNotFoundError(f'Item "{doc_id}" not found')
-
         self.session.commit()
+
+        return result.rowcount

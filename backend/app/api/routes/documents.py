@@ -58,7 +58,7 @@ def delete_doc(
 ):
     crud = DocumentCrud(session)
     try:
-        crud.delete(doc_id, current_user.id)
+        return crud.delete(doc_id, current_user.id)
     except FileNotFoundError as err:
         raise HTTPException(status_code=404, detail=str(err))
 
