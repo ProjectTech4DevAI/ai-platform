@@ -5,7 +5,7 @@ from sqlmodel import Session
 
 from app.crud import DocumentCrud
 
-from _utils import (
+from app.tests.utils.document import (
     Constants,
     clean_db_fixture,
     get_user_id_by_email,

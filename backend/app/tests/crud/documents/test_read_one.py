@@ -4,7 +4,7 @@ from sqlalchemy.exc import NoResultFound
 
 from app.crud import DocumentCrud
 
-from _utils import (
+from app.tests.utils.document import (
     clean_db_fixture,
     insert_document,
     int_to_uuid,

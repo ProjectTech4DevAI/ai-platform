@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 from app.crud import DocumentCrud
 from app.models import Document
 
-from _utils import (
+from app.tests.utils.document import (
     clean_db_fixture,
     insert_document,
     rm_documents,

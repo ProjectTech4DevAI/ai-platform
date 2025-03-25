@@ -3,7 +3,7 @@ from sqlmodel import Session
 
 from app.crud import DocumentCrud
 
-from _utils import (
+from app.tests.utils.document import (
     DocumentMaker,
     clean_db_fixture,
     rm_documents,
