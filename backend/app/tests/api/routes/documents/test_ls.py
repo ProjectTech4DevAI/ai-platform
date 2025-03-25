@@ -7,12 +7,21 @@ import pytest
 from sqlmodel import Session
 
 from app.models import Document
-from app.tests.utils.document import Route, crawler, document, rm_documents
+from app.tests.utils.document import (
+    Route,
+    crawler,
+    insert_document,
+    rm_documents,
+)
 
 @pytest.fixture
 def url():
     route = Route('ls')
     return route.to_url()
+
+@pytest.fixture
+def document(db: Session):
+    return insert_document(db)
 
 @ft.singledispatch
 def to_string(value):
@@ -48,8 +57,8 @@ class TestDocumentRouteList:
     def test_item_reflects_database(
             self,
             url: ParseResult,
-            document: Document,
             crawler: Route,
+            document: Document,
     ):
         source = { x: to_string(y) for (x, y) in dict(document).items() }
         target = (crawler
