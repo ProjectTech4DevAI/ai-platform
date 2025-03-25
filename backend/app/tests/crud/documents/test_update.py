@@ -4,8 +4,8 @@ from sqlmodel import Session
 from app.crud import DocumentCrud
 
 from _utils import (
-    clean_db_fixture,
     DocumentMaker,
+    clean_db_fixture,
     rm_documents,
 )
 
