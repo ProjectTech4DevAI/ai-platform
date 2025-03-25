@@ -1,3 +1,5 @@
+from uuid import UUID
+
 import pytest
 from sqlmodel import Session
 
@@ -12,38 +14,56 @@ from _utils import (
     rm_documents,
 )
 
+class DocumentManager:
+    def __init__(self, db: Session):
+        self.db = db
+        self.documents = None
+
+        rm_documents(self.db)
+
+    def __iter__(self):
+        if self.documents is None:
+            raise AttributeError()
+        yield from self.documents
+
+    def add(self, n):
+        self.documents = list(insert_documents(self.db, n))
+
 @pytest.fixture
-def document_collection(db: Session):
-    rm_documents(db)
-    return list(insert_documents(db, Constants.n_documents))
+def documents(db: Session):
+    return DocumentManager(db)
+
+@pytest.fixture
+def crud(db: Session):
+    return DocumentCrud(db)
+
+@pytest.fixture
+def owner_id(db: Session):
+    return get_user_id_by_email(db)
 
 @pytest.mark.usefixtures('clean_db_fixture')
 class TestDatabaseReadMany:
     def test_number_read_is_expected(
             self,
-            db: Session,
-            document_collection: list,
+            crud: DocumentCrud,
+            owner_id: UUID,
+            documents: DocumentManager,
     ):
-        crud = DocumentCrud(db)
-        owner_id = get_user_id_by_email(db)
-        documents = crud.read_many(owner_id)
+        documents.add(Constants.n_documents)
+        docs = crud.read_many(owner_id)
+        assert len(docs) == Constants.n_documents
 
-        assert len(documents) == Constants.n_documents
-
-    def test_deleted_docs_excluded(
-            self,
-            db: Session,
-            document_collection: list,
-    ):
-        assert all(x.deleted_at is None for x in document_collection)
+    def test_deleted_docs_are_excluded(self, documents: DocumentManager):
+        documents.add(Constants.n_documents)
+        assert all(x.deleted_at is None for x in documents)
 
     def test_skip_is_respected(
             self,
-            db: Session,
-            document_collection: list,
+            crud: DocumentCrud,
+            owner_id: UUID,
+            documents: DocumentManager,
     ):
-        crud = DocumentCrud(db)
-        owner_id = get_user_id_by_email(db)
+        documents.add(Constants.n_documents)
         skip = Constants.n_documents // 2
         doc_ids = set(x.id for x in crud.read_many(owner_id, skip=skip))
 
@@ -53,54 +73,48 @@ class TestDatabaseReadMany:
 
     def test_zero_skip_includes_all(
             self,
-            db: Session,
-            document_collection: list,
+            crud: DocumentCrud,
+            owner_id: UUID,
+            documents: DocumentManager,
     ):
-        crud = DocumentCrud(db)
-        owner_id = get_user_id_by_email(db)
-        documents = crud.read_many(owner_id, skip=0)
-
-        assert len(documents) == Constants.n_documents
+        documents.add(Constants.n_documents)
+        docs = crud.read_many(owner_id, skip=0)
+        assert len(docs) == Constants.n_documents
 
     def test_negative_skip_raises_exception(
             self,
-            db: Session,
-            document_collection: list,
+            crud: DocumentCrud,
+            owner_id: UUID,
     ):
-        crud = DocumentCrud(db)
-        owner_id = get_user_id_by_email(db)
         with pytest.raises(ValueError):
             crud.read_many(owner_id, skip=-1)
 
     def test_limit_is_respected(
             self,
-            db: Session,
-            document_collection: list,
+            crud: DocumentCrud,
+            owner_id: UUID,
+            documents: DocumentManager,
     ):
-        crud = DocumentCrud(db)
-        owner_id = get_user_id_by_email(db)
+        documents.add(Constants.n_documents)
         limit = Constants.n_documents // 2
-        documents = crud.read_many(owner_id, limit=limit)
+        docs = crud.read_many(owner_id, limit=limit)
 
-        assert len(documents) == limit
+        assert len(docs) == limit
 
-    def test_zero_limit_includes_none(
+    def test_zero_limit_includes_nothing(
             self,
-            db: Session,
-            document_collection: list,
+            crud: DocumentCrud,
+            owner_id: UUID,
+            documents: DocumentManager,
     ):
-        crud = DocumentCrud(db)
-        owner_id = get_user_id_by_email(db)
-        documents = crud.read_many(owner_id, limit=0)
-
-        assert not documents
+        documents.add(Constants.n_documents)
+        docs = crud.read_many(owner_id, limit=0)
+        assert not docs
 
     def test_negative_limit_raises_exception(
             self,
-            db: Session,
-            document_collection: list,
+            crud: DocumentCrud,
+            owner_id: UUID,
     ):
-        crud = DocumentCrud(db)
-        owner_id = get_user_id_by_email(db)
         with pytest.raises(ValueError):
             crud.read_many(owner_id, limit=-1)
