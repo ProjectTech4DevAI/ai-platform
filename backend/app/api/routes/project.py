@@ -1,6 +1,6 @@
 from typing import Any, List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlmodel import Session, select
 
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 
 # Retrieve projects
 @router.get("/",dependencies=[Depends(get_current_active_superuser)], response_model=APIResponse[List[ProjectPublic]])
-def read_projects(session: SessionDep, skip: int = 0, limit: int = 100):
+def read_projects(session: SessionDep, skip: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=100)):
     count_statement = select(func.count()).select_from(Project)
     count = session.exec(count_statement).one()
 
