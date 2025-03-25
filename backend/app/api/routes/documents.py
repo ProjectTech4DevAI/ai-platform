@@ -21,7 +21,10 @@ def list_docs(
         limit: int = 100,
 ):
     crud = DocumentCrud(session)
-    return crud.read_many(current_user.id, skip, limit)
+    try:
+        return crud.read_many(current_user.id, skip, limit)
+    except ValueError as err:
+        raise HTTPException(status_code=500, detail=str(err))
 
 @router.post("/cp")
 def upload_doc(
