@@ -33,8 +33,12 @@ class DocumentCrud(CrudObject):
             ))
         )
         if skip is not None:
+            if skip < 0:
+                raise ValueError(f'Negative skip: {skip}')
             statement = statement.offset(skip)
         if limit is not None:
+            if limit < 0:
+                raise ValueError(f'Negative limit: {limit}')
             statement = statement.limit(limit)
 
         docs = self.session.exec(statement).all()

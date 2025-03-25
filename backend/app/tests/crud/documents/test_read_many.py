@@ -51,6 +51,27 @@ class TestDatabaseReadMany:
             doc = int_to_uuid(i)
             assert doc in doc_ids
 
+    def test_zero_skip_includes_all(
+            self,
+            db: Session,
+            document_collection: list,
+    ):
+        crud = DocumentCrud(db)
+        owner_id = get_user_id_by_email(db)
+        documents = crud.read_many(owner_id, skip=0)
+
+        assert len(documents) == Constants.n_documents
+
+    def test_negative_skip_raises_exception(
+            self,
+            db: Session,
+            document_collection: list,
+    ):
+        crud = DocumentCrud(db)
+        owner_id = get_user_id_by_email(db)
+        with pytest.raises(ValueError):
+            crud.read_many(owner_id, skip=-1)
+
     def test_limit_is_respected(
             self,
             db: Session,
@@ -62,3 +83,24 @@ class TestDatabaseReadMany:
         documents = crud.read_many(owner_id, limit=limit)
 
         assert len(documents) == limit
+
+    def test_zero_limit_includes_none(
+            self,
+            db: Session,
+            document_collection: list,
+    ):
+        crud = DocumentCrud(db)
+        owner_id = get_user_id_by_email(db)
+        documents = crud.read_many(owner_id, limit=0)
+
+        assert not documents
+
+    def test_negative_limit_raises_exception(
+            self,
+            db: Session,
+            document_collection: list,
+    ):
+        crud = DocumentCrud(db)
+        owner_id = get_user_id_by_email(db)
+        with pytest.raises(ValueError):
+            crud.read_many(owner_id, limit=-1)

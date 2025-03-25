@@ -30,6 +30,9 @@ class Document(SQLModel, table=True):
 class DocumentList(SQLModel):
     docs: list[Document]
 
+    def __bool__(self):
+        return bool(self.docs)
+
     def __len__(self):
         return len(self.docs)
 
