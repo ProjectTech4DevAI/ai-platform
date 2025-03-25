@@ -14,36 +14,36 @@ from app.crud.user import get_user_by_email
 from app.models import Document
 
 @ft.cache
-def get_user_id_by_email(session: Session):
-    user = get_user_by_email(session=session, email=settings.FIRST_SUPERUSER)
+def get_user_id_by_email(db: Session):
+    user = get_user_by_email(session=db, email=settings.FIRST_SUPERUSER)
     return user.id
 
 @ft.cache
 def int_to_uuid(value):
     return UUID(int=value)
 
-def rm_documents(session: Session):
-    session.exec(delete(Document))
-    session.commit()
+def rm_documents(db: Session):
+    db.exec(delete(Document))
+    db.commit()
 
-def insert_documents(session: Session, n: int):
-    documents = DocumentMaker(session)
+def insert_documents(db: Session, n: int):
+    documents = DocumentMaker(db)
     for (_, doc) in zip(range(n), documents):
-        session.add(doc)
-        session.commit()
-        session.refresh(doc)
+        db.add(doc)
+        db.commit()
+        db.refresh(doc)
         yield doc
 
-def insert_document(session: Session):
-    (document, ) = insert_documents(session, 1)
+def insert_document(db: Session):
+    (document, ) = insert_documents(db, 1)
     return document
 
 class Constants:
     n_documents = 10
 
 class DocumentMaker:
-    def __init__(self, session: Session):
-        self.owner_id = get_user_id_by_email(session)
+    def __init__(self, db: Session):
+        self.owner_id = get_user_id_by_email(db)
         self.index = 0
 
     def __iter__(self):
@@ -66,19 +66,18 @@ class DocumentMaker:
         self.index += 1
         return doc_id
 
-
 class Route:
     _empty = ParseResult(*it.repeat('', len(ParseResult._fields)))
+    _root = Path(settings.API_V1_STR, 'documents')
 
     def __init__(self, endpoint):
         self.endpoint = endpoint
-        self.root = Path(settings.API_V1_STR, 'documents')
 
     def __str__(self):
         return urlunparse(self.to_url())
 
     def to_url(self):
-        path = self.root.joinpath(self.endpoint)
+        path = self._root.joinpath(self.endpoint)
         return self._empty._replace(path=str(path))
 
 @dataclass
@@ -103,10 +102,6 @@ def clean_db_fixture(db: Session):
     rm_documents(db)
     yield
     rm_documents(db)
-
-@pytest.fixture
-def document(db: Session):
-    return insert_document(db)
 
 @pytest.fixture
 def crawler(client: TestClient, superuser_token_headers: dict[str, str]):
