@@ -1,63 +1,18 @@
-import logging
-import itertools as it
 import functools as ft
 from uuid import UUID
-from pathlib import Path
 from datetime import datetime
-from dataclasses import dataclass
 from urllib.parse import ParseResult, urlunparse
 
 import pytest
 from sqlmodel import Session
-from fastapi.testclient import TestClient
 
 from app.models import Document
-from app.core.config import settings
-from app.tests.utils.document import insert_document, rm_documents
-
-class Route:
-    _empty = ParseResult(*it.repeat('', len(ParseResult._fields)))
-
-    def __init__(self, endpoint):
-        self.endpoint = endpoint
-        self.root = Path(settings.API_V1_STR, 'documents')
-
-    def __str__(self):
-        return urlunparse(self.to_url())
-
-    def to_url(self):
-        path = self.root.joinpath(self.endpoint)
-        return self._empty._replace(path=str(path))
-
-@dataclass
-class WebCrawler:
-    client: TestClient
-    superuser_token_headers: dict[str, str]
-
-    @ft.singledispatchmethod
-    def get(self, route: str):
-        return self.client.get(route, headers=self.superuser_token_headers)
-
-    @get.register
-    def _(self, route: Route):
-        return self.get(str(route))
-
-    @get.register
-    def _(self, route: ParseResult):
-        return self.get(urlunparse(route))
+from app.tests.utils.document import Route, crawler, document, rm_documents
 
 @pytest.fixture
 def url():
     route = Route('ls')
     return route.to_url()
-
-@pytest.fixture
-def document(db: Session):
-    return insert_document(db)
-
-@pytest.fixture
-def crawler(client: TestClient, superuser_token_headers: dict[str, str]):
-    return WebCrawler(client, superuser_token_headers)
 
 @ft.singledispatch
 def to_string(value):

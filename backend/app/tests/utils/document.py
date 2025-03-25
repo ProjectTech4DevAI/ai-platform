@@ -1,9 +1,13 @@
+import itertools as it
 import functools as ft
 from uuid import UUID
 from pathlib import Path
+from dataclasses import dataclass
+from urllib.parse import ParseResult, urlunparse
 
 import pytest
 from sqlmodel import Session, delete
+from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.crud.user import get_user_by_email
@@ -34,12 +38,6 @@ def insert_document(session: Session):
     (document, ) = insert_documents(session, 1)
     return document
 
-@pytest.fixture(scope='class')
-def clean_db_fixture(db: Session):
-    rm_documents(db)
-    yield
-    rm_documents(db)
-
 class Constants:
     n_documents = 10
 
@@ -67,3 +65,49 @@ class DocumentMaker:
         doc_id = int_to_uuid(self.index)
         self.index += 1
         return doc_id
+
+
+class Route:
+    _empty = ParseResult(*it.repeat('', len(ParseResult._fields)))
+
+    def __init__(self, endpoint):
+        self.endpoint = endpoint
+        self.root = Path(settings.API_V1_STR, 'documents')
+
+    def __str__(self):
+        return urlunparse(self.to_url())
+
+    def to_url(self):
+        path = self.root.joinpath(self.endpoint)
+        return self._empty._replace(path=str(path))
+
+@dataclass
+class WebCrawler:
+    client: TestClient
+    superuser_token_headers: dict[str, str]
+
+    @ft.singledispatchmethod
+    def get(self, route: str):
+        return self.client.get(route, headers=self.superuser_token_headers)
+
+    @get.register
+    def _(self, route: Route):
+        return self.get(str(route))
+
+    @get.register
+    def _(self, route: ParseResult):
+        return self.get(urlunparse(route))
+
+@pytest.fixture(scope='class')
+def clean_db_fixture(db: Session):
+    rm_documents(db)
+    yield
+    rm_documents(db)
+
+@pytest.fixture
+def document(db: Session):
+    return insert_document(db)
+
+@pytest.fixture
+def crawler(client: TestClient, superuser_token_headers: dict[str, str]):
+    return WebCrawler(client, superuser_token_headers)
