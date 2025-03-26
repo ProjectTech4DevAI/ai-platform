@@ -80,6 +80,10 @@ class Route:
         path = self._root.joinpath(self.endpoint)
         return self._empty._replace(path=str(path))
 
+    def append(self, doc: Document):
+        endpoint = Path(self.endpoint, str(doc.id))
+        return type(self)(endpoint)
+
 @dataclass
 class WebCrawler:
     client: TestClient
