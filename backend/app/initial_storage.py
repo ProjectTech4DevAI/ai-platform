@@ -10,20 +10,7 @@ logger = logging.getLogger(__name__)
 
 def init() -> None:
     aws = AmazonCloudStorageClient()
-    try:
-        # does the bucket exist...
-        aws.client.head_bucket(Bucket=settings.AWS_S3_BUCKET)
-    except ClientError as err:
-        response = int(err.response['Error']['Code'])
-        if response != 404:
-            raise
-        # ... if not create it
-        aws.client.create_bucket(
-            Bucket=settings.AWS_S3_BUCKET,
-            CreateBucketConfiguration={
-                'LocationConstraint': settings.AWS_DEFAULT_REGION,
-            },
-        )
+    aws.create()
 
 def main() -> None:
     logger.info("START: setup cloud storage")

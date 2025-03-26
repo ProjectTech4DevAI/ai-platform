@@ -21,6 +21,22 @@ class AmazonCloudStorageClient:
             region_name=settings.AWS_DEFAULT_REGION,
         )
 
+    def create(self):
+        try:
+            # does the bucket exist...
+            self.client.head_bucket(Bucket=settings.AWS_S3_BUCKET)
+        except ClientError as err:
+            response = int(err.response['Error']['Code'])
+            if response != 404:
+                raise
+            # ... if not create it
+            self.client.create_bucket(
+                Bucket=settings.AWS_S3_BUCKET,
+                CreateBucketConfiguration={
+                    'LocationConstraint': settings.AWS_DEFAULT_REGION,
+                },
+            )
+
 @dataclass(frozen=True)
 class SimpleStorageName:
     Key: str
