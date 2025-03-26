@@ -14,7 +14,7 @@ app.include_router(router)
 client = TestClient(app)
 
 
-@patch("src.app.api.v1.threads.OpenAI")
+@patch("app.api.routes.threads.OpenAI")
 def test_threads_endpoint(mock_openai):
     """
     Test the /threads endpoint when creating a new thread.
@@ -53,7 +53,7 @@ def test_threads_endpoint(mock_openai):
     assert response_json["data"]["thread_id"] == "dummy_thread_id"
 
 
-@patch("src.app.api.v1.threads.OpenAI")
+@patch("app.api.routes.threads.OpenAI")
 @pytest.mark.parametrize(
     "remove_citation, expected_message",
     [
@@ -99,7 +99,7 @@ def test_process_run_variants(mock_openai, remove_citation, expected_message):
     mock_client.beta.threads.messages.list.return_value.data = [dummy_message]
 
     # Patch send_callback and invoke process_run.
-    with patch("src.app.api.v1.threads.send_callback") as mock_send_callback:
+    with patch("app.api.routes.threads.send_callback") as mock_send_callback:
         process_run(request, mock_client)
         mock_send_callback.assert_called_once()
         callback_url, payload = mock_send_callback.call_args[0]
