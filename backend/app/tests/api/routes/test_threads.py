@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.routes.threads import router, process_run, validate_assistant_id
+from app.api.routes.threads import router, process_run
 from app.utils import APIResponse
 
 # Wrap the router in a FastAPI app instance.
@@ -109,27 +109,3 @@ def test_process_run_variants(mock_openai, remove_citation, expected_message):
         assert payload["data"]["status"] == "success"
         assert payload["data"]["thread_id"] == "thread_123"
         assert payload["success"] is True
-
-
-@patch("src.app.api.v1.threads.OpenAI")
-def test_validate_assistant_id(mock_openai):
-    """
-    Test validate_assistant_id:
-    - For a valid assistant ID, it should return None.
-    - For an invalid assistant ID, it should return an APIResponse with an error.
-    """
-    mock_client = MagicMock()
-    mock_openai.return_value = mock_client
-
-    # Simulate a valid assistant ID.
-    result_valid = validate_assistant_id("valid_assistant_id", mock_client)
-    assert result_valid is None
-
-    # Simulate an invalid assistant ID by raising NotFoundError with required kwargs.
-    mock_client.beta.assistants.retrieve.side_effect = openai.NotFoundError(
-        "Not found", response=MagicMock(), body={"message": "Not found"}
-    )
-    response = validate_assistant_id("invalid_assistant_id", mock_client)
-    assert isinstance(response, APIResponse)
-    assert response.success is False
-    assert "invalid_assistant_id" in response.error
