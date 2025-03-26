@@ -17,7 +17,7 @@ def send_callback(callback_url: str, data: dict):
     try:
         session = requests.Session()
         # uncomment this to run locally without SSL
-        session.verify = False
+        # session.verify = False
         response = session.post(callback_url, json=data)
         response.raise_for_status()
         return True
@@ -44,7 +44,9 @@ def process_run(request: dict, client: OpenAI):
             latest_message = messages.data[0]
             message_content = latest_message.content[0].text.value
 
-            if request["remove_citation"]:
+            remove_citation = request.get("remove_citation", False)
+
+            if remove_citation:
                 message = re.sub(r"【\d+(?::\d+)?†[^】]*】", "", message_content)
             else:
                 message = message_content
