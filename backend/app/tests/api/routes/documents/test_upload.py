@@ -6,8 +6,9 @@ from urllib.parse import urlparse
 
 import boto3
 import pytest
-from sqlmodel import Session, select
 from moto import mock_aws
+from sqlmodel import Session, select
+from fastapi.testclient import TestClient
 
 from app.core.cloud import AmazonCloudStorageClient
 from app.core.config import settings
@@ -15,19 +16,19 @@ from app.models import Document
 from app.tests.utils.document import (
     Route,
     WebCrawler,
-    crawler,
 )
 
-def upload(route: Route, scratch: Path, crawler: WebCrawler):
-    (mtype, _) = mimetypes.guess_type(str(scratch))
-    with scratch.open('rb') as fp:
-        return crawler.client.post(
-            str(route),
-            headers=crawler.superuser_token_headers,
-            files={
-                'src': (str(scratch), fp, mtype),
-            },
-        )
+class WebUploader(WebCrawler):
+    def put(self, route: Route, scratch: Path):
+        (mtype, _) = mimetypes.guess_type(str(scratch))
+        with scratch.open('rb') as fp:
+            return self.client.post(
+                str(route),
+                headers=self.superuser_token_headers,
+                files={
+                    'src': (str(scratch), fp, mtype),
+                },
+            )
 
 @pytest.fixture
 def scratch():
@@ -38,6 +39,10 @@ def scratch():
 @pytest.fixture
 def route():
     return Route('cp')
+
+@pytest.fixture
+def uploader(client: TestClient, superuser_token_headers: dict[str, str]):
+    return WebUploader(client, superuser_token_headers)
 
 @pytest.fixture(scope='class')
 def aws_setup():
@@ -55,12 +60,12 @@ class TestDocumentRouteUpload:
             db: Session,
             route: Route,
             scratch: Path,
-            crawler: WebCrawler,
+            uploader: WebUploader,
     ):
         aws = AmazonCloudStorageClient()
         aws.create()
 
-        response = upload(route, scratch, crawler)
+        response = uploader.put(route, scratch)
         doc_id = (response
                   .json()
                   .get('id'))
@@ -76,12 +81,12 @@ class TestDocumentRouteUpload:
             self,
             route: Route,
             scratch: Path,
-            crawler: Route,
+            uploader: WebUploader,
     ):
         aws = AmazonCloudStorageClient()
         aws.create()
 
-        response = upload(route, scratch, crawler)
+        response = uploader.put(route, scratch)
         url = urlparse(response.json().get('object_store_url'))
         key = Path(url.path)
         key = key.relative_to(key.root)
