@@ -9,15 +9,22 @@ from sqlmodel import Session
 from app.models import Document
 from app.tests.utils.document import (
     Route,
+    WebCrawler,
     crawler,
     insert_document,
     rm_documents,
 )
 
+class ListRoute(Route):
+    def pushq(self, key, value):
+        query = '='.join(map(str, (key, value)))
+        return (self
+                .to_url()
+                ._replace(query=query))
+
 @pytest.fixture
-def url():
-    route = Route('ls')
-    return route.to_url()
+def route():
+    return ListRoute('ls')
 
 @pytest.fixture
 def document(db: Session):
@@ -36,19 +43,19 @@ def _(value: datetime):
     return value.isoformat()
 
 class TestDocumentRouteList:
-    def test_response_is_success(self, url: ParseResult, crawler: Route):
-        response = crawler.get(url)
+    def test_response_is_success(self, route: Route, crawler: WebCrawler):
+        response = crawler.get(route)
         assert response.is_success
 
     def test_empty_db_returns_empty_list(
             self,
             db: Session,
-            url: ParseResult,
-            crawler: Route,
+            route: Route,
+            crawler: WebCrawler,
     ):
         rm_documents(db)
         docs = (crawler
-                .get(url)
+                .get(route)
                 .json()
                 .get('docs'))
 
@@ -56,13 +63,13 @@ class TestDocumentRouteList:
 
     def test_item_reflects_database(
             self,
-            url: ParseResult,
-            crawler: Route,
+            route: Route,
+            crawler: WebCrawler,
             document: Document,
     ):
         source = { x: to_string(y) for (x, y) in dict(document).items() }
         target = (crawler
-                  .get(url)
+                  .get(route)
                   .json()
                   .get('docs')
                   .pop())
@@ -71,18 +78,18 @@ class TestDocumentRouteList:
 
     def test_negative_skip_produces_error(
             self,
-            url: ParseResult,
-            crawler: Route,
+            route: ListRoute,
+            crawler: WebCrawler,
     ):
-        target = url._replace(query='skip=-1')
-        response = crawler.get(urlunparse(target))
+        url = route.pushq('skip', -1)
+        response = crawler.get(urlunparse(url))
         assert response.is_error
 
     def test_negative_limit_produces_error(
             self,
-            url: ParseResult,
-            crawler: Route,
+            route: ListRoute,
+            crawler: WebCrawler,
     ):
-        target = url._replace(query='limit=-1')
-        response = crawler.get(urlunparse(target))
+        url = route.pushq('limit', -1)
+        response = crawler.get(urlunparse(url))
         assert response.is_error
