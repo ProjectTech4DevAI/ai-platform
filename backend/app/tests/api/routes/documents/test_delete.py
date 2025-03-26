@@ -45,7 +45,7 @@ class TestDocumentRouteDelete:
         )
         result = db.exec(statement).one()
 
-        return result.deleted_at is not None
+        assert result.deleted_at is not None
 
     def test_cannot_delete_unknown_document(
             self,
