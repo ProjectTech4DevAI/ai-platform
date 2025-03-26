@@ -57,7 +57,7 @@ class AmazonCloudStorage(CloudStorage):
         destination = SimpleStorageName(str(key))
 
         kwargs = asdict(destination)
-        metadata = self.user.dict()
+        metadata = self.user.model_dump()
         try:
             self.aws.client.upload_fileobj(
                 source.file,
