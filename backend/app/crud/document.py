@@ -53,17 +53,9 @@ class DocumentCrud(CrudObject):
         return document
 
     def delete(self, doc_id: UUID, owner_id: UUID):
-        statement = (
-            update(Document)
-            .where(and_(
-                Document.id == doc_id,
-                Document.owner_id == owner_id,
-            ))
-            .values(deleted_at=now())
-        )
-        result = self.session.exec(statement)
-        if not result.rowcount:
-            raise FileNotFoundError(f'Item "{doc_id}" not found')
-        self.session.commit()
-
-        return result.rowcount
+        document = self.read_one(doc_id)
+        if document.owner_id != owner_id:
+            error = f'User {owner_id} does not own document {doc_id}'
+            raise PermissionError(error)
+        document.deleted_at = now()
+        self.update(document)
