@@ -48,7 +48,7 @@ def upload_doc(
     )
     crud.update(document)
 
-    return document.id
+    return document
 
 @router.get("/rm/{doc_id}")
 def delete_doc(
