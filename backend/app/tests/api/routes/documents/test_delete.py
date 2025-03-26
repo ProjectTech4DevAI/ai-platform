@@ -1,12 +1,7 @@
-from pathlib import Path
-from urllib.parse import ParseResult, urlunparse
-
 import pytest
 from sqlmodel import Session, select
-from fastapi.testclient import TestClient
 
 from app.models import Document
-from app.core.config import settings
 from app.tests.utils.document import (
     DocumentMaker,
     Route,

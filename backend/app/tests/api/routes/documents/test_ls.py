@@ -1,7 +1,6 @@
 import functools as ft
 from uuid import UUID
 from datetime import datetime
-from urllib.parse import ParseResult, urlunparse
 
 import pytest
 from sqlmodel import Session
