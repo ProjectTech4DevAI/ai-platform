@@ -1,13 +1,7 @@
-import logging
-from pathlib import Path
-from urllib.parse import ParseResult, urlunparse
-
 import pytest
-from sqlmodel import Session, select
-from fastapi.testclient import TestClient
+from sqlmodel import Session
 
 from app.models import Document
-from app.core.config import settings
 from app.tests.utils.document import (
     DocumentComparator,
     DocumentMaker,
@@ -46,7 +40,6 @@ class TestDocumentRouteStat:
         target = (crawler
                   .get(route.append(document))
                   .json())
-        logging.critical(target)
         source = DocumentComparator(document)
 
         assert source == target
