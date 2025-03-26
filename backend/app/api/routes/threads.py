@@ -78,13 +78,6 @@ def process_run(request: dict, client: OpenAI):
         send_callback(request["callback_url"], callback_response.model_dump())
 
 
-def validate_assistant_id(assistant_id: str, client: OpenAI):
-    try:
-        client.beta.assistants.retrieve(assistant_id=assistant_id)
-    except openai.NotFoundError:
-        return APIResponse.failure_response(error=f"Invalid assistant ID provided {assistant_id}")
-
-
 @router.post("/threads")
 async def threads(request: dict, background_tasks: BackgroundTasks):
     """
@@ -93,10 +86,7 @@ async def threads(request: dict, background_tasks: BackgroundTasks):
     Once completed, calls send_callback with the final result.
     """
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
-    assistant_error = validate_assistant_id(request["assistant_id"], client)
-    if assistant_error:
-        return assistant_error
-
+ 
     # Use get method to safely access thread_id
     thread_id = request.get("thread_id")
 
