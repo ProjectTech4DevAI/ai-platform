@@ -15,16 +15,9 @@ from app.tests.utils.document import (
     rm_documents,
 )
 
-class ListRoute(Route):
-    def pushq(self, key, value):
-        query = '='.join(map(str, (key, value)))
-        return (self
-                .to_url()
-                ._replace(query=query))
-
 @pytest.fixture
 def route():
-    return ListRoute('ls')
+    return Route('ls')
 
 @pytest.fixture
 def document(db: Session):
@@ -78,18 +71,16 @@ class TestDocumentRouteList:
 
     def test_negative_skip_produces_error(
             self,
-            route: ListRoute,
+            route: Route,
             crawler: WebCrawler,
     ):
-        url = route.pushq('skip', -1)
-        response = crawler.get(urlunparse(url))
+        response = crawler.get(route.pushq('skip', -1))
         assert response.is_error
 
     def test_negative_limit_produces_error(
             self,
-            route: ListRoute,
+            route: Route,
             crawler: WebCrawler,
     ):
-        url = route.pushq('limit', -1)
-        response = crawler.get(urlunparse(url))
+        response = crawler.get(route.pushq('limit', -1))
         assert response.is_error

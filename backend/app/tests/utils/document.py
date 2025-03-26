@@ -70,36 +70,44 @@ class Route:
     _empty = ParseResult(*it.repeat('', len(ParseResult._fields)))
     _root = Path(settings.API_V1_STR, 'documents')
 
-    def __init__(self, endpoint):
+    def __init__(self, endpoint, **qs_args):
         self.endpoint = endpoint
+        self.qs_args = qs_args
 
     def __str__(self):
         return urlunparse(self.to_url())
 
     def to_url(self):
         path = self._root.joinpath(self.endpoint)
-        return self._empty._replace(path=str(path))
+        kwargs = {
+            'path': str(path),
+        }
+        if self.qs_args:
+            query = '&'.join(it.starmap('{}={}'.format, self.qs_args.items()))
+            kwargs['query'] = query
+
+        return self._empty._replace(**kwargs)
 
     def append(self, doc: Document):
         endpoint = Path(self.endpoint, str(doc.id))
-        return type(self)(endpoint)
+        return type(self)(endpoint, **self.qs_args)
+
+    def pushq(self, key, value):
+        qs_args = self.qs_args | {
+            key: value,
+        }
+        return type(self)(self.endpoint, **qs_args)
 
 @dataclass
 class WebCrawler:
     client: TestClient
     superuser_token_headers: dict[str, str]
 
-    @ft.singledispatchmethod
-    def get(self, route: str):
-        return self.client.get(route, headers=self.superuser_token_headers)
-
-    @get.register
-    def _(self, route: Route):
-        return self.get(str(route))
-
-    @get.register
-    def _(self, route: ParseResult):
-        return self.get(urlunparse(route))
+    def get(self, route: Route):
+        return self.client.get(
+            str(route),
+            headers=self.superuser_token_headers,
+        )
 
 @pytest.fixture(scope='class')
 def clean_db_fixture(db: Session):
