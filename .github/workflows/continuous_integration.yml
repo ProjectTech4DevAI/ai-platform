@@ -2,9 +2,9 @@ name: AI Platform CI
 
 on:
   push:
-    branches: [staging]
+    branches: [main]
   pull_request:
-    branches: [staging]
+    branches: [main]
 
 jobs:
   checks:
