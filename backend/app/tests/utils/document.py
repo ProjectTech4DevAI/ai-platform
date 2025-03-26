@@ -2,6 +2,7 @@ import itertools as it
 import functools as ft
 from uuid import UUID
 from pathlib import Path
+from datetime import datetime
 from dataclasses import dataclass
 from urllib.parse import ParseResult, urlunparse
 
@@ -108,6 +109,34 @@ class WebCrawler:
             str(route),
             headers=self.superuser_token_headers,
         )
+
+class DocumentComparator:
+    @ft.singledispatchmethod
+    @staticmethod
+    def to_string(value):
+        return value
+
+    @to_string.register
+    @staticmethod
+    def _(value: UUID):
+        return str(value)
+
+    @to_string.register
+    @staticmethod
+    def _(value: datetime):
+        return value.isoformat()
+
+    def __init__(self, document: Document):
+        self.document = document
+
+    def __eq__(self, other: dict):
+        this = dict(self.to_dict())
+        return this == other
+
+    def to_dict(self):
+        document = dict(self.document)
+        for (k, v) in document.items():
+            yield (k, self.to_string(v))
 
 @pytest.fixture(scope='class')
 def clean_db_fixture(db: Session):

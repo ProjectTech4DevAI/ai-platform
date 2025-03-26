@@ -1,12 +1,9 @@
-import functools as ft
-from uuid import UUID
-from datetime import datetime
-
 import pytest
 from sqlmodel import Session
 
 from app.models import Document
 from app.tests.utils.document import (
+    DocumentComparator,
     Route,
     WebCrawler,
     crawler,
@@ -21,18 +18,6 @@ def route():
 @pytest.fixture
 def document(db: Session):
     return insert_document(db)
-
-@ft.singledispatch
-def to_string(value):
-    return value
-
-@to_string.register
-def _(value: UUID):
-    return str(value)
-
-@to_string.register
-def _(value: datetime):
-    return value.isoformat()
 
 class TestDocumentRouteList:
     def test_response_is_success(self, route: Route, crawler: WebCrawler):
@@ -59,14 +44,14 @@ class TestDocumentRouteList:
             crawler: WebCrawler,
             document: Document,
     ):
-        source = { x: to_string(y) for (x, y) in dict(document).items() }
         target = (crawler
                   .get(route)
                   .json()
                   .get('docs')
                   .pop())
+        source = DocumentComparator(document)
 
-        assert target == source
+        assert source == target
 
     def test_negative_skip_produces_error(
             self,
