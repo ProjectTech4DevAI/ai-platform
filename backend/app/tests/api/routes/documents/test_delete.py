@@ -39,6 +39,7 @@ class TestDocumentRouteDelete:
     ):
         crawler.get(route.append(document))
 
+        db.refresh(document)
         statement = (
             select(Document)
             .where(Document.id == document.id)
