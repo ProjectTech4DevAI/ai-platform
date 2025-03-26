@@ -53,8 +53,7 @@ class AmazonCloudStorage(CloudStorage):
         self.aws = AmazonCloudStorageClient()
 
     def put(self, source: UploadFile, basename: str):
-        # key = Path(user.organization, user.project, basename)
-        key = Path('test-org', 'test-project', basename)
+        key = Path(str(self.user.id), basename)
         destination = SimpleStorageName(str(key))
 
         kwargs = asdict(destination)
