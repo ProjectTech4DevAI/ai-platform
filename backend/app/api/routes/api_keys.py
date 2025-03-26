@@ -3,8 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session
 from app.api.deps import get_db, get_current_active_superuser
 from app.crud.api_key import create_api_key, get_api_key, get_api_keys_by_organization, delete_api_key, get_api_key_by_user_org
-from app.crud.organization import get_organization_by_id, validate_organization
-from app.crud.project_user import is_user_part_of_organization
+from app.crud.organization import validate_organization
 from app.models import APIKeyPublic, User
 from app.utils import APIResponse
 
@@ -25,10 +24,6 @@ def create_key(
     try:
         # Validate organization
         validate_organization(session, organization_id)
-
-        # Check if user belongs to organization
-        if not is_user_part_of_organization(session, user_id, organization_id):
-            raise HTTPException(status_code=403, detail="User is not part of any project in the organization")
 
         existing_api_key = get_api_key_by_user_org(session, organization_id, user_id)
         if existing_api_key:
