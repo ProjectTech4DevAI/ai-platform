@@ -62,15 +62,15 @@ class DocumentStore:
 
     @property
     def owner(self):
-        return self.maker.owner_id
+        return self.documents.owner_id
 
     def __init__(self, db: Session):
         self.db = db
-        self.maker = DocumentMaker(self.db)
+        self.documents = DocumentMaker(self.db)
         self.clear(self.db)
 
     def put(self):
-        doc = next(self.maker)
+        doc = next(self.documents)
 
         self.db.add(doc)
         self.db.commit()
