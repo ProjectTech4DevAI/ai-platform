@@ -77,10 +77,3 @@ def doc_info(
         raise HTTPException(status_code=404, detail=str(err))
     except MultipleResultsFound as err:
         raise HTTPException(status_code=500, detail=str(err))
-
-# @router.get("/assign", response_model=DocumentList)
-# def assign_doc(
-#         session: SessionDep,
-#         current_user: CurrentUser,
-# ):
-#     pass
