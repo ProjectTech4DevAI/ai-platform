@@ -1,11 +1,10 @@
 from uuid import UUID, uuid4
-from pathlib import Path
 from datetime import datetime
 
 from sqlmodel import Field, Relationship, SQLModel
 
-from .user import User
 from app.core.util import now
+from .user import User
 
 class Document(SQLModel, table=True):
     id: UUID = Field(

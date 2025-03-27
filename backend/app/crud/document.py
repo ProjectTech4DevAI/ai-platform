@@ -1,7 +1,7 @@
 from uuid import UUID
 from typing import Optional
 
-from sqlmodel import Session, select, update, and_
+from sqlmodel import Session, select, and_
 
 from app.models import Document, DocumentList
 from app.core.util import now
