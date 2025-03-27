@@ -20,9 +20,9 @@ def list_docs(
         skip: int = 0,
         limit: int = 100,
 ):
-    crud = DocumentCrud(session)
+    crud = DocumentCrud(session, current_user.id)
     try:
-        return crud.read_many(current_user.id, skip, limit)
+        return crud.read_many(skip, limit)
     except ValueError as err:
         raise HTTPException(status_code=500, detail=str(err))
 
@@ -39,16 +39,14 @@ def upload_doc(
     except ConnectionError as err:
         raise HTTPException(status_code=500, detail=str(err))
 
-    crud = DocumentCrud(session)
+    crud = DocumentCrud(session, current_user.id)
     document = Document(
         id=basename,
-        owner_id=current_user.id,
         fname=src.filename,
-        object_store_url=str(object_store_url),
+        object_store_url=str(object_store_url)
     )
-    crud.update(document)
 
-    return document
+    return crud.update(document)
 
 @router.get("/rm/{doc_id}")
 def delete_doc(
@@ -56,10 +54,10 @@ def delete_doc(
         current_user: CurrentUser,
         doc_id: UUID,
 ):
-    crud = DocumentCrud(session)
+    crud = DocumentCrud(session, current_user.id)
     try:
-        return crud.delete(doc_id, current_user.id)
-    except (NoResultFound, PermissionError) as err:
+        return crud.delete(doc_id)
+    except NoResultFound as err:
         raise HTTPException(status_code=404, detail=str(err))
 
     # TODO: perform delete on the collection
@@ -70,7 +68,7 @@ def doc_info(
         current_user: CurrentUser,
         doc_id: UUID,
 ):
-    crud = DocumentCrud(session)
+    crud = DocumentCrud(session, current_user.id)
     try:
         return crud.read_one(doc_id)
     except NoResultFound as err:
