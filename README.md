@@ -1,5 +1,12 @@
 # AI Platform
 
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+![](https://github.com/ProjectTech4DevAI/ai-platform/workflows/Continuous%20Integration/badge.svg)
+[![Code coverage badge](https://img.shields.io/codecov/c/github/ProjectTech4DevAI/ai-platform/staging.svg)](https://codecov.io/gh/ProjectTech4DevAI/ai-platform/branch/staging)
+![GitHub issues](https://img.shields.io/github/issues-raw/ProjectTech4DevAI/ai-platform)
+[![codebeat badge](https://codebeat.co/badges/dd951390-5f51-4c98-bddc-0b618bdb43fd)](https://codebeat.co/projects/github-com-ProjectTech4DevAI/ai-platform-staging)
+[![Commits](https://img.shields.io/github/commit-activity/m/ProjectTech4DevAI/ai-platform)](https://img.shields.io/github/commit-activity/m/ProjectTech4DevAI/ai-platform)
+
 ## Pre-requisites
 
 - [docker](https://docs.docker.com/get-started/get-docker/) Docker
@@ -16,7 +23,7 @@ You can **just fork or clone** this repository and use it as is.
 Create env file using example file
 
 ```bash
-cp envSample .env
+cp .env.example .env
 ```
 
 You can then update configs in the `.env` files to customize your configurations.
@@ -26,7 +33,8 @@ Before deploying it, make sure you change at least the values for:
 - `SECRET_KEY`
 - `FIRST_SUPERUSER_PASSWORD`
 - `POSTGRES_PASSWORD`
-```bash
+
+````bash
 
 ### Generate Secret Keys
 
@@ -36,7 +44,7 @@ You have to change them with a secret key, to generate secret keys you can run t
 
 ```bash
 python -c "import secrets; print(secrets.token_urlsafe(32))"
-```
+````
 
 Copy the content and use that as password / secret key. And run that again to generate another secure key.
 
@@ -61,7 +69,6 @@ or by visiting: http://[your-domain]:8000/api/v1/utils/health-check/ in the brow
 ## Backend Development
 
 Backend docs: [backend/README.md](./backend/README.md).
-
 
 ## Deployment
 

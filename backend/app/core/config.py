@@ -1,5 +1,6 @@
 import secrets
 import warnings
+import os
 from typing import Annotated, Any, Literal
 
 from pydantic import (
@@ -31,6 +32,7 @@ class Settings(BaseSettings):
         env_ignore_empty=True,
         extra="ignore",
     )
+    OPENAI_API_KEY: str
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = secrets.token_urlsafe(32)
     # 60 minutes * 24 hours * 1 days = 1 days
@@ -94,6 +96,9 @@ class Settings(BaseSettings):
     EMAIL_TEST_USER: EmailStr = "test@example.com"
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
+
+    LOG_DIR: str = os.path.join(os.path.dirname(
+        os.path.dirname(__file__)), "logs")
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
