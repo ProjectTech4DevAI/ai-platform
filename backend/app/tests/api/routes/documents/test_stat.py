@@ -1,7 +1,6 @@
 import pytest
 from sqlmodel import Session
 
-from app.models import Document
 from app.tests.utils.document import (
     DocumentComparator,
     DocumentMaker,

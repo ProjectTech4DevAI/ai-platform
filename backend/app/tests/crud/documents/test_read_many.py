@@ -1,5 +1,3 @@
-from uuid import UUID
-
 import pytest
 from sqlmodel import Session
 

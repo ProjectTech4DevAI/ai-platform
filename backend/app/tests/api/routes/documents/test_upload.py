@@ -4,7 +4,6 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from urllib.parse import urlparse
 
-import boto3
 import pytest
 from moto import mock_aws
 from sqlmodel import Session, select
