@@ -6,29 +6,31 @@ from sqlmodel import Session, select, update, and_
 from app.models import Document, DocumentList
 from app.core.util import now
 
-class CrudObject:
-    def __init__(self, session: Session):
+class DocumentCrud:
+    def __init__(self, session: Session, owner_id: UUID):
         self.session = session
+        self.owner_id = owner_id
 
-class DocumentCrud(CrudObject):
     def read_one(self, doc_id: UUID):
         statement = (
             select(Document)
-            .where(Document.id == doc_id)
+            .where(and_(
+                Document.owner_id == self.owner_id,
+                Document.id == doc_id,
+            ))
         )
 
         return self.session.exec(statement).one()
 
     def read_many(
             self,
-            owner_id: UUID,
             skip: Optional[int] = None,
             limit: Optional[int] = None,
     ):
         statement = (
             select(Document)
             .where(and_(
-                Document.owner_id == owner_id,
+                Document.owner_id == self.owner_id,
                 Document.deleted_at.is_(None),
             ))
         )
@@ -40,22 +42,28 @@ class DocumentCrud(CrudObject):
             if limit < 0:
                 raise ValueError(f'Negative limit: {limit}')
             statement = statement.limit(limit)
-
         docs = self.session.exec(statement).all()
 
         return DocumentList(docs=docs)
 
     def update(self, document: Document):
+        if not document.owner_id:
+            document.owner_id = self.owner_id
+        elif document.owner_id != self.owner_id:
+            error = 'Invalid document ownership: owner={} attempter={}'.format(
+                self.owner_id,
+                document.owner_id,
+            )
+            raise PermissionError(error)
+
         self.session.add(document)
         self.session.commit()
         self.session.refresh(document)
 
         return document
 
-    def delete(self, doc_id: UUID, owner_id: UUID):
+    def delete(self, doc_id: UUID):
         document = self.read_one(doc_id)
-        if document.owner_id != owner_id:
-            error = f'User {owner_id} does not own document {doc_id}'
-            raise PermissionError(error)
         document.deleted_at = now()
-        self.update(document)
+
+        return self.update(document)
