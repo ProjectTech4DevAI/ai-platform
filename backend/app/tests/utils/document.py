@@ -19,20 +19,31 @@ def get_user_id_by_email(db: Session):
     user = get_user_by_email(session=db, email=settings.FIRST_SUPERUSER)
     return user.id
 
-@ft.cache
-def int_to_uuid(value):
-    return UUID(int=value)
-
-class DocumentMaker:
-    def __init__(self, db: Session):
-        self.owner_id = get_user_id_by_email(db)
-        self.index = 0
+class DocumentIndexGenerator:
+    def __init__(self, start=0):
+        self.start = start
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        doc_id = self.get_and_increment()
+        uu_id = self.peek()
+        self.start += 1
+        return uu_id
+
+    def peek(self):
+        return UUID(int=self.start)
+
+class DocumentMaker:
+    def __init__(self, db: Session):
+        self.owner_id = get_user_id_by_email(db)
+        self.index = DocumentIndexGenerator()
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        doc_id = next(self.index)
         args = str(doc_id).split('-')
         fname = Path('/', *args).with_suffix('.xyz')
 
@@ -42,11 +53,6 @@ class DocumentMaker:
             fname=fname.name,
             object_store_url=fname.as_uri(),
         )
-
-    def get_and_increment(self):
-        doc_id = int_to_uuid(self.index)
-        self.index += 1
-        return doc_id
 
 class DocumentStore:
     @staticmethod
