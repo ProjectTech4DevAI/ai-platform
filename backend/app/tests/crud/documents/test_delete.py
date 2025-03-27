@@ -1,5 +1,6 @@
 import pytest
 from sqlmodel import Session, select
+from sqlalchemy.exc import NoResultFound
 
 from app.crud import DocumentCrud
 from app.models import Document
@@ -11,8 +12,8 @@ def document(db: Session):
     store = DocumentStore(db)
     document = store.put()
 
-    crud = DocumentCrud(db)
-    crud.delete(document.id, document.owner_id)
+    crud = DocumentCrud(db, document.owner_id)
+    crud.delete(document.id)
 
     statement = (
         select(Document)
@@ -29,3 +30,12 @@ class TestDatabaseDelete:
 
     def test_delete_follows_insert(self, document: Document):
         assert document.created_at <= document.deleted_at
+
+    def test_cannot_delete_others_documents(self, db: Session):
+        store = DocumentStore(db)
+        document = store.put()
+        other_owner_id = store.documents.index.peek()
+
+        crud = DocumentCrud(db, other_owner_id)
+        with pytest.raises(NoResultFound):
+            crud.delete(document.id)
