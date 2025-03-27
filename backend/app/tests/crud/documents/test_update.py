@@ -3,22 +3,17 @@ from sqlmodel import Session
 
 from app.crud import DocumentCrud
 
-from app.tests.utils.document import (
-    DocumentMaker,
-    clean_db_fixture,
-    rm_documents,
-)
+from app.tests.utils.document import DocumentMaker, DocumentStore
 
 @pytest.fixture
 def documents(db: Session):
-    rm_documents(db)
-    return DocumentMaker(db)
+    store = DocumentStore(db)
+    return store.maker
 
 @pytest.fixture
 def crud(db: Session):
     return DocumentCrud(db)
 
-@pytest.mark.usefixtures('clean_db_fixture')
 class TestDatabaseUpdate:
     def test_update_adds_one(
             self,

@@ -4,16 +4,12 @@ from sqlmodel import Session, select
 from app.crud import DocumentCrud
 from app.models import Document
 
-from app.tests.utils.document import (
-    clean_db_fixture,
-    insert_document,
-    rm_documents,
-)
+from app.tests.utils.document import DocumentStore
 
 @pytest.fixture
 def document(db: Session):
-    rm_documents(db)
-    document = insert_document(db)
+    store = DocumentStore(db)
+    document = store.put()
 
     crud = DocumentCrud(db)
     crud.delete(document.id, document.owner_id)
@@ -24,8 +20,7 @@ def document(db: Session):
     )
     return db.exec(statement).one()
 
-@pytest.mark.usefixtures('clean_db_fixture')
-class TestDatabaseUpdate:
+class TestDatabaseDelete:
     def test_delete_is_soft(self, document: Document):
         assert document is not None
 

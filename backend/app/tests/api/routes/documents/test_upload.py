@@ -45,7 +45,7 @@ def uploader(client: TestClient, superuser_token_headers: dict[str, str]):
     return WebUploader(client, superuser_token_headers)
 
 @pytest.fixture(scope='class')
-def aws_setup():
+def aws_credentials():
     os.environ['AWS_ACCESS_KEY_ID']     = 'testing'
     os.environ['AWS_SECRET_ACCESS_KEY'] = 'testing'
     os.environ['AWS_SECURITY_TOKEN']    = 'testing'
@@ -53,7 +53,7 @@ def aws_setup():
     os.environ['AWS_DEFAULT_REGION']    = settings.AWS_DEFAULT_REGION
 
 @mock_aws
-@pytest.mark.usefixtures('aws_setup')
+@pytest.mark.usefixtures('aws_credentials')
 class TestDocumentRouteUpload:
     def test_adds_to_database(
             self,
@@ -91,5 +91,4 @@ class TestDocumentRouteUpload:
         key = Path(url.path)
         key = key.relative_to(key.root)
 
-        client = boto3.client('s3')
-        assert client.head_object(Bucket=url.netloc, Key=str(key))
+        assert aws.client.head_object(Bucket=url.netloc, Key=str(key))

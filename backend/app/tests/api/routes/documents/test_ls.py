@@ -4,33 +4,35 @@ from sqlmodel import Session
 from app.models import Document
 from app.tests.utils.document import (
     DocumentComparator,
+    DocumentStore,
     Route,
     WebCrawler,
     crawler,
-    insert_document,
-    rm_documents,
 )
+
+class QueryRoute(Route):
+    def pushq(self, key, value):
+        qs_args = self.qs_args | {
+            key: value,
+        }
+        return type(self)(self.endpoint, **qs_args)
 
 @pytest.fixture
 def route():
-    return Route('ls')
-
-@pytest.fixture
-def document(db: Session):
-    return insert_document(db)
+    return QueryRoute('ls')
 
 class TestDocumentRouteList:
-    def test_response_is_success(self, route: Route, crawler: WebCrawler):
+    def test_response_is_success(self, route: QueryRoute, crawler: WebCrawler):
         response = crawler.get(route)
         assert response.is_success
 
     def test_empty_db_returns_empty_list(
             self,
             db: Session,
-            route: Route,
+            route: QueryRoute,
             crawler: WebCrawler,
     ):
-        rm_documents(db)
+        DocumentStore.clear(db)
         docs = (crawler
                 .get(route)
                 .json()
@@ -40,22 +42,23 @@ class TestDocumentRouteList:
 
     def test_item_reflects_database(
             self,
-            route: Route,
+            db: Session,
+            route: QueryRoute,
             crawler: WebCrawler,
-            document: Document,
     ):
+        store = DocumentStore(db)
+        source = DocumentComparator(store.put())
         target = (crawler
                   .get(route)
                   .json()
                   .get('docs')
                   .pop())
-        source = DocumentComparator(document)
 
         assert source == target
 
     def test_negative_skip_produces_error(
             self,
-            route: Route,
+            route: QueryRoute,
             crawler: WebCrawler,
     ):
         response = crawler.get(route.pushq('skip', -1))
@@ -63,7 +66,7 @@ class TestDocumentRouteList:
 
     def test_negative_limit_produces_error(
             self,
-            route: Route,
+            route: QueryRoute,
             crawler: WebCrawler,
     ):
         response = crawler.get(route.pushq('limit', -1))

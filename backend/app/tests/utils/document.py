@@ -23,25 +23,6 @@ def get_user_id_by_email(db: Session):
 def int_to_uuid(value):
     return UUID(int=value)
 
-def rm_documents(db: Session):
-    db.exec(delete(Document))
-    db.commit()
-
-def insert_documents(db: Session, n: int):
-    documents = DocumentMaker(db)
-    for (_, doc) in zip(range(n), documents):
-        db.add(doc)
-        db.commit()
-        db.refresh(doc)
-        yield doc
-
-def insert_document(db: Session):
-    (document, ) = insert_documents(db, 1)
-    return document
-
-class Constants:
-    n_documents = 10
-
 class DocumentMaker:
     def __init__(self, db: Session):
         self.owner_id = get_user_id_by_email(db)
@@ -66,6 +47,37 @@ class DocumentMaker:
         doc_id = int_to_uuid(self.index)
         self.index += 1
         return doc_id
+
+class DocumentStore:
+    @staticmethod
+    def clear(db: Session):
+        db.exec(delete(Document))
+        db.commit()
+
+    @property
+    def owner(self):
+        return self.maker.owner_id
+
+    def __init__(self, db: Session):
+        self.db = db
+        self.maker = DocumentMaker(self.db)
+        self.clear(self.db)
+
+    def put(self):
+        doc = next(self.maker)
+
+        self.db.add(doc)
+        self.db.commit()
+        self.db.refresh(doc)
+
+        return doc
+
+    def extend(self, n: int):
+        for _ in range(n):
+            yield self.put()
+
+    def fill(self, n: int):
+        return list(self.extend(n))
 
 class Route:
     _empty = ParseResult(*it.repeat('', len(ParseResult._fields)))
@@ -92,12 +104,6 @@ class Route:
     def append(self, doc: Document):
         endpoint = Path(self.endpoint, str(doc.id))
         return type(self)(endpoint, **self.qs_args)
-
-    def pushq(self, key, value):
-        qs_args = self.qs_args | {
-            key: value,
-        }
-        return type(self)(self.endpoint, **qs_args)
 
 @dataclass
 class WebCrawler:
@@ -137,12 +143,6 @@ class DocumentComparator:
         document = dict(self.document)
         for (k, v) in document.items():
             yield (k, self.to_string(v))
-
-@pytest.fixture(scope='class')
-def clean_db_fixture(db: Session):
-    rm_documents(db)
-    yield
-    rm_documents(db)
 
 @pytest.fixture
 def crawler(client: TestClient, superuser_token_headers: dict[str, str]):

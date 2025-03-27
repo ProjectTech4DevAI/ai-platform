@@ -5,42 +5,41 @@ from app.models import Document
 from app.tests.utils.document import (
     DocumentComparator,
     DocumentMaker,
+    DocumentStore,
     Route,
     WebCrawler,
     crawler,
-    insert_document,
-    rm_documents,
 )
 
 @pytest.fixture
 def route():
     return Route('stat')
 
-@pytest.fixture
-def document(db: Session):
-    rm_documents(db)
-    return insert_document(db)
-
 class TestDocumentRouteStat:
     def test_response_is_success(
             self,
+            db: Session,
             route: Route,
             crawler: WebCrawler,
-            document: Document,
     ):
-        response = crawler.get(route.append(document))
+        store = DocumentStore(db)
+        response = crawler.get(route.append(store.put()))
+
         assert response.is_success
 
     def test_stat_reflects_database(
             self,
+            db: Session,
             route: Route,
             crawler: WebCrawler,
-            document: Document,
     ):
+        store =	DocumentStore(db)
+        document = store.put()
+        source = DocumentComparator(document)
+
         target = (crawler
                   .get(route.append(document))
                   .json())
-        source = DocumentComparator(document)
 
         assert source == target
 
@@ -50,7 +49,8 @@ class TestDocumentRouteStat:
             route: Route,
             crawler: Route,
     ):
-        rm_documents(db)
+        DocumentStore.clear(db)
         maker = DocumentMaker(db)
         response = crawler.get(route.append(next(maker)))
+
         assert response.is_error

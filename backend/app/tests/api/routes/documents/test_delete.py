@@ -4,30 +4,26 @@ from sqlmodel import Session, select
 from app.models import Document
 from app.tests.utils.document import (
     DocumentMaker,
+    DocumentStore,
     Route,
     WebCrawler,
     crawler,
-    insert_document,
-    rm_documents,
 )
 
 @pytest.fixture
 def route():
     return Route('rm')
 
-@pytest.fixture
-def document(db: Session):
-    rm_documents(db)
-    return insert_document(db)
-
 class TestDocumentRouteDelete:
     def test_response_is_success(
             self,
+            db: Session,
             route: Route,
             crawler: WebCrawler,
-            document: Document,
     ):
-        response = crawler.get(route.append(document))
+        store = DocumentStore(db)
+        response = crawler.get(route.append(store.put()))
+
         assert response.is_success
 
     def test_item_is_soft_deleted(
@@ -35,10 +31,11 @@ class TestDocumentRouteDelete:
             db: Session,
             route: Route,
             crawler: WebCrawler,
-            document: Document,
     ):
-        crawler.get(route.append(document))
+        store = DocumentStore(db)
+        document = store.put()
 
+        crawler.get(route.append(document))
         db.refresh(document)
         statement = (
             select(Document)
@@ -54,7 +51,9 @@ class TestDocumentRouteDelete:
             route: Route,
             crawler: WebCrawler,
     ):
-        rm_documents(db)
+        DocumentStore.clear(db)
+
         maker = DocumentMaker(db)
         response = crawler.get(route.append(next(maker)))
+
         assert response.is_error

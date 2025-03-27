@@ -4,38 +4,24 @@ from sqlalchemy.exc import NoResultFound
 
 from app.crud import DocumentCrud
 
-from app.tests.utils.document import (
-    clean_db_fixture,
-    insert_document,
-    int_to_uuid,
-    rm_documents,
-)
+from app.tests.utils.document import DocumentStore
 
 @pytest.fixture
-def clean_db_fixture(db: Session):
-    rm_documents(db)
-    yield
-    rm_documents(db)
+def store(db: Session):
+    return DocumentStore(db)
 
-@pytest.mark.usefixtures('clean_db_fixture')
 class TestDatabaseReadOne:
-    def test_can_select_valid_id(
-            self,
-            db: Session,
-            clean_db_fixture: None,
-    ):
+    def test_can_select_valid_id(self, db: Session, store: DocumentStore):
+        document = store.put()
+
         crud = DocumentCrud(db)
-        document = insert_document(db)
         result = crud.read_one(document.id)
 
         assert result.id == document.id
 
-    def test_cannot_select_invalid_id(
-            self,
-            db: Session,
-            clean_db_fixture: None,
-    ):
+    def test_cannot_select_invalid_id(self, db: Session, store: DocumentStore):
+        document = next(store.maker)
+
         crud = DocumentCrud(db)
-        document_id = int_to_uuid(0)
         with pytest.raises(NoResultFound):
-            crud.read_one(document_id)
+            crud.read_one(document.id)
