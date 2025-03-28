@@ -1,1 +1,5 @@
-from .storage import AmazonCloudStorage, AmazonCloudStorageClient
+from .storage import (
+    AmazonCloudStorage,
+    AmazonCloudStorageClient,
+    CloudStorageError,
+)

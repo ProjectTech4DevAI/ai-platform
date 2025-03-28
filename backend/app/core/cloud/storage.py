@@ -10,6 +10,9 @@ from botocore.exceptions import ClientError
 from app.api.deps import CurrentUser
 from app.core.config import settings
 
+class CloudStorageError(Exception):
+    pass
+
 class AmazonCloudStorageClient:
     @ft.cached_property
     def client(self):
@@ -27,7 +30,7 @@ class AmazonCloudStorageClient:
         except ClientError as err:
             response = int(err.response['Error']['Code'])
             if response != 404:
-                raise
+                raise CloudStorageError(err) from err
             # ... if not create it
             self.client.create_bucket(
                 Bucket=settings.AWS_S3_BUCKET,
@@ -82,6 +85,6 @@ class AmazonCloudStorage(CloudStorage):
                 **kwargs,
             )
         except ClientError as err:
-            raise ConnectionError(f'AWS Error: "{err}"') from err
+            raise CloudStorageError(f'AWS Error: "{err}"') from err
 
         return destination
