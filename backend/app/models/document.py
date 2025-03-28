@@ -1,13 +1,10 @@
 from uuid import UUID, uuid4
-from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlmodel import Field, Relationship, SQLModel
 
+from app.core.util import now
 from .user import User
-
-def now():
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 class Document(SQLModel, table=True):
     id: UUID = Field(
@@ -19,13 +16,12 @@ class Document(SQLModel, table=True):
         nullable=False,
         ondelete='CASCADE',
     )
-    fname_external: Path
-    fname_internal: Path
+    fname: str
     object_store_url: str
     created_at: datetime = Field(
         default_factory=now,
     )
-    updated_at: datetime | None
+    # updated_at: datetime | None
     deleted_at: datetime | None
 
     owner: User = Relationship(back_populates='documents')
@@ -33,5 +29,11 @@ class Document(SQLModel, table=True):
 class DocumentList(SQLModel):
     docs: list[Document]
 
+    def __bool__(self):
+        return bool(self.docs)
+
     def __len__(self):
         return len(self.docs)
+
+    def __iter__(self):
+        yield from self.docs

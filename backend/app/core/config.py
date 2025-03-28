@@ -95,6 +95,15 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
 
+    AWS_ACCESS_KEY_ID: str
+    AWS_SECRET_ACCESS_KEY: str
+    AWS_DEFAULT_REGION: str
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def AWS_S3_BUCKET(self) -> str:
+        return f'ai-platform-documents-{self.ENVIRONMENT}'
+
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
             message = (
