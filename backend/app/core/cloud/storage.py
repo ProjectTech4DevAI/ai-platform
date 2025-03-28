@@ -1,3 +1,4 @@
+import os
 import functools as ft
 from pathlib import Path
 from dataclasses import dataclass, asdict
@@ -16,12 +17,17 @@ class CloudStorageError(Exception):
 class AmazonCloudStorageClient:
     @ft.cached_property
     def client(self):
-        return boto3.client(
-            's3',
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            region_name=settings.AWS_DEFAULT_REGION,
+        kwargs = {}
+        cred_params = (
+            ('aws_access_key_id', 'AWS_ACCESS_KEY_ID'),
+            ('aws_secret_access_key', 'AWS_SECRET_ACCESS_KEY'),
+            ('region_name', 'AWS_DEFAULT_REGION'),
         )
+
+        for (i, j) in cred_params:
+            kwargs[i] = os.environ.get(j, getattr(settings, j))
+
+        return boto3.client('s3', **kwargs)
 
     def create(self):
         try:
