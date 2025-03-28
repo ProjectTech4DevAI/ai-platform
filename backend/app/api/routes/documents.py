@@ -1,16 +1,20 @@
+import warnings
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, File, UploadFile, HTTPException
 
-from sqlalchemy.exc import NoResultFound, MultipleResultsFound
+from sqlalchemy.exc import NoResultFound, MultipleResultsFound, SQLAlchemyError
 
 from app.crud import DocumentCrud
 from app.models import Document, DocumentList
 from app.api.deps import CurrentUser, SessionDep
-from app.core.cloud import AmazonCloudStorage
+from app.core.cloud import AmazonCloudStorage, CloudStorageError
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
+def raise_from_unknown(error: Exception):
+    warnings.warn(f'Unexpected exception "{type(err).__name__}": {err}')
+    raise HTTPException(status_code=500, detail=str(err))
 
 @router.get("/ls", response_model=DocumentList)
 def list_docs(
@@ -22,8 +26,10 @@ def list_docs(
     crud = DocumentCrud(session, current_user.id)
     try:
         return crud.read_many(skip, limit)
-    except ValueError as err:
+    except (ValueError, SQLAlchemyError) as err:
         raise HTTPException(status_code=500, detail=str(err))
+    except Exception as err:
+        raise_from_unknown(err)
 
 @router.post("/cp")
 def upload_doc(
@@ -35,8 +41,10 @@ def upload_doc(
     basename = uuid4()
     try:
         object_store_url = storage.put(src, str(basename))
-    except ConnectionError as err:
-        raise HTTPException(status_code=500, detail=str(err))
+    except CloudStorageError as err:
+        raise HTTPException(status_code=503, detail=str(err))
+    except Exception as err:
+        raise_from_unknown(err)
 
     crud = DocumentCrud(session, current_user.id)
     document = Document(
@@ -45,7 +53,12 @@ def upload_doc(
         object_store_url=str(object_store_url)
     )
 
-    return crud.update(document)
+    try:
+        return crud.update(document)
+    except SQLAlchemyError as err:
+        raise HTTPException(status_code=503, detail=str(err))
+    except Exception as err:
+        raise_from_unknown(err)
 
 @router.get("/rm/{doc_id}")
 def delete_doc(
@@ -58,6 +71,8 @@ def delete_doc(
         return crud.delete(doc_id)
     except NoResultFound as err:
         raise HTTPException(status_code=404, detail=str(err))
+    except Exception as err:
+        raise_from_unknown(err)
 
     # TODO: perform delete on the collection
 
@@ -73,4 +88,6 @@ def doc_info(
     except NoResultFound as err:
         raise HTTPException(status_code=404, detail=str(err))
     except MultipleResultsFound as err:
-        raise HTTPException(status_code=500, detail=str(err))
+        raise HTTPException(status_code=503, detail=str(err))
+    except Exception as err:
+        raise_from_unknown(err)
