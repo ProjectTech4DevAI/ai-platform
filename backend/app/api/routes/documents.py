@@ -13,8 +13,11 @@ from app.core.cloud import AmazonCloudStorage, CloudStorageError
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 def raise_from_unknown(error: Exception):
-    warnings.warn(f'Unexpected exception "{type(err).__name__}": {err}')
-    raise HTTPException(status_code=500, detail=str(err))
+    warnings.warn('Unexpected exception "{}": {}'.format(
+        type(error).__name__,
+        error,
+    ))
+    raise HTTPException(status_code=500, detail=str(error))
 
 @router.get("/ls", response_model=DocumentList)
 def list_docs(
