@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 
 from app.models import Creds, CredsCreate
 
-def set_api_key_for_org(*, session: Session, creds_add: CredsCreate) -> Creds:
+def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> Creds:
     """Sets or updates the credentials for the given organization."""
     statement = select(Creds).where(Creds.organization_id == creds_add.organization_id)
     creds = session.exec(statement).first()

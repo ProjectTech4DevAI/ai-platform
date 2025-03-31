@@ -10,14 +10,14 @@ from app.api.deps import (
     SessionDep,
     get_current_active_superuser,
 )
-from app.crud.credentials import set_api_key_for_org, get_key_by_org, remove_creds_for_org, get_creds_by_org
+from app.crud.credentials import set_creds_for_org, get_key_by_org, remove_creds_for_org, get_creds_by_org
 from app.utils import APIResponse 
 
 router = APIRouter(prefix="/credentials", tags=["credentials"])
 
 @router.post("/", response_model=APIResponse[CredsPublic])
 def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
-    new_creds = set_api_key_for_org(session=session, creds_add=creds_in)
+    new_creds = set_creds_for_org(session=session, creds_add=creds_in)
     return APIResponse.success_response(new_creds)
 
 
