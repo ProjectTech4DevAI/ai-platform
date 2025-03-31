@@ -1,8 +1,7 @@
 import re
 import requests
 
-import openai
-from openai import OpenAI
+from openai import OpenAI, OpenAIError
 from fastapi import APIRouter, BackgroundTasks
 
 from app.utils import APIResponse
