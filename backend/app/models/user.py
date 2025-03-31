@@ -50,7 +50,18 @@ class User(UserBase, table=True):
     hashed_password: str
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
     documents: list["Document"] = Relationship(back_populates="owner", cascade_delete=True)
+    projects: list["ProjectUser"] = Relationship(back_populates="user", cascade_delete=True)
+    api_keys: list["APIKey"] = Relationship(back_populates="user")
 
+
+class UserOrganization(UserBase):
+    id : uuid.UUID
+    organization_id: int | None
+    
+
+class UserProjectOrg(UserOrganization):
+    project_id: int
+    
 
 # Properties to return via API, id is always required
 class UserPublic(UserBase):

@@ -1,4 +1,4 @@
-# FastAPI Project - Development
+# AI Platform - Development
 
 ## Docker Compose
 

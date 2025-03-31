@@ -1,5 +1,6 @@
 import secrets
 import warnings
+import os
 from typing import Annotated, Any, Literal
 
 from pydantic import (
@@ -31,10 +32,11 @@ class Settings(BaseSettings):
         env_ignore_empty=True,
         extra="ignore",
     )
+    OPENAI_API_KEY: str
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = secrets.token_urlsafe(32)
-    # 60 minutes * 24 hours * 8 days = 8 days
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
+    # 60 minutes * 24 hours * 1 days = 1 days
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 1
     FRONTEND_HOST: str = "http://localhost:5173"
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
 
@@ -103,6 +105,9 @@ class Settings(BaseSettings):
     @property
     def AWS_S3_BUCKET(self) -> str:
         return f'ai-platform-documents-{self.ENVIRONMENT}'
+
+    LOG_DIR: str = os.path.join(os.path.dirname(
+        os.path.dirname(__file__)), "logs")
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":

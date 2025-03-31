@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, Generic, Optional, TypeVar
 
 import emails  # type: ignore
 import jwt
@@ -12,8 +12,27 @@ from jwt.exceptions import InvalidTokenError
 from app.core import security
 from app.core.config import settings
 
+from typing import Generic, Optional, TypeVar
+from pydantic import BaseModel
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
+class APIResponse(BaseModel, Generic[T]):
+    success: bool
+    data: Optional[T] = None
+    error: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+    @classmethod
+    def success_response(cls, data: T, metadata: Optional[Dict[str, Any]] = None) -> "APIResponse[T]":
+        return cls(success=True, data=data, error=None, metadata=metadata)
+
+    @classmethod
+    def failure_response(cls, error: str) -> "APIResponse[None]":
+        return cls(success=False, data=None, error=error)
 
 
 @dataclass
