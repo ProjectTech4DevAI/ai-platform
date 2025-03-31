@@ -88,47 +88,27 @@ async def threads(request: dict, background_tasks: BackgroundTasks):
     """
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
  
-    # Use get method to safely access thread_id
     thread_id = request.get("thread_id")
-
-    # 1. Validate or check if there's an existing thread with an in-progress run
-    if thread_id:
-        try:
-            runs = client.beta.threads.runs.list(thread_id=thread_id)
-            # Get the most recent run (first in the list) if any
-            if runs.data and len(runs.data) > 0:
-                latest_run = runs.data[0]
-                if latest_run.status in ["queued", "in_progress", "requires_action"]:
-                    return APIResponse.failure_response(error=f"There is an active run on this thread (status: {latest_run.status}). Please wait for it to complete.")
-        except openai.OpenAIError:
-            # Handle invalid thread ID
-            return APIResponse.failure_response(error=f"Invalid thread ID provided {thread_id}")
-
-        # Use existing thread
-        client.beta.threads.messages.create(
-            thread_id=thread_id, role="user", content=request["question"]
-        )
-    else:
+    if thread_id is None:
         try:
             # Create new thread
             thread = client.beta.threads.create()
+            thread_id = thread.id
             client.beta.threads.messages.create(
-                thread_id=thread.id, role="user", content=request["question"]
+                thread_id=thread_id,
+                role="user",
+                content=request["question"],
             )
-            request["thread_id"] = thread.id
         except openai.OpenAIError as e:
-            # Handle any other OpenAI API errors
-            if isinstance(e.body, dict) and "message" in e.body:
-                error_message = e.body["message"]
-            else:
-                error_message = str(e)
-            return APIResponse.failure_response(error=error_message)
+            error = open_ai_error_to_string(e)
+            return APIResponse.failure_response(error=error)
+        request["thread_id"] = thread_id
 
     # 2. Send immediate response to complete the API call
     initial_response = APIResponse.success_response(data={
         "status": "processing",
         "message": "Run started",
-        "thread_id": request.get("thread_id"),
+        "thread_id": thread_id,
         "success": True,
     })
 
