@@ -15,11 +15,29 @@ from app.utils import APIResponse
 
 router = APIRouter(prefix="/credentials", tags=["credentials"])
 
+from fastapi import APIRouter, HTTPException, Depends
+from app.api.deps import SessionDep
+from app.crud.credentials import set_creds_for_org, get_key_by_org  # assuming set_creds_for_org is defined
+from app.utils import APIResponse
+from app.models import Creds, CredsCreate
+
+router = APIRouter(prefix="/credentials", tags=["credentials"])
+
 @router.post("/", response_model=APIResponse[CredsPublic])
 def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
+    """
+    Create new credentials or return an error if credentials already exist for the organization.
+    """
+    # Check if credentials already exist for the given organization
+    existing_creds = get_creds_by_org(session=session, org_id=creds_in.organization_id)
+    
+    if existing_creds:
+        # If credentials already exist, raise HTTPException with a 400 status code
+        raise HTTPException(status_code=400, detail="Credentials for this organization already exist.")
+    
+    # Otherwise, create new credentials
     new_creds = set_creds_for_org(session=session, creds_add=creds_in)
     return APIResponse.success_response(new_creds)
-
 
 @router.get("/{org_id}", dependencies=[Depends(get_current_active_superuser)], response_model=APIResponse[CredsPublic])
 def read_credential(*, session: SessionDep, org_id: int):

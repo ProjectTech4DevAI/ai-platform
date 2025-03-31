@@ -5,23 +5,12 @@ from sqlmodel import Session, select
 from app.models import Creds, CredsCreate
 
 def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> Creds:
-    """Sets or updates the credentials for the given organization."""
-    statement = select(Creds).where(Creds.organization_id == creds_add.organization_id)
-    creds = session.exec(statement).first()
-
-    # If the organization already has credentials
-    if creds:
-        creds.credential = creds_add.credential  # Update the credential field (the JSON field)
-        creds.is_active = True
-        creds.valid = True
-        session.add(creds)
-    else:
-        # Create new Creds record using the validated data
-        creds = Creds.model_validate(creds_add)
-        session.add(creds)
+    creds = Creds.model_validate(creds_add)
+    session.add(creds)
 
     session.commit()
     session.refresh(creds)
+    
     return creds
 
 
