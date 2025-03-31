@@ -23,38 +23,53 @@ from app.models import Creds, CredsCreate
 
 router = APIRouter(prefix="/credentials", tags=["credentials"])
 
-@router.post("/", response_model=APIResponse[CredsPublic])
+@router.post("/", dependencies=[Depends(get_current_active_superuser)], response_model=APIResponse[CredsPublic])
 def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
-    """
-    Create new credentials or return an error if credentials already exist for the organization.
-    """
-    # Check if credentials already exist for the given organization
-    existing_creds = get_creds_by_org(session=session, org_id=creds_in.organization_id)
+    try:
+        existing_creds = get_creds_by_org(session=session, org_id=creds_in.organization_id)
+
+        if existing_creds:
+            raise HTTPException(status_code=400, detail="Credentials for this organization already exist.")
+        
+        new_creds = set_creds_for_org(session=session, creds_add=creds_in)
+        return APIResponse.success_response(new_creds)
     
-    if existing_creds:
-        # If credentials already exist, raise HTTPException with a 400 status code
-        raise HTTPException(status_code=400, detail="Credentials for this organization already exist.")
+    except HTTPException as http_error:
+        raise http_error
     
-    # Otherwise, create new credentials
-    new_creds = set_creds_for_org(session=session, creds_add=creds_in)
-    return APIResponse.success_response(new_creds)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
 @router.get("/{org_id}", dependencies=[Depends(get_current_active_superuser)], response_model=APIResponse[CredsPublic])
 def read_credential(*, session: SessionDep, org_id: int):
-    creds = get_creds_by_org(session=session, org_id=org_id)
-    if creds is None:
-        raise HTTPException(status_code=404, detail="Credentials not found")
-    return APIResponse.success_response(creds)
+    """
+    Fetches credentials for the given organization.
+    """
+    try:
+        creds = get_creds_by_org(session=session, org_id=org_id)
+        if creds is None:
+            raise HTTPException(status_code=404, detail="Credentials not found")
+        return APIResponse.success_response(creds)
+    except Exception as e:
+        # Catch any other exceptions and return an internal server error response
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+
+
 
 @router.get("/{org_id}/api-key", dependencies=[Depends(get_current_active_superuser)], response_model=APIResponse[str])
 def read_api_key(*, session: SessionDep, org_id: int):
-    api_key = get_key_by_org(session=session, org_id=org_id)
+    """
+    Fetches the API key for the given organization.
+    """
+    try:
+        api_key = get_key_by_org(session=session, org_id=org_id)
+        if api_key is None:
+            raise HTTPException(status_code=404, detail="API key not found")
+        return APIResponse.success_response(api_key)
+    except Exception as e:
+        # Catch any other exceptions and return an internal server error response
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
     
-    if api_key is None:
-        raise HTTPException(status_code=404, detail="API key not found")
-    
-    return APIResponse.success_response(api_key)
-
 @router.patch("/{org_id}", dependencies=[Depends(get_current_active_superuser)], response_model=APIResponse[CredsPublic])
 def update_credential(*, session: SessionDep, org_id: int, creds_in: CredsUpdate):
     creds = get_creds_by_org(session=session, org_id=org_id)
@@ -62,19 +77,28 @@ def update_credential(*, session: SessionDep, org_id: int, creds_in: CredsUpdate
         raise HTTPException(status_code=404, detail="Credentials not found")
 
     # Update only the fields that were provided in the request
-    creds_data = creds_in.dict(exclude_unset=True)  # Exclude unset fields
-    creds = creds.model_copy(update=creds_data)
-
-    session.add(creds)
-    session.commit()
-    session.flush(creds)
+    try:
+        creds_data = creds_in.dict(exclude_unset=True)
+        creds = creds.model_copy(update=creds_data)
+        session.add(creds)
+        session.commit()
+        session.flush(creds)
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail="Failed to update credentials")
 
     return APIResponse.success_response(creds)
 
 
 @router.delete("/{org_id}/api-key", dependencies=[Depends(get_current_active_superuser)], response_model=APIResponse[None])
 def delete_credential(*, session: SessionDep, org_id: int):
-    creds = remove_creds_for_org(session=session, org_id=org_id)
-    if creds is None:
-        raise HTTPException(status_code=404, detail="API key for organization not found")
-    return APIResponse.success_response(None)
+    try:
+        creds = remove_creds_for_org(session=session, org_id=org_id)
+        
+        if creds is None:
+            raise HTTPException(status_code=404, detail="API key for organization not found")
+        
+        return APIResponse.success_response(None)
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
