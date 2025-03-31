@@ -19,39 +19,26 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v4
 
-      - name: Check if tag is from main branch
-        id: check-branch
-        run: |
-          if [ "$(git branch -r --contains ${{ github.ref }})" == "origin/main" ]; then
-            echo "IS_MAIN=true" >> $GITHUB_ENV
-          else
-            echo "IS_MAIN=false" >> $GITHUB_ENV
-          fi
-
       - name: Configure AWS credentials
-        if: env.IS_MAIN == 'true'
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v4 # More information on this action can be found below in the 'AWS Credentials' section
         with:
           role-to-assume: arn:aws:iam::024209611402:role/github-action-role
           aws-region: ap-south-1
 
       - name: Login to Amazon ECR
-        if: env.IS_MAIN == 'true'
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build and Push Docker Image
-        if: env.IS_MAIN == 'true'
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: ${{ github.event.repository.name }}-repo
           TAG: ${{ github.ref_name }}
         run: |
-          docker build -t $REGISTRY/$REPOSITORY:$TAG ./backend
-          docker push $REGISTRY/$REPOSITORY:$TAG
+          docker build -t $REGISTRY/$REPOSITORY:latest ./backend
+          docker push $REGISTRY/$REPOSITORY:latest
 
       - name: Deploy to ECS
-        if: env.IS_MAIN == 'true'
         run: |
           aws ecs update-service \
             --cluster ${{ github.event.repository.name }}-cluster \
