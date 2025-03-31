@@ -1,6 +1,5 @@
 from typing import Any, List
 
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlmodel import Session, select
