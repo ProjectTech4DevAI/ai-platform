@@ -44,7 +44,7 @@ def open_ai_error_to_string(error: OpenAIError):
     try:
         error_message = e.body["message"]
     except (AttributeError, TypeError, KeyError):
-        error_message = str(e)
+        error_message = str(error_message)
 
     return error_message
 
@@ -68,7 +68,7 @@ def process_run(request: dict, client: OpenAI):
             error = f"Run failed with status: {run.status}"
             callback_response = APIResponse.failure_response(error)
             send_callback(request["callback_url"], callback_response)
-    except openai.OpenAIError as e:
+    except OpenAIError as e:
         error = open_ai_error_to_string(e)
         callback_response = APIResponse.failure_response(error)
         send_callback(request["callback_url"], callback_response)
@@ -77,7 +77,7 @@ def process_run(request: dict, client: OpenAI):
 
     remove_citation = request.get("remove_citation", False)
     if remove_citation:
-        message = re.sub(r"【\d+(?::\d+)?†[^】]*】", "", message_content)
+        message = re.sub(r"【\d+(?::\d+)?†[^】]*】", "", message)
 
     copier = RequestCopier(request)
     additional_data = dict(copier)
@@ -116,7 +116,7 @@ async def threads(request: dict, background_tasks: BackgroundTasks):
                 role="user",
                 content=request["question"],
             )
-        except openai.OpenAIError as e:
+        except OpenAIError as e:
             error = open_ai_error_to_string(e)
             return APIResponse.failure_response(error=error)
         request["thread_id"] = thread_id
