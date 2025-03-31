@@ -10,9 +10,25 @@ from app.core import settings, logging
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["threads"])
 
+class RequestCopier:
+    _exclude = {
+        "question",
+        "assistant_id",
+        "callback_url",
+        "thread_id",
+    }
 
-def send_callback(callback_url: str, data: dict):
+    def __init__(self, request):
+        self.request = request
+
+    def __iter__(self):
+        for (k, v) in self.request.items():
+            if k not in self._exclude:
+                yield (k, v)
+
+def send_callback(callback_url: str, data: APIResponse):
     """Send results to the callback URL (synchronously)."""
+    data = data.model_dump()
     try:
         session = requests.Session()
         # uncomment this to run locally without SSL
@@ -21,62 +37,63 @@ def send_callback(callback_url: str, data: dict):
         response.raise_for_status()
         return True
     except requests.RequestException as e:
-        logger.error(f"Callback failed: {str(e)}")
+        logger.error(f"Callback failed: {e}")
         return False
 
+def open_ai_error_to_string(error: OpenAIError):
+    try:
+        error_message = e.body["message"]
+    except (AttributeError, TypeError, KeyError):
+        error_message = str(e)
+
+    return error_message
 
 def process_run(request: dict, client: OpenAI):
     """
     Background task to run create_and_poll, then send the callback with the result.
     This function is run in the background after we have already returned an initial response.
     """
+
+    thread_id = request["thread_id"]
     try:
         # Start the run
         run = client.beta.threads.runs.create_and_poll(
-            thread_id=request["thread_id"],
+            thread_id=thread_id,
             assistant_id=request["assistant_id"],
         )
 
         if run.status == "completed":
-            messages = client.beta.threads.messages.list(
-                thread_id=request["thread_id"])
-            latest_message = messages.data[0]
-            message_content = latest_message.content[0].text.value
-
-            remove_citation = request.get("remove_citation", False)
-
-            if remove_citation:
-                message = re.sub(r"【\d+(?::\d+)?†[^】]*】", "", message_content)
-            else:
-                message = message_content
-
-            # Update the data dictionary with additional fields from the request, excluding specific keys
-            additional_data = {k: v for k, v in request.items(
-            ) if k not in {"question", "assistant_id", "callback_url", "thread_id"}}
-            callback_response = APIResponse.success_response(data={
-                "status": "success",
-                "message": message,
-                "thread_id": request["thread_id"],
-                "endpoint": getattr(request, "endpoint", "some-default-endpoint"),
-                **additional_data
-            })
+            messages = client.beta.threads.messages.list(thread_id=thread_id)
         else:
-            callback_response = APIResponse.failure_response(
-                error=f"Run failed with status: {run.status}")
-
-        # Send callback with results
-        send_callback(request["callback_url"], callback_response.model_dump())
-
+            error = f"Run failed with status: {run.status}"
+            callback_response = APIResponse.failure_response(error)
+            send_callback(request["callback_url"], callback_response)
     except openai.OpenAIError as e:
-        # Handle any other OpenAI API errors
-        if isinstance(e.body, dict) and "message" in e.body:
-            error_message = e.body["message"]
-        else:
-            error_message = str(e)
+        error = open_ai_error_to_string(e)
+        callback_response = APIResponse.failure_response(error)
+        send_callback(request["callback_url"], callback_response)
 
-        callback_response = APIResponse.failure_response(error=error_message)
+    message = messages.data[0].content[0].text.value
 
-        send_callback(request["callback_url"], callback_response.model_dump())
+    remove_citation = request.get("remove_citation", False)
+    if remove_citation:
+        message = re.sub(r"【\d+(?::\d+)?†[^】]*】", "", message_content)
+
+    copier = RequestCopier(request)
+    additional_data = dict(copier)
+
+    endpoint = getattr(request, "endpoint", "some-default-endpoint")
+
+    callback_response = APIResponse.success_response(data={
+        "status": "success",
+        "message": message,
+        "thread_id": thread_id,
+        "endpoint": endpoint,
+        **additional_data,
+    })
+
+    # Send callback with results
+    send_callback(request["callback_url"], callback_response)
 
 
 @router.post("/threads")
