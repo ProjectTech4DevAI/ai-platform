@@ -5,7 +5,7 @@ Revises: 0f205e3779ee
 Create Date: 2025-03-26 19:58:51.004555
 
 """
-
+from app.core.config import settings
 from alembic import op
 from sqlmodel import Session
 from app.models import Organization, Project, User, APIKey  # Adjust the import based on your actual structure
@@ -47,12 +47,12 @@ def create_projects(session: Session, organization: Organization):
 
 def create_user(session: Session) -> User:
     """Create a user and return the user."""
-    hashed_password = hash_password("securepassword123")  # Hash the password
+    hashed_password = hash_password(settings.FIRST_SUPERUSER_PASSWORD)  # Hash the password
     user = User(
-        email="superuser@projecttech4dev.org",
+        email=settings.FIRST_SUPERUSER,
         is_active=True,
         is_superuser=True,
-        full_name="Super User",
+        full_name= "SUPERUSER",
         hashed_password=hashed_password
     )
     session.add(user)
