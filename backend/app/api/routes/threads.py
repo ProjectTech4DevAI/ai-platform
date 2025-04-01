@@ -121,16 +121,16 @@ async def threads(request: dict, background_tasks: BackgroundTasks):
             return APIResponse.failure_response(error=error)
         request["thread_id"] = thread_id
 
-    # 2. Send immediate response to complete the API call
+    # 2. Schedule the background task to run create_and_poll and send callback
+    background_tasks.add_task(process_run, request, client)
+
+    # 3. Send immediate response to complete the API call
     initial_response = APIResponse.success_response(data={
         "status": "processing",
         "message": "Run started",
         "thread_id": thread_id,
         "success": True,
     })
-
-    # 3. Schedule the background task to run create_and_poll and send callback
-    background_tasks.add_task(process_run, request, client)
 
     # 4. Return immediately so the client knows we've accepted the request
     return initial_response
