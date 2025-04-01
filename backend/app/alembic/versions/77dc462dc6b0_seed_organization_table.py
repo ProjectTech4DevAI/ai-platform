@@ -7,8 +7,10 @@ Create Date: 2025-03-26 19:58:51.004555
 """
 from app.core.config import settings
 from alembic import op
+import secrets
 from sqlmodel import Session
-from app.models import Organization, Project, User, APIKey  # Adjust the import based on your actual structure
+# Adjust the import based on your actual structure
+from app.models import Organization, Project, User, APIKey
 from passlib.context import CryptContext  # To hash passwords securely
 
 # revision identifiers, used by Alembic.
@@ -25,9 +27,11 @@ session = Session(bind=bind)
 # Setup password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+
 def hash_password(password: str) -> str:
     """Hash a password."""
     return pwd_context.hash(password)
+
 
 def create_organization(session: Session, name: str) -> Organization:
     """Create and return an organization."""
@@ -36,48 +40,68 @@ def create_organization(session: Session, name: str) -> Organization:
     session.commit()
     return organization
 
+
 def create_projects(session: Session, organization: Organization):
     """Create projects for an organization."""
     projects = [
-        Project(name="Glific", description="Two way communication platform", organization_id=organization.id),
-        Project(name="Dalgo", description="Data platform for the social sector", organization_id=organization.id)
+        Project(name="Glific", description="Two way communication platform",
+                organization_id=organization.id),
+        Project(name="Dalgo", description="Data platform for the social sector",
+                organization_id=organization.id)
     ]
     session.add_all(projects)
     session.commit()
 
-def create_user(session: Session) -> User:
+
+def create_user(session: Session, is_super: bool = True) -> User:
     """Create a user and return the user."""
-    hashed_password = hash_password(settings.FIRST_SUPERUSER_PASSWORD)  # Hash the password
+    if is_super:
+        email = settings.FIRST_SUPERUSER
+        password = settings.FIRST_SUPERUSER_PASSWORD
+        full_name = "SUPERUSER"
+    else:
+        email = "admin@example.com"
+        password = "admin123"
+        full_name = "ADMIN"
+
+    hashed_password = hash_password(password)
     user = User(
-        email=settings.FIRST_SUPERUSER,
+        email=email,
         is_active=True,
-        is_superuser=True,
-        full_name= "SUPERUSER",
+        is_superuser=is_super,
+        full_name=full_name,
         hashed_password=hashed_password
     )
     session.add(user)
     session.commit()
     return user
 
+
 def create_api_key(session: Session, user: User, organization: Organization) -> APIKey:
     """Create and return an API key for the user and organization."""
     api_key = APIKey(
-        name="Project Tech4dev",
-        is_active=True,
         user_id=user.id,
         organization_id=organization.id,
-        key="ApiKey 7AeBoWsAYiMzLRTuJ02C3dR5Q72IVe3YM3SulwRMNTs"
+        key='ApiKey '+secrets.token_urlsafe(32)
     )
     session.add(api_key)
     session.commit()
     return api_key
 
+
 def seed_organizations_and_projects(session: Session):
     """Seed organizations, projects, users, and API keys."""
     organization = create_organization(session, name="Project Tech4dev")
     create_projects(session, organization)
-    user = create_user(session)
-    create_api_key(session, user, organization)
+
+    # Create superuser and their API key
+    superuser = create_user(session, is_super=True)
+    create_api_key(session, superuser, organization)
+
+    # Create regular user and their API key
+    regular_user = create_user(session, is_super=False)
+    create_api_key(session, regular_user, organization)
+
 
 def delete_all_data(session: Session):
     """Delete all records from Organization, Project, User, and APIKey."""
@@ -97,10 +121,12 @@ def delete_all_data(session: Session):
     session.exec(statement)
     session.commit()
 
+
 def upgrade() -> None:
     """Upgrade function to apply migrations."""
     delete_all_data(session)
     seed_organizations_and_projects(session)
+
 
 def downgrade() -> None:
     """Downgrade function to revert migrations."""
