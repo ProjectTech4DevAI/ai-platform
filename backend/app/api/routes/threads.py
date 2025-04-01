@@ -44,7 +44,7 @@ def open_ai_error_to_string(error: OpenAIError):
     try:
         error_message = error.body["message"]
     except (AttributeError, TypeError, KeyError):
-        error_message = str(error_message)
+        error_message = str(error)
 
     return error_message
 
