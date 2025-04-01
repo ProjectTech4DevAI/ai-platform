@@ -104,7 +104,7 @@ async def threads(request: dict, background_tasks: BackgroundTasks):
     Once completed, calls send_callback with the final result.
     """
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
- 
+
     thread_id = request.get("thread_id")
     if thread_id is None:
         try:
