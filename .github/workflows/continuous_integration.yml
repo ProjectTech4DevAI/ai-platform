@@ -28,46 +28,61 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      # Set up Python and install dependencies in one go
+      - name: Set up Python ${{ matrix.python-version }} and dependencies
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Making env file
-        run: cp .env.example .env
+      # Cache Python dependencies to speed up future runs
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
-      - name: Install uv
+      - name: Set up uv
         uses: astral-sh/setup-uv@v5
         with:
           version: "0.4.15"
           enable-cache: true
 
-      - name: Install dependencies
-        run: uv sync
+      # Making env file and installing dependencies with uv
+      - name: Set up environment and install dependencies
+        run: |
+          cp .env.example .env
+          uv sync
         working-directory: backend
 
-      - name: Activate virtual environment and run Alembic migrations
+      # Run Alembic migrations
+      - name: Run Alembic migrations
         run: |
           source .venv/bin/activate
           alembic upgrade head
         working-directory: backend
 
-      - name: Run pre-commit
+      # Run pre-commit hooks
+      - name: Run pre-commit checks
         run: |
           source .venv/bin/activate
           uv run pre-commit run --all-files
         working-directory: backend
 
+      # Run tests
       - name: Run tests
         run: uv run bash scripts/tests-start.sh "Coverage for ${{ github.sha }}"
         working-directory: backend
 
+      # Upload coverage reports to Codecov
       - name: Upload coverage reports to codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
 
+      # Check coverage percentage
       - name: Check coverage percentage
         run: |
           source .venv/bin/activate
