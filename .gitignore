@@ -15,3 +15,5 @@ ENV/
 
 # .DS_Store: macOS Finder metadata file that stores folder view settings and icon positions.
 **/.DS_Store
+
+/backend/app/logs

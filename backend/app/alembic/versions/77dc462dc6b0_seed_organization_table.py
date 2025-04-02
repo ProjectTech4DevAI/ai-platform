@@ -105,11 +105,12 @@ def seed_organizations_and_projects(session: Session):
 
 def delete_all_data(session: Session):
     """Delete all records from Organization, Project, User, and APIKey."""
-    statement = Organization.__table__.delete()
+
+    statement = Project.__table__.delete()
     session.exec(statement)
     session.commit()
 
-    statement = Project.__table__.delete()
+    statement = Organization.__table__.delete()
     session.exec(statement)
     session.commit()
 
