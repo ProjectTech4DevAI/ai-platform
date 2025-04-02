@@ -1,12 +1,10 @@
-import pytest
-import openai
-
 from unittest.mock import MagicMock, patch
+
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.routes.threads import router, process_run
-from app.utils import APIResponse
+from app.api.routes.threads import process_run, router
 
 # Wrap the router in a FastAPI app instance.
 app = FastAPI()
@@ -93,7 +91,9 @@ def test_process_run_variants(mock_openai, remove_citation, expected_message):
 
     # Set up the dummy message based on the remove_citation flag.
     base_message = "Glific is an open-source, two-way messaging platform designed for nonprofits to scale their outreach via WhatsApp"
-    citation_message = base_message if remove_citation else f"{base_message}【1:2†citation】"
+    citation_message = (
+        base_message if remove_citation else f"{base_message}【1:2†citation】"
+    )
     dummy_message = MagicMock()
     dummy_message.content = [MagicMock(text=MagicMock(value=citation_message))]
     mock_client.beta.threads.messages.list.return_value.data = [dummy_message]

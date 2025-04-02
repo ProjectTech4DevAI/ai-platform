@@ -1,7 +1,7 @@
 from datetime import timedelta
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Form
+from fastapi import APIRouter, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -25,7 +25,9 @@ router = APIRouter(tags=["login"])
 def login_access_token(
     session: SessionDep,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-    token_expiry_minutes: Optional[int] = Form(default=settings.ACCESS_TOKEN_EXPIRE_MINUTES, ge=1, le=60 * 24 * 360),
+    token_expiry_minutes: int | None = Form(
+        default=settings.ACCESS_TOKEN_EXPIRE_MINUTES, ge=1, le=60 * 24 * 360
+    ),
 ) -> Token:
     """
     OAuth2 compatible token login with customizable expiration time.

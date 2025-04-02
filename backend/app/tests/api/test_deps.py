@@ -1,14 +1,25 @@
-import pytest
 import uuid
-from sqlmodel import Session, select
+
+import pytest
 from fastapi import HTTPException
+from sqlmodel import Session, select
+
 from app.api.deps import verify_user_project_organization
-from app.models import User, Organization, Project, ProjectUser, UserProjectOrg, UserOrganization
-from app.tests.utils.utils import random_email
 from app.core.security import get_password_hash
+from app.models import (
+    Organization,
+    Project,
+    ProjectUser,
+    User,
+    UserOrganization,
+    UserProjectOrg,
+)
+from app.tests.utils.utils import random_email
 
 
-def create_org_project(db: Session, org_active=True, proj_active=True) -> tuple[Organization, Project]:
+def create_org_project(
+    db: Session, org_active=True, proj_active=True
+) -> tuple[Organization, Project]:
     """Helper function to create an organization and a project with customizable active states."""
     org = Organization(name=f"Test Org {uuid.uuid4()}", is_active=org_active)
     db.add(org)
@@ -19,7 +30,7 @@ def create_org_project(db: Session, org_active=True, proj_active=True) -> tuple[
         name=f"Test Proj {uuid.uuid4()}",
         description="A test project",
         organization_id=org.id,
-        is_active=proj_active
+        is_active=proj_active,
     )
     db.add(proj)
     db.commit()
@@ -30,7 +41,11 @@ def create_org_project(db: Session, org_active=True, proj_active=True) -> tuple[
 
 def create_user(db: Session, is_superuser=False) -> User:
     """Helper function to create a user."""
-    user = User(email=random_email(), hashed_password=get_password_hash("password123"), is_superuser=is_superuser)
+    user = User(
+        email=random_email(),
+        hashed_password=get_password_hash("password123"),
+        is_superuser=is_superuser,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -47,7 +62,7 @@ def test_verify_success(db: Session):
     db.commit()
 
     result = verify_user_project_organization(db, user, proj.id, org.id)
-    
+
     assert isinstance(result, UserProjectOrg)
     assert result.project_id == proj.id
     assert result.organization_id == org.id
@@ -59,7 +74,7 @@ def test_verify_superuser_bypass(db: Session):
     org, proj = create_org_project(db)
 
     result = verify_user_project_organization(db, superuser, proj.id, org.id)
-    
+
     assert isinstance(result, UserProjectOrg)
     assert result.project_id == proj.id
     assert result.organization_id == org.id
@@ -70,10 +85,15 @@ def test_verify_no_org(db: Session):
     user = create_user(db)
     invalid_org_id = 9999
 
-    assert db.exec(select(Organization).where(Organization.id == invalid_org_id)).first() is None
+    assert (
+        db.exec(select(Organization).where(Organization.id == invalid_org_id)).first()
+        is None
+    )
 
     with pytest.raises(HTTPException) as exc_info:
-        verify_user_project_organization(db, user, project_id=1, organization_id=invalid_org_id)
+        verify_user_project_organization(
+            db, user, project_id=1, organization_id=invalid_org_id
+        )
 
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == "Organization not found"

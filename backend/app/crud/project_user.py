@@ -1,7 +1,9 @@
 import uuid
-from sqlmodel import Session, select, delete, func
-from app.models import ProjectUser, ProjectUserPublic, User, Project
 from datetime import datetime
+
+from sqlmodel import Session, func, select
+
+from app.models import Project, ProjectUser, ProjectUserPublic
 
 
 def is_project_admin(session: Session, user_id: str, project_id: int) -> bool:
@@ -12,11 +14,12 @@ def is_project_admin(session: Session, user_id: str, project_id: int) -> bool:
         select(ProjectUser).where(
             ProjectUser.project_id == project_id,
             ProjectUser.user_id == user_id,
-            ProjectUser.is_deleted == False
+            ProjectUser.is_deleted == False,
         )
     ).first()
 
     return bool(project_user and project_user.is_admin)
+
 
 # Add a user to a project
 def add_user_to_project(
@@ -26,13 +29,17 @@ def add_user_to_project(
     Adds a user to a project.
     """
     existing = session.exec(
-        select(ProjectUser).where(ProjectUser.project_id == project_id, ProjectUser.user_id == user_id)
+        select(ProjectUser).where(
+            ProjectUser.project_id == project_id, ProjectUser.user_id == user_id
+        )
     ).first()
 
     if existing:
         raise ValueError("User is already a member of this project.")
 
-    project_user = ProjectUser(project_id=project_id, user_id=user_id, is_admin=is_admin)
+    project_user = ProjectUser(
+        project_id=project_id, user_id=user_id, is_admin=is_admin
+    )
     session.add(project_user)
     session.commit()
     session.refresh(project_user)
@@ -40,7 +47,9 @@ def add_user_to_project(
     return ProjectUserPublic.model_validate(project_user)
 
 
-def remove_user_from_project(session: Session, project_id: uuid.UUID, user_id: uuid.UUID) -> None:
+def remove_user_from_project(
+    session: Session, project_id: uuid.UUID, user_id: uuid.UUID
+) -> None:
     """
     Removes a user from a project.
     """
@@ -48,12 +57,12 @@ def remove_user_from_project(session: Session, project_id: uuid.UUID, user_id: u
         select(ProjectUser).where(
             ProjectUser.project_id == project_id,
             ProjectUser.user_id == user_id,
-            ProjectUser.is_deleted == False  # Ignore already deleted users
+            ProjectUser.is_deleted == False,  # Ignore already deleted users
         )
     ).first()
     if not project_user:
         raise ValueError("User is not a member of this project or already removed.")
-    
+
     project_user.is_deleted = True
     project_user.deleted_at = datetime.utcnow()
     session.add(project_user)  # Required to mark as dirty for commit
@@ -66,8 +75,10 @@ def get_users_by_project(
     """
     Returns paginated users in a given project along with the total count.
     """
-    count_statement = select(func.count()).select_from(ProjectUser).where(
-        ProjectUser.project_id == project_id, ProjectUser.is_deleted == False
+    count_statement = (
+        select(func.count())
+        .select_from(ProjectUser)
+        .where(ProjectUser.project_id == project_id, ProjectUser.is_deleted == False)
     )
     total_count = session.exec(count_statement).one()
 
@@ -83,7 +94,9 @@ def get_users_by_project(
 
 
 # Check if a user belongs to an at least one project in organization
-def is_user_part_of_organization(session: Session, user_id: uuid.UUID, org_id: int) -> bool:
+def is_user_part_of_organization(
+    session: Session, user_id: uuid.UUID, org_id: int
+) -> bool:
     """
     Checks if a user is part of at least one project within the organization.
     """
@@ -93,7 +106,7 @@ def is_user_part_of_organization(session: Session, user_id: uuid.UUID, org_id: i
         .where(
             Project.organization_id == org_id,
             ProjectUser.user_id == user_id,
-            ProjectUser.is_deleted == False
+            ProjectUser.is_deleted == False,
         )
     ).first()
 

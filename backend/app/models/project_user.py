@@ -1,14 +1,20 @@
 import uuid
 from datetime import datetime
-from typing import Optional, List
-from sqlmodel import SQLModel, Field, Relationship
+
+from sqlmodel import Field, Relationship, SQLModel
 
 
 # Shared properties
 class ProjectUserBase(SQLModel):
-    project_id: int = Field(foreign_key="project.id", nullable=False, ondelete="CASCADE")
-    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, ondelete="CASCADE")
-    is_admin: bool = Field(default=False, nullable=False)  # Determines if user is an admin of the project
+    project_id: int = Field(
+        foreign_key="project.id", nullable=False, ondelete="CASCADE"
+    )
+    user_id: uuid.UUID = Field(
+        foreign_key="user.id", nullable=False, ondelete="CASCADE"
+    )
+    is_admin: bool = Field(
+        default=False, nullable=False
+    )  # Determines if user is an admin of the project
 
 
 class ProjectUserPublic(ProjectUserBase):
@@ -23,7 +29,7 @@ class ProjectUser(ProjectUserBase, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     is_deleted: bool = Field(default=False, nullable=False)
-    deleted_at: Optional[datetime] = Field(default=None, nullable=True)
+    deleted_at: datetime | None = Field(default=None, nullable=True)
 
     # Relationships
     project: "Project" = Relationship(back_populates="users")
@@ -32,5 +38,5 @@ class ProjectUser(ProjectUserBase, table=True):
 
 # Properties to return as a list
 class ProjectUsersPublic(SQLModel):
-    data: List[ProjectUserPublic]
+    data: list[ProjectUserPublic]
     count: int
