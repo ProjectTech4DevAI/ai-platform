@@ -97,8 +97,7 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
 
-    LOG_DIR: str = os.path.join(os.path.dirname(
-        os.path.dirname(__file__)), "logs")
+    LOG_DIR: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":

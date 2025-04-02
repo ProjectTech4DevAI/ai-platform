@@ -4,6 +4,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 from .user import User
 
+
 # Shared properties
 class ItemBase(SQLModel):
     title: str = Field(min_length=1, max_length=255)
