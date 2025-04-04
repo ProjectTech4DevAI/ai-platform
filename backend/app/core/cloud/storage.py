@@ -33,6 +33,8 @@ class AmazonCloudStorageClient:
         try:
             # does the bucket exist...
             self.client.head_bucket(Bucket=settings.AWS_S3_BUCKET)
+        except ValueError as err:
+            raise CloudStorageError(err) from err
         except ClientError as err:
             response = int(err.response['Error']['Code'])
             if response != 404:
