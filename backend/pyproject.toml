@@ -25,6 +25,7 @@ dependencies = [
     "moto[s3]>=5.1.1",
     "openai>=1.67.0",
     "pytest>=7.4.4",
+    "pre-commit>=3.8.0",
 ]
 
 [tool.uv]

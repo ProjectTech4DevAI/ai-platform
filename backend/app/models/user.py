@@ -55,13 +55,13 @@ class User(UserBase, table=True):
 
 
 class UserOrganization(UserBase):
-    id : uuid.UUID
+    id: uuid.UUID
     organization_id: int | None
-    
+
 
 class UserProjectOrg(UserOrganization):
     project_id: int
-    
+
 
 # Properties to return via API, id is always required
 class UserPublic(UserBase):

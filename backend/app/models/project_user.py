@@ -6,9 +6,15 @@ from sqlmodel import SQLModel, Field, Relationship
 
 # Shared properties
 class ProjectUserBase(SQLModel):
-    project_id: int = Field(foreign_key="project.id", nullable=False, ondelete="CASCADE")
-    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, ondelete="CASCADE")
-    is_admin: bool = Field(default=False, nullable=False)  # Determines if user is an admin of the project
+    project_id: int = Field(
+        foreign_key="project.id", nullable=False, ondelete="CASCADE"
+    )
+    user_id: uuid.UUID = Field(
+        foreign_key="user.id", nullable=False, ondelete="CASCADE"
+    )
+    is_admin: bool = Field(
+        default=False, nullable=False
+    )  # Determines if user is an admin of the project
 
 
 class ProjectUserPublic(ProjectUserBase):
