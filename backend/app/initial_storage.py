@@ -1,7 +1,5 @@
 import logging
 
-from botocore.exceptions import ClientError
-
 from app.core.cloud import AmazonCloudStorageClient, CloudStorageError
 from app.core.config import settings
 
