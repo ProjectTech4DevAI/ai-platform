@@ -6,9 +6,9 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 from openai import OpenAI
 from sqlmodel import Session
 
-from app.api.deps import get_db, verify_user_project_organization
+from app.api.deps import get_current_user_org, get_db
 from app.core import logging, settings
-from app.models import UserProjectOrg
+from app.models import UserOrganization
 from app.utils import APIResponse
 
 logger = logging.getLogger(__name__)
@@ -93,7 +93,7 @@ async def threads(
     request: dict,
     background_tasks: BackgroundTasks,
     _session: Session = Depends(get_db),
-    _current_user: UserProjectOrg = Depends(verify_user_project_organization),
+    _current_user: UserOrganization = Depends(get_current_user_org),
 ):
     """
     Accepts a question, assistant_id, callback_url, and optional thread_id from the request body.
