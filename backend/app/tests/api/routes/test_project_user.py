@@ -25,14 +25,21 @@ def create_user(db: Session) -> User:
 def create_organization_and_project(db: Session) -> tuple[Organization, Project]:
     """Helper function to create an organization and a project."""
 
-    organization = Organization(name=f"Test Organization {uuid.uuid4()}", is_active=True)
+    organization = Organization(
+        name=f"Test Organization {uuid.uuid4()}", is_active=True
+    )
     db.add(organization)
     db.commit()
     db.refresh(organization)
 
     # Ensure project with unique name
     project_name = f"Test Project {uuid.uuid4()}"  # Ensuring unique project name
-    project = Project(name=project_name, description="A test project", organization_id=organization.id, is_active=True)
+    project = Project(
+        name=project_name,
+        description="A test project",
+        organization_id=organization.id,
+        is_active=True,
+    )
     db.add(project)
     db.commit()
     db.refresh(project)
@@ -40,7 +47,9 @@ def create_organization_and_project(db: Session) -> tuple[Organization, Project]
     return organization, project
 
 
-def test_add_user_to_project(client: TestClient, db: Session, superuser_token_headers: dict[str, str]) -> None:
+def test_add_user_to_project(
+    client: TestClient, db: Session, superuser_token_headers: dict[str, str]
+) -> None:
     """
     Test adding a user to a project successfully.
     """
@@ -53,13 +62,15 @@ def test_add_user_to_project(client: TestClient, db: Session, superuser_token_he
     )
 
     assert response.status_code == 200, response.text
-    added_user = response.json()['data']
+    added_user = response.json()["data"]
     assert added_user["user_id"] == str(user.id)
     assert added_user["project_id"] == project.id
     assert added_user["is_admin"] is True
 
 
-def test_add_user_not_found(client: TestClient, db: Session, superuser_token_headers: dict[str, str]) -> None:
+def test_add_user_not_found(
+    client: TestClient, db: Session, superuser_token_headers: dict[str, str]
+) -> None:
     """
     Test adding a non-existing user to a project (should return 404).
     """
@@ -74,7 +85,9 @@ def test_add_user_not_found(client: TestClient, db: Session, superuser_token_hea
     assert response.json()["error"] == "User not found"
 
 
-def test_add_existing_user_to_project(client: TestClient, db: Session, superuser_token_headers: dict[str, str]) -> None:
+def test_add_existing_user_to_project(
+    client: TestClient, db: Session, superuser_token_headers: dict[str, str]
+) -> None:
     """
     Test adding a user who is already in the project (should return 400).
     """
@@ -119,7 +132,9 @@ def test_remove_user_from_project(
 
     # Assertions
     assert response.status_code == 200, response.text
-    assert response.json()['data'] == {"message": "User removed from project successfully."}
+    assert response.json()["data"] == {
+        "message": "User removed from project successfully."
+    }
 
     # Ensure user is marked as deleted in the database (Fixed)
     project_user = db.exec(
@@ -144,7 +159,9 @@ def test_normal_user_cannot_add_user(
     organization, project = create_organization_and_project(db)
 
     normal_user_email = random_email()
-    normal_user_token_headers = authentication_token_from_email(client=client, email=normal_user_email, db=db)
+    normal_user_token_headers = authentication_token_from_email(
+        client=client, email=normal_user_email, db=db
+    )
 
     normal_user = db.exec(select(User).where(User.email == normal_user_email)).first()
     add_user_to_project(db, project.id, normal_user.id, is_admin=False)
@@ -158,7 +175,9 @@ def test_normal_user_cannot_add_user(
     )
 
     assert response.status_code == 403
-    assert response.json()["error"] == "Only project admins or superusers can add users."
+    assert (
+        response.json()["error"] == "Only project admins or superusers can add users."
+    )
 
 
 def test_normal_user_cannot_remove_user(
@@ -170,7 +189,9 @@ def test_normal_user_cannot_remove_user(
     organization, project = create_organization_and_project(db)
 
     normal_user_email = random_email()
-    normal_user_token_headers = authentication_token_from_email(client=client, email=normal_user_email, db=db)
+    normal_user_token_headers = authentication_token_from_email(
+        client=client, email=normal_user_email, db=db
+    )
 
     normal_user = db.exec(select(User).where(User.email == normal_user_email)).first()
     add_user_to_project(db, project.id, normal_user.id, is_admin=False)
@@ -186,4 +207,7 @@ def test_normal_user_cannot_remove_user(
 
     # Assertions
     assert response.status_code == 403
-    assert response.json()["error"] == "Only project admins or superusers can remove users."
+    assert (
+        response.json()["error"]
+        == "Only project admins or superusers can remove users."
+    )

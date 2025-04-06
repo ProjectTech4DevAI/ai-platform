@@ -93,7 +93,9 @@ def test_process_run_variants(mock_openai, remove_citation, expected_message):
 
     # Set up the dummy message based on the remove_citation flag.
     base_message = "Glific is an open-source, two-way messaging platform designed for nonprofits to scale their outreach via WhatsApp"
-    citation_message = base_message if remove_citation else f"{base_message}【1:2†citation】"
+    citation_message = (
+        base_message if remove_citation else f"{base_message}【1:2†citation】"
+    )
     dummy_message = MagicMock()
     dummy_message.content = [MagicMock(text=MagicMock(value=citation_message))]
     mock_client.beta.threads.messages.list.return_value.data = [dummy_message]

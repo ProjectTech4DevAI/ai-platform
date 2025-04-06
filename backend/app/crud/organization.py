@@ -4,7 +4,10 @@ from sqlmodel import Session, select
 
 from app.models import Organization, OrganizationCreate
 
-def create_organization(*, session: Session, org_create: OrganizationCreate) -> Organization:
+
+def create_organization(
+    *, session: Session, org_create: OrganizationCreate
+) -> Organization:
     db_org = Organization.model_validate(org_create)
     session.add(db_org)
     session.commit()
@@ -17,9 +20,11 @@ def get_organization_by_id(session: Session, org_id: int) -> Optional[Organizati
     statement = select(Organization).where(Organization.id == org_id)
     return session.exec(statement).first()
 
+
 def get_organization_by_name(*, session: Session, name: str) -> Optional[Organization]:
     statement = select(Organization).where(Organization.name == name)
     return session.exec(statement).first()
+
 
 # Validate if organization exists and is active
 def validate_organization(session: Session, org_id: int) -> Organization:
