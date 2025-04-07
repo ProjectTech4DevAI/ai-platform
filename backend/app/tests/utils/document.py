@@ -7,17 +7,25 @@ from dataclasses import dataclass
 from urllib.parse import ParseResult, urlunparse
 
 import pytest
+from httpx import Response
 from sqlmodel import Session, delete
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.crud.user import get_user_by_email
 from app.models import Document
+from app.utils import APIResponse
+
 
 @ft.cache
 def get_user_id_by_email(db: Session):
     user = get_user_by_email(session=db, email=settings.FIRST_SUPERUSER)
     return user.id
+
+
+def httpx_to_standard(response: Response):
+    return APIResponse(**response.json())
+
 
 class DocumentIndexGenerator:
     def __init__(self, start=0):
@@ -34,6 +42,7 @@ class DocumentIndexGenerator:
     def peek(self):
         return UUID(int=self.start)
 
+
 class DocumentMaker:
     def __init__(self, db: Session):
         self.owner_id = get_user_id_by_email(db)
@@ -44,8 +53,8 @@ class DocumentMaker:
 
     def __next__(self):
         doc_id = next(self.index)
-        args = str(doc_id).split('-')
-        fname = Path('/', *args).with_suffix('.xyz')
+        args = str(doc_id).split("-")
+        fname = Path("/", *args).with_suffix(".xyz")
 
         return Document(
             id=doc_id,
@@ -53,6 +62,7 @@ class DocumentMaker:
             fname=fname.name,
             object_store_url=fname.as_uri(),
         )
+
 
 class DocumentStore:
     @staticmethod
@@ -85,9 +95,10 @@ class DocumentStore:
     def fill(self, n: int):
         return list(self.extend(n))
 
+
 class Route:
-    _empty = ParseResult(*it.repeat('', len(ParseResult._fields)))
-    _root = Path(settings.API_V1_STR, 'documents')
+    _empty = ParseResult(*it.repeat("", len(ParseResult._fields)))
+    _root = Path(settings.API_V1_STR, "documents")
 
     def __init__(self, endpoint, **qs_args):
         self.endpoint = endpoint
@@ -99,17 +110,18 @@ class Route:
     def to_url(self):
         path = self._root.joinpath(self.endpoint)
         kwargs = {
-            'path': str(path),
+            "path": str(path),
         }
         if self.qs_args:
-            query = '&'.join(it.starmap('{}={}'.format, self.qs_args.items()))
-            kwargs['query'] = query
+            query = "&".join(it.starmap("{}={}".format, self.qs_args.items()))
+            kwargs["query"] = query
 
         return self._empty._replace(**kwargs)
 
     def append(self, doc: Document):
         endpoint = Path(self.endpoint, str(doc.id))
         return type(self)(endpoint, **self.qs_args)
+
 
 @dataclass
 class WebCrawler:
@@ -121,6 +133,7 @@ class WebCrawler:
             str(route),
             headers=self.superuser_token_headers,
         )
+
 
 class DocumentComparator:
     @ft.singledispatchmethod
@@ -147,8 +160,9 @@ class DocumentComparator:
 
     def to_dict(self):
         document = dict(self.document)
-        for (k, v) in document.items():
+        for k, v in document.items():
             yield (k, self.to_string(v))
+
 
 @pytest.fixture
 def crawler(client: TestClient, superuser_token_headers: dict[str, str]):
