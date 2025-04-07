@@ -7,6 +7,7 @@ from app.tests.utils.document import (
     Route,
     WebCrawler,
     crawler,
+    httpx_to_standard,
 )
 
 
@@ -35,9 +36,9 @@ class TestDocumentRouteList:
         crawler: WebCrawler,
     ):
         DocumentStore.clear(db)
-        docs = crawler.get(route).json().get("docs")
+        response = httpx_to_standard(crawler.get(route))
 
-        assert not docs
+        assert not response.data
 
     def test_item_reflects_database(
         self,
@@ -47,7 +48,9 @@ class TestDocumentRouteList:
     ):
         store = DocumentStore(db)
         source = DocumentComparator(store.put())
-        target = crawler.get(route).json().get("docs").pop()
+
+        response = httpx_to_standard(crawler.get(route))
+        (target,) = response.data
 
         assert source == target
 

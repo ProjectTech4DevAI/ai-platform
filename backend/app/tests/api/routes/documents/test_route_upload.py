@@ -15,6 +15,7 @@ from app.models import Document
 from app.tests.utils.document import (
     Route,
     WebCrawler,
+    httpx_to_standard,
 )
 
 
@@ -70,8 +71,8 @@ class TestDocumentRouteUpload:
         aws = AmazonCloudStorageClient()
         aws.create()
 
-        response = uploader.put(route, scratch)
-        doc_id = response.json().get("id")
+        response = httpx_to_standard(uploader.put(route, scratch))
+        doc_id = response.data["id"]
         statement = select(Document).where(Document.id == doc_id)
         result = db.exec(statement).one()
 
@@ -86,8 +87,8 @@ class TestDocumentRouteUpload:
         aws = AmazonCloudStorageClient()
         aws.create()
 
-        response = uploader.put(route, scratch)
-        url = urlparse(response.json().get("object_store_url"))
+        response = httpx_to_standard(uploader.put(route, scratch))
+        url = urlparse(response.data["object_store_url"])
         key = Path(url.path)
         key = key.relative_to(key.root)
 

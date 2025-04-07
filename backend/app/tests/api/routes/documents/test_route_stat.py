@@ -8,6 +8,7 @@ from app.tests.utils.document import (
     Route,
     WebCrawler,
     crawler,
+    httpx_to_standard,
 )
 
 
@@ -38,9 +39,9 @@ class TestDocumentRouteStat:
         document = store.put()
         source = DocumentComparator(document)
 
-        target = crawler.get(route.append(document)).json()
+        target = httpx_to_standard(crawler.get(route.append(document)))
 
-        assert source == target
+        assert source == target.data
 
     def test_cannot_stat_unknown_document(
         self,
