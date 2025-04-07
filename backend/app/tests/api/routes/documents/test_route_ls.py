@@ -25,6 +25,8 @@ def route():
 
 
 class TestDocumentRouteList:
+    _ndocs = 10
+
     def test_response_is_success(self, route: QueryRoute, crawler: WebCrawler):
         response = crawler.get(route)
         assert response.is_success
@@ -69,3 +71,18 @@ class TestDocumentRouteList:
     ):
         response = crawler.get(route.pushq("limit", -1))
         assert response.is_error
+
+    def test_skip_greater_than_limit_is_difference(
+        self,
+        db: Session,
+        route: QueryRoute,
+        crawler: WebCrawler,
+    ):
+        store = DocumentStore(db)
+        limit = len(store.fill(self._ndocs))
+        skip = limit // 2
+
+        route = route.pushq("skip", skip).pushq("limit", limit)
+        response = httpx_to_standard(crawler.get(route))
+
+        assert len(response.data) == limit - skip
