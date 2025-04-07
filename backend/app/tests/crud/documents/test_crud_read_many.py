@@ -56,6 +56,15 @@ class TestDatabaseReadMany:
         docs = crud.read_many(skip=0)
         assert len(docs) == self._ndocs
 
+    def test_big_skip_is_empty(
+        self,
+        db: Session,
+        store: DocumentStore,
+    ):
+        crud = DocumentCrud(db, store.owner)
+        skip = self._ndocs + 1
+        assert not crud.read_many(skip=skip)
+
     def test_negative_skip_raises_exception(
         self,
         db: Session,
