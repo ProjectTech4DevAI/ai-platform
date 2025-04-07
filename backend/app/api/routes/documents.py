@@ -22,7 +22,7 @@ def raise_from_unknown(error: Exception):
             error,
         )
     )
-    return APIResponse.failure_response(error)
+    raise HTTPException(status_code=500, detail=str(err))
 
 
 @router.get("/ls", response_model=APIResponse[List[Document]])
@@ -36,7 +36,7 @@ def list_docs(
     try:
         data = crud.read_many(skip, limit)
     except (ValueError, SQLAlchemyError) as err:
-        return APIResponse.failure_response(err)
+        raise HTTPException(status_code=403, detail=str(err))
     except Exception as err:
         return raise_from_unknown(err)
 
@@ -54,7 +54,7 @@ def upload_doc(
     try:
         object_store_url = storage.put(src, str(basename))
     except CloudStorageError as err:
-        return APIResponse.failure_response(err)
+        raise HTTPException(status_code=503, detail=str(err))
     except Exception as err:
         return raise_from_unknown(err)
 
@@ -66,7 +66,7 @@ def upload_doc(
     try:
         data = crud.update(document)
     except SQLAlchemyError as err:
-        return APIResponse.failure_response(err)
+        raise HTTPException(status_code=403, detail=str(err))
     except Exception as err:
         return raise_from_unknown(err)
 
@@ -83,7 +83,7 @@ def delete_doc(
     try:
         data = crud.delete(doc_id)
     except NoResultFound as err:
-        return APIResponse.failure_response(err)
+        raise HTTPException(status_code=400, detail=str(err))
     except Exception as err:
         return raise_from_unknown(err)
 
@@ -101,8 +101,10 @@ def doc_info(
     crud = DocumentCrud(session, current_user.id)
     try:
         data = crud.read_one(doc_id)
-    except (NoResultFound, MultipleResultsFound) as err:
-        return APIResponse.failure_response(err)
+    except NoResultFound as err:
+        raise HTTPException(status_code=404, detail=str(err))
+    except MultipleResultsFound as err:
+        raise HTTPException(status_code=503, detail=str(err))
     except Exception as err:
         return raise_from_unknown(err)
 
