@@ -2,7 +2,7 @@ from typing import Optional, Dict, Any
 
 from sqlmodel import Session, select
 
-from app.models import Creds, CredsCreate
+from app.models import Creds, CredsCreate, CredsUpdate
 
 def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> Creds:
     creds = Creds.model_validate(creds_add)
@@ -12,7 +12,6 @@ def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> Creds:
     session.refresh(creds)
     
     return creds
-
 
 def get_creds_by_org(*, session: Session, org_id: int) -> Optional[Creds]:
     """Fetches the credentials for the given organization."""
@@ -30,6 +29,21 @@ def get_key_by_org(*, session: Session, org_id: int) -> Optional[str]:
     
     return None
 
+def update_creds_for_org(session: Session, org_id: int, creds_in: CredsUpdate) -> Creds:
+    creds = session.exec(select(Creds).where(Creds.organization_id == org_id)).first()
+    
+    if not creds:
+        raise ValueError("Credentials not found")
+
+    creds_data = creds_in.dict(exclude_unset=True)
+    updated_creds = creds.model_copy(update=creds_data)
+    
+    session.add(updated_creds)
+    session.commit()
+    session.flush(updated_creds)
+
+    return updated_creds
+
 def remove_creds_for_org(*, session: Session, org_id: int) -> Optional[Creds]:
     """Removes the credentials for the given organization."""
     statement = select(Creds).where(Creds.organization_id == org_id)
@@ -39,4 +53,4 @@ def remove_creds_for_org(*, session: Session, org_id: int) -> Optional[Creds]:
         session.delete(creds)
         session.commit()
     
-    return creds  # Return the deleted Creds or None if not found
+    return creds  

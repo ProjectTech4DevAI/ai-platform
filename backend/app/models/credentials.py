@@ -5,7 +5,6 @@ from sqlmodel import Field, Relationship, SQLModel
 class CredsBase(SQLModel):
     organization_id: int = Field(foreign_key="organization.id")
     is_active: bool = True
-    valid: bool = True
 
 
 class CredsCreate(CredsBase):
@@ -15,7 +14,6 @@ class CredsCreate(CredsBase):
 class CredsUpdate(SQLModel):
     credential: Dict[str, Any] | None = Field(default=None, sa_column=sa.Column(sa.JSON))  # Change JSON to JSONB
     is_active: bool | None = Field(default=None)
-    valid: bool | None = Field(default=None)
 
 
 class Creds(CredsBase, table=True):
