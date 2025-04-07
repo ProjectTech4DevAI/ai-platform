@@ -22,7 +22,7 @@ def raise_from_unknown(error: Exception):
             error,
         )
     )
-    raise HTTPException(status_code=500, detail=str(err))
+    raise HTTPException(status_code=500, detail=str(error))
 
 
 @router.get("/ls", response_model=APIResponse[List[Document]])
