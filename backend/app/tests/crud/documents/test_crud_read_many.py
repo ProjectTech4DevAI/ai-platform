@@ -9,8 +9,7 @@ from app.tests.utils.document import DocumentStore, DocumentIndexGenerator
 @pytest.fixture
 def store(db: Session):
     ds = DocumentStore(db)
-    for _ in ds.fill(TestDatabaseReadMany._ndocs):
-        pass
+    ds.fill(TestDatabaseReadMany._ndocs)
 
     return ds
 
