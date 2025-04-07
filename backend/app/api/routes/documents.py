@@ -38,7 +38,7 @@ def list_docs(
     except (ValueError, SQLAlchemyError) as err:
         raise HTTPException(status_code=403, detail=str(err))
     except Exception as err:
-        return raise_from_unknown(err)
+        raise_from_unknown(err)
 
     return APIResponse.success_response(data)
 
@@ -56,7 +56,7 @@ def upload_doc(
     except CloudStorageError as err:
         raise HTTPException(status_code=503, detail=str(err))
     except Exception as err:
-        return raise_from_unknown(err)
+        raise_from_unknown(err)
 
     crud = DocumentCrud(session, current_user.id)
     document = Document(
@@ -68,7 +68,7 @@ def upload_doc(
     except SQLAlchemyError as err:
         raise HTTPException(status_code=403, detail=str(err))
     except Exception as err:
-        return raise_from_unknown(err)
+        raise_from_unknown(err)
 
     return APIResponse.success_response(data)
 
@@ -85,7 +85,7 @@ def delete_doc(
     except NoResultFound as err:
         raise HTTPException(status_code=400, detail=str(err))
     except Exception as err:
-        return raise_from_unknown(err)
+        raise_from_unknown(err)
 
     # TODO: perform delete on the collection
 
@@ -106,6 +106,6 @@ def doc_info(
     except MultipleResultsFound as err:
         raise HTTPException(status_code=503, detail=str(err))
     except Exception as err:
-        return raise_from_unknown(err)
+        raise_from_unknown(err)
 
     return APIResponse.success_response(data)
