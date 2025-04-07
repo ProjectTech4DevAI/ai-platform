@@ -34,8 +34,8 @@ class APIResponse(BaseModel, Generic[T]):
         return cls(success=True, data=data, error=None, metadata=metadata)
 
     @classmethod
-    def failure_response(cls, error: Any) -> "APIResponse[None]":
-        return cls(success=False, data=None, error=str(error))
+    def failure_response(cls, error: str) -> "APIResponse[None]":
+        return cls(success=False, data=None, error=error)
 
 
 @dataclass
