@@ -11,21 +11,22 @@ from app.core.security import get_password_hash
 
 client = TestClient(app)
 
+
 def create_test_user(db: Session) -> User:
     user = User(
         email=random_email(),
         hashed_password=get_password_hash("password123"),
-        is_superuser=True
+        is_superuser=True,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
     return user
 
+
 def create_test_organization(db: Session) -> Organization:
     org = Organization(
-        name=f"Test Organization {uuid.uuid4()}",
-        description="Test Organization"
+        name=f"Test Organization {uuid.uuid4()}", description="Test Organization"
     )
     db.add(org)
     db.commit()
@@ -36,7 +37,7 @@ def create_test_organization(db: Session) -> Organization:
 def test_create_api_key(db: Session, superuser_token_headers: dict[str, str]):
     user = create_test_user(db)
     org = create_test_organization(db)
-    
+
     response = client.post(
         f"{settings.API_V1_STR}/apikeys",
         params={"organization_id": org.id, "user_id": user.id},
@@ -49,12 +50,12 @@ def test_create_api_key(db: Session, superuser_token_headers: dict[str, str]):
     assert "key" in data["data"]
     assert data["data"]["organization_id"] == org.id
     assert data["data"]["user_id"] == str(user.id)
-    
+
 
 def test_create_duplicate_api_key(db: Session, superuser_token_headers: dict[str, str]):
     user = create_test_user(db)
     org = create_test_organization(db)
-    
+
     client.post(
         f"{settings.API_V1_STR}/apikeys",
         params={"organization_id": org.id, "user_id": user.id},
@@ -67,13 +68,13 @@ def test_create_duplicate_api_key(db: Session, superuser_token_headers: dict[str
     )
     assert response.status_code == 400
     assert "API Key already exists" in response.json()["detail"]
-    
+
 
 def test_list_api_keys(db: Session, superuser_token_headers: dict[str, str]):
     user = create_test_user(db)
     org = create_test_organization(db)
     api_key = api_key_crud.create_api_key(db, organization_id=org.id, user_id=user.id)
-    
+
     response = client.get(
         f"{settings.API_V1_STR}/apikeys",
         params={"organization_id": org.id, "user_id": user.id},
@@ -86,13 +87,13 @@ def test_list_api_keys(db: Session, superuser_token_headers: dict[str, str]):
     assert len(data["data"]) > 0
     assert data["data"][0]["organization_id"] == org.id
     assert data["data"][0]["user_id"] == str(user.id)
-    
+
 
 def test_get_api_key(db: Session, superuser_token_headers: dict[str, str]):
     user = create_test_user(db)
     org = create_test_organization(db)
     api_key = api_key_crud.create_api_key(db, organization_id=org.id, user_id=user.id)
-    
+
     response = client.get(
         f"{settings.API_V1_STR}/apikeys/{api_key.id}",
         params={"organization_id": api_key.organization_id, "user_id": user.id},
@@ -104,12 +105,12 @@ def test_get_api_key(db: Session, superuser_token_headers: dict[str, str]):
     assert data["data"]["id"] == api_key.id
     assert data["data"]["organization_id"] == api_key.organization_id
     assert data["data"]["user_id"] == str(user.id)
-    
+
 
 def test_get_nonexistent_api_key(db: Session, superuser_token_headers: dict[str, str]):
     user = create_test_user(db)
     org = create_test_organization(db)
-    
+
     response = client.get(
         f"{settings.API_V1_STR}/apikeys/999999",
         params={"organization_id": org.id, "user_id": user.id},
@@ -117,13 +118,13 @@ def test_get_nonexistent_api_key(db: Session, superuser_token_headers: dict[str,
     )
     assert response.status_code == 404
     assert "API Key does not exist" in response.json()["detail"]
-    
+
 
 def test_revoke_api_key(db: Session, superuser_token_headers: dict[str, str]):
     user = create_test_user(db)
     org = create_test_organization(db)
     api_key = api_key_crud.create_api_key(db, organization_id=org.id, user_id=user.id)
-    
+
     response = client.delete(
         f"{settings.API_V1_STR}/apikeys/{api_key.id}",
         params={"organization_id": api_key.organization_id, "user_id": user.id},
@@ -133,12 +134,14 @@ def test_revoke_api_key(db: Session, superuser_token_headers: dict[str, str]):
     data = response.json()
     assert data["success"] is True
     assert "API key revoked successfully" in data["data"]["message"]
-    
 
-def test_revoke_nonexistent_api_key(db: Session, superuser_token_headers: dict[str, str]):
+
+def test_revoke_nonexistent_api_key(
+    db: Session, superuser_token_headers: dict[str, str]
+):
     user = create_test_user(db)
     org = create_test_organization(db)
-    
+
     response = client.delete(
         f"{settings.API_V1_STR}/apikeys/999999",
         params={"organization_id": org.id, "user_id": user.id},
@@ -146,4 +149,3 @@ def test_revoke_nonexistent_api_key(db: Session, superuser_token_headers: dict[s
     )
     assert response.status_code == 400
     assert "API key not found or already deleted" in response.json()["detail"]
-    

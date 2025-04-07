@@ -25,7 +25,8 @@ def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
     new_creds = None
     try:
         existing_creds = get_creds_by_org(
-            session=session, org_id=creds_in.organization_id
+            session=session,
+            org_id=creds_in.organization_id
         )
         if not existing_creds:
             new_creds = set_creds_for_org(session=session, creds_add=creds_in)
@@ -48,15 +49,13 @@ def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
     response_model=APIResponse[CredsPublic],
 )
 def read_credential(*, session: SessionDep, org_id: int):
-    """
-    Fetches credentials for the given organization.
-    """
     try:
         creds = get_creds_by_org(session=session, org_id=org_id)
     except Exception as e:
         # Catch any other exceptions and return an internal server error response
         raise HTTPException(
-            status_code=500, detail=f"An unexpected error occurred: {str(e)}"
+            status_code=500,
+            detail=f"An unexpected error occurred: {str(e)}"
         )
 
     if creds is None:
@@ -71,15 +70,13 @@ def read_credential(*, session: SessionDep, org_id: int):
     response_model=APIResponse[str],
 )
 def read_api_key(*, session: SessionDep, org_id: int):
-    """
-    Fetches the API key for the given organization.
-    """
     try:
         api_key = get_key_by_org(session=session, org_id=org_id)
     except Exception as e:
         # Catch any other exceptions and return an internal server error response
         raise HTTPException(
-            status_code=500, detail=f"An unexpected error occurred: {str(e)}"
+            status_code=500,
+            detail=f"An unexpected error occurred: {str(e)}"
         )
 
     if api_key is None:
@@ -94,11 +91,6 @@ def read_api_key(*, session: SessionDep, org_id: int):
     response_model=APIResponse[CredsPublic],
 )
 def update_credential(*, session: SessionDep, org_id: int, creds_in: CredsUpdate):
-    creds = get_creds_by_org(session=session, org_id=org_id)
-    if creds is None:
-        raise HTTPException(status_code=404, detail="Credentials not found")
-
-    # Update only the fields that were provided in the request
     try:
         creds_data = creds_in.dict(exclude_unset=True)
         creds = creds.model_copy(update=creds_data)
@@ -122,12 +114,14 @@ def delete_credential(*, session: SessionDep, org_id: int):
         creds = remove_creds_for_org(session=session, org_id=org_id)
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"An unexpected error occurred: {str(e)}"
+            status_code=500,
+            detail=f"An unexpected error occurred: {str(e)}"
         )
 
     if creds is None:
         raise HTTPException(
-            status_code=404, detail="API key for organization not found"
+            status_code=404,
+            detail="API key for organization not found"
         )
 
     return APIResponse.success_response(None)

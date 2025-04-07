@@ -1,5 +1,9 @@
-from typing import List
+from typing import List, TYPE_CHECKING
 from sqlmodel import Field, Relationship, SQLModel
+
+
+if TYPE_CHECKING:
+    from .credentials import Creds
 
 
 # Shared properties for an Organization
@@ -23,7 +27,10 @@ class OrganizationUpdate(SQLModel):
 class Organization(OrganizationBase, table=True):
     id: int = Field(default=None, primary_key=True)
 
+    api_keys: list["APIKey"] = Relationship(back_populates="organization")
+
     # Relationship back to Creds
+    api_keys: list["APIKey"] = Relationship(back_populates="organization")
     creds: List["Creds"] = Relationship(back_populates="organization")
 # Properties to return via API
 class OrganizationPublic(OrganizationBase):

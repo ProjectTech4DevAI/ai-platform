@@ -22,7 +22,6 @@ def upgrade():
     op.create_table('creds',
     sa.Column('organization_id', sa.Integer(), nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=False),
-    sa.Column('valid', sa.Boolean(), nullable=False),
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('credential', sa.JSON(), nullable=True),
     sa.ForeignKeyConstraint(['organization_id'], ['organization.id'], ),
