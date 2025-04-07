@@ -2,7 +2,7 @@ import warnings
 from uuid import UUID, uuid4
 from typing import List
 
-from fastapi import APIRouter, File, UploadFile, HTTPException
+from fastapi import APIRouter, File, UploadFile, HTTPException, Query
 
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound, SQLAlchemyError
 
@@ -29,8 +29,8 @@ def raise_from_unknown(error: Exception):
 def list_docs(
     session: SessionDep,
     current_user: CurrentUser,
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, gt=0, le=100),
 ):
     crud = DocumentCrud(session, current_user.id)
     try:
