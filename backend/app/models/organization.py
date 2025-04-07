@@ -1,5 +1,9 @@
-from typing import List
+from typing import List, TYPE_CHECKING
 from sqlmodel import Field, Relationship, SQLModel
+
+
+if TYPE_CHECKING:
+    from .credentials import Creds
 
 
 # Shared properties for an Organization
