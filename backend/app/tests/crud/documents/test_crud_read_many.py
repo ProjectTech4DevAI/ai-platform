@@ -101,3 +101,15 @@ class TestDatabaseReadMany:
         crud = DocumentCrud(db, store.owner)
         with pytest.raises(ValueError):
             crud.read_many(limit=-1)
+
+    def test_skip_greater_than_limit_is_difference(
+        self,
+        db: Session,
+        store: DocumentStore,
+    ):
+        crud = DocumentCrud(db, store.owner)
+        limit = self._ndocs
+        skip = limit // 2
+        docs = crud.read_many(skip=skip, limit=limit)
+
+        assert len(docs) == limit - skip
