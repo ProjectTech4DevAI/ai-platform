@@ -49,8 +49,12 @@ class User(UserBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     hashed_password: str
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
-    documents: list["Document"] = Relationship(back_populates="owner", cascade_delete=True)
-    projects: list["ProjectUser"] = Relationship(back_populates="user", cascade_delete=True)
+    documents: list["Document"] = Relationship(
+        back_populates="owner", cascade_delete=True
+    )
+    projects: list["ProjectUser"] = Relationship(
+        back_populates="user", cascade_delete=True
+    )
     api_keys: list["APIKey"] = Relationship(back_populates="user")
 
 
