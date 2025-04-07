@@ -21,7 +21,7 @@ class OrganizationUpdate(SQLModel):
 # Database model for Organization
 class Organization(OrganizationBase, table=True):
     id: int = Field(default=None, primary_key=True)
-    
+
     api_keys: list["APIKey"] = Relationship(back_populates="organization")
 
 

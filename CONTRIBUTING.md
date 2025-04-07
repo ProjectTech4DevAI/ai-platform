@@ -22,9 +22,9 @@ cd ai-platform
 ```
 
 ### Create a Branch
-• Always work in a new branch based on main.  
-• For branch name, follow this convention: ``type/one-line-description``  
-   e.g. ``enhancement/support-openai-citation-new-format``  
+• Always work in a new branch based on main.
+• For branch name, follow this convention: ``type/one-line-description``
+   e.g. ``enhancement/support-openai-citation-new-format``
 
 **Type** can be:
    - enhancement

@@ -97,8 +97,16 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
 
-    LOG_DIR: str = os.path.join(os.path.dirname(
-        os.path.dirname(__file__)), "logs")
+    AWS_ACCESS_KEY_ID: str = ''
+    AWS_SECRET_ACCESS_KEY: str = ''
+    AWS_DEFAULT_REGION: str = ''
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def AWS_S3_BUCKET(self) -> str:
+        return f'ai-platform-documents-{self.ENVIRONMENT}'
+
+    LOG_DIR: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":

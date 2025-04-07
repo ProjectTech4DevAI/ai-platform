@@ -2,18 +2,28 @@ import pytest
 from sqlmodel import SQLModel, Session, create_engine
 
 from app.models import Project, ProjectCreate, Organization
-from app.crud.project import create_project, get_project_by_id, get_projects_by_organization
+from app.crud.project import (
+    create_project,
+    get_project_by_id,
+    get_projects_by_organization,
+)
 from app.tests.utils.utils import random_lower_string
+
 
 def test_create_project(db: Session) -> None:
     """Test creating a project linked to an organization."""
-    org = Organization(name=random_lower_string())  
+    org = Organization(name=random_lower_string())
     db.add(org)
     db.commit()
     db.refresh(org)
 
-    project_name = random_lower_string()  
-    project_data = ProjectCreate(name=project_name, description="Test description", is_active=True, organization_id=org.id)
+    project_name = random_lower_string()
+    project_data = ProjectCreate(
+        name=project_name,
+        description="Test description",
+        is_active=True,
+        organization_id=org.id,
+    )
 
     project = create_project(session=db, project_create=project_data)
 
@@ -25,13 +35,15 @@ def test_create_project(db: Session) -> None:
 
 def test_get_project_by_id(db: Session) -> None:
     """Test retrieving a project by ID."""
-    org = Organization(name=random_lower_string())  
+    org = Organization(name=random_lower_string())
     db.add(org)
     db.commit()
     db.refresh(org)
 
-    project_name = random_lower_string()  
-    project_data = ProjectCreate(name=project_name, description="Test", organization_id=org.id)
+    project_name = random_lower_string()
+    project_data = ProjectCreate(
+        name=project_name, description="Test", organization_id=org.id
+    )
 
     project = create_project(session=db, project_create=project_data)
 
@@ -41,16 +53,25 @@ def test_get_project_by_id(db: Session) -> None:
     assert fetched_project.name == project.name
 
 
-
 def test_get_projects_by_organization(db: Session) -> None:
     """Test retrieving all projects for an organization."""
-    org = Organization(name=random_lower_string())  
+    org = Organization(name=random_lower_string())
     db.add(org)
     db.commit()
     db.refresh(org)
 
-    project_1 = create_project(session=db, project_create=ProjectCreate(name=random_lower_string(), organization_id=org.id))
-    project_2 = create_project(session=db, project_create=ProjectCreate(name=random_lower_string(), organization_id=org.id))
+    project_1 = create_project(
+        session=db,
+        project_create=ProjectCreate(
+            name=random_lower_string(), organization_id=org.id
+        ),
+    )
+    project_2 = create_project(
+        session=db,
+        project_create=ProjectCreate(
+            name=random_lower_string(), organization_id=org.id
+        ),
+    )
 
     projects = get_projects_by_organization(session=db, org_id=org.id)
 
@@ -61,5 +82,5 @@ def test_get_projects_by_organization(db: Session) -> None:
 
 def test_get_non_existent_project(db: Session) -> None:
     """Test retrieving a non-existent project should return None."""
-    fetched_project = get_project_by_id(session=db, project_id=999)  
+    fetched_project = get_project_by_id(session=db, project_id=999)
     assert fetched_project is None

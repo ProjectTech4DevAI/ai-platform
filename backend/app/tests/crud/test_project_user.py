@@ -12,19 +12,27 @@ from app.core.security import get_password_hash
 def create_organization_and_project(db: Session) -> tuple[Organization, Project]:
     """Helper function to create an organization and a project."""
 
-    organization = Organization(name=f"Test Organization {uuid.uuid4()}", is_active=True)
+    organization = Organization(
+        name=f"Test Organization {uuid.uuid4()}", is_active=True
+    )
     db.add(organization)
     db.commit()
     db.refresh(organization)
 
     # Ensure project with unique name
     project_name = f"Test Project {uuid.uuid4()}"  # Ensuring unique project name
-    project = Project(name=project_name, description="A test project", organization_id=organization.id, is_active=True)
+    project = Project(
+        name=project_name,
+        description="A test project",
+        organization_id=organization.id,
+        is_active=True,
+    )
     db.add(project)
     db.commit()
     db.refresh(project)
 
     return organization, project
+
 
 def test_is_project_admin(db: Session) -> None:
     organization, project = create_organization_and_project(db)
@@ -50,7 +58,9 @@ def test_add_user_to_project(db: Session) -> None:
     db.commit()
     db.refresh(user)
 
-    project_user = project_user_crud.add_user_to_project(db, project.id, user.id, is_admin=True)
+    project_user = project_user_crud.add_user_to_project(
+        db, project.id, user.id, is_admin=True
+    )
 
     assert project_user.user_id == user.id
     assert project_user.project_id == project.id
@@ -88,8 +98,7 @@ def test_remove_user_from_project(db: Session) -> None:
     # Retrieve project user with both project_id and user_id
     project_user = db.exec(
         select(ProjectUser).where(
-            ProjectUser.project_id == project.id,
-            ProjectUser.user_id == user.id
+            ProjectUser.project_id == project.id, ProjectUser.user_id == user.id
         )
     ).first()
 
@@ -104,7 +113,9 @@ def test_remove_user_from_project_not_member(db: Session) -> None:
     project_id = project.id
     user_id = uuid.uuid4()
 
-    with pytest.raises(ValueError, match="User is not a member of this project or already removed"):
+    with pytest.raises(
+        ValueError, match="User is not a member of this project or already removed"
+    ):
         project_user_crud.remove_user_from_project(db, project_id, user_id)
 
 
@@ -122,7 +133,9 @@ def test_get_users_by_project(db: Session) -> None:
     project_user_crud.add_user_to_project(db, project.id, user1.id)
     project_user_crud.add_user_to_project(db, project.id, user2.id)
 
-    users, total_count = project_user_crud.get_users_by_project(db, project.id, skip=0, limit=10)
+    users, total_count = project_user_crud.get_users_by_project(
+        db, project.id, skip=0, limit=10
+    )
 
     assert total_count == 2
     assert len(users) == 2

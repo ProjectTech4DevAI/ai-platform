@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
+
 class APIResponse(BaseModel, Generic[T]):
     success: bool
     data: Optional[T] = None
@@ -27,7 +28,9 @@ class APIResponse(BaseModel, Generic[T]):
     metadata: Optional[Dict[str, Any]] = None
 
     @classmethod
-    def success_response(cls, data: T, metadata: Optional[Dict[str, Any]] = None) -> "APIResponse[T]":
+    def success_response(
+        cls, data: T, metadata: Optional[Dict[str, Any]] = None
+    ) -> "APIResponse[T]":
         return cls(success=True, data=data, error=None, metadata=metadata)
 
     @classmethod
