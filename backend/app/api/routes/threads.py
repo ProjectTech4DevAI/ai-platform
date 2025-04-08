@@ -1,8 +1,7 @@
 import re
 import requests
 
-import openai
-from openai import OpenAI
+from openai import OpenAI, OpenAIError
 from fastapi import APIRouter, BackgroundTasks
 
 from app.utils import APIResponse
@@ -11,9 +10,25 @@ from app.core import settings, logging
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["threads"])
 
+class RequestCopier:
+    _exclude = {
+        "question",
+        "assistant_id",
+        "callback_url",
+        "thread_id",
+    }
 
-def send_callback(callback_url: str, data: dict):
+    def __init__(self, request):
+        self.request = request
+
+    def __iter__(self):
+        for (k, v) in self.request.items():
+            if k not in self._exclude:
+                yield (k, v)
+
+def send_callback(callback_url: str, data: APIResponse):
     """Send results to the callback URL (synchronously)."""
+    data = data.model_dump()
     try:
         session = requests.Session()
         # uncomment this to run locally without SSL
@@ -22,67 +37,63 @@ def send_callback(callback_url: str, data: dict):
         response.raise_for_status()
         return True
     except requests.RequestException as e:
-        logger.error(f"Callback failed: {str(e)}")
+        logger.error(f"Callback failed: {e}")
         return False
 
+def open_ai_error_to_string(error: OpenAIError):
+    try:
+        error_message = error.body["message"]
+    except (AttributeError, TypeError, KeyError):
+        error_message = str(error)
+
+    return error_message
 
 def process_run(request: dict, client: OpenAI):
     """
     Background task to run create_and_poll, then send the callback with the result.
     This function is run in the background after we have already returned an initial response.
     """
+
+    thread_id = request["thread_id"]
     try:
         # Start the run
         run = client.beta.threads.runs.create_and_poll(
-            thread_id=request["thread_id"],
+            thread_id=thread_id,
             assistant_id=request["assistant_id"],
         )
 
         if run.status == "completed":
-            messages = client.beta.threads.messages.list(thread_id=request["thread_id"])
-            latest_message = messages.data[0]
-            message_content = latest_message.content[0].text.value
-
-            remove_citation = request.get("remove_citation", False)
-
-            if remove_citation:
-                message = re.sub(r"【\d+(?::\d+)?†[^】]*】", "", message_content)
-            else:
-                message = message_content
-
-            # Update the data dictionary with additional fields from the request, excluding specific keys
-            additional_data = {
-                k: v
-                for k, v in request.items()
-                if k not in {"question", "assistant_id", "callback_url", "thread_id"}
-            }
-            callback_response = APIResponse.success_response(
-                data={
-                    "status": "success",
-                    "message": message,
-                    "thread_id": request["thread_id"],
-                    "endpoint": getattr(request, "endpoint", "some-default-endpoint"),
-                    **additional_data,
-                }
-            )
+            messages = client.beta.threads.messages.list(thread_id=thread_id)
         else:
-            callback_response = APIResponse.failure_response(
-                error=f"Run failed with status: {run.status}"
-            )
+            error = f"Run failed with status: {run.status}"
+            callback_response = APIResponse.failure_response(error)
+            send_callback(request["callback_url"], callback_response)
+    except OpenAIError as e:
+        error = open_ai_error_to_string(e)
+        callback_response = APIResponse.failure_response(error)
+        send_callback(request["callback_url"], callback_response)
 
-        # Send callback with results
-        send_callback(request["callback_url"], callback_response.model_dump())
+    message = messages.data[0].content[0].text.value
 
-    except openai.OpenAIError as e:
-        # Handle any other OpenAI API errors
-        if isinstance(e.body, dict) and "message" in e.body:
-            error_message = e.body["message"]
-        else:
-            error_message = str(e)
+    remove_citation = request.get("remove_citation", False)
+    if remove_citation:
+        message = re.sub(r"【\d+(?::\d+)?†[^】]*】", "", message)
 
-        callback_response = APIResponse.failure_response(error=error_message)
+    copier = RequestCopier(request)
+    additional_data = dict(copier)
 
-        send_callback(request["callback_url"], callback_response.model_dump())
+    endpoint = getattr(request, "endpoint", "some-default-endpoint")
+
+    callback_response = APIResponse.success_response(data={
+        "status": "success",
+        "message": message,
+        "thread_id": thread_id,
+        "endpoint": endpoint,
+        **additional_data,
+    })
+
+    # Send callback with results
+    send_callback(request["callback_url"], callback_response)
 
 
 @router.post("/threads")
@@ -94,58 +105,32 @@ async def threads(request: dict, background_tasks: BackgroundTasks):
     """
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
-    # Use get method to safely access thread_id
     thread_id = request.get("thread_id")
-
-    # 1. Validate or check if there's an existing thread with an in-progress run
-    if thread_id:
-        try:
-            runs = client.beta.threads.runs.list(thread_id=thread_id)
-            # Get the most recent run (first in the list) if any
-            if runs.data and len(runs.data) > 0:
-                latest_run = runs.data[0]
-                if latest_run.status in ["queued", "in_progress", "requires_action"]:
-                    return APIResponse.failure_response(
-                        error=f"There is an active run on this thread (status: {latest_run.status}). Please wait for it to complete."
-                    )
-        except openai.OpenAIError:
-            # Handle invalid thread ID
-            return APIResponse.failure_response(
-                error=f"Invalid thread ID provided {thread_id}"
-            )
-
-        # Use existing thread
-        client.beta.threads.messages.create(
-            thread_id=thread_id, role="user", content=request["question"]
-        )
-    else:
+    if thread_id is None:
         try:
             # Create new thread
             thread = client.beta.threads.create()
+            thread_id = thread.id
             client.beta.threads.messages.create(
-                thread_id=thread.id, role="user", content=request["question"]
+                thread_id=thread_id,
+                role="user",
+                content=request["question"],
             )
-            request["thread_id"] = thread.id
-        except openai.OpenAIError as e:
-            # Handle any other OpenAI API errors
-            if isinstance(e.body, dict) and "message" in e.body:
-                error_message = e.body["message"]
-            else:
-                error_message = str(e)
-            return APIResponse.failure_response(error=error_message)
+        except OpenAIError as e:
+            error = open_ai_error_to_string(e)
+            return APIResponse.failure_response(error=error)
+        request["thread_id"] = thread_id
 
-    # 2. Send immediate response to complete the API call
-    initial_response = APIResponse.success_response(
-        data={
-            "status": "processing",
-            "message": "Run started",
-            "thread_id": request.get("thread_id"),
-            "success": True,
-        }
-    )
-
-    # 3. Schedule the background task to run create_and_poll and send callback
+    # 2. Schedule the background task to run create_and_poll and send callback
     background_tasks.add_task(process_run, request, client)
+
+    # 3. Send immediate response to complete the API call
+    initial_response = APIResponse.success_response(data={
+        "status": "processing",
+        "message": "Run started",
+        "thread_id": thread_id,
+        "success": True,
+    })
 
     # 4. Return immediately so the client knows we've accepted the request
     return initial_response
