@@ -25,7 +25,9 @@ router = APIRouter(tags=["login"])
 def login_access_token(
     session: SessionDep,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-    token_expiry_minutes: Optional[int] = Form(default=settings.ACCESS_TOKEN_EXPIRE_MINUTES, ge=1, le=60 * 24 * 360),
+    token_expiry_minutes: Optional[int] = Form(
+        default=settings.ACCESS_TOKEN_EXPIRE_MINUTES, ge=1, le=60 * 24 * 360
+    ),
 ) -> Token:
     """
     OAuth2 compatible token login with customizable expiration time.

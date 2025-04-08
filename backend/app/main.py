@@ -8,6 +8,7 @@ from app.api.main import api_router
 from app.api.deps import http_exception_handler
 from app.core.config import settings
 
+
 def custom_generate_unique_id(route: APIRoute) -> str:
     return f"{route.tags[0]}-{route.name}"
 

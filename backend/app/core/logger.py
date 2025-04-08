@@ -14,8 +14,7 @@ LOGGING_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
 logging.basicConfig(level=LOGGING_LEVEL, format=LOGGING_FORMAT)
 
-file_handler = RotatingFileHandler(
-    LOG_FILE_PATH, maxBytes=10485760, backupCount=5)
+file_handler = RotatingFileHandler(LOG_FILE_PATH, maxBytes=10485760, backupCount=5)
 file_handler.setLevel(LOGGING_LEVEL)
 file_handler.setFormatter(logging.Formatter(LOGGING_FORMAT))
 

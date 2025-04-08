@@ -9,13 +9,14 @@ from app.core.config import settings
 from alembic import op
 import secrets
 from sqlmodel import Session
+
 # Adjust the import based on your actual structure
 from app.models import Organization, Project, User, APIKey
 from passlib.context import CryptContext  # To hash passwords securely
 
 # revision identifiers, used by Alembic.
-revision = '77dc462dc6b0'
-down_revision = '0f205e3779ee'
+revision = "77dc462dc6b0"
+down_revision = "0f205e3779ee"
 branch_labels = None
 depends_on = None
 
@@ -44,10 +45,16 @@ def create_organization(session: Session, name: str) -> Organization:
 def create_projects(session: Session, organization: Organization):
     """Create projects for an organization."""
     projects = [
-        Project(name="Glific", description="Two way communication platform",
-                organization_id=organization.id),
-        Project(name="Dalgo", description="Data platform for the social sector",
-                organization_id=organization.id)
+        Project(
+            name="Glific",
+            description="Two way communication platform",
+            organization_id=organization.id,
+        ),
+        Project(
+            name="Dalgo",
+            description="Data platform for the social sector",
+            organization_id=organization.id,
+        ),
     ]
     session.add_all(projects)
     session.commit()
@@ -70,7 +77,7 @@ def create_user(session: Session, is_super: bool = True) -> User:
         is_active=True,
         is_superuser=is_super,
         full_name=full_name,
-        hashed_password=hashed_password
+        hashed_password=hashed_password,
     )
     session.add(user)
     session.commit()
@@ -82,7 +89,7 @@ def create_api_key(session: Session, user: User, organization: Organization) -> 
     api_key = APIKey(
         user_id=user.id,
         organization_id=organization.id,
-        key='ApiKey '+secrets.token_urlsafe(32)
+        key="ApiKey " + secrets.token_urlsafe(32),
     )
     session.add(api_key)
     session.commit()

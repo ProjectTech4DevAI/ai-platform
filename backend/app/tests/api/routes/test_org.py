@@ -14,6 +14,7 @@ from app.crud.organization import create_organization, get_organization_by_id
 
 client = TestClient(app)
 
+
 @pytest.fixture
 def test_organization(db: Session, superuser_token_headers: dict[str, str]):
     unique_name = f"TestOrg-{random_lower_string()}"
@@ -22,20 +23,26 @@ def test_organization(db: Session, superuser_token_headers: dict[str, str]):
     db.commit()
     return organization
 
+
 # Test retrieving organizations
 def test_read_organizations(db: Session, superuser_token_headers: dict[str, str]):
-    response = client.get(f"{settings.API_V1_STR}/organizations/", headers=superuser_token_headers)
+    response = client.get(
+        f"{settings.API_V1_STR}/organizations/", headers=superuser_token_headers
+    )
     assert response.status_code == 200
     response_data = response.json()
     assert "data" in response_data
     assert isinstance(response_data["data"], list)
+
 
 # Test creating an organization
 def test_create_organization(db: Session, superuser_token_headers: dict[str, str]):
     unique_name = f"Org-{random_lower_string()}"
     org_data = {"name": unique_name, "is_active": True}
     response = client.post(
-        f"{settings.API_V1_STR}/organizations/", json=org_data, headers=superuser_token_headers
+        f"{settings.API_V1_STR}/organizations/",
+        json=org_data,
+        headers=superuser_token_headers,
     )
 
     assert 200 <= response.status_code < 300
@@ -48,18 +55,22 @@ def test_create_organization(db: Session, superuser_token_headers: dict[str, str
     assert org.is_active == created_org_data["is_active"]
 
 
-def test_update_organization(db: Session, test_organization: Organization, superuser_token_headers: dict[str, str]):
+def test_update_organization(
+    db: Session,
+    test_organization: Organization,
+    superuser_token_headers: dict[str, str],
+):
     unique_name = f"UpdatedOrg-{random_lower_string()}"  # Ensure a unique name
     update_data = {"name": unique_name, "is_active": False}
-    
+
     response = client.patch(
         f"{settings.API_V1_STR}/organizations/{test_organization.id}",
         json=update_data,
         headers=superuser_token_headers,
     )
-    
+
     assert response.status_code == 200
-    updated_org = response.json()["data"]    
+    updated_org = response.json()["data"]
     assert "name" in updated_org
     assert updated_org["name"] == update_data["name"]
     assert "is_active" in updated_org
@@ -67,11 +78,18 @@ def test_update_organization(db: Session, test_organization: Organization, super
 
 
 # Test deleting an organization
-def test_delete_organization(db: Session, test_organization: Organization, superuser_token_headers: dict[str, str]):
+def test_delete_organization(
+    db: Session,
+    test_organization: Organization,
+    superuser_token_headers: dict[str, str],
+):
     response = client.delete(
-        f"{settings.API_V1_STR}/organizations/{test_organization.id}", headers=superuser_token_headers
+        f"{settings.API_V1_STR}/organizations/{test_organization.id}",
+        headers=superuser_token_headers,
     )
     assert response.status_code == 200
-    response = client.get(f"{settings.API_V1_STR}/organizations/{test_organization.id}", headers=superuser_token_headers)
+    response = client.get(
+        f"{settings.API_V1_STR}/organizations/{test_organization.id}",
+        headers=superuser_token_headers,
+    )
     assert response.status_code == 404
- 
