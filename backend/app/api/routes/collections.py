@@ -7,8 +7,8 @@ from pydantic import BaseModel
 
 # from sqlalchemy.exc import NoResultFound, MultipleResultsFound, SQLAlchemyError
 
-# from app.crud import DocumentCrud
-# from app.models import Document
+from app.crud import DocumentCrud, CollectionCrud, DocumentCollectionCrud
+from app.models import Document, Collection
 from app.utils import APIResponse
 from app.api.deps import CurrentUser, SessionDep
 from app.core.util import raise_from_unknown
@@ -55,6 +55,7 @@ def create_collection(
     vector_store = client.beta.vector_stores.create()
 
     (start, stop) = (0, request.batch_size)
+    documents = []
     while True:
         view = request.document_ids[start:stop]
         if not view:
@@ -75,6 +76,7 @@ def create_collection(
 
         start = stop
         stop += batch_size
+        documents.extend(docs)
 
     #
     # Create the assistant
@@ -103,8 +105,12 @@ def create_collection(
 
     c_crud = CollectionCrud()
     collection = Collection(
-        llm_service=request.model,
         llm_service_id=assistant.id,
+        llm_service_name=request.model,
     )
+    c_crud.create(collection)
 
-    return c_crud.create(collection)
+    dc_crud = DocumentCollectionCrud()
+    dc_crud.update(collection, documents)
+
+    return APIResponse.success_response(collection)
