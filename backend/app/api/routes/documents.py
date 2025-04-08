@@ -1,4 +1,3 @@
-import warnings
 from uuid import UUID, uuid4
 from typing import List
 
@@ -10,19 +9,10 @@ from app.crud import DocumentCrud
 from app.models import Document
 from app.utils import APIResponse
 from app.api.deps import CurrentUser, SessionDep
+from app.core.util import raise_from_unknown
 from app.core.cloud import AmazonCloudStorage, CloudStorageError
 
 router = APIRouter(prefix="/documents", tags=["documents"])
-
-
-def raise_from_unknown(error: Exception):
-    warnings.warn(
-        'Unexpected exception "{}": {}'.format(
-            type(error).__name__,
-            error,
-        )
-    )
-    raise HTTPException(status_code=500, detail=str(error))
 
 
 @router.get("/ls", response_model=APIResponse[List[Document]])
