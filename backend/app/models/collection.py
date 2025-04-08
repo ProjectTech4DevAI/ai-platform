@@ -16,7 +16,6 @@ class Collection(SQLModel, table=True):
         default_factory=uuid4,
         primary_key=True,
     )
-    name: str
     llm_service: LanguageModelService = Field(
         sa_column=Column(Enum(LanguageModelService)),
     )
