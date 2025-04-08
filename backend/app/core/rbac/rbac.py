@@ -10,5 +10,6 @@ adapter = Adapter(engine)
 enforcer = Enforcer(config_path, adapter)
 enforcer.enable_auto_save(True)
 
+
 async def load_policy():
     await run_in_threadpool(enforcer.load_policy)

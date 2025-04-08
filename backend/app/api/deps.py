@@ -8,6 +8,7 @@ from fastapi.security import OAuth2PasswordBearer, APIKeyHeader
 from jwt.exceptions import InvalidTokenError
 from pydantic import ValidationError
 from sqlmodel import Session, select
+from app.core.rbac.rbac import enforcer
 
 from app.core import security
 from app.core.config import settings
@@ -203,3 +204,11 @@ def verify_user_project_organization(
 
     current_user.organization_id = organization_id
     return UserProjectOrg(**current_user.model_dump(), project_id=project_id)
+
+
+def casbin_enforce(sub: str, dom: str, obj: str, act: str):
+    if not enforcer.enforce(sub, dom, obj, act):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to perform this action.",
+        )

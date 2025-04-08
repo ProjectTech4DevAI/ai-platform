@@ -2,7 +2,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlmodel import Session
 from typing import Annotated
-from app.api.deps import get_db, verify_user_project_organization
+from app.api.deps import get_db, verify_user_project_organization, casbin_enforce
 from app.crud.project_user import (
     add_user_to_project,
     remove_user_from_project,
@@ -62,6 +62,10 @@ def list_project_users(
     """
     Get all users in a project.
     """
+    casbin_enforce(
+        sub=str(current_user.id), dom="project_2", obj="project_data", act="write"
+    )
+
     users, total_count = get_users_by_project(
         session, current_user.project_id, skip, limit
     )
