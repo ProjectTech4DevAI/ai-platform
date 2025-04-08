@@ -7,6 +7,7 @@ from app.models import Document
 
 from app.tests.utils.document import DocumentStore
 
+
 @pytest.fixture
 def document(db: Session):
     store = DocumentStore(db)
@@ -15,11 +16,9 @@ def document(db: Session):
     crud = DocumentCrud(db, document.owner_id)
     crud.delete(document.id)
 
-    statement = (
-        select(Document)
-        .where(Document.id == document.id)
-    )
+    statement = select(Document).where(Document.id == document.id)
     return db.exec(statement).one()
+
 
 class TestDatabaseDelete:
     def test_delete_is_soft(self, document: Document):
