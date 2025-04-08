@@ -3,7 +3,6 @@ from sqlmodel import SQLModel
 from .auth import Token, TokenPayload
 from .casbin_rule import CasbinRule
 from .document import Document
-
 from .message import Message
 
 from .project_user import (
