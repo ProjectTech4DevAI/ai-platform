@@ -7,3 +7,4 @@ from .user import (
 )
 from .collection import CollectionCrud
 from .document import DocumentCrud
+from .document_collection import DocumentCollectionCrud
