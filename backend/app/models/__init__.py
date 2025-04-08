@@ -1,6 +1,7 @@
 from sqlmodel import SQLModel
 
 from .auth import Token, TokenPayload
+from .collection import Collection, LanguageModelService
 from .document import Document
 
 from .message import Message
