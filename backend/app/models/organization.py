@@ -32,6 +32,8 @@ class Organization(OrganizationBase, table=True):
     # Relationship back to Creds
     api_keys: list["APIKey"] = Relationship(back_populates="organization")
     creds: List["Creds"] = Relationship(back_populates="organization")
+
+
 # Properties to return via API
 class OrganizationPublic(OrganizationBase):
     id: int

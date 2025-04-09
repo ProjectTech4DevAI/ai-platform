@@ -4,53 +4,63 @@ from sqlmodel import Session, select
 
 from app.models import Creds, CredsCreate, CredsUpdate
 
+
 def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> Creds:
     creds = Creds.model_validate(creds_add)
     session.add(creds)
 
     session.commit()
     session.refresh(creds)
-    
+
     return creds
+
 
 def get_creds_by_org(*, session: Session, org_id: int) -> Optional[Creds]:
     """Fetches the credentials for the given organization."""
     statement = select(Creds).where(Creds.organization_id == org_id)
     return session.exec(statement).first()
 
+
 def get_key_by_org(*, session: Session, org_id: int) -> Optional[str]:
     """Fetches the API key from the credentials for the given organization."""
     statement = select(Creds).where(Creds.organization_id == org_id)
     creds = session.exec(statement).first()
-    
+
     # Check if creds exists and if the credential field contains the api_key
-    if creds and creds.credential and "openai" in creds.credential and "api_key" in creds.credential["openai"]:
+    if (
+        creds
+        and creds.credential
+        and "openai" in creds.credential
+        and "api_key" in creds.credential["openai"]
+    ):
         return creds.credential["openai"]["api_key"]
-    
+
     return None
+
 
 def update_creds_for_org(session: Session, org_id: int, creds_in: CredsUpdate) -> Creds:
     creds = session.exec(select(Creds).where(Creds.organization_id == org_id)).first()
-    
+
     if not creds:
         raise ValueError("Credentials not found")
 
     creds_data = creds_in.dict(exclude_unset=True)
     updated_creds = creds.model_copy(update=creds_data)
-    
+
     session.add(updated_creds)
     session.commit()
     session.flush(updated_creds)
 
     return updated_creds
 
+
 def remove_creds_for_org(*, session: Session, org_id: int) -> Optional[Creds]:
     """Removes the credentials for the given organization."""
     statement = select(Creds).where(Creds.organization_id == org_id)
     creds = session.exec(statement).first()
-    
+
     if creds:
         session.delete(creds)
         session.commit()
-    
-    return creds  
+
+    return creds

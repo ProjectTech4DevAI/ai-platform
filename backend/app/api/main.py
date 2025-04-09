@@ -11,7 +11,7 @@ from app.api.routes import (
     threads,
     users,
     utils,
-    credentials
+    credentials,
 )
 from app.core.config import settings
 
