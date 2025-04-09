@@ -11,7 +11,7 @@ from app.crud.project_user import (
 )
 from app.models import User, ProjectUserPublic, UserProjectOrg, Message
 from app.utils import APIResponse
-from app.core.rbac.rbac import casbin_enforce
+from app.core.rbac.casbin import casbin_enforce
 
 
 router = APIRouter(prefix="/project/users", tags=["project_users"])

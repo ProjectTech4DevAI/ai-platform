@@ -8,7 +8,6 @@ from fastapi.security import OAuth2PasswordBearer, APIKeyHeader
 from jwt.exceptions import InvalidTokenError
 from pydantic import ValidationError
 from sqlmodel import Session, select
-from app.core.rbac.rbac import enforcer
 
 from app.core import security
 from app.core.config import settings

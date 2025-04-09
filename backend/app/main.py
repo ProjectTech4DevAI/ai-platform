@@ -8,7 +8,7 @@ from app.api.main import api_router
 from app.api.deps import http_exception_handler
 from app.core.config import settings
 from contextlib import asynccontextmanager
-from app.core.rbac.rbac import enforcer, load_policy
+from app.core.rbac.casbin import enforcer, load_policy
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
