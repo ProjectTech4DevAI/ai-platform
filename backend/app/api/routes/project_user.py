@@ -2,7 +2,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlmodel import Session
 from typing import Annotated
-from app.api.deps import get_db, verify_user_project_organization, casbin_enforce
+from app.api.deps import get_db, verify_user_project_organization
 from app.crud.project_user import (
     add_user_to_project,
     remove_user_from_project,
@@ -11,6 +11,7 @@ from app.crud.project_user import (
 )
 from app.models import User, ProjectUserPublic, UserProjectOrg, Message
 from app.utils import APIResponse
+from app.core.rbac.rbac import casbin_enforce
 
 
 router = APIRouter(prefix="/project/users", tags=["project_users"])
@@ -63,7 +64,7 @@ def list_project_users(
     Get all users in a project.
     """
     casbin_enforce(
-        sub=str(current_user.id), dom="project_2", obj="project_data", act="write"
+        sub="user:dana",org="org:2",proj="project:3", obj="project_data", act="write"
     )
 
     users, total_count = get_users_by_project(
