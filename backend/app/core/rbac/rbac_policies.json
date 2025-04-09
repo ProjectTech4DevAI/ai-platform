@@ -1,0 +1,34 @@
+{
+  "permissions": [
+    {
+      "role": "org_admin",
+      "resource": "org_data",
+      "actions": ["delete", "write", "read"]
+    },
+    {
+      "role": "org_writer",
+      "resource": "org_data",
+      "actions": ["write", "read"]
+    },
+    {
+      "role": "org_reader",
+      "resource": "org_data",
+      "actions": ["read"]
+    },
+    {
+      "role": "project_admin",
+      "resource": "project_data",
+      "actions": ["delete", "write", "read"]
+    },
+    {
+      "role": "project_writer",
+      "resource": "project_data",
+      "actions": ["write", "read"]
+    },
+    {
+      "role": "project_reader",
+      "resource": "project_data",
+      "actions": ["read"]
+    }
+  ]
+}
