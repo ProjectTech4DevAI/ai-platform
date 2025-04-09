@@ -42,3 +42,11 @@ from .user import (
     UsersPublic,
     UpdatePassword,
 )
+
+from .credentials import (
+    Creds,
+    CredsBase,
+    CredsCreate,
+    CredsPublic,
+    CredsUpdate,
+)
