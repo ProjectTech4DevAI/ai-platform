@@ -7,7 +7,6 @@ class CasbinRule(SQLModel, table=True):
 
     Policy type (`ptype`):
     - "p"  -> policy rule (permissions)
-    - "g"  -> subject-role assignment (org-level)
     - "g2" -> subject-role assignment (project-level)
     - "g3" -> project-to-org mapping
 
@@ -27,10 +26,6 @@ class CasbinRule(SQLModel, table=True):
         - v0: user_id
         - v1: role (e.g., "project_reader", etc.)
         - v2: project_id
-
-    For ptype = "g3" (project-org mapping):
-        - v0: project_id
-        - v1: org_id
     """
     
     __tablename__ = "casbin_rule"
