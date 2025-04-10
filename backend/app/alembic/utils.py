@@ -9,16 +9,22 @@ def update_casbin_policies(conn: Connection, file_path: str):
     Update Casbin policies from a JSON file and insert into the casbin_rule table.
     Warning : This will delete all the existing policies
     """
-    with open(file_path) as f:
-        data = json.load(f)
+    try:
+        with open(file_path) as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        raise ValueError(f'Policy file not found: {file_path}')
 
     # Clear all existing policies
     conn.execute(text("DELETE FROM casbin_rule WHERE ptype = 'p'"))
 
     for policy in data.get("permissions", []):
-        role = policy["role"]
-        resource = policy["resource"]
-        actions = policy["actions"]
+        try:
+            role = policy["role"]
+            resource = policy["resource"]
+            actions = policy["actions"]
+        except KeyError as e:
+            raise ValueError(f'Missing required field in policy: {str(e)}')
 
         for action in actions:
             conn.execute(
