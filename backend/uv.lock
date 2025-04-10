@@ -52,6 +52,8 @@ dependencies = [
     { name = "alembic" },
     { name = "bcrypt" },
     { name = "boto3" },
+    { name = "casbin" },
+    { name = "casbin-sqlalchemy-adapter" },
     { name = "email-validator" },
     { name = "emails" },
     { name = "fastapi", extra = ["standard"] },
@@ -87,6 +89,8 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.12.1,<2.0.0" },
     { name = "bcrypt", specifier = "==4.0.1" },
     { name = "boto3", specifier = ">=1.37.20" },
+    { name = "casbin", specifier = ">=1.41.0" },
+    { name = "casbin-sqlalchemy-adapter", specifier = ">=1.4.0" },
     { name = "email-validator", specifier = ">=2.1.0.post1,<3.0.0.0" },
     { name = "emails", specifier = ">=0.6,<1.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.114.2,<1.0.0" },
@@ -171,6 +175,31 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/c3/38/a0f315319737ecf45b4319a8cd1f3a908e29d9277b46942263292115eee7/cachetools-5.5.0.tar.gz", hash = "sha256:2cc24fb4cbe39633fb7badd9db9ca6295d766d9c2995f245725a46715d050f2a", size = 27661 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a4/07/14f8ad37f2d12a5ce41206c21820d8cb6561b728e51fad4530dff0552a67/cachetools-5.5.0-py3-none-any.whl", hash = "sha256:02134e8439cdc2ffb62023ce1debca2944c3f289d66bb17ead3ab3dede74b292", size = 9524 },
+]
+
+[[package]]
+name = "casbin"
+version = "1.41.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "simpleeval" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ea/1b/bdd47681a16840dfef59ad16daac49891a7328633a05d24a37b74a94b987/casbin-1.41.0.tar.gz", hash = "sha256:246d4a03ace8d64a3d6a53a7d0553e06167a876c761047da33bcf6fdce913129", size = 425722 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7f/07/ce3e62e4c93c15955815dcaf78441002dfaf29cf7088df0a3c85afbf880c/casbin-1.41.0-py3-none-any.whl", hash = "sha256:511ab861bcca89419a4b336923292c77d18b868c351d196587134d3a2d7e8acf", size = 475027 },
+]
+
+[[package]]
+name = "casbin-sqlalchemy-adapter"
+version = "1.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "casbin" },
+    { name = "sqlalchemy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1a/4f/2e980d63960acdb106edc97b40abd42a752f71082ded7247a0fde8a0dece/casbin_sqlalchemy_adapter-1.4.0.tar.gz", hash = "sha256:3cc439e3911a0f0c0de66ffde7e0de0586be1e1c772302e003d84164f4bfe291", size = 12353 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/80/54/cd2fd15e94426feb1744171b3e9f075f9880e115a69c1e3356ad2a07b437/casbin_sqlalchemy_adapter-1.4.0-py3-none-any.whl", hash = "sha256:a3e4e5d05e47fc6e04995ac26d36f53243f87ac9e3c66b24874ce6353e784897", size = 10095 },
 ]
 
 [[package]]
@@ -1520,6 +1549,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/58/15/8b3609fd3830ef7b27b655beb4b4e9c62313a4e8da8c676e142cc210d58e/shellingham-1.5.4.tar.gz", hash = "sha256:8dbca0739d487e5bd35ab3ca4b36e11c4078f3a234bfce294b0a0291363404de", size = 10310 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl", hash = "sha256:7ecfff8f2fd72616f7481040475a65b2bf8af90a56c89140852d1120324e8686", size = 9755 },
+]
+
+[[package]]
+name = "simpleeval"
+version = "1.0.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ff/6f/15be211749430f52f2c8f0c69158a6fc961c03aac93fa28d44d1a6f5ebc7/simpleeval-1.0.3.tar.gz", hash = "sha256:67bbf246040ac3b57c29cf048657b9cf31d4e7b9d6659684daa08ca8f1e45829", size = 24358 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a0/e9/e58082fbb8cecbb6fb4133033c40cc50c248b1a331582be3a0f39138d65b/simpleeval-1.0.3-py3-none-any.whl", hash = "sha256:e3bdbb8c82c26297c9a153902d0fd1858a6c3774bf53ff4f134788c3f2035c38", size = 15762 },
 ]
 
 [[package]]
