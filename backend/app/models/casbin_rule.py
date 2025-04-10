@@ -7,8 +7,8 @@ class CasbinRule(SQLModel, table=True):
 
     Policy type (`ptype`):
     - "p"  -> policy rule (permissions)
+    - "g"  -> subject-role assignment (org-level)
     - "g2" -> subject-role assignment (project-level)
-    - "g3" -> project-to-org mapping
 
     Field meanings based on `ptype`:
 
