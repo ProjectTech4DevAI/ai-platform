@@ -17,10 +17,7 @@ TEST_USERS = {
     "admin": "user:10",  # project1: project_admin
 }
 
-TEST_ORGS = {
-    "org1": "org:1",
-    "org2": "org:2"
-}
+TEST_ORGS = {"org1": "org:1", "org2": "org:2"}
 
 TEST_PROJECTS = {
     "project1": "project:1",  # org1
@@ -41,13 +38,24 @@ def setup_casbin_rules(request):
     enforcer.add_grouping_policy(TEST_USERS["mixed"], "org_reader", TEST_ORGS["org2"])
 
     # Project roles
-    enforcer.add_named_grouping_policy("g2", TEST_USERS["user4"], "project_admin", TEST_PROJECTS["project1"])
-    enforcer.add_named_grouping_policy("g2", TEST_USERS["user4"], "project_reader", TEST_PROJECTS["project2"])
-    enforcer.add_named_grouping_policy("g2", TEST_USERS["user5"], "project_manager", TEST_PROJECTS["project3"])
-    enforcer.add_named_grouping_policy("g2", TEST_USERS["user6"], "project_admin", TEST_PROJECTS["project4"])
-    enforcer.add_named_grouping_policy("g2", TEST_USERS["reader"], "project_reader", TEST_PROJECTS["project1"])
-    enforcer.add_named_grouping_policy("g2", TEST_USERS["admin"], "project_admin", TEST_PROJECTS["project1"])
-
+    enforcer.add_named_grouping_policy(
+        "g2", TEST_USERS["user4"], "project_admin", TEST_PROJECTS["project1"]
+    )
+    enforcer.add_named_grouping_policy(
+        "g2", TEST_USERS["user4"], "project_reader", TEST_PROJECTS["project2"]
+    )
+    enforcer.add_named_grouping_policy(
+        "g2", TEST_USERS["user5"], "project_manager", TEST_PROJECTS["project3"]
+    )
+    enforcer.add_named_grouping_policy(
+        "g2", TEST_USERS["user6"], "project_admin", TEST_PROJECTS["project4"]
+    )
+    enforcer.add_named_grouping_policy(
+        "g2", TEST_USERS["reader"], "project_reader", TEST_PROJECTS["project1"]
+    )
+    enforcer.add_named_grouping_policy(
+        "g2", TEST_USERS["admin"], "project_admin", TEST_PROJECTS["project1"]
+    )
 
     # Save and reload
     enforcer.save_policy()
@@ -61,55 +69,241 @@ def setup_casbin_rules(request):
 
     request.addfinalizer(teardown)
 
+
 class TestRBAC:
     """Test suite for Role-Based Access Control (RBAC) functionality using Casbin.
 
-        This class contains tests to verify proper enforcement of organization and project-level
-        permissions, including inheritance between organization and project roles, cross-organization
-        access restrictions, and multiple role scenarios.
+    This class contains tests to verify proper enforcement of organization and project-level
+    permissions, including inheritance between organization and project roles, cross-organization
+    access restrictions, and multiple role scenarios.
     """
 
     def test_org_roles_access(self):
-        assert enforcer.enforce(TEST_USERS["user1"], TEST_ORGS["org1"], "", "org_data", "read") is True
-        assert enforcer.enforce(TEST_USERS["user1"], TEST_ORGS["org1"], "", "org_data", "write") is True
-        assert enforcer.enforce(TEST_USERS["user1"], TEST_ORGS["org1"], "", "org_data", "delete") is True
+        assert (
+            enforcer.enforce(
+                TEST_USERS["user1"], TEST_ORGS["org1"], "", "org_data", "read"
+            )
+            is True
+        )
+        assert (
+            enforcer.enforce(
+                TEST_USERS["user1"], TEST_ORGS["org1"], "", "org_data", "write"
+            )
+            is True
+        )
+        assert (
+            enforcer.enforce(
+                TEST_USERS["user1"], TEST_ORGS["org1"], "", "org_data", "delete"
+            )
+            is True
+        )
 
-        assert enforcer.enforce(TEST_USERS["user2"], TEST_ORGS["org1"], "", "org_data", "read") is True
-        assert enforcer.enforce(TEST_USERS["user2"], TEST_ORGS["org1"], "", "org_data", "write") is True
-        assert enforcer.enforce(TEST_USERS["user2"], TEST_ORGS["org1"], "", "org_data", "delete") is False
+        assert (
+            enforcer.enforce(
+                TEST_USERS["user2"], TEST_ORGS["org1"], "", "org_data", "read"
+            )
+            is True
+        )
+        assert (
+            enforcer.enforce(
+                TEST_USERS["user2"], TEST_ORGS["org1"], "", "org_data", "write"
+            )
+            is True
+        )
+        assert (
+            enforcer.enforce(
+                TEST_USERS["user2"], TEST_ORGS["org1"], "", "org_data", "delete"
+            )
+            is False
+        )
 
     def test_project_roles_access(self):
-        assert enforcer.enforce(TEST_USERS["user4"], TEST_ORGS["org1"], TEST_PROJECTS["project2"], "project_data", "read") is True
-        assert enforcer.enforce(TEST_USERS["user4"], TEST_ORGS["org1"], TEST_PROJECTS["project2"], "project_data", "write") is False
+        assert (
+            enforcer.enforce(
+                TEST_USERS["user4"],
+                TEST_ORGS["org1"],
+                TEST_PROJECTS["project2"],
+                "project_data",
+                "read",
+            )
+            is True
+        )
+        assert (
+            enforcer.enforce(
+                TEST_USERS["user4"],
+                TEST_ORGS["org1"],
+                TEST_PROJECTS["project2"],
+                "project_data",
+                "write",
+            )
+            is False
+        )
 
-        assert enforcer.enforce(TEST_USERS["user5"], TEST_ORGS["org2"], TEST_PROJECTS["project3"], "project_data", "write") is True
-        assert enforcer.enforce(TEST_USERS["user5"], TEST_ORGS["org2"], TEST_PROJECTS["project3"], "project_data", "read") is True
+        assert (
+            enforcer.enforce(
+                TEST_USERS["user5"],
+                TEST_ORGS["org2"],
+                TEST_PROJECTS["project3"],
+                "project_data",
+                "write",
+            )
+            is True
+        )
+        assert (
+            enforcer.enforce(
+                TEST_USERS["user5"],
+                TEST_ORGS["org2"],
+                TEST_PROJECTS["project3"],
+                "project_data",
+                "read",
+            )
+            is True
+        )
 
-        assert enforcer.enforce(TEST_USERS["user4"], TEST_ORGS["org1"], TEST_PROJECTS["project1"], "project_data", "delete") is True
+        assert (
+            enforcer.enforce(
+                TEST_USERS["user4"],
+                TEST_ORGS["org1"],
+                TEST_PROJECTS["project1"],
+                "project_data",
+                "delete",
+            )
+            is True
+        )
 
     def test_org_roles_inherit_project_roles(self):
-        assert enforcer.enforce(TEST_USERS["user1"], TEST_ORGS["org1"], TEST_PROJECTS["project1"], "project_data", "read") is True
-        assert enforcer.enforce(TEST_USERS["user1"], TEST_ORGS["org1"], TEST_PROJECTS["project1"], "project_data", "delete") is True
+        assert (
+            enforcer.enforce(
+                TEST_USERS["user1"],
+                TEST_ORGS["org1"],
+                TEST_PROJECTS["project1"],
+                "project_data",
+                "read",
+            )
+            is True
+        )
+        assert (
+            enforcer.enforce(
+                TEST_USERS["user1"],
+                TEST_ORGS["org1"],
+                TEST_PROJECTS["project1"],
+                "project_data",
+                "delete",
+            )
+            is True
+        )
 
-        assert enforcer.enforce(TEST_USERS["user2"], TEST_ORGS["org1"], TEST_PROJECTS["project1"], "project_data", "write") is True
+        assert (
+            enforcer.enforce(
+                TEST_USERS["user2"],
+                TEST_ORGS["org1"],
+                TEST_PROJECTS["project1"],
+                "project_data",
+                "write",
+            )
+            is True
+        )
 
     def test_cross_organization_access(self):
-        assert enforcer.enforce(TEST_USERS["user3"], TEST_ORGS["org2"], "", "org_data", "read") is True
-        assert enforcer.enforce(TEST_USERS["user3"], TEST_ORGS["org2"], TEST_PROJECTS["project4"], "project_data", "read") is True
+        assert (
+            enforcer.enforce(
+                TEST_USERS["user3"], TEST_ORGS["org2"], "", "org_data", "read"
+            )
+            is True
+        )
+        assert (
+            enforcer.enforce(
+                TEST_USERS["user3"],
+                TEST_ORGS["org2"],
+                TEST_PROJECTS["project4"],
+                "project_data",
+                "read",
+            )
+            is True
+        )
 
     def test_invalid_access_across_orgs(self):
-        assert enforcer.enforce(TEST_USERS["user4"], TEST_ORGS["org2"], TEST_PROJECTS["project3"], "project_data", "read") is False
-        assert enforcer.enforce(TEST_USERS["user5"], TEST_ORGS["org1"], TEST_PROJECTS["project1"], "project_data", "write") is False
+        assert (
+            enforcer.enforce(
+                TEST_USERS["user4"],
+                TEST_ORGS["org2"],
+                TEST_PROJECTS["project3"],
+                "project_data",
+                "read",
+            )
+            is False
+        )
+        assert (
+            enforcer.enforce(
+                TEST_USERS["user5"],
+                TEST_ORGS["org1"],
+                TEST_PROJECTS["project1"],
+                "project_data",
+                "write",
+            )
+            is False
+        )
 
     def test_user_with_different_roles_across_orgs(self):
-        assert enforcer.enforce(TEST_USERS["mixed"], TEST_ORGS["org1"], "", "org_data", "delete") is True
-        assert enforcer.enforce(TEST_USERS["mixed"], TEST_ORGS["org2"], "", "org_data", "write") is False
-        assert enforcer.enforce(TEST_USERS["mixed"], TEST_ORGS["org2"], "", "org_data", "read") is True
+        assert (
+            enforcer.enforce(
+                TEST_USERS["mixed"], TEST_ORGS["org1"], "", "org_data", "delete"
+            )
+            is True
+        )
+        assert (
+            enforcer.enforce(
+                TEST_USERS["mixed"], TEST_ORGS["org2"], "", "org_data", "write"
+            )
+            is False
+        )
+        assert (
+            enforcer.enforce(
+                TEST_USERS["mixed"], TEST_ORGS["org2"], "", "org_data", "read"
+            )
+            is True
+        )
 
     def test_multiple_users_same_project(self):
-        assert enforcer.enforce(TEST_USERS["reader"], TEST_ORGS["org1"], TEST_PROJECTS["project1"], "project_data", "read") is True
-        assert enforcer.enforce(TEST_USERS["reader"], TEST_ORGS["org1"], TEST_PROJECTS["project1"], "project_data", "delete") is False
-        assert enforcer.enforce(TEST_USERS["admin"], TEST_ORGS["org1"], TEST_PROJECTS["project1"], "project_data", "delete") is True
+        assert (
+            enforcer.enforce(
+                TEST_USERS["reader"],
+                TEST_ORGS["org1"],
+                TEST_PROJECTS["project1"],
+                "project_data",
+                "read",
+            )
+            is True
+        )
+        assert (
+            enforcer.enforce(
+                TEST_USERS["reader"],
+                TEST_ORGS["org1"],
+                TEST_PROJECTS["project1"],
+                "project_data",
+                "delete",
+            )
+            is False
+        )
+        assert (
+            enforcer.enforce(
+                TEST_USERS["admin"],
+                TEST_ORGS["org1"],
+                TEST_PROJECTS["project1"],
+                "project_data",
+                "delete",
+            )
+            is True
+        )
 
     def test_project_access_via_org_role_only(self):
-        assert enforcer.enforce(TEST_USERS["user2"], TEST_ORGS["org1"], TEST_PROJECTS["project1"], "project_data", "write") is True
+        assert (
+            enforcer.enforce(
+                TEST_USERS["user2"],
+                TEST_ORGS["org1"],
+                TEST_PROJECTS["project1"],
+                "project_data",
+                "write",
+            )
+            is True
+        )

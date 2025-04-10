@@ -1,6 +1,7 @@
 from typing import Optional
 from sqlmodel import SQLModel, Field
 
+
 class CasbinRule(SQLModel, table=True):
     """
     Represents Casbin policy rules for RBAC.
@@ -27,7 +28,7 @@ class CasbinRule(SQLModel, table=True):
         - v1: role (e.g., "project_reader", etc.)
         - v2: project_id
     """
-    
+
     __tablename__ = "casbin_rule"
 
     id: Optional[int] = Field(default=None, primary_key=True)

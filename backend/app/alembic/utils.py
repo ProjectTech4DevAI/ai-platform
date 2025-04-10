@@ -22,10 +22,11 @@ def update_casbin_policies(conn: Connection, file_path: str):
 
         for action in actions:
             conn.execute(
-                text("""
+                text(
+                    """
                     INSERT INTO casbin_rule (ptype, v0, v1, v2)
                     VALUES (:ptype, :v0, :v1, :v2)
-                """),
-                {"ptype": "p", "v0": role, "v1": resource, "v2": action}
+                """
+                ),
+                {"ptype": "p", "v0": role, "v1": resource, "v2": action},
             )
-            
