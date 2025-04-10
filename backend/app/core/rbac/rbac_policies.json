@@ -6,7 +6,7 @@
       "actions": ["delete", "write", "read"]
     },
     {
-      "role": "org_writer",
+      "role": "org_manager",
       "resource": "org_data",
       "actions": ["write", "read"]
     },
@@ -21,7 +21,7 @@
       "actions": ["delete", "write", "read"]
     },
     {
-      "role": "project_writer",
+      "role": "project_manager",
       "resource": "project_data",
       "actions": ["write", "read"]
     },

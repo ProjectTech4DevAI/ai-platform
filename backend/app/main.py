@@ -21,7 +21,7 @@ if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # ✅ Load Casbin policy on startup
+    # Load Casbin policy on startup
     await load_policy()
     app.state.enforcer = enforcer
     yield

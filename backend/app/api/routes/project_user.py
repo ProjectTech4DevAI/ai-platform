@@ -11,7 +11,6 @@ from app.crud.project_user import (
 )
 from app.models import User, ProjectUserPublic, UserProjectOrg, Message
 from app.utils import APIResponse
-from app.core.rbac.casbin import casbin_enforce
 
 
 router = APIRouter(prefix="/project/users", tags=["project_users"])
@@ -63,10 +62,6 @@ def list_project_users(
     """
     Get all users in a project.
     """
-    casbin_enforce(
-        sub="user:dana",org="org:2",proj="project:3", obj="project_data", act="write"
-    )
-
     users, total_count = get_users_by_project(
         session, current_user.project_id, skip, limit
     )
