@@ -21,7 +21,3 @@ def get_project_by_id(*, session: Session, project_id: int) -> Optional[Project]
 def get_projects_by_organization(*, session: Session, org_id: int) -> List[Project]:
     statement = select(Project).where(Project.organization_id == org_id)
     return session.exec(statement).all()
-
-def get_organization_by_project(*, session: Session, project_id: int) -> Optional[int]:
-    statement = select(Project.organization_id).where(Project.id == project_id)
-    return session.exec(statement).first()
