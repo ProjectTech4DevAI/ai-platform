@@ -4,7 +4,7 @@ import string
 
 from fastapi.testclient import TestClient
 from sqlmodel import Session
-from app.models import Creds, CredsCreate, Organization, OrganizationCreate
+from app.models import Credential, CredsCreate, Organization, OrganizationCreate
 from app.crud.credentials import (
     set_creds_for_org,
     get_creds_by_org,
@@ -73,7 +73,7 @@ def test_set_creds_for_org(db: Session):
     assert creds.is_active is True
 
     stored_creds = (
-        db.query(Creds).filter(Creds.organization_id == unique_org_id).first()
+        db.query(Credential).filter(Credential.organization_id == unique_org_id).first()
     )
     assert stored_creds is not None
     assert stored_creds.organization_id == unique_org_id
@@ -82,7 +82,7 @@ def test_set_creds_for_org(db: Session):
 
 
 # Test for getting credentials using `get_creds_by_org`
-def test_get_creds_by_org(db: Session, test_credential: Creds):
+def test_get_creds_by_org(db: Session, test_credential: Credential):
     creds = get_creds_by_org(session=db, org_id=test_credential.organization_id)
     assert creds is not None
     assert creds.organization_id == test_credential.organization_id
@@ -91,7 +91,7 @@ def test_get_creds_by_org(db: Session, test_credential: Creds):
 
 
 # Test for retrieving API key using `get_key_by_org`
-def test_get_key_by_org(db: Session, test_credential: Creds):
+def test_get_key_by_org(db: Session, test_credential: Credential):
     api_key = get_key_by_org(session=db, org_id=test_credential.organization_id)
     assert api_key == test_credential.credential["openai"]["api_key"]
 
@@ -103,7 +103,7 @@ def test_get_key_by_org_not_found(db: Session):
 
 
 # Test for removing credentials using `remove_creds_for_org`
-def test_remove_creds_for_org(db: Session, test_credential: Creds):
+def test_remove_creds_for_org(db: Session, test_credential: Credential):
     creds = remove_creds_for_org(session=db, org_id=test_credential.organization_id)
     assert creds is not None  # Ensure the credentials were found and deleted
     assert creds.organization_id == test_credential.organization_id

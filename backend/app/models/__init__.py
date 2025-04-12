@@ -44,7 +44,7 @@ from .user import (
 )
 
 from .credentials import (
-    Creds,
+    Credential,
     CredsBase,
     CredsCreate,
     CredsPublic,

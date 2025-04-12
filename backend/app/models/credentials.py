@@ -21,7 +21,7 @@ class CredsUpdate(SQLModel):
     is_active: bool | None = Field(default=None)
 
 
-class Creds(CredsBase, table=True):
+class Credential(CredsBase, table=True):
     id: int = Field(default=None, primary_key=True)
     credential: Dict[str, Any] = Field(
         default=None, sa_column=sa.Column(sa.JSON)
