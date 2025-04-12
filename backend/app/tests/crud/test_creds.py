@@ -30,18 +30,20 @@ def test_credential(db: Session):
     unique_org_name = "Test Organization " + generate_random_string(
         5
     )  # Ensure unique name
-    organization_data = OrganizationCreate(name=unique_org_name, is_active=True)
-    org = Organization(**organization_data.dict())  # Create Organization instance
+    existing_org = (
+        db.query(Organization).filter(Organization.name == unique_org_name).first()
+    )
 
-    # Add to the session and commit
-    db.add(org)
-
-    try:
+    if existing_org:
+        # If the organization already exists, use the existing one
+        org = existing_org
+    else:
+        # If the organization does not exist, create a new one
+        organization_data = OrganizationCreate(name=unique_org_name, is_active=True)
+        org = Organization(**organization_data.dict())  # Create Organization instance
+        db.add(org)
         db.commit()  # Commit to save the organization to the database
         db.refresh(org)  # Refresh to get the organization_id
-    except IntegrityError as e:
-        db.rollback()  # Rollback the transaction in case of an error (e.g., duplicate key)
-        raise ValueError(f"Error during organization commit: {str(e)}")
 
     # Generate a random API key for the test
     api_key = "sk-" + generate_random_string(10)
@@ -52,11 +54,8 @@ def test_credential(db: Session):
         is_active=True,
         credential={"openai": {"api_key": api_key}},
     )
-
     creds = set_creds_for_org(session=db, creds_add=creds_data)
-
-    # Reset the auto-increment sequence after inserting the organization
-    db.commit()  # Commit the sequence reset
+    db.commit()
     return creds
 
 
