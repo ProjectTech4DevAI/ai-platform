@@ -4,6 +4,8 @@ import string
 
 from fastapi.testclient import TestClient
 from sqlmodel import Session
+from sqlalchemy.exc import IntegrityError
+
 from app.models import Credential, CredsCreate, Organization, OrganizationCreate
 from app.crud.credentials import (
     set_creds_for_org,
@@ -26,10 +28,12 @@ def generate_random_string(length=10):
 # Fixture for setting up a test organization with credentials
 @pytest.fixture
 def test_credential(db: Session):
-    # Create a mock organization with a unique name
+    # Generate a unique organization name
     unique_org_name = "Test Organization " + generate_random_string(
         5
     )  # Ensure unique name
+
+    # Check if the organization already exists in the database
     existing_org = (
         db.query(Organization).filter(Organization.name == unique_org_name).first()
     )
@@ -41,9 +45,14 @@ def test_credential(db: Session):
         # If the organization does not exist, create a new one
         organization_data = OrganizationCreate(name=unique_org_name, is_active=True)
         org = Organization(**organization_data.dict())  # Create Organization instance
-        db.add(org)
-        db.commit()  # Commit to save the organization to the database
-        db.refresh(org)  # Refresh to get the organization_id
+        db.add(org)  # Add to the session
+
+        try:
+            db.commit()  # Commit to save the organization to the database
+            db.refresh(org)  # Refresh to get the organization_id
+        except IntegrityError as e:
+            db.rollback()  # Rollback the transaction in case of an error (e.g., duplicate key)
+            raise ValueError(f"Error during organization commit: {str(e)}")
 
     # Generate a random API key for the test
     api_key = "sk-" + generate_random_string(10)
@@ -54,8 +63,10 @@ def test_credential(db: Session):
         is_active=True,
         credential={"openai": {"api_key": api_key}},
     )
+
     creds = set_creds_for_org(session=db, creds_add=creds_data)
-    db.commit()
+
+    # Return the credentials and the organization
     return creds
 
 
