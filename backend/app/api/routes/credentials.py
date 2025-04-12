@@ -88,11 +88,6 @@ def read_api_key(*, session: SessionDep, org_id: int):
     dependencies=[Depends(get_current_active_superuser)],
     response_model=APIResponse[CredsPublic],
 )
-@router.patch(
-    "/{org_id}",
-    dependencies=[Depends(get_current_active_superuser)],
-    response_model=APIResponse[CredsPublic],
-)
 def update_credential(*, session: SessionDep, org_id: int, creds_in: CredsUpdate):
     try:
         updated_creds = update_creds_for_org(
