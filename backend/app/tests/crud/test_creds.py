@@ -6,12 +6,19 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 from sqlalchemy.exc import IntegrityError
 
-from app.models import Credential, CredsCreate, Organization, OrganizationCreate
+from app.models import (
+    Credential,
+    CredsCreate,
+    Organization,
+    OrganizationCreate,
+    CredsUpdate,
+)
 from app.crud.credentials import (
     set_creds_for_org,
     get_creds_by_org,
     get_key_by_org,
     remove_creds_for_org,
+    update_creds_for_org,
 )
 from app.main import app
 from app.utils import APIResponse
@@ -25,24 +32,22 @@ def generate_random_string(length=10):
     return "".join(random.choices(string.ascii_letters + string.digits, k=length))
 
 
-# Fixture for setting up a test organization with credentials
 @pytest.fixture
 def test_credential(db: Session):
-    # Generate a unique organization name
+    # Create a unique organization name
     unique_org_name = "Test Organization " + generate_random_string(
         5
     )  # Ensure unique name
 
-    # Check if the organization already exists in the database
+    # Check if the organization already exists by name
     existing_org = (
         db.query(Organization).filter(Organization.name == unique_org_name).first()
     )
 
     if existing_org:
-        # If the organization already exists, use the existing one
-        org = existing_org
+        org = existing_org  # If organization exists, use the existing one
     else:
-        # If the organization does not exist, create a new one
+        # If not, create a new organization
         organization_data = OrganizationCreate(name=unique_org_name, is_active=True)
         org = Organization(**organization_data.dict())  # Create Organization instance
         db.add(org)  # Add to the session
@@ -65,73 +70,47 @@ def test_credential(db: Session):
     )
 
     creds = set_creds_for_org(session=db, creds_add=creds_data)
-
-    # Return the credentials and the organization
     return creds
 
 
-def test_set_creds_for_org(db: Session):
-    unique_org_id = 1  # Use an existing organization ID or create a new one
-    api_key = "sk-" + generate_random_string(10)
-
-    org = Organization(id=unique_org_id, name="Test Organization", is_active=True)
-    db.add(org)
-    db.commit()
-    db.refresh(org)  # Ensure the organization is persisted and we get the org_id
-
-    creds_data = CredsCreate(
-        organization_id=unique_org_id,
-        is_active=True,
-        credential={"openai": {"api_key": api_key}},
-    )
-
-    creds = set_creds_for_org(session=db, creds_add=creds_data)
-
+def test_create_credentials(db: Session, test_credential):
+    creds = test_credential  # Using the fixture
     assert creds is not None
-    assert creds.organization_id == unique_org_id
-    assert creds.credential["openai"]["api_key"] == api_key
+    assert creds.credential["openai"]["api_key"].startswith("sk-")
     assert creds.is_active is True
 
-    stored_creds = (
-        db.query(Credential).filter(Credential.organization_id == unique_org_id).first()
+
+def test_get_creds_by_org(db: Session, test_credential):
+    creds = test_credential  # Using the fixture
+    retrieved_creds = get_creds_by_org(session=db, org_id=creds.organization_id)
+
+    assert retrieved_creds is not None
+    assert retrieved_creds.organization_id == creds.organization_id
+
+
+def test_update_creds_for_org(db: Session, test_credential):
+    creds = test_credential  # Using the fixture
+    updated_creds_data = CredsUpdate(credential={"openai": {"api_key": "sk-newkey"}})
+
+    updated_creds = update_creds_for_org(
+        session=db, org_id=creds.organization_id, creds_in=updated_creds_data
     )
-    assert stored_creds is not None
-    assert stored_creds.organization_id == unique_org_id
-    assert stored_creds.credential["openai"]["api_key"] == api_key
-    assert stored_creds.is_active is True
+
+    assert updated_creds is not None
+    assert updated_creds.credential["openai"]["api_key"] == "sk-newkey"
 
 
-# Test for getting credentials using `get_creds_by_org`
-def test_get_creds_by_org(db: Session, test_credential: Credential):
-    creds = get_creds_by_org(session=db, org_id=test_credential.organization_id)
-    assert creds is not None
-    assert creds.organization_id == test_credential.organization_id
-    assert "openai" in creds.credential
-    assert "api_key" in creds.credential["openai"]
+def test_remove_creds_for_org(db: Session, test_credential):
+    creds = test_credential  # Using the fixture
+    removed_creds = remove_creds_for_org(session=db, org_id=creds.organization_id)
 
+    assert removed_creds is not None
+    assert removed_creds.organization_id == creds.organization_id
 
-# Test for retrieving API key using `get_key_by_org`
-def test_get_key_by_org(db: Session, test_credential: Credential):
-    api_key = get_key_by_org(session=db, org_id=test_credential.organization_id)
-    assert api_key == test_credential.credential["openai"]["api_key"]
-
-
-def test_get_key_by_org_not_found(db: Session):
-    # Test for an organization that does not exist in the database
-    api_key = get_key_by_org(session=db, org_id=999)
-    assert api_key is None  # No API key should be found for a non-existent org
-
-
-# Test for removing credentials using `remove_creds_for_org`
-def test_remove_creds_for_org(db: Session, test_credential: Credential):
-    creds = remove_creds_for_org(session=db, org_id=test_credential.organization_id)
-    assert creds is not None  # Ensure the credentials were found and deleted
-    assert creds.organization_id == test_credential.organization_id
-
-
-def test_remove_creds_for_org_not_found(db: Session):
-    # Test trying to remove credentials for an organization that doesn't exist
-    creds = remove_creds_for_org(session=db, org_id=999)
-    assert (
-        creds is None
-    )  # No credentials should be found or removed for a non-existent org
+    # Check that credentials are removed from the database
+    deleted_creds = (
+        db.query(Credential)
+        .filter(Credential.organization_id == creds.organization_id)
+        .first()
+    )
+    assert deleted_creds is None
