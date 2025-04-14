@@ -14,6 +14,7 @@ from app.api.routes.threads import (
     handle_openai_error,
 )
 from app.models import APIKey
+import openai
 
 # Wrap the router in a FastAPI app instance.
 app = FastAPI()
@@ -216,7 +217,11 @@ def test_validate_thread_no_thread_id():
 def test_validate_thread_invalid_thread():
     """Test validate_thread with an invalid thread_id."""
     mock_client = MagicMock()
-    mock_client.beta.threads.runs.list.side_effect = Exception("Invalid thread")
+    error = openai.OpenAIError()
+    error.message = "Invalid thread"
+    error.response = MagicMock(status_code=404)
+    error.body = {"message": "Invalid thread"}
+    mock_client.beta.threads.runs.list.side_effect = error
 
     is_valid, error = validate_thread(mock_client, "invalid_thread")
     assert is_valid is False
