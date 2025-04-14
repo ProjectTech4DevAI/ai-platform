@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 import random
-import string
+import string, datetime
 
 from app.main import app
 from app.api.deps import get_db
@@ -171,17 +171,18 @@ def test_read_api_key_not_found(
     assert response_data["detail"] == "API key not found"
 
 
-# Test updating credentials
 def test_update_credentials(
     db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
 ):
     org, creds_data = create_organization_and_creds
     set_creds_for_org(session=db, creds_add=creds_data)
+
     update_data = {
         "credential": {
             "openai": {
-                "api_key": "sk-" + generate_random_string()
-            }  # Generate a new API key for the update
+                "api_key": "sk-"
+                + generate_random_string()  # Generate a new API key for the update
+            }
         }
     }
 
@@ -191,15 +192,19 @@ def test_update_credentials(
         headers=superuser_token_headers,
     )
 
-    print(response.json())  # Log the response for debugging
+    print(response.json())
 
     assert response.status_code == 200
     response_data = response.json()
+
     assert "data" in response_data
+
     assert (
         response_data["data"]["credential"]["openai"]["api_key"]
         == update_data["credential"]["openai"]["api_key"]
     )
+
+    assert response_data["data"]["updated_at"] is not None
 
 
 def test_update_credentials_not_found(
@@ -239,8 +244,10 @@ def test_delete_credentials(
         f"{settings.API_V1_STR}/credentials/{org.id}", headers=superuser_token_headers
     )
 
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Credentials not found"
+    response_data = response.json()
+    assert response.status_code == 200
+    assert response_data["data"]["deleted_at"] is not None
+    assert response_data["data"]["is_active"] is False
 
 
 def test_delete_credentials_not_found(

@@ -1,8 +1,8 @@
-"""add credential table
+"""add credetial table
 
-Revision ID: fa868aa8debd
+Revision ID: 543f97951bd0
 Revises: 8d7a05fd0ad4
-Create Date: 2025-04-12 21:26:59.962091
+Create Date: 2025-04-14 23:50:51.118373
 
 """
 from alembic import op
@@ -11,7 +11,7 @@ import sqlmodel.sql.sqltypes
 
 
 # revision identifiers, used by Alembic.
-revision = "fa868aa8debd"
+revision = "543f97951bd0"
 down_revision = "8d7a05fd0ad4"
 branch_labels = None
 depends_on = None
@@ -25,6 +25,9 @@ def upgrade():
         sa.Column("is_active", sa.Boolean(), nullable=False),
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("credential", sa.JSON(), nullable=True),
+        sa.Column("inserted_at", sa.DateTime(), nullable=True),
+        sa.Column("updated_at", sa.DateTime(), nullable=True),
+        sa.Column("deleted_at", sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(
             ["organization_id"], ["organization.id"], ondelete="CASCADE"
         ),

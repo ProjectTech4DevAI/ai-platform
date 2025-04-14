@@ -1,10 +1,10 @@
 import pytest
 import random
 import string
-
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 from sqlalchemy.exc import IntegrityError
+from datetime import datetime
 
 from app.models import (
     Credential,
@@ -78,6 +78,7 @@ def test_create_credentials(db: Session, test_credential):
     assert creds is not None
     assert creds.credential["openai"]["api_key"].startswith("sk-")
     assert creds.is_active is True
+    assert creds.inserted_at is not None  # Ensure inserted_at is set
 
 
 def test_get_creds_by_org(db: Session, test_credential):
@@ -86,6 +87,7 @@ def test_get_creds_by_org(db: Session, test_credential):
 
     assert retrieved_creds is not None
     assert retrieved_creds.organization_id == creds.organization_id
+    assert retrieved_creds.inserted_at is not None  # Ensure inserted_at is not None
 
 
 def test_update_creds_for_org(db: Session, test_credential):
@@ -98,6 +100,7 @@ def test_update_creds_for_org(db: Session, test_credential):
 
     assert updated_creds is not None
     assert updated_creds.credential["openai"]["api_key"] == "sk-newkey"
+    assert updated_creds.updated_at is not None  # Ensure updated_at is set
 
 
 def test_remove_creds_for_org(db: Session, test_credential):
@@ -107,10 +110,24 @@ def test_remove_creds_for_org(db: Session, test_credential):
     assert removed_creds is not None
     assert removed_creds.organization_id == creds.organization_id
 
-    # Check that credentials are removed from the database
+    # Ensure the deleted_at timestamp is set for soft delete
+    assert removed_creds.deleted_at is not None  # Ensure deleted_at is set
+
+    # Check that credentials are soft deleted and not removed
     deleted_creds = (
         db.query(Credential)
         .filter(Credential.organization_id == creds.organization_id)
         .first()
     )
-    assert deleted_creds is None
+    assert deleted_creds is not None  # Ensure the record still exists in the DB
+    assert deleted_creds.deleted_at is not None  # Ensure it's marked as deleted
+
+
+def test_remove_creds_for_org_not_found(db: Session):
+    # Try to remove credentials for a non-existent organization ID (999)
+    non_existing_org_id = 999
+
+    removed_creds = remove_creds_for_org(session=db, org_id=non_existing_org_id)
+
+    # Assert that no credentials were removed since they don't exist
+    assert removed_creds is None

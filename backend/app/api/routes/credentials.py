@@ -1,9 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-
-from app.api.deps import (
-    SessionDep,
-    get_current_active_superuser,
-)
+from app.api.deps import SessionDep, get_current_active_superuser
 from app.crud.credentials import (
     get_creds_by_org,
     get_key_by_org,
@@ -13,6 +9,7 @@ from app.crud.credentials import (
 )
 from app.models import CredsCreate, CredsPublic, CredsUpdate
 from app.utils import APIResponse
+from datetime import datetime
 
 router = APIRouter(prefix="/credentials", tags=["credentials"])
 
@@ -35,10 +32,8 @@ def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
             status_code=500, detail=f"An unexpected error occurred: {str(e)}"
         )
 
-    if new_creds is None:
-        raise HTTPException(
-            status_code=400, detail="Credentials for this organization already exist."
-        )
+    # Ensure inserted_at is set during creation
+    new_creds.inserted_at = datetime.utcnow()
 
     return APIResponse.success_response(new_creds)
 
@@ -52,7 +47,6 @@ def read_credential(*, session: SessionDep, org_id: int):
     try:
         creds = get_creds_by_org(session=session, org_id=org_id)
     except Exception as e:
-        # Catch any other exceptions and return an internal server error response
         raise HTTPException(
             status_code=500, detail=f"An unexpected error occurred: {str(e)}"
         )
@@ -72,7 +66,6 @@ def read_api_key(*, session: SessionDep, org_id: int):
     try:
         api_key = get_key_by_org(session=session, org_id=org_id)
     except Exception as e:
-        # Catch any other exceptions and return an internal server error response
         raise HTTPException(
             status_code=500, detail=f"An unexpected error occurred: {str(e)}"
         )
@@ -93,6 +86,9 @@ def update_credential(*, session: SessionDep, org_id: int, creds_in: CredsUpdate
         updated_creds = update_creds_for_org(
             session=session, org_id=org_id, creds_in=creds_in
         )
+
+        updated_creds.updated_at = datetime.utcnow()
+
         return APIResponse.success_response(updated_creds)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -100,6 +96,12 @@ def update_credential(*, session: SessionDep, org_id: int, creds_in: CredsUpdate
         raise HTTPException(
             status_code=500, detail=f"An unexpected error occurred: {str(e)}"
         )
+
+
+from fastapi import HTTPException, Depends
+from app.crud.credentials import remove_creds_for_org
+from app.utils import APIResponse
+from app.api.deps import SessionDep, get_current_active_superuser
 
 
 @router.delete(
@@ -120,4 +122,6 @@ def delete_credential(*, session: SessionDep, org_id: int):
             status_code=404, detail="Credentials for organization not found"
         )
 
+    # No need to manually set deleted_at and is_active if it's done in remove_creds_for_org
+    # Simply return the success response
     return APIResponse.success_response({"message": "Credentials deleted successfully"})
