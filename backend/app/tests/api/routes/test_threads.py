@@ -228,6 +228,67 @@ def test_validate_thread_invalid_thread():
     assert "Invalid thread ID" in error
 
 
+def test_validate_thread_with_active_run():
+    """Test validate_thread when there is an active run."""
+    mock_client = MagicMock()
+    mock_run = MagicMock()
+    mock_run.status = "in_progress"
+    mock_client.beta.threads.runs.list.return_value = MagicMock(data=[mock_run])
+
+    is_valid, error = validate_thread(mock_client, "thread_123")
+    assert is_valid is False
+    assert "active run" in error.lower()
+    assert "in_progress" in error
+
+
+def test_validate_thread_with_queued_run():
+    """Test validate_thread when there is a queued run."""
+    mock_client = MagicMock()
+    mock_run = MagicMock()
+    mock_run.status = "queued"
+    mock_client.beta.threads.runs.list.return_value = MagicMock(data=[mock_run])
+
+    is_valid, error = validate_thread(mock_client, "thread_123")
+    assert is_valid is False
+    assert "active run" in error.lower()
+    assert "queued" in error
+
+
+def test_validate_thread_with_requires_action_run():
+    """Test validate_thread when there is a run requiring action."""
+    mock_client = MagicMock()
+    mock_run = MagicMock()
+    mock_run.status = "requires_action"
+    mock_client.beta.threads.runs.list.return_value = MagicMock(data=[mock_run])
+
+    is_valid, error = validate_thread(mock_client, "thread_123")
+    assert is_valid is False
+    assert "active run" in error.lower()
+    assert "requires_action" in error
+
+
+def test_validate_thread_with_completed_run():
+    """Test validate_thread when there is a completed run."""
+    mock_client = MagicMock()
+    mock_run = MagicMock()
+    mock_run.status = "completed"
+    mock_client.beta.threads.runs.list.return_value = MagicMock(data=[mock_run])
+
+    is_valid, error = validate_thread(mock_client, "thread_123")
+    assert is_valid is True
+    assert error is None
+
+
+def test_validate_thread_with_no_runs():
+    """Test validate_thread when there are no runs."""
+    mock_client = MagicMock()
+    mock_client.beta.threads.runs.list.return_value = MagicMock(data=[])
+
+    is_valid, error = validate_thread(mock_client, "thread_123")
+    assert is_valid is True
+    assert error is None
+
+
 def test_setup_thread_new_thread():
     """Test setup_thread for creating a new thread."""
     mock_client = MagicMock()
@@ -281,3 +342,47 @@ def test_handle_openai_error():
     error.body = {}
     error.__str__.return_value = "Generic error"
     assert handle_openai_error(error) == "Generic error"
+
+
+def test_handle_openai_error_with_message():
+    """Test handle_openai_error when error has a message in its body."""
+    error = MagicMock()
+    error.body = {"message": "Test error message"}
+    result = handle_openai_error(error)
+    assert result == "Test error message"
+
+
+def test_handle_openai_error_without_message():
+    """Test handle_openai_error when error doesn't have a message in its body."""
+    error = MagicMock()
+    error.body = {"some_other_field": "value"}
+    error.__str__.return_value = "Generic error message"
+    result = handle_openai_error(error)
+    assert result == "Generic error message"
+
+
+def test_handle_openai_error_with_empty_body():
+    """Test handle_openai_error when error has an empty body."""
+    error = MagicMock()
+    error.body = {}
+    error.__str__.return_value = "Empty body error"
+    result = handle_openai_error(error)
+    assert result == "Empty body error"
+
+
+def test_handle_openai_error_with_non_dict_body():
+    """Test handle_openai_error when error body is not a dictionary."""
+    error = MagicMock()
+    error.body = "Not a dictionary"
+    error.__str__.return_value = "Non-dict body error"
+    result = handle_openai_error(error)
+    assert result == "Non-dict body error"
+
+
+def test_handle_openai_error_with_none_body():
+    """Test handle_openai_error when error body is None."""
+    error = MagicMock()
+    error.body = None
+    error.__str__.return_value = "None body error"
+    result = handle_openai_error(error)
+    assert result == "None body error"
