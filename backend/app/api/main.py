@@ -11,6 +11,7 @@ from app.api.routes import (
     threads,
     users,
     utils,
+    onboarding,
 )
 from app.core.config import settings
 
@@ -24,6 +25,8 @@ api_router.include_router(organization.router)
 api_router.include_router(project.router)
 api_router.include_router(project_user.router)
 api_router.include_router(api_keys.router)
+api_router.include_router(onboarding.router)
+
 
 if settings.ENVIRONMENT == "local":
     api_router.include_router(private.router)
