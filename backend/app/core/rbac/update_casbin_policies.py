@@ -22,7 +22,7 @@ def update_policies(session: Session) -> None:
             data = json.load(f)
     except FileNotFoundError:
         raise ValueError(f"Policy file not found: {file_path}")
-    
+
     conn = session.connection()
 
     try:
@@ -38,13 +38,15 @@ def update_policies(session: Session) -> None:
 
             if not role or not resource or not isinstance(actions, list):
                 raise ValueError(f"Invalid policy entry: {policy}")
-        
+
             for action in actions:
                 conn.execute(
-                    text("""
+                    text(
+                        """
                         INSERT INTO casbin_rule (ptype, v0, v1, v2)
                         VALUES (:ptype, :v0, :v1, :v2)
-                    """),
+                    """
+                    ),
                     {"ptype": "p", "v0": role, "v1": resource, "v2": action},
                 )
 
@@ -55,6 +57,7 @@ def update_policies(session: Session) -> None:
         logger.error(f"Error updating Casbin policies: {e}")
         session.rollback()
         raise
+
 
 def main() -> None:
     logger.info("Starting Casbin policy update")
