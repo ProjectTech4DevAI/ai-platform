@@ -6,6 +6,7 @@ from sqlmodel import Session, delete
 
 from app.core.config import settings
 from app.core.db import engine, init_db
+from app.core.rbac.update_casbin_policies import update_policies
 from app.main import app
 from app.models import (
     APIKey,
@@ -22,6 +23,7 @@ from app.tests.utils.utils import get_superuser_token_headers
 def db() -> Generator[Session, None, None]:
     with Session(engine) as session:
         init_db(session)
+        update_policies(session)
         yield session
         # Delete data in reverse dependency order
         session.execute(delete(ProjectUser))  # Many-to-many relationship

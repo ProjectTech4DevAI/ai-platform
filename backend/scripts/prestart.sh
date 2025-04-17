@@ -13,6 +13,7 @@ alembic upgrade head
 services=(
     app/initial_data.py
     app/initial_storage.py
+    app/core/rbac/update_casbin_policies.py
 )
 
 for i in ${services[@]}; do
