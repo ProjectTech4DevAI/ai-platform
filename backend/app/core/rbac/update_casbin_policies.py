@@ -10,18 +10,19 @@ from app.core.db import engine
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+policies_file_path = os.path.join(os.path.dirname(__file__), "rbac_policies.json")
+
 
 def update_policies(session: Session) -> None:
     """
     Update Casbin policies from the local JSON file.
     This deletes all existing 'p' policies and inserts new ones.
     """
-    file_path = os.path.join(os.path.dirname(__file__), "rbac_policies.json")
     try:
-        with open(file_path) as f:
+        with open(policies_file_path) as f:
             data = json.load(f)
     except FileNotFoundError:
-        raise ValueError(f"Policy file not found: {file_path}")
+        raise ValueError(f"Policy file not found: {policies_file_path}")
 
     conn = session.connection()
 
