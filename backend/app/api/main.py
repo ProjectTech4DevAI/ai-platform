@@ -12,7 +12,7 @@ from app.api.routes import (
     users,
     utils,
     onboarding,
-    credentials
+    credentials,
 )
 from app.core.config import settings
 

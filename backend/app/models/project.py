@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -28,6 +29,8 @@ class Project(ProjectBase, table=True):
     users: list["ProjectUser"] = Relationship(
         back_populates="project", cascade_delete=True
     )
+
+    organization: Optional["Organization"] = Relationship(back_populates="project")
 
 
 # Properties to return via API
