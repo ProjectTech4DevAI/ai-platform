@@ -80,6 +80,7 @@ def onboard_user(request: OnboardingRequest, session: SessionDep):
         )
 
         user.is_superuser = False
+        session.add(user)
         session.commit()
 
         return {
@@ -90,4 +91,5 @@ def onboard_user(request: OnboardingRequest, session: SessionDep):
         }
 
     except Exception as e:
+        session.rollback()
         raise HTTPException(status_code=400, detail=str(e))
