@@ -37,8 +37,7 @@ def upgrade():
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("organization_id", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(
-            ["organization_id"],
-            ["organization.id"],
+            ["organization_id"], ["organization.id"], ondelete="CASCADE"
         ),
         sa.PrimaryKeyConstraint("id"),
     )
