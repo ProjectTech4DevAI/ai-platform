@@ -56,12 +56,14 @@ def onboard_user(request: OnboardingRequest, session: SessionDep):
         existing_project = (
             session.query(Project).filter(Project.name == request.project_name).first()
         )
+        # 2. Check if the project exists or create a new on
         if existing_project:
             project = existing_project  # Use the existing project
         else:
-            project_create = ProjectCreate(name=request.project_name)
+            project_create = ProjectCreate(
+                name=request.project_name, organization_id=organization.id
+            )
             project = create_project(session=session, project_create=project_create)
-
         # 3. Check if the user already exists by email
         existing_user = session.query(User).filter(User.email == request.email).first()
         if existing_user:
