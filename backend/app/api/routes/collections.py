@@ -2,6 +2,7 @@ import warnings
 from uuid import UUID, uuid4
 from typing import List
 
+from openai import OpenAI
 from fastapi import APIRouter, HTTPException, Query, Header
 from pydantic import BaseModel
 
@@ -22,11 +23,26 @@ def fields(cls: BaseModel):
     yield from cls.__fields__.keys()
 
 
+def vs_ls(vector_store_id: str, client: OpenAI):
+    kwargs = {}
+    while True:
+        page = client.beta.vector_stores.files.list(
+            vector_store_id=vector_store_id,
+            **kwargs,
+        )
+        yield from page
+        if not page.has_more:
+            break
+        kwargs["after"] = page.last_id
+
+
 class UserDocuments(BaseModel):
     documents: list
     batch_size: int = 1
 
 
+# Fields to be passed along to OpenAI. They must be a subset of
+# parameters accepted by the OpenAI.clien.beta.assistants.create API.
 class AssistantOptions(BaseModel):
     model: str
     instructions: str
@@ -60,30 +76,37 @@ def create_collection(
         view = request.document_ids[start:stop]
         if not view:
             break
-        docs = d_crud.collect(view)
-        files = [storage.stream(x.object_store_url) for x in docs]
+        docs = {x.object_store_url: x for x in d_crud.collect(view)}
         file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
             vector_store_id=vector_store.id,
-            files=files,
+            files=list(map(storage.stream, docs)),
         )
         if file_batch.file_counts.completed != file_batch.file_counts.total:
-            # TODO:
-            #   1. find erroneous document,
-            #   2. remove previously allocated resources
+            for i in vs_ls(vector_store.id, client):
+                if i.last_error is None:
+                    object_store_url = client.files.retrieve(i.id)
+                    docs.pop(object_store_url)
+                client.files.delete(i.id)
+            client.beta.vector_stores.delete(vector_store.id)
 
-            detail = "Vector store error"  # TODO: update with bad docs
+            detail = json.dumps(
+                {
+                    "error": "OpenAI document processing error",
+                    "documents": [x.model_dump() for x in docs.values()],
+                }
+            )
             raise HTTPException(status_code=507, detail=detail)
 
         start = stop
-        stop += batch_size
-        documents.extend(docs)
+        stop += request.batch_size
+        documents.extend(docs.values())
 
     #
     # Create the assistant
     #
 
     kwargs = {x: getattr(request, x) for x in fields(AssistantOptions)}
-    assistant = self.client.beta.assistants.create(
+    assistant = client.beta.assistants.create(
         tools=[
             {
                 "type": "file_search",
