@@ -1,20 +1,19 @@
-import warnings
-from uuid import UUID, uuid4
-from typing import List
-
-from openai import OpenAI
-from fastapi import APIRouter, HTTPException, Query, Header
+from openai import OpenAI, OpenAIError
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 # from sqlalchemy.exc import NoResultFound, MultipleResultsFound, SQLAlchemyError
 
-from app.crud import DocumentCrud, CollectionCrud, DocumentCollectionCrud
-from app.models import Document, Collection
-from app.utils import APIResponse
 from app.api.deps import CurrentUser, SessionDep
-from app.core.util import raise_from_unknown
+from app.core.config import settings
 
-# from app.core.cloud import AmazonCloudStorage, CloudStorageError
+# from app.core.util import raise_from_unknown
+from app.crud import DocumentCrud, CollectionCrud, DocumentCollectionCrud
+from app.crud.rag import OpenAIVectorStoreCrud, OpenAIAssistantCrud
+from app.models import Collection
+from app.utils import APIResponse
+
+from app.core.cloud import CloudStorageError
 
 router = APIRouter(prefix="/collections", tags=["collections"])
 
@@ -36,9 +35,19 @@ def vs_ls(vector_store_id: str, client: OpenAI):
         kwargs["after"] = page.last_id
 
 
-class UserDocuments(BaseModel):
+class DocumentOptions(BaseModel):
     documents: list
     batch_size: int = 1
+
+    def __call__(self, select):
+        (start, stop) = (0, self.batch_size)
+        while True:
+            view = self.documents[start:stop]
+            if not view:
+                break
+            yield select(view)
+            start = stop
+            stop += self.batch_size
 
 
 # Fields to be passed along to OpenAI. They must be a subset of
@@ -49,7 +58,7 @@ class AssistantOptions(BaseModel):
     temperature: float = 1e-6
 
 
-class CreationRequest(UserDocuments, AssistantOptions):
+class CreationRequest(DocumentOptions, AssistantOptions):
     pass
 
 
@@ -58,82 +67,51 @@ def create_collection(
     session: SessionDep,
     current_user: CurrentUser,
     request: CreationRequest,
-    background_tasks: BackgroundTasks,
+    # background_tasks: BackgroundTasks,
 ):
-    d_crud = DocumentCrud(session, current_user.id)
+    if not settings.OPENAI_API_KEY:
+        detail = "OpenAI key not specified"
+        raise HTTPException(status_code=400, detail=detail)
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
-    storage = AmazonCloudStorage()
 
     #
     # Create the vector store
     #
 
-    vector_store = client.beta.vector_stores.create()
+    v_crud = OpenAIVectorStoreCrud(client)
+    try:
+        vector_store = v_crud.create()
+    except OpenAIError as err:
+        raise HTTPException(status_code=507, detail=str(err))
 
-    (start, stop) = (0, request.batch_size)
-    documents = []
-    while True:
-        view = request.document_ids[start:stop]
-        if not view:
-            break
-        docs = {x.object_store_url: x for x in d_crud.collect(view)}
-        file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
-            vector_store_id=vector_store.id,
-            files=list(map(storage.stream, docs)),
-        )
-        if file_batch.file_counts.completed != file_batch.file_counts.total:
-            for i in vs_ls(vector_store.id, client):
-                if i.last_error is None:
-                    object_store_url = client.files.retrieve(i.id)
-                    docs.pop(object_store_url)
-                client.files.delete(i.id)
-            client.beta.vector_stores.delete(vector_store.id)
-
-            detail = json.dumps(
-                {
-                    "error": "OpenAI document processing error",
-                    "documents": [x.model_dump() for x in docs.values()],
-                }
-            )
-            raise HTTPException(status_code=507, detail=detail)
-
-        start = stop
-        stop += request.batch_size
-        documents.extend(docs.values())
-
-    #
-    # Create the assistant
-    #
-
+    d_crud = DocumentCrud(session, current_user.id)
+    a_crud = OpenAIAssistantCrud(client)
     kwargs = {x: getattr(request, x) for x in fields(AssistantOptions)}
-    assistant = client.beta.assistants.create(
-        tools=[
-            {
-                "type": "file_search",
-            }
-        ],
-        tool_resources={
-            "file_search": {
-                "vector_store_ids": [
-                    vector_store.id,
-                ],
-            },
-        },
-        **kwargs,
-    )
+    try:
+        documents = list(
+            v_crud.update(
+                vector_store.id,
+                request,
+                request(d_crud.collect),
+            )
+        )
+        assistant = a_crud.create(v_crud.read(vector_store.id), **kwargs)
+    except (InterruptedError, OpenAIError, CloudStorageError) as err:
+        v_crud.delete(vector_store.id)
+        raise HTTPException(status_code=507, detail=str(err))
 
     #
     # Store the results
     #
 
-    c_crud = CollectionCrud()
+    c_crud = CollectionCrud(session)
     collection = Collection(
         llm_service_id=assistant.id,
         llm_service_name=request.model,
     )
     c_crud.create(collection)
 
-    dc_crud = DocumentCollectionCrud()
+    dc_crud = DocumentCollectionCrud(session)
     dc_crud.update(collection, documents)
 
     return APIResponse.success_response(collection)
