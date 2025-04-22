@@ -5,7 +5,7 @@ from sqlmodel import Session, func, select, and_
 from app.models import Document, Collection
 from app.core.util import now
 
-from . import DocumentCollectionCrud
+from .document_collection import DocumentCollectionCrud
 
 
 class CollectionCrud:
