@@ -44,6 +44,21 @@ class DocumentCrud:
 
         return self.session.exec(statement).all()
 
+    def read_each(self, doc_ids: List[UUID]):
+        statement = select(Document).where(
+            and_(
+                Document.owner_id == self.owner_id,
+                Document.id.in_(doc_ids),
+            )
+        )
+        results = self.session.exec(statement).all()
+
+        (m, n) = map(len, (results, doc_ids))
+        if m != n:
+            raise ValueError(f"Requested {n} retrieved {m}")
+
+        return results
+
     def update(self, document: Document):
         if not document.owner_id:
             document.owner_id = self.owner_id
@@ -65,18 +80,3 @@ class DocumentCrud:
         document.deleted_at = now()
 
         return self.update(document)
-
-    def collect(self, doc_ids: list):
-        statement = select(Document).where(
-            and_(
-                Document.owner_id == self.owner_id,
-                Document.id.in_(doc_ids),
-            )
-        )
-        results = self.session.exec(statement).all()
-
-        (m, n) = map(len, (results, doc_ids))
-        if m != n:
-            raise ValueError(f"Requested {n} retrieved {m}")
-
-        return results
