@@ -179,16 +179,18 @@ def make_collection(
     return payloaded_response(payload)
 
 
-@router.post("/delete/{collection_id}", response_model=APIResponse[Collection])
-def delete_collection(
+@router.post("/rm/{collection_id}", response_model=APIResponse[Collection])
+def remove_collection(
     session: SessionDep,
     current_user: CurrentUser,
     collection_id: UUID,
 ):
     c_crud = CollectionCrud(session)
-    collection = c_crud.delete(collection_id)
-
     a_crud = OpenAIAssistantCrud()
-    a_crud.delete(collection.llm_service_id)
+    try:
+        collection = c_crud.delete(collection_id)
+        a_crud.delete(collection.llm_service_id)
+    except SQLAlchemyError as err:
+        raise HTTPException(status_code=400, detail=str(err))
 
     return APIResponse.success_response(collection)
