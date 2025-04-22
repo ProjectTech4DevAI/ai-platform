@@ -1,17 +1,19 @@
+import sys
 import inspect
+import warnings
 from uuid import UUID, uuid4
-from typing import Any
+from typing import Any, Callable, List
 from dataclasses import dataclass, field, fields, asdict, replace
 
 from openai import OpenAI, OpenAIError
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
 from pydantic import BaseModel
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.config import settings
-
-from app.core.util import now
-from app.crud import DocumentCrud, CollectionCrud, DocumentCollectionCrud
+from app.core.util import now, raise_from_unknown
+from app.crud import DocumentCrud, CollectionCrud
 from app.crud.rag import OpenAIVectorStoreCrud, OpenAIAssistantCrud
 from app.models import Collection
 from app.utils import APIResponse
@@ -40,16 +42,16 @@ class ResponsePayload:
 
 
 class DocumentOptions(BaseModel):
-    documents: list
+    documents: List[UUID]
     batch_size: int = 1
 
-    def __call__(self, select):
+    def __call__(self, crud: DocumentCrud):
         (start, stop) = (0, self.batch_size)
         while True:
             view = self.documents[start:stop]
             if not view:
                 break
-            yield select(view)
+            yield crud.read_each(view)
             start = stop
             stop += self.batch_size
 
@@ -74,6 +76,20 @@ def payloaded_response(payload: ResponsePayload):
     return APIResponse.success_response(data=asdict(payload))
 
 
+def _backout(crud: OpenAIAssistantCrud, assistant_id: str):
+    try:
+        a_crud.delete(assistant.id)
+    except OpenAIError:
+        warnings.warn(
+            ": ".join(
+                [
+                    f"Unable to remove assistant {assistant_id}",
+                    "platform DB may be out of sync with OpenAI",
+                ]
+            )
+        )
+
+
 def do_create_collection(
     session: SessionDep,
     current_user: CurrentUser,
@@ -96,17 +112,17 @@ def do_create_collection(
     a_crud = OpenAIAssistantCrud(client)
     kwargs = {x: getattr(request, x) for x in bm_fields(AssistantOptions)}
     try:
-        documents = list(
-            v_crud.update(
-                vector_store.id,
-                request,
-                request(d_crud.collect),
-            )
-        )
+        documents = list(v_crud.update(vector_store.id, request(d_crud)))
         assistant = a_crud.create(v_crud.read(vector_store.id), **kwargs)
     except (InterruptedError, OpenAIError, CloudStorageError) as err:
-        v_crud.delete(vector_store.id)
         raise HTTPException(status_code=507, detail=str(err))
+    except SQLAlchemyError as err:
+        raise HTTPException(status_code=400, detail=str(err))
+    except Exception as err:
+        raise_from_unknown(err)
+    finally:
+        if any(sys.exc_info()):  # this works because every except raises
+            v_crud.delete(vector_store.id)
 
     #
     # Store the results
@@ -117,10 +133,11 @@ def do_create_collection(
         llm_service_id=assistant.id,
         llm_service_name=request.model,
     )
-    c_crud.create(collection)
-
-    dc_crud = DocumentCollectionCrud(session)
-    dc_crud.update(collection, documents)
+    try:
+        c_crud.create(collection, documents)
+    except SQLAlchemyError as err:
+        _backout(a_crud, assistant.id)
+        raise HTTPException(status_code=400, detail=str(err))
 
     #
     # Send back successful response
