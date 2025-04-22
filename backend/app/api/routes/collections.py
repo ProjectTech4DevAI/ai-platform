@@ -153,8 +153,8 @@ def do_create_collection(
     return payloaded_response(payload)
 
 
-@router.post("/create")
-def create_collection(
+@router.post("/mk")
+def make_collection(
     session: SessionDep,
     current_user: CurrentUser,
     request: CreationRequest,
