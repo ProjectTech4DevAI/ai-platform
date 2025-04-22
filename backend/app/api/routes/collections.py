@@ -194,3 +194,35 @@ def remove_collection(
         raise HTTPException(status_code=400, detail=str(err))
 
     return APIResponse.success_response(collection)
+
+
+@router.post("/stat/{collection_id}", response_model=APIResponse[Collection])
+def collection_info(
+    session: SessionDep,
+    current_user: CurrentUser,
+    collection_id: UUID,
+):
+    c_crud = CollectionCrud(session, current_user.id)
+    try:
+        data = c_crud.read(collection_id)
+    except SQLAlchemyError as err:
+        raise HTTPException(status_code=400, detail=str(err))
+
+    return APIResponse.success_response(data)
+
+
+@router.post("/docs/{collection_id}", response_model=APIResponse[Collection])
+def collection_documents(
+    session: SessionDep,
+    current_user: CurrentUser,
+    collection_id: UUID,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, gt=0, le=100),
+):
+    dc_crud = DocumentCollectionCrud(session, current_user.id)
+    try:
+        data = dc_crud.read(collection_id)
+    except (SQLAlchemyError, ValueError) as err:
+        raise HTTPException(status_code=400, detail=str(err))
+
+    return APIResponse.success_response(data)
