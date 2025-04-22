@@ -174,4 +174,4 @@ def delete_collection(
     a_crud = OpenAIAssistantCrud()
     a_crud.delete(collection.llm_service_id)
 
-    return APIResponse.success_response(data)
+    return APIResponse.success_response(collection)
