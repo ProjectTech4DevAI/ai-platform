@@ -4,6 +4,7 @@ from datetime import datetime
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.core.util import now
+from .user import User
 
 
 class Collection(SQLModel, table=True):
@@ -23,4 +24,4 @@ class Collection(SQLModel, table=True):
     )
     deleted_at: datetime | None
 
-    owner: User = Relationship(back_populates="documents")
+    owner: User = Relationship(back_populates="collections")
