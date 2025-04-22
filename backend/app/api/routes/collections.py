@@ -1,5 +1,5 @@
 import inspect
-from uuid import uuid4
+from uuid import UUID, uuid4
 from typing import Any
 from dataclasses import dataclass, field, fields, asdict, replace
 
@@ -112,7 +112,7 @@ def do_create_collection(
     # Store the results
     #
 
-    c_crud = CollectionCrud(session)
+    c_crud = CollectionCrud(session, current_user.id)
     collection = Collection(
         llm_service_id=assistant.id,
         llm_service_name=request.model,
@@ -160,3 +160,18 @@ def create_collection(
     )
 
     return payloaded_response(payload)
+
+
+@router.post("/delete/{collection_id}", response_model=APIResponse[Document])
+def delete_collection(
+    session: SessionDep,
+    current_user: CurrentUser,
+    collection_id: UUID,
+):
+    c_crud = CollectionCrud(session)
+    collection = c_crud.delete(collection_id)
+
+    a_crud = OpenAIAssistantCrud()
+    a_crud.delete(collection.llm_service_id)
+
+    return APIResponse.success_response(data)
