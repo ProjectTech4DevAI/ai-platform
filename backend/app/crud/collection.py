@@ -1,8 +1,11 @@
-from sqlmodel import Session
+from uuid import UUID
 
-from app.models import Document, Collection, DocumentCollection
+from sqlmodel import Session, func, select, and_
 
+from app.models import Document, Collection
 from app.core.util import now
+
+from . import DocumentCollectionCrud
 
 
 class CollectionCrud:
@@ -10,7 +13,7 @@ class CollectionCrud:
         self.session = session
         self.owner_id = owner_id
 
-    def exists(self, collection: Collection):
+    def _exists(self, collection: Collection):
         n = (
             self.session.query(func.count(Collection.id))
             .filter(
@@ -23,20 +26,13 @@ class CollectionCrud:
         return bool(n)
 
     def create(self, collection: Collection, documents: list[Document]):
-        if self.exists(collection):
+        if self._exists(collection):
             raise FileExistsError("Collection already present")
 
         collection = self.update(collection)
-        document_collection = []
-        for d in documents:
-            dc = DocumentCollection(
-                document_id=d.id,
-                collection_id=collection.id,
-            )
-            document_collection.append(dc)
 
-        self.session.bulk_save_objects(document_collection)
-        self.session.commit()
+        dc_crud = DocumentCollectionCrud(self.session)
+        dc_crud.create(collection, documents)
 
         return collection
 
