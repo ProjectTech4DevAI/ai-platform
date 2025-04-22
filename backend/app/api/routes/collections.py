@@ -162,7 +162,7 @@ def create_collection(
     return payloaded_response(payload)
 
 
-@router.post("/delete/{collection_id}", response_model=APIResponse[Document])
+@router.post("/delete/{collection_id}", response_model=APIResponse[Collection])
 def delete_collection(
     session: SessionDep,
     current_user: CurrentUser,
