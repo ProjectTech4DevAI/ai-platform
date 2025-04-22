@@ -1,6 +1,8 @@
+from typing import Optional
+
 from sqlmodel import Session, select
 
-from app.models import Document, Collection
+from app.models import Document, Collection, DocumentCollection
 
 
 class DocumentCollectionCrud:
@@ -27,8 +29,11 @@ class DocumentCollectionCrud:
     ):
         statement = (
             select(Document)
-            .join(DocumentCollection, DocumentCollection.document_id == Document.id)
-            .where(DocumentCollection.collection_id == Collection.id)
+            .join(
+                DocumentCollection,
+                DocumentCollection.document_id == Document.id,
+            )
+            .where(DocumentCollection.collection_id == collection.id)
         )
         if skip is not None:
             if skip < 0:
