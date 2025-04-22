@@ -50,7 +50,9 @@ def upload_doc(
 
     crud = DocumentCrud(session, current_user.id)
     document = Document(
-        id=basename, fname=src.filename, object_store_url=str(object_store_url)
+        id=basename,
+        fname=src.filename,
+        object_store_url=str(object_store_url),
     )
 
     try:
