@@ -5,7 +5,7 @@ from sqlmodel import Field, SQLModel
 from app.core.util import now
 
 
-class Document(SQLModel, table=True):
+class DocumentCollection(SQLModel, table=True):
     document_id: UUID = Field(
         foreign_key="document.id",
         nullable=False,
