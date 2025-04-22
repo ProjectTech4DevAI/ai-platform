@@ -1,13 +1,16 @@
-from openai import OpenAI, OpenAIError
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+import inspect
+from uuid import uuid4
+from typing import Any
+from dataclasses import dataclass, field, fields, asdict, replace
 
-# from sqlalchemy.exc import NoResultFound, MultipleResultsFound, SQLAlchemyError
+from openai import OpenAI, OpenAIError
+from fastapi import APIRouter, HTTPException, BackgroundTasks
+from pydantic import BaseModel
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.config import settings
 
-# from app.core.util import raise_from_unknown
+from app.core.util import now
 from app.crud import DocumentCrud, CollectionCrud, DocumentCollectionCrud
 from app.crud.rag import OpenAIVectorStoreCrud, OpenAIAssistantCrud
 from app.models import Collection
@@ -18,8 +21,22 @@ from app.core.cloud import CloudStorageError
 router = APIRouter(prefix="/collections", tags=["collections"])
 
 
-def fields(cls: BaseModel):
-    yield from cls.__fields__.keys()
+@dataclass
+class ResponsePayload:
+    status: str
+    route: str
+    key: str = field(default_factory=lambda: str(uuid4()))
+    time: str = field(default_factory=lambda: now().strftime("%c"))
+    body: Any = None
+
+    @classmethod
+    def now(cls):
+        attr = "time"
+        for i in fields(cls):
+            if i.name == attr:
+                return i.default_factory()
+
+        raise AttributeError(f'Expected attribute "{attr}" does not exist')
 
 
 class DocumentOptions(BaseModel):
@@ -49,20 +66,24 @@ class CreationRequest(DocumentOptions, AssistantOptions):
     pass
 
 
-@router.post("/create", response_model=APIResponse[Collection])
-def create_collection(
+def bm_fields(cls: BaseModel):
+    yield from cls.__fields__.keys()
+
+
+def payloaded_response(payload: ResponsePayload):
+    return APIResponse.success_response(data=asdict(payload))
+
+
+def do_create_collection(
     session: SessionDep,
     current_user: CurrentUser,
     request: CreationRequest,
-    # background_tasks: BackgroundTasks,
+    payload: ResponsePayload,
 ):
-    if not settings.OPENAI_API_KEY:
-        detail = "OpenAI key not specified"
-        raise HTTPException(status_code=400, detail=detail)
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
     #
-    # Create the vector store
+    # Create the assistant and vector store
     #
 
     v_crud = OpenAIVectorStoreCrud(client)
@@ -73,7 +94,7 @@ def create_collection(
 
     d_crud = DocumentCrud(session, current_user.id)
     a_crud = OpenAIAssistantCrud(client)
-    kwargs = {x: getattr(request, x) for x in fields(AssistantOptions)}
+    kwargs = {x: getattr(request, x) for x in bm_fields(AssistantOptions)}
     try:
         documents = list(
             v_crud.update(
@@ -101,4 +122,41 @@ def create_collection(
     dc_crud = DocumentCollectionCrud(session)
     dc_crud.update(collection, documents)
 
-    return APIResponse.success_response(collection)
+    #
+    # Send back successful response
+    #
+
+    payload = replace(
+        payload,
+        status="complete",
+        time=ResponsePayload.now(),
+        body=collection.model_dump(),
+    )
+
+    return payloaded_response(payload)
+
+
+@router.post("/create", response_model=APIResponse[Collection])
+def create_collection(
+    session: SessionDep,
+    current_user: CurrentUser,
+    request: CreationRequest,
+    background_tasks: BackgroundTasks,
+):
+    if not settings.OPENAI_API_KEY:
+        detail = "OpenAI key not specified"
+        raise HTTPException(status_code=400, detail=detail)
+
+    this = inspect.currentframe()
+    route = router.url_path_for(this.f_code.co_name)
+    payload = ResponsePayload("processing", route)
+
+    background_tasks.add_task(
+        do_create_collection,
+        session,
+        current_user,
+        request,
+        payload,
+    )
+
+    return payloaded_response(payload)
