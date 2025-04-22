@@ -22,19 +22,6 @@ def fields(cls: BaseModel):
     yield from cls.__fields__.keys()
 
 
-def vs_ls(vector_store_id: str, client: OpenAI):
-    kwargs = {}
-    while True:
-        page = client.beta.vector_stores.files.list(
-            vector_store_id=vector_store_id,
-            **kwargs,
-        )
-        yield from page
-        if not page.has_more:
-            break
-        kwargs["after"] = page.last_id
-
-
 class DocumentOptions(BaseModel):
     documents: list
     batch_size: int = 1
