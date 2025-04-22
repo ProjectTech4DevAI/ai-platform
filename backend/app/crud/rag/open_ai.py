@@ -4,11 +4,25 @@ import warnings
 import functools as ft
 from typing import Iterable
 
-from openai import OpenAIError
+from openai import OpenAI, OpenAIError
 from pydantic import BaseModel
 
 from app.core.cloud import AmazonCloudStorage
+from app.core.config import settings
 from app.models import Document
+
+
+def vs_ls(client: OpenAI, vector_store_id: str):
+    kwargs = {}
+    while True:
+        page = self.client.beta.vector_stores.files.list(
+            vector_store_id=vector_store_id,
+            **kwargs,
+        )
+        yield from page
+        if not page.has_more:
+            break
+        kwargs["after"] = page.last_id
 
 
 class BaseModelEncoder(json.JSONEncoder):
@@ -21,9 +35,42 @@ class BaseModelEncoder(json.JSONEncoder):
         return o.model_dump()
 
 
-class OpenAICrud:
+class ResourceCleaner:
     def __init__(self, client):
         self.client = client
+
+    def __str__(self):
+        return type(self).__name__
+
+    def __call__(self, resource, retries=1):
+        for i in range(retries):
+            try:
+                self.clean(resource)
+                return
+            except OpenAIError as err:
+                pass
+
+        warnings.warn(f"[{self} {resource}] Cleanup failure")
+
+    def clean(self, resource):
+        raise NotImplementedError()
+
+
+class AssistantCleaner(ResourceCleaner):
+    def clean(self, resource):
+        self.client.beta.assistants.delete(resource)
+
+
+class VectorStoreCleaner(ResourceCleaner):
+    def clean(self, resource):
+        for i in vs_ls(client, self.resource):
+            self.client.files.delete(i.id)
+        self.client.beta.vector_stores.delete(resource)
+
+
+class OpenAICrud:
+    def __init__(self, client=None):
+        self.client = client or OpenAI(api_key=settings.OPENAI_API_KEY)
 
 
 class OpenAIVectorStoreCrud(OpenAICrud):
@@ -31,27 +78,18 @@ class OpenAIVectorStoreCrud(OpenAICrud):
         return self.client.beta.vector_stores.create()
 
     def read(self, vector_store_id: str):
-        kwargs = {}
-        while True:
-            page = self.client.beta.vector_stores.files.list(
-                vector_store_id=vector_store_id,
-                **kwargs,
-            )
-            yield from page
-            if not page.has_more:
-                break
-            kwargs["after"] = page.last_id
+        yield from vs_ls(self.client, vector_store_id)
 
     def update(self, vector_store_id: str, documents: Iterable[Document]):
         storage = AmazonCloudStorage()
 
         for docs in documents:
             view = {x.object_store_url: x for x in docs}
-            batch = self.client.beta.vector_stores.file_batches.upload_and_poll(
+            req = self.client.beta.vector_stores.file_batches.upload_and_poll(
                 vector_store_id=vector_store_id,
                 files=list(map(storage.stream, view)),
             )
-            if batch.file_counts.completed != batch.file_counts.total:
+            if req.file_counts.completed != req.file_counts.total:
                 for i in self.read(vector_store_id):
                     if i.last_error is None:
                         object_store_url = self.client.files.retrieve(i.id)
@@ -69,24 +107,8 @@ class OpenAIVectorStoreCrud(OpenAICrud):
         if retries < 1:
             raise ValueError("Retries must be greater-than 1")
 
-        for i in range(retries):
-            try:
-                for i in self.read(vector_store_id):
-                    self.client.files.delete(i.id)
-                self.client.beta.vector_stores.delete(vector_store_id)
-
-                return
-            except OpenAIError as err:
-                logging.error(
-                    "[{} of {}] {} vector store purge error: {}".format(
-                        i + 1,
-                        retries,
-                        vector_store_id,
-                        err,
-                    )
-                )
-
-        warnings.warn(f"Unable to purge vector store resources ({vector_store_id})")
+        cleaner = VectorStoreCleaner(self.client)
+        cleaner(vector_store_id)
 
 
 class OpenAIAssistantCrud(OpenAICrud):
@@ -106,3 +128,21 @@ class OpenAIAssistantCrud(OpenAICrud):
             },
             **kwargs,
         )
+
+    def delete(self, assistant_id: str):
+        assistant = self.client.beta.assistants.retrieve(assistant_id)
+        vector_store_ids = assistant.tool_resources.vector_stores
+        try:
+            (vector_store_id,) = vector_store_ids
+        except ValueError as err:
+            msg = "Too {} attached vectors: {}".format(
+                "many" if vector_store_ids else "few",
+                ", ".join(vector_store_ids),
+            )
+            raise ValueError(msg)
+
+        v_crud = OpenAIVectorStoreCrud(self.client)
+        v_crud.delete(vector_store_id)
+
+        cleaner = AssistantCleaner(self.client)
+        cleaner(vector_store_id)
