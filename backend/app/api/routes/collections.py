@@ -136,7 +136,7 @@ def do_create_collection(
     return payloaded_response(payload)
 
 
-@router.post("/create", response_model=APIResponse[Collection])
+@router.post("/create")
 def create_collection(
     session: SessionDep,
     current_user: CurrentUser,
