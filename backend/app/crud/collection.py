@@ -1,4 +1,5 @@
 from uuid import UUID
+from typing import Optional
 
 from sqlmodel import Session, func, select, and_
 
@@ -35,7 +36,7 @@ class CollectionCrud:
 
         return collection
 
-    def read(self, collection_id: UUID):
+    def read_one(self, collection_id: UUID):
         statement = select(Collection).where(
             and_(
                 Collection.owner_id == self.owner_id,
@@ -44,6 +45,28 @@ class CollectionCrud:
         )
 
         return self.session.exec(statement).one()
+
+    def read_many(
+        self,
+        skip: Optional[int] = None,
+        limit: Optional[int] = None,
+    ):
+        statement = select(Collection).where(
+            and_(
+                Collection.owner_id == self.owner_id,
+                Collection.deleted_at.is_(None),
+            )
+        )
+        if skip is not None:
+            if skip < 0:
+                raise ValueError(f"Negative skip: {skip}")
+            statement = statement.offset(skip)
+        if limit is not None:
+            if limit < 0:
+                raise ValueError(f"Negative limit: {limit}")
+            statement = statement.limit(limit)
+
+        return self.session.exec(statement).all()
 
     def update(self, collection: Collection):
         if not collection.owner_id:
@@ -62,7 +85,7 @@ class CollectionCrud:
         return collection
 
     def delete(self, collection_id: UUID):
-        collection = self.read(collection_id)
+        collection = self.read_one(collection_id)
         collection.deleted_at = now()
 
         return self.update(collection)
