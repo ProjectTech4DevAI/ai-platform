@@ -19,12 +19,13 @@ class APIKeyBase(SQLModel):
 
 class APIKeyPublic(APIKeyBase):
     id: int
-    created_at: datetime
+    inserted_at: datetime
 
 
 class APIKey(APIKeyBase, table=True):
     id: int = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    inserted_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     is_deleted: bool = Field(default=False, nullable=False)
     deleted_at: Optional[datetime] = Field(default=None, nullable=True)
 

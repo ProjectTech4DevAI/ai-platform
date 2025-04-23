@@ -63,6 +63,7 @@ def remove_user_from_project(
 
     project_user.is_deleted = True
     project_user.deleted_at = datetime.utcnow()
+    project_user.updated_at = datetime.utcnow()  # Update the updated_at timestamp
     session.add(project_user)  # Required to mark as dirty for commit
     session.commit()
 

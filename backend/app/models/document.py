@@ -19,7 +19,7 @@ class Document(SQLModel, table=True):
     )
     fname: str
     object_store_url: str
-    created_at: datetime = Field(
+    inserted_at: datetime = Field(
         default_factory=now,
     )
     # updated_at: datetime | None
