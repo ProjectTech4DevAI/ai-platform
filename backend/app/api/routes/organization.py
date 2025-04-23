@@ -15,12 +15,7 @@ from app.api.deps import (
     SessionDep,
     get_current_active_superuser,
 )
-from app.crud.organization import (
-    create_organization,
-    get_organization_by_id,
-    update_organization,
-    delete_organization,
-)
+from app.crud.organization import create_organization, get_organization_by_id
 from app.utils import APIResponse
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
@@ -81,8 +76,14 @@ def update_organization(
     if org is None:
         raise HTTPException(status_code=404, detail="Organization not found")
 
-    updated_org = update_organization(session=session, organization=org, org_in=org_in)
-    return APIResponse.success_response(updated_org)
+    org_data = org_in.model_dump(exclude_unset=True)
+    org = org.model_copy(update=org_data)
+
+    session.add(org)
+    session.commit()
+    session.flush()
+
+    return APIResponse.success_response(org)
 
 
 # Delete an organization
@@ -96,5 +97,7 @@ def delete_organization(session: SessionDep, org_id: int):
     if org is None:
         raise HTTPException(status_code=404, detail="Organization not found")
 
-    delete_organization(session=session, organization=org)
+    session.delete(org)
+    session.commit()
+
     return APIResponse.success_response(None)

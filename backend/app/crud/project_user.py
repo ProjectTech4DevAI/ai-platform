@@ -12,6 +12,7 @@ def is_project_admin(session: Session, user_id: str, project_id: int) -> bool:
         select(ProjectUser).where(
             ProjectUser.project_id == project_id,
             ProjectUser.user_id == user_id,
+            ProjectUser.is_deleted == False,
         )
     ).first()
 
@@ -54,12 +55,15 @@ def remove_user_from_project(
         select(ProjectUser).where(
             ProjectUser.project_id == project_id,
             ProjectUser.user_id == user_id,
+            ProjectUser.is_deleted == False,  # Ignore already deleted users
         )
     ).first()
     if not project_user:
-        raise ValueError("User is not a member of this project.")
+        raise ValueError("User is not a member of this project or already removed.")
 
-    session.delete(project_user)
+    project_user.is_deleted = True
+    project_user.deleted_at = datetime.utcnow()
+    session.add(project_user)  # Required to mark as dirty for commit
     session.commit()
 
 
@@ -72,13 +76,13 @@ def get_users_by_project(
     count_statement = (
         select(func.count())
         .select_from(ProjectUser)
-        .where(ProjectUser.project_id == project_id)
+        .where(ProjectUser.project_id == project_id, ProjectUser.is_deleted == False)
     )
     total_count = session.exec(count_statement).one()
 
     statement = (
         select(ProjectUser)
-        .where(ProjectUser.project_id == project_id)
+        .where(ProjectUser.project_id == project_id, ProjectUser.is_deleted == False)
         .offset(skip)
         .limit(limit)
     )
@@ -100,6 +104,7 @@ def is_user_part_of_organization(
         .where(
             Project.organization_id == org_id,
             ProjectUser.user_id == user_id,
+            ProjectUser.is_deleted == False,
         )
     ).first()
 

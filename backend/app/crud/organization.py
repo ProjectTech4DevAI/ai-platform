@@ -1,16 +1,14 @@
 from typing import Any, Optional
 from datetime import datetime
-
 from sqlmodel import Session, select
 
-from app.models import Organization, OrganizationCreate, OrganizationUpdate
+from app.models import Organization, OrganizationCreate
 
 
 def create_organization(
     *, session: Session, org_create: OrganizationCreate
 ) -> Organization:
     db_org = Organization.model_validate(org_create)
-    # Set timestamps
     db_org.inserted_at = datetime.utcnow()
     db_org.updated_at = datetime.utcnow()
     session.add(db_org)
@@ -42,30 +40,4 @@ def validate_organization(session: Session, org_id: int) -> Organization:
     if not organization.is_active:
         raise ValueError("Organization is not active")
 
-    return organization
-
-
-def update_organization(
-    *, session: Session, organization: Organization, org_in: OrganizationUpdate
-) -> Organization:
-    org_data = org_in.model_dump(exclude_unset=True)
-    for key, value in org_data.items():
-        setattr(organization, key, value)
-    # Update the updated_at timestamp
-    organization.updated_at = datetime.utcnow()
-    session.add(organization)
-    session.commit()
-    session.refresh(organization)
-    return organization
-
-
-def delete_organization(
-    *, session: Session, organization: Organization
-) -> Organization:
-    organization.is_deleted = True
-    organization.deleted_at = datetime.utcnow()
-    organization.updated_at = datetime.utcnow()
-    session.add(organization)
-    session.commit()
-    session.refresh(organization)
     return organization

@@ -30,8 +30,6 @@ class Organization(OrganizationBase, table=True):
     id: int = Field(default=None, primary_key=True)
     inserted_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-    is_deleted: bool = Field(default=False, nullable=False)
-    deleted_at: datetime | None = Field(default=None, nullable=True)
 
     # Relationship back to Creds
     api_keys: list["APIKey"] = Relationship(back_populates="organization")
