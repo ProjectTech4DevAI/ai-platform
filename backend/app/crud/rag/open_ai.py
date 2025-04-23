@@ -7,7 +7,7 @@ from typing import Iterable
 from openai import OpenAI, OpenAIError
 from pydantic import BaseModel
 
-from app.core.cloud import AmazonCloudStorage
+from app.core.cloud import CloudStorage
 from app.core.config import settings
 from app.models import Document
 
@@ -80,9 +80,12 @@ class OpenAIVectorStoreCrud(OpenAICrud):
     def read(self, vector_store_id: str):
         yield from vs_ls(self.client, vector_store_id)
 
-    def update(self, vector_store_id: str, documents: Iterable[Document]):
-        storage = AmazonCloudStorage()
-
+    def update(
+        self,
+        vector_store_id: str,
+        storage: CloudStorage,
+        documents: Iterable[Document],
+    ):
         for docs in documents:
             view = {x.object_store_url: x for x in docs}
             req = self.client.vector_stores.file_batches.upload_and_poll(

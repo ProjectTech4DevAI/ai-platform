@@ -83,6 +83,9 @@ class CloudStorage:
     def put(self, source: UploadFile, basename: str):
         raise NotImplementedError()
 
+    def stream(self, url: str) -> StreamingBody:
+        raise NotImplementedError()
+
 
 class AmazonCloudStorage(CloudStorage):
     def __init__(self, user: CurrentUser):
