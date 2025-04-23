@@ -205,8 +205,10 @@ def delete_collection(
     try:
         collection = c_crud.delete(collection_id)
         a_crud.delete(collection.llm_service_id)
-    except SQLAlchemyError as err:
+    except (ValueError, SQLAlchemyError) as err:
         raise HTTPException(status_code=400, detail=str(err))
+    except Exception as err:
+        raise_from_unknown(err)
 
     return APIResponse.success_response(collection)
 
@@ -219,9 +221,31 @@ def collection_info(
 ):
     c_crud = CollectionCrud(session, current_user.id)
     try:
-        data = c_crud.read(collection_id)
-    except SQLAlchemyError as err:
-        raise HTTPException(status_code=400, detail=str(err))
+        data = c_crud.read_one(collection_id)
+    except NoResultFound as err:
+        raise HTTPException(status_code=404, detail=str(err))
+    except MultipleResultsFound as err:
+        raise HTTPException(status_code=503, detail=str(err))
+    except Exception as err:
+        raise_from_unknown(err)
+
+    return APIResponse.success_response(data)
+
+
+@router.post("/list", response_model=APIResponse[List[Collection]])
+def list_collections(
+    session: SessionDep,
+    current_user: CurrentUser,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, gt=0, le=100),
+):
+    c_crud = CollectionCrud(session, current_user.id)
+    try:
+        data = c_crud.read_many(skip, limit)
+    except (ValueError, SQLAlchemyError) as err:
+        raise HTTPException(status_code=403, detail=str(err))
+    except Exception as err:
+        raise_from_unknown(err)
 
     return APIResponse.success_response(data)
 
@@ -240,16 +264,18 @@ def collection_documents(
     c_crud = CollectionCrud(session, current_user.id)
     dc_crud = DocumentCollectionCrud(session)
     try:
-        data = dc_crud.read(c_crud.read(collection_id))
+        data = dc_crud.read(c_crud.read_one(collection_id))
     except (SQLAlchemyError, ValueError) as err:
         raise HTTPException(status_code=400, detail=str(err))
 
     return APIResponse.success_response(data)
 
 
-# from fastapi import Request
-# @router.post("/callback")
-# async def callback_endpoint(request: Request):
-#     payload = await request.json()
-#     logging.critical(payload)
-#     return APIResponse.success_response(None)
+from fastapi import Request
+
+
+@router.post("/callback")
+async def callback_endpoint(request: Request):
+    payload = await request.json()
+    logging.critical(payload)
+    return APIResponse.success_response(None)
