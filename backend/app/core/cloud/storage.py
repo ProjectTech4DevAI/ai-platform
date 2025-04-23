@@ -1,4 +1,6 @@
 import os
+
+# import logging
 import functools as ft
 from pathlib import Path
 from dataclasses import dataclass, asdict
@@ -96,7 +98,7 @@ class AmazonCloudStorage(CloudStorage):
         super().__init__(user)
         self.aws = AmazonCloudStorageClient()
 
-    def put(self, source: UploadFile, basename: str) -> SimpleStorageName:
+    def put(self, source: UploadFile, basename: Path) -> SimpleStorageName:
         key = Path(str(self.user.id), basename)
         destination = SimpleStorageName(str(key))
 
@@ -121,4 +123,4 @@ class AmazonCloudStorage(CloudStorage):
         try:
             return self.aws.client.get_object(**kwargs).get("Body")
         except ClientError as err:
-            raise CloudStorageError(f'AWS Error: "{err}"') from err
+            raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err

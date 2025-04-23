@@ -1,5 +1,6 @@
 from uuid import UUID, uuid4
 from typing import List
+from pathlib import Path
 
 from fastapi import APIRouter, File, UploadFile, HTTPException, Query
 
@@ -40,9 +41,9 @@ def upload_doc(
     src: UploadFile = File(...),
 ):
     storage = AmazonCloudStorage(current_user)
-    basename = uuid4()
+    document_id = uuid4()
     try:
-        object_store_url = storage.put(src, str(basename))
+        object_store_url = storage.put(src, Path(str(document_id)))
     except CloudStorageError as err:
         raise HTTPException(status_code=503, detail=str(err))
     except Exception as err:
@@ -50,7 +51,7 @@ def upload_doc(
 
     crud = DocumentCrud(session, current_user.id)
     document = Document(
-        id=basename,
+        id=document_id,
         fname=src.filename,
         object_store_url=str(object_store_url),
     )
