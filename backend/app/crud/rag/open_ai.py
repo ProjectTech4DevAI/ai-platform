@@ -161,4 +161,4 @@ class OpenAIAssistantCrud(OpenAICrud):
         v_crud.delete(vector_store_id)
 
         cleaner = AssistantCleaner(self.client)
-        cleaner(vector_store_id)
+        cleaner(assistant_id)
