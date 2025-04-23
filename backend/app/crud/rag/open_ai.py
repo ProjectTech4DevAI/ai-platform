@@ -86,25 +86,37 @@ class OpenAIVectorStoreCrud(OpenAICrud):
         storage: CloudStorage,
         documents: Iterable[Document],
     ):
+        files = []
         for docs in documents:
-            view = {x.object_store_url: x for x in docs}
+            for d in docs:
+                f_obj = storage.stream(d.object_store_url)
+                f_obj.name = d.fname  # monkey patch
+                # botocore.response.StreamingBody
+                # to make OpenAI happy
+                files.append(f_obj)
+
             req = self.client.vector_stores.file_batches.upload_and_poll(
                 vector_store_id=vector_store_id,
-                files=list(map(storage.stream, view)),
+                files=files,
             )
             if req.file_counts.completed != req.file_counts.total:
+                view = {x.fname: x for x in docs}
                 for i in self.read(vector_store_id):
                     if i.last_error is None:
-                        object_store_url = self.client.files.retrieve(i.id)
-                        view.pop(object_store_url)
+                        fname = self.client.files.retrieve(i.id)
+                        view.pop(fname)
 
                 error = {
                     "error": "OpenAI document processing error",
-                    "documents": view.values(),
+                    "documents": list(view.values()),
                 }
                 raise InterruptedError(json.dumps(error, cls=BaseModelEncoder))
 
-            yield from view.values()
+            while files:
+                f_obj = files.pop()
+                f_obj.close()
+
+            yield from docs
 
     def delete(self, vector_store_id: str, retries: int = 3):
         if retries < 1:
