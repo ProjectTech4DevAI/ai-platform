@@ -15,7 +15,7 @@ from app.models import Document
 def vs_ls(client: OpenAI, vector_store_id: str):
     kwargs = {}
     while True:
-        page = client.vector_stores.list(
+        page = client.vector_stores.files.list(
             vector_store_id=vector_store_id,
             **kwargs,
         )
