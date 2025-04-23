@@ -168,8 +168,8 @@ def do_create_collection(
     callback.success(collection.model_dump(mode="json"))
 
 
-@router.post("/mk")
-def make_collection(
+@router.post("/create")
+def create_collection(
     session: SessionDep,
     current_user: CurrentUser,
     request: CreationRequest,
@@ -194,8 +194,8 @@ def make_collection(
     return APIResponse.success_response(data=None, metadata=asdict(payload))
 
 
-@router.post("/rm/{collection_id}", response_model=APIResponse[Collection])
-def remove_collection(
+@router.post("/delete/{collection_id}", response_model=APIResponse[Collection])
+def delete_collection(
     session: SessionDep,
     current_user: CurrentUser,
     collection_id: UUID,
@@ -211,7 +211,7 @@ def remove_collection(
     return APIResponse.success_response(collection)
 
 
-@router.post("/stat/{collection_id}", response_model=APIResponse[Collection])
+@router.post("/info/{collection_id}", response_model=APIResponse[Collection])
 def collection_info(
     session: SessionDep,
     current_user: CurrentUser,
