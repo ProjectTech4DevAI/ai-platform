@@ -1,4 +1,10 @@
+from typing import List, TYPE_CHECKING
 from sqlmodel import Field, Relationship, SQLModel
+from sqlalchemy.orm import relationship
+
+
+if TYPE_CHECKING:
+    from .credentials import Credential
 
 
 # Shared properties for an Organization
@@ -22,7 +28,11 @@ class OrganizationUpdate(SQLModel):
 class Organization(OrganizationBase, table=True):
     id: int = Field(default=None, primary_key=True)
 
+    # Relationship back to Creds
     api_keys: list["APIKey"] = Relationship(back_populates="organization")
+    creds: list["Credential"] = Relationship(
+        back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete"}
+    )
 
 
 # Properties to return via API

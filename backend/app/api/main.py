@@ -4,7 +4,6 @@ from app.api.routes import (
     api_keys,
     collections,
     documents,
-    items,
     login,
     organization,
     project,
@@ -13,12 +12,14 @@ from app.api.routes import (
     threads,
     users,
     utils,
+    credentials,
 )
 from app.core.config import settings
 
 api_router = APIRouter()
 api_router.include_router(api_keys.router)
 api_router.include_router(collections.router)
+api_router.include_router(credentials.router)
 api_router.include_router(documents.router)
 api_router.include_router(items.router)
 api_router.include_router(login.router)

@@ -4,7 +4,6 @@ from .auth import Token, TokenPayload
 from .collection import Collection
 from .document import Document
 from .document_collection import DocumentCollection
-from .item import Item, ItemCreate, ItemPublic, ItemsPublic, ItemUpdate
 from .message import Message
 
 from .project_user import (
@@ -43,4 +42,12 @@ from .user import (
     UserUpdateMe,
     UsersPublic,
     UpdatePassword,
+)
+
+from .credentials import (
+    Credential,
+    CredsBase,
+    CredsCreate,
+    CredsPublic,
+    CredsUpdate,
 )

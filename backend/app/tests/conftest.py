@@ -9,7 +9,6 @@ from app.core.db import engine, init_db
 from app.main import app
 from app.models import (
     APIKey,
-    Item,
     Organization,
     Project,
     ProjectUser,
@@ -28,7 +27,6 @@ def db() -> Generator[Session, None, None]:
         session.execute(delete(ProjectUser))  # Many-to-many relationship
         session.execute(delete(Project))
         session.execute(delete(Organization))
-        session.execute(delete(Item))
         session.execute(delete(APIKey))
         session.execute(delete(User))
         session.commit()
