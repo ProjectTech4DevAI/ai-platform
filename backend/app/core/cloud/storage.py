@@ -119,6 +119,6 @@ class AmazonCloudStorage(CloudStorage):
         name = SimpleStorageName.from_url(url)
         kwargs = asdict(name)
         try:
-            return self.client.get_object(**kwargs).get("Body")
+            return self.aws.client.get_object(**kwargs).get("Body")
         except ClientError as err:
             raise CloudStorageError(f'AWS Error: "{err}"') from err
