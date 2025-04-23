@@ -13,7 +13,7 @@ client = TestClient(app)
 
 
 # Test for onboarding a new user
-def test_onboard_user(client, db: Session):
+def test_onboard_user(client, db: Session, superuser_token_headers: dict[str, str]):
     # Prepare the test data
     data = {
         "organization_name": "TestOrg",
@@ -24,7 +24,9 @@ def test_onboard_user(client, db: Session):
     }
 
     # Send the POST request to the /onboard endpoint
-    response = client.post(f"{settings.API_V1_STR}/onboard", json=data)
+    response = client.post(
+        f"{settings.API_V1_STR}/onboard", json=data, headers=superuser_token_headers
+    )
 
     # Assert the response status code is 200
     assert response.status_code == 200
@@ -60,7 +62,9 @@ def test_onboard_user(client, db: Session):
 
 
 # Test for the case when the user already exists
-def test_create_user_existing_email(client, db: Session):
+def test_create_user_existing_email(
+    client, db: Session, superuser_token_headers: dict[str, str]
+):
     data = {
         "organization_name": "TestOrg",
         "project_name": "TestProject",
@@ -70,10 +74,14 @@ def test_create_user_existing_email(client, db: Session):
     }
 
     # Create a user to simulate an existing user
-    client.post(f"{settings.API_V1_STR}/onboard", json=data)
+    client.post(
+        f"{settings.API_V1_STR}/onboard", json=data, headers=superuser_token_headers
+    )
 
     # Try to create a user with the same email (should fail)
-    response = client.post(f"{settings.API_V1_STR}/onboard", json=data)
+    response = client.post(
+        f"{settings.API_V1_STR}/onboard", json=data, headers=superuser_token_headers
+    )
 
     # Assert the response status code is 400 (bad request) since the user already exists
     assert response.status_code == 400
@@ -81,7 +89,9 @@ def test_create_user_existing_email(client, db: Session):
 
 
 # Test for ensuring the is_superuser flag is false for a new user
-def test_is_superuser_flag(client, db: Session):
+def test_is_superuser_flag(
+    client, db: Session, superuser_token_headers: dict[str, str]
+):
     # Prepare the test data
     data = {
         "organization_name": "TestOrg",
@@ -92,7 +102,9 @@ def test_is_superuser_flag(client, db: Session):
     }
 
     # Send the POST request to the /onboard endpoint
-    response = client.post(f"{settings.API_V1_STR}/onboard", json=data)
+    response = client.post(
+        f"{settings.API_V1_STR}/onboard", json=data, headers=superuser_token_headers
+    )
 
     # Assert the response status code is 200
     assert response.status_code == 200
@@ -105,7 +117,9 @@ def test_is_superuser_flag(client, db: Session):
 
 
 # Test for organization and project creation
-def test_organization_and_project_creation(client, db: Session):
+def test_organization_and_project_creation(
+    client, db: Session, superuser_token_headers: dict[str, str]
+):
     data = {
         "organization_name": "NewOrg",
         "project_name": "NewProject",
@@ -115,7 +129,9 @@ def test_organization_and_project_creation(client, db: Session):
     }
 
     # Send the POST request to the /onboard endpoint
-    response = client.post(f"{settings.API_V1_STR}/onboard", json=data)
+    response = client.post(
+        f"{settings.API_V1_STR}/onboard", json=data, headers=superuser_token_headers
+    )
 
     # Assert the response status code is 200
     assert response.status_code == 200

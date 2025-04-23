@@ -16,7 +16,11 @@ from app.models import (
     APIKey,
 )
 from app.core.security import get_password_hash
-from app.api.deps import SessionDep
+from app.api.deps import (
+    CurrentUser,
+    SessionDep,
+    get_current_active_superuser,
+)
 
 router = APIRouter(tags=["onboarding"])
 
@@ -37,7 +41,11 @@ class OnboardingResponse(BaseModel):
     api_key: str
 
 
-@router.post("/onboard", response_model=OnboardingResponse)
+@router.post(
+    "/onboard",
+    dependencies=[Depends(get_current_active_superuser)],
+    response_model=OnboardingResponse,
+)
 def onboard_user(request: OnboardingRequest, session: SessionDep):
     try:
         existing_organization = (
