@@ -48,9 +48,7 @@ class OnboardingResponse(BaseModel):
 )
 def onboard_user(request: OnboardingRequest, session: SessionDep):
     """
-    Handles quick onboarding of a new user.
-
-    Accepts Organization name, project name, email, password and user name, then gives back an API key which
+    Handles quick onboarding of a new user : Accepts Organization name, project name, email, password and user name, then gives back an API key which
     will be further used for authentication.
     """
     try:
