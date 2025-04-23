@@ -20,6 +20,7 @@ class DocumentCollectionCrud:
 
         self.session.bulk_save_objects(document_collection)
         self.session.commit()
+        self.session.refresh(collection)
 
     def read(
         self,
