@@ -20,8 +20,7 @@ def create_organization_and_project(db: Session) -> tuple[Organization, Project]
     db.refresh(organization)
 
     # Ensure project with unique name
-    # Ensuring unique project name
-    project_name = f"Test Project {uuid.uuid4()}"
+    project_name = f"Test Project {uuid.uuid4()}"  # Ensuring unique project name
     project = Project(
         name=project_name,
         description="A test project",
@@ -96,14 +95,16 @@ def test_remove_user_from_project(db: Session) -> None:
     # Remove user from project
     project_user_crud.remove_user_from_project(db, project.id, user.id)
 
-    # Verify user is completely removed from project
+    # Retrieve project user with both project_id and user_id
     project_user = db.exec(
         select(ProjectUser).where(
             ProjectUser.project_id == project.id, ProjectUser.user_id == user.id
         )
     ).first()
 
-    assert project_user is None  # Ensure the record is completely removed
+    assert project_user is not None  # Ensure the record still exists (soft delete)
+    assert project_user.is_deleted is True
+    assert project_user.deleted_at is not None
 
 
 def test_remove_user_from_project_not_member(db: Session) -> None:
@@ -112,7 +113,9 @@ def test_remove_user_from_project_not_member(db: Session) -> None:
     project_id = project.id
     user_id = uuid.uuid4()
 
-    with pytest.raises(ValueError, match="User is not a member of this project"):
+    with pytest.raises(
+        ValueError, match="User is not a member of this project or already removed"
+    ):
         project_user_crud.remove_user_from_project(db, project_id, user_id)
 
 
