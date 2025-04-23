@@ -28,7 +28,8 @@ class ProjectUser(ProjectUserBase, table=True):
     id: int = Field(default=None, primary_key=True)
     inserted_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-
+    is_deleted: bool = Field(default=False, nullable=False)
+    deleted_at: Optional[datetime] = Field(default=None, nullable=True)
     # Relationships
     project: "Project" = Relationship(back_populates="users")
     user: "User" = Relationship(back_populates="projects")
