@@ -48,7 +48,7 @@ class ResourceCleaner:
                 self.clean(resource)
                 return
             except OpenAIError as err:
-                pass
+                logging.error(err)
 
         warnings.warn(f"[{self} {resource}] Cleanup failure")
 
