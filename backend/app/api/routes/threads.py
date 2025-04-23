@@ -1,10 +1,13 @@
 import re
+import os
 
+# Get keys for your project from the project settings page
 import openai
 import requests
 from fastapi import APIRouter, BackgroundTasks, Depends
 from openai import OpenAI
 from sqlmodel import Session
+from langfuse.decorators import observe, langfuse_context
 
 from app.api.deps import get_current_user_org, get_db
 from app.core import logging, settings
@@ -20,7 +23,7 @@ def send_callback(callback_url: str, data: dict):
     try:
         session = requests.Session()
         # uncomment this to run locally without SSL
-        # session.verify = False
+        session.verify = False
         response = session.post(callback_url, json=data)
         response.raise_for_status()
         return True
@@ -36,6 +39,7 @@ def handle_openai_error(e: openai.OpenAIError) -> str:
     return str(e)
 
 
+@observe(as_type="generation")
 def validate_thread(client: OpenAI, thread_id: str) -> tuple[bool, str]:
     """Validate if a thread exists and has no active runs."""
     if not thread_id:
@@ -43,6 +47,9 @@ def validate_thread(client: OpenAI, thread_id: str) -> tuple[bool, str]:
 
     try:
         runs = client.beta.threads.runs.list(thread_id=thread_id)
+        langfuse_context.update_current_trace(
+            session_id=thread_id, input="validate_thread"
+        )
         if runs.data and len(runs.data) > 0:
             latest_run = runs.data[0]
             if latest_run.status in ["queued", "in_progress", "requires_action"]:
@@ -55,14 +62,17 @@ def validate_thread(client: OpenAI, thread_id: str) -> tuple[bool, str]:
         return False, f"Invalid thread ID provided {thread_id}"
 
 
+@observe(as_type="generation")
 def setup_thread(client: OpenAI, request: dict) -> tuple[bool, str]:
     """Set up thread and add message, either creating new or using existing."""
     thread_id = request.get("thread_id")
-
     if thread_id:
         try:
             client.beta.threads.messages.create(
                 thread_id=thread_id, role="user", content=request["question"]
+            )
+            langfuse_context.update_current_trace(
+                session_id=thread_id, input="setup_thread"
             )
             return True, None
         except openai.OpenAIError as e:
@@ -73,7 +83,11 @@ def setup_thread(client: OpenAI, request: dict) -> tuple[bool, str]:
             client.beta.threads.messages.create(
                 thread_id=thread.id, role="user", content=request["question"]
             )
+            langfuse_context.update_current_trace(
+                session_id=thread.id, input="setup_thread"
+            )
             request["thread_id"] = thread.id
+            langfuse_context.update_current_trace(output=thread.id)
             return True, None
         except openai.OpenAIError as e:
             return False, handle_openai_error(e)
@@ -109,12 +123,16 @@ def create_success_response(request: dict, message: str) -> APIResponse:
     )
 
 
+@observe(as_type="generation")
 def process_run(request: dict, client: OpenAI):
     """Process a run and send callback with results."""
     try:
         run = client.beta.threads.runs.create_and_poll(
             thread_id=request["thread_id"],
             assistant_id=request["assistant_id"],
+        )
+        langfuse_context.update_current_trace(
+            session_id=request["thread_id"], input="RunID"
         )
 
         if run.status == "completed":
@@ -124,6 +142,8 @@ def process_run(request: dict, client: OpenAI):
             message = process_message_content(
                 message_content, request.get("remove_citation", False)
             )
+            langfuse_context.update_current_trace(output=message)
+
             callback_response = create_success_response(request, message)
         else:
             callback_response = APIResponse.failure_response(
