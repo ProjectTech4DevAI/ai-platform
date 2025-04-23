@@ -24,12 +24,10 @@ def upgrade():
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("name", sqlmodel.sql.sqltypes.AutoString(length=255), nullable=False),
         sa.Column("is_active", sa.Boolean(), nullable=False),
-        sa.Column("is_deleted", sa.Boolean(), nullable=False),
         sa.Column(
             "inserted_at", sa.DateTime(), nullable=False, server_default=sa.func.now()
         ),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
-        sa.Column("deleted_at", sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_organization_name"), "organization", ["name"], unique=True)
