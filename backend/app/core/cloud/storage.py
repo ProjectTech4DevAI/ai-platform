@@ -73,7 +73,11 @@ class SimpleStorageName:
     @classmethod
     def from_url(cls, url: str):
         url = urlparse(url)
-        return cls(Bucket=url.netloc, Key=url.path)
+        path = Path(url.path)
+        if path.is_absolute():
+            path = path.relative_to(path.root)
+
+        return cls(Bucket=url.netloc, Key=str(path))
 
 
 class CloudStorage:
