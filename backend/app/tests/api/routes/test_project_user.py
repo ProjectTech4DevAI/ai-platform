@@ -33,7 +33,8 @@ def create_organization_and_project(db: Session) -> tuple[Organization, Project]
     db.refresh(organization)
 
     # Ensure project with unique name
-    project_name = f"Test Project {uuid.uuid4()}"  # Ensuring unique project name
+    # Ensuring unique project name
+    project_name = f"Test Project {uuid.uuid4()}"
     project = Project(
         name=project_name,
         description="A test project",
@@ -136,7 +137,7 @@ def test_remove_user_from_project(
         "message": "User removed from project successfully."
     }
 
-    # Ensure user is marked as deleted in the database (Fixed)
+    # Verify user is completely removed from project
     project_user = db.exec(
         select(ProjectUser).where(
             ProjectUser.project_id == project.id,
@@ -144,9 +145,7 @@ def test_remove_user_from_project(
         )
     ).first()
 
-    assert project_user is not None
-    assert project_user.is_deleted is True
-    assert project_user.deleted_at is not None
+    assert project_user is None  # Ensure the record is completely removed
 
 
 def test_normal_user_cannot_add_user(

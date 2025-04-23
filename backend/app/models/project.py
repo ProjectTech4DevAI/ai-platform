@@ -27,8 +27,6 @@ class Project(ProjectBase, table=True):
     organization_id: int = Field(foreign_key="organization.id", index=True)
     inserted_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-    is_deleted: bool = Field(default=False, nullable=False)
-    deleted_at: datetime | None = Field(default=None, nullable=True)
 
     users: list["ProjectUser"] = Relationship(
         back_populates="project", cascade_delete=True
