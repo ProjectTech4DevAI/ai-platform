@@ -63,7 +63,7 @@ class AssistantCleaner(ResourceCleaner):
 
 class VectorStoreCleaner(ResourceCleaner):
     def clean(self, resource):
-        for i in vs_ls(client, self.resource):
+        for i in vs_ls(self.client, resource):
             self.client.files.delete(i.id)
         self.client.vector_stores.delete(resource)
 
