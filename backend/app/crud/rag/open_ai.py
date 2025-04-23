@@ -15,7 +15,7 @@ from app.models import Document
 def vs_ls(client: OpenAI, vector_store_id: str):
     kwargs = {}
     while True:
-        page = self.client.beta.vector_stores.files.list(
+        page = self.client.vector_stores.list(
             vector_store_id=vector_store_id,
             **kwargs,
         )
@@ -65,7 +65,7 @@ class VectorStoreCleaner(ResourceCleaner):
     def clean(self, resource):
         for i in vs_ls(client, self.resource):
             self.client.files.delete(i.id)
-        self.client.beta.vector_stores.delete(resource)
+        self.client.vector_stores.delete(resource)
 
 
 class OpenAICrud:
@@ -75,7 +75,7 @@ class OpenAICrud:
 
 class OpenAIVectorStoreCrud(OpenAICrud):
     def create(self):
-        return self.client.beta.vector_stores.create()
+        return self.client.vector_stores.create()
 
     def read(self, vector_store_id: str):
         yield from vs_ls(self.client, vector_store_id)
@@ -85,7 +85,7 @@ class OpenAIVectorStoreCrud(OpenAICrud):
 
         for docs in documents:
             view = {x.object_store_url: x for x in docs}
-            req = self.client.beta.vector_stores.file_batches.upload_and_poll(
+            req = self.client.vector_stores.file_batches.upload_and_poll(
                 vector_store_id=vector_store_id,
                 files=list(map(storage.stream, view)),
             )
