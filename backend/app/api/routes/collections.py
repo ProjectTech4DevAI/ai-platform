@@ -46,7 +46,7 @@ class DocumentOptions(BaseModel):
     batch_size: int = 1
 
     def model_post_init(__context: Any):
-        self.documents = list(set(documents))
+        self.documents = list(set(self.documents))
 
     def __call__(self, crud: DocumentCrud):
         (start, stop) = (0, self.batch_size)
