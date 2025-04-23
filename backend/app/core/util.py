@@ -1,3 +1,4 @@
+import logging
 import warnings
 from datetime import datetime, timezone
 
@@ -23,9 +24,9 @@ def raise_from_unknown(error: Exception, status_code=500):
 def post_callback(url: HttpUrl, payload: BaseModel):
     errno = 0
     with Session() as session:
-        session.post(str(url), json=payload.model_dump())
+        response = session.post(str(url), json=payload.model_dump())
         try:
-            session.raise_for_status()
+            response.raise_for_status()
         except RequestException as err:
             warnings.warn(f"Callback failure: {err}")
             errno += 1
