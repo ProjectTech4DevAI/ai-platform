@@ -1,5 +1,6 @@
 import sys
 import inspect
+import logging
 import warnings
 from uuid import UUID, uuid4
 from typing import Any, Callable, List
@@ -7,12 +8,13 @@ from dataclasses import dataclass, field, fields, asdict, replace
 
 from openai import OpenAI, OpenAIError
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.deps import CurrentUser, SessionDep
+from app.core.cloud import AmazonCloudStorage
 from app.core.config import settings
-from app.core.util import now, raise_from_unknown
+from app.core.util import now, raise_from_unknown, post_callback
 from app.crud import DocumentCrud, CollectionCrud
 from app.crud.rag import OpenAIVectorStoreCrud, OpenAIAssistantCrud
 from app.models import Collection
@@ -45,7 +47,7 @@ class DocumentOptions(BaseModel):
     documents: List[UUID]
     batch_size: int = 1
 
-    def model_post_init(__context: Any):
+    def model_post_init(self, __context: Any):
         self.documents = list(set(self.documents))
 
     def __call__(self, crud: DocumentCrud):
@@ -59,16 +61,34 @@ class DocumentOptions(BaseModel):
             stop += self.batch_size
 
 
-# Fields to be passed along to OpenAI. They must be a subset of
-# parameters accepted by the OpenAI.clien.beta.assistants.create API.
 class AssistantOptions(BaseModel):
+    # Fields to be passed along to OpenAI. They must be a subset of
+    # parameters accepted by the OpenAI.clien.beta.assistants.create
+    # API.
     model: str
     instructions: str
     temperature: float = 1e-6
 
 
 class CreationRequest(DocumentOptions, AssistantOptions):
-    pass
+    callback_url: HttpUrl
+
+
+class CallbackHandler:
+    def __init__(self, url: HttpUrl, payload: ResponsePayload):
+        self.url = url
+        self.payload = payload
+
+    def __call__(self, status: str, body: Any):
+        time = ResponsePayload.now()
+        payload = replace(self.payload, status=status, time=time, body=body)
+        post_callback(self.url, payloaded_response(payload))
+
+    def fail(self, body):
+        self("failure", body)
+
+    def success(self, body):
+        self("success", body)
 
 
 def bm_fields(cls: BaseModel):
@@ -100,6 +120,7 @@ def do_create_collection(
     payload: ResponsePayload,
 ):
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    callback = CallbackHandler(request.callback_url, payload)
 
     #
     # Create the assistant and vector store
@@ -109,23 +130,23 @@ def do_create_collection(
     try:
         vector_store = v_crud.create()
     except OpenAIError as err:
-        raise HTTPException(status_code=507, detail=str(err))
+        callback.fail(str(err))
+        return
 
+    storage = AmazonCloudStorage(current_user)
     d_crud = DocumentCrud(session, current_user.id)
     a_crud = OpenAIAssistantCrud(client)
+
     kwargs = {x: getattr(request, x) for x in bm_fields(AssistantOptions)}
+    docs = request(d_crud)
     try:
-        documents = list(v_crud.update(vector_store.id, request(d_crud)))
-        assistant = a_crud.create(v_crud.read(vector_store.id), **kwargs)
-    except (InterruptedError, OpenAIError, CloudStorageError) as err:
-        raise HTTPException(status_code=507, detail=str(err))
-    except SQLAlchemyError as err:
-        raise HTTPException(status_code=400, detail=str(err))
-    except Exception as err:
-        raise_from_unknown(err)
-    finally:
-        if any(sys.exc_info()):  # this works because every except raises
-            v_crud.delete(vector_store.id)
+        documents = list(v_crud.update(vector_store.id, storage, docs))
+        assistant = a_crud.create(vector_store.id, **kwargs)
+    except Exception as err:  # blanket to handle SQL and OpenAI errors
+        logging.error(f"File Search setup error: {err} ({type(err).__name__})")
+        v_crud.delete(vector_store.id)
+        callback.fail(str(err))
+        return
 
     #
     # Store the results
@@ -140,20 +161,14 @@ def do_create_collection(
         c_crud.create(collection, documents)
     except SQLAlchemyError as err:
         _backout(a_crud, assistant.id)
-        raise HTTPException(status_code=400, detail=str(err))
+        callback.fail(str(err))
+        return
 
     #
     # Send back successful response
     #
 
-    payload = replace(
-        payload,
-        status="complete",
-        time=ResponsePayload.now(),
-        body=collection.model_dump(),
-    )
-
-    return payloaded_response(payload)
+    callback.success(collection.model_dump())
 
 
 @router.post("/mk")
