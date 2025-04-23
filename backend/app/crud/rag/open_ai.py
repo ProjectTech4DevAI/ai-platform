@@ -146,9 +146,9 @@ class OpenAIAssistantCrud(OpenAICrud):
 
     def delete(self, assistant_id: str):
         assistant = self.client.beta.assistants.retrieve(assistant_id)
-        vector_store_ids = assistant.tool_resources.vector_stores
+        vector_stores = assistant.tool_resources.file_search.vector_store_ids
         try:
-            (vector_store_id,) = vector_store_ids
+            (vector_store_id,) = vector_stores
         except ValueError as err:
             msg = "Too {} attached vectors: {}".format(
                 "many" if vector_store_ids else "few",
