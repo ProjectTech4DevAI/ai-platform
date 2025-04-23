@@ -150,10 +150,11 @@ class OpenAIAssistantCrud(OpenAICrud):
         try:
             (vector_store_id,) = vector_stores
         except ValueError as err:
-            msg = "Too {} attached vectors: {}".format(
-                "many" if vector_store_ids else "few",
-                ", ".join(vector_store_ids),
-            )
+            if vector_stores:
+                names = ", ".join(vector_stores)
+                msg = f"Too many attached vector stores: {names}"
+            else:
+                msg = "No vector stores found"
             raise ValueError(msg)
 
         v_crud = OpenAIVectorStoreCrud(self.client)
