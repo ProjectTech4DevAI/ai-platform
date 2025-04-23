@@ -3,7 +3,7 @@ import inspect
 import logging
 import warnings
 from uuid import UUID, uuid4
-from typing import Any, Callable, List
+from typing import Any, Callable, List, Optional
 from dataclasses import dataclass, field, fields, asdict, replace
 
 from openai import OpenAI, OpenAIError
@@ -15,9 +15,9 @@ from app.api.deps import CurrentUser, SessionDep
 from app.core.cloud import AmazonCloudStorage
 from app.core.config import settings
 from app.core.util import now, raise_from_unknown, post_callback
-from app.crud import DocumentCrud, CollectionCrud
+from app.crud import DocumentCrud, CollectionCrud, DocumentCollectionCrud
 from app.crud.rag import OpenAIVectorStoreCrud, OpenAIAssistantCrud
-from app.models import Collection
+from app.models import Collection, Document
 from app.utils import APIResponse
 
 from app.core.cloud import CloudStorageError
@@ -31,7 +31,6 @@ class ResponsePayload:
     route: str
     key: str = field(default_factory=lambda: str(uuid4()))
     time: str = field(default_factory=lambda: now().strftime("%c"))
-    body: Any = None
 
     @classmethod
     def now(cls):
@@ -79,29 +78,27 @@ class CallbackHandler:
         self.url = url
         self.payload = payload
 
-    def __call__(self, status: str, body: Any):
+    def __call__(self, response: APIResponse, status: str):
         time = ResponsePayload.now()
-        payload = replace(self.payload, status=status, time=time, body=body)
-        post_callback(self.url, payloaded_response(payload))
+        payload = replace(self.payload, status=status, time=time)
+        response.metadata = asdict(payload)
+
+        post_callback(self.url, response)
 
     def fail(self, body):
-        self("failure", body)
+        self(APIResponse.failure_response(body), "incomplete")
 
     def success(self, body):
-        self("success", body)
+        self(APIResponse.success_response(body), "complete")
 
 
 def bm_fields(cls: BaseModel):
     yield from cls.__fields__.keys()
 
 
-def payloaded_response(payload: ResponsePayload):
-    return APIResponse.success_response(data=asdict(payload))
-
-
 def _backout(crud: OpenAIAssistantCrud, assistant_id: str):
     try:
-        a_crud.delete(assistant.id)
+        crud.delete(assistant.id)
     except OpenAIError:
         warnings.warn(
             ": ".join(
@@ -168,7 +165,7 @@ def do_create_collection(
     # Send back successful response
     #
 
-    callback.success(collection.model_dump())
+    callback.success(collection.model_dump(mode="json"))
 
 
 @router.post("/mk")
@@ -194,7 +191,7 @@ def make_collection(
         payload,
     )
 
-    return payloaded_response(payload)
+    return APIResponse.success_response(data=None, metadata=asdict(payload))
 
 
 @router.post("/rm/{collection_id}", response_model=APIResponse[Collection])
@@ -203,7 +200,7 @@ def remove_collection(
     current_user: CurrentUser,
     collection_id: UUID,
 ):
-    c_crud = CollectionCrud(session)
+    c_crud = CollectionCrud(session, current_user.id)
     a_crud = OpenAIAssistantCrud()
     try:
         collection = c_crud.delete(collection_id)
@@ -229,7 +226,10 @@ def collection_info(
     return APIResponse.success_response(data)
 
 
-@router.post("/docs/{collection_id}", response_model=APIResponse[Collection])
+@router.post(
+    "/docs/{collection_id}",
+    response_model=APIResponse[List[Document]],
+)
 def collection_documents(
     session: SessionDep,
     current_user: CurrentUser,
@@ -237,9 +237,10 @@ def collection_documents(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, gt=0, le=100),
 ):
-    dc_crud = DocumentCollectionCrud(session, current_user.id)
+    c_crud = CollectionCrud(session, current_user.id)
+    dc_crud = DocumentCollectionCrud(session)
     try:
-        data = dc_crud.read(collection_id)
+        data = dc_crud.read(c_crud.read(collection_id))
     except (SQLAlchemyError, ValueError) as err:
         raise HTTPException(status_code=400, detail=str(err))
 
