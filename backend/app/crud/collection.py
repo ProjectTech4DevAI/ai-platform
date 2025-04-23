@@ -30,7 +30,6 @@ class CollectionCrud:
             raise FileExistsError("Collection already present")
 
         collection = self.update(collection)
-
         dc_crud = DocumentCollectionCrud(self.session)
         dc_crud.create(collection, documents)
 
