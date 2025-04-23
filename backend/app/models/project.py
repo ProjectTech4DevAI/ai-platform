@@ -1,3 +1,4 @@
+from datetime import datetime
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -24,6 +25,10 @@ class ProjectUpdate(SQLModel):
 class Project(ProjectBase, table=True):
     id: int = Field(default=None, primary_key=True)
     organization_id: int = Field(foreign_key="organization.id", index=True)
+    inserted_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    is_deleted: bool = Field(default=False, nullable=False)
+    deleted_at: datetime | None = Field(default=None, nullable=True)
 
     users: list["ProjectUser"] = Relationship(
         back_populates="project", cascade_delete=True
@@ -34,6 +39,8 @@ class Project(ProjectBase, table=True):
 class ProjectPublic(ProjectBase):
     id: int
     organization_id: int
+    inserted_at: datetime
+    updated_at: datetime
 
 
 class ProjectsPublic(SQLModel):

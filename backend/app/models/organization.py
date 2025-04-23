@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, TYPE_CHECKING
 from sqlmodel import Field, Relationship, SQLModel
 from sqlalchemy.orm import relationship
@@ -27,6 +28,10 @@ class OrganizationUpdate(SQLModel):
 # Database model for Organization
 class Organization(OrganizationBase, table=True):
     id: int = Field(default=None, primary_key=True)
+    inserted_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    is_deleted: bool = Field(default=False, nullable=False)
+    deleted_at: datetime | None = Field(default=None, nullable=True)
 
     # Relationship back to Creds
     api_keys: list["APIKey"] = Relationship(back_populates="organization")
@@ -38,6 +43,8 @@ class Organization(OrganizationBase, table=True):
 # Properties to return via API
 class OrganizationPublic(OrganizationBase):
     id: int
+    inserted_at: datetime
+    updated_at: datetime
 
 
 class OrganizationsPublic(SQLModel):
