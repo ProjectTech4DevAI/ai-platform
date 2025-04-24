@@ -74,11 +74,10 @@ def setup_thread(client: OpenAI, request: dict) -> tuple[bool, str]:
             client.beta.threads.messages.create(
                 thread_id=thread.id, role="user", content=request["question"]
             )
-            langfuse_context.update_current_trace(
-                session_id=thread.id, input="Setting up new Thread"
-            )
             request["thread_id"] = thread.id
-            langfuse_context.update_current_trace(output=thread.id)
+            langfuse_context.update_current_trace(
+                session_id=thread.id, name="Setting up new Thread", output=thread.id
+            )
             return True, None
         except openai.OpenAIError as e:
             return False, handle_openai_error(e)
@@ -123,7 +122,9 @@ def process_run(request: dict, client: OpenAI):
             assistant_id=request["assistant_id"],
         )
         langfuse_context.update_current_trace(
-            session_id=request["thread_id"], input=request["question"]
+            session_id=request["thread_id"],
+            input=request["question"],
+            name="Thread Run Started",
         )
 
         if run.status == "completed":
@@ -141,7 +142,9 @@ def process_run(request: dict, client: OpenAI):
             message = process_message_content(
                 message_content, request.get("remove_citation", False)
             )
-            langfuse_context.update_current_trace(output=message)
+            langfuse_context.update_current_trace(
+                output=message, name="Thread Run Completed"
+            )
 
             callback_response = create_success_response(request, message)
         else:
