@@ -1,7 +1,7 @@
 import re
 import os
 
-# Get keys for your project from the project settings page
+
 import openai
 import requests
 from fastapi import APIRouter, BackgroundTasks, Depends
@@ -166,7 +166,13 @@ async def threads(
 ):
     """Asynchronous endpoint that processes requests in background."""
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
-
+    os.environ.update(
+        {
+            "LANGFUSE_PUBLIC_KEY": settings.LANGFUSE_PUBLIC_KEY,
+            "LANGFUSE_SECRET_KEY": settings.LANGFUSE_SECRET_KEY,
+            "LANGFUSE_HOST": settings.LANGFUSE_HOST,
+        }
+    )
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
     if not is_valid:
