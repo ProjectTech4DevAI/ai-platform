@@ -1,9 +1,7 @@
 import re
-import os
-
-
 import openai
 import requests
+
 from fastapi import APIRouter, BackgroundTasks, Depends
 from openai import OpenAI
 from sqlmodel import Session
@@ -129,6 +127,14 @@ def process_run(request: dict, client: OpenAI):
         )
 
         if run.status == "completed":
+            langfuse_context.update_current_observation(
+                model=run.model,
+                usage_details={
+                    "prompt_tokens": run.usage.prompt_tokens,
+                    "completion_tokens": run.usage.completion_tokens,
+                    "total_tokens": run.usage.total_tokens,
+                },
+            )
             messages = client.beta.threads.messages.list(thread_id=request["thread_id"])
             latest_message = messages.data[0]
             message_content = latest_message.content[0].text.value
@@ -159,12 +165,10 @@ async def threads(
 ):
     """Asynchronous endpoint that processes requests in background."""
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
-    os.environ.update(
-        {
-            "LANGFUSE_PUBLIC_KEY": settings.LANGFUSE_PUBLIC_KEY,
-            "LANGFUSE_SECRET_KEY": settings.LANGFUSE_SECRET_KEY,
-            "LANGFUSE_HOST": settings.LANGFUSE_HOST,
-        }
+    langfuse_context.configure(
+        secret_key=settings.LANGFUSE_SECRET_KEY,
+        public_key=settings.LANGFUSE_PUBLIC_KEY,
+        host=settings.LANGFUSE_HOST,
     )
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
