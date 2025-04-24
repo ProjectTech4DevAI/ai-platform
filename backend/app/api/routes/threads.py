@@ -39,7 +39,6 @@ def handle_openai_error(e: openai.OpenAIError) -> str:
     return str(e)
 
 
-@observe(as_type="generation")
 def validate_thread(client: OpenAI, thread_id: str) -> tuple[bool, str]:
     """Validate if a thread exists and has no active runs."""
     if not thread_id:
@@ -47,9 +46,6 @@ def validate_thread(client: OpenAI, thread_id: str) -> tuple[bool, str]:
 
     try:
         runs = client.beta.threads.runs.list(thread_id=thread_id)
-        langfuse_context.update_current_trace(
-            session_id=thread_id, input="validate_thread"
-        )
         if runs.data and len(runs.data) > 0:
             latest_run = runs.data[0]
             if latest_run.status in ["queued", "in_progress", "requires_action"]:
@@ -71,9 +67,6 @@ def setup_thread(client: OpenAI, request: dict) -> tuple[bool, str]:
             client.beta.threads.messages.create(
                 thread_id=thread_id, role="user", content=request["question"]
             )
-            langfuse_context.update_current_trace(
-                session_id=thread_id, input="setup_thread"
-            )
             return True, None
         except openai.OpenAIError as e:
             return False, handle_openai_error(e)
@@ -84,7 +77,7 @@ def setup_thread(client: OpenAI, request: dict) -> tuple[bool, str]:
                 thread_id=thread.id, role="user", content=request["question"]
             )
             langfuse_context.update_current_trace(
-                session_id=thread.id, input="setup_thread"
+                session_id=thread.id, input="Setting up new Thread"
             )
             request["thread_id"] = thread.id
             langfuse_context.update_current_trace(output=thread.id)
@@ -132,7 +125,7 @@ def process_run(request: dict, client: OpenAI):
             assistant_id=request["assistant_id"],
         )
         langfuse_context.update_current_trace(
-            session_id=request["thread_id"], input="RunID"
+            session_id=request["thread_id"], input=request["question"]
         )
 
         if run.status == "completed":
