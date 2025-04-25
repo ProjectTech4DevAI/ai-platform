@@ -6,12 +6,13 @@ from fastapi import APIRouter, File, UploadFile, HTTPException, Query
 
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound, SQLAlchemyError
 
-from app.crud import DocumentCrud
+from app.crud import DocumentCrud, CollectionCrud
 from app.models import Document
 from app.utils import APIResponse
 from app.api.deps import CurrentUser, SessionDep
 from app.core.util import raise_from_unknown
 from app.core.cloud import AmazonCloudStorage, CloudStorageError
+from app.crud.rag import OpenAIAssistantCrud
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -72,15 +73,16 @@ def delete_doc(
     current_user: CurrentUser,
     doc_id: UUID,
 ):
-    crud = DocumentCrud(session, current_user.id)
+    (d_crud, c_crud) = (
+        x(session, current_user.id) for x in (DocumentCrud, CollectionCrud)
+    )
     try:
-        data = crud.delete(doc_id)
+        document = d_crud.delete(doc_id)
+        data = c_crud.delete(document, OpenAIAssistantCrud)
     except NoResultFound as err:
         raise HTTPException(status_code=400, detail=str(err))
     except Exception as err:
         raise_from_unknown(err)
-
-    # TODO: perform delete on the collection
 
     return APIResponse.success_response(data)
 

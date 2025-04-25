@@ -1,9 +1,10 @@
+import functools as ft
 from uuid import UUID
 from typing import Optional
 
 from sqlmodel import Session, func, select, and_
 
-from app.models import Document, Collection
+from app.models import Document, Collection, DocumentCollection
 from app.core.util import now
 
 from .document_collection import DocumentCollectionCrud
@@ -84,8 +85,30 @@ class CollectionCrud:
 
         return collection
 
-    def delete(self, collection_id: UUID):
-        collection = self.read_one(collection_id)
-        collection.deleted_at = now()
+    @ft.singledispatchmethod
+    def delete(self, model, remote):  # remote should be an OpenAICrud
+        raise TypeError(type(model))
 
-        return self.update(collection)
+    @delete.register
+    def _(self, model: Collection, remote):
+        remote.delete(model.llm_service_id)
+        model.deleted_at = now()
+        return self.update(model)
+
+    @delete.register
+    def _(self, model: Document, remote):
+        statement = (
+            select(Collection)
+            .join(
+                DocumentCollection,
+                DocumentCollection.collection_id == Collection.id,
+            )
+            .where(DocumentCollection.document_id == model.id)
+            .distinct()
+        )
+
+        for c in self.session.execute(statement):
+            self.delete(c, remote)
+        self.session.refresh(model)
+
+        return model

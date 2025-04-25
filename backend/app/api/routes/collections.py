@@ -198,16 +198,15 @@ def delete_collection(
     collection_id: UUID,
 ):
     c_crud = CollectionCrud(session, current_user.id)
-    a_crud = OpenAIAssistantCrud()
     try:
-        collection = c_crud.delete(collection_id)
-        a_crud.delete(collection.llm_service_id)
+        collection = c_crud.read_one(collection_id)
+        data = c_crud.delete(collection, OpenAIAssistantCrud)
     except (ValueError, SQLAlchemyError) as err:
         raise HTTPException(status_code=400, detail=str(err))
     except Exception as err:
         raise_from_unknown(err)
 
-    return APIResponse.success_response(collection)
+    return APIResponse.success_response(data)
 
 
 @router.post("/info/{collection_id}", response_model=APIResponse[Collection])
