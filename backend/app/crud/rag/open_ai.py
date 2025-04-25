@@ -90,9 +90,11 @@ class OpenAIVectorStoreCrud(OpenAICrud):
         for docs in documents:
             for d in docs:
                 f_obj = storage.stream(d.object_store_url)
-                f_obj.name = d.fname  # monkey patch
-                # botocore.response.StreamingBody
-                # to make OpenAI happy
+
+                # monkey patch botocore.response.StreamingBody to make
+                # OpenAI happy
+                f_obj.name = d.fname
+
                 files.append(f_obj)
 
             req = self.client.vector_stores.file_batches.upload_and_poll(
