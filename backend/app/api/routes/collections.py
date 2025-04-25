@@ -1,9 +1,8 @@
-import sys
 import inspect
 import logging
 import warnings
 from uuid import UUID, uuid4
-from typing import Any, Callable, List, Optional
+from typing import Any, List
 from dataclasses import dataclass, field, fields, asdict, replace
 
 from openai import OpenAI, OpenAIError
@@ -19,8 +18,6 @@ from app.crud import DocumentCrud, CollectionCrud, DocumentCollectionCrud
 from app.crud.rag import OpenAIVectorStoreCrud, OpenAIAssistantCrud
 from app.models import Collection, Document
 from app.utils import APIResponse
-
-from app.core.cloud import CloudStorageError
 
 router = APIRouter(prefix="/collections", tags=["collections"])
 
