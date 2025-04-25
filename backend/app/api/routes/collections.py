@@ -266,13 +266,3 @@ def collection_documents(
         raise HTTPException(status_code=400, detail=str(err))
 
     return APIResponse.success_response(data)
-
-
-from fastapi import Request
-
-
-@router.post("/callback")
-async def callback_endpoint(request: Request):
-    payload = await request.json()
-    logging.critical(payload)
-    return APIResponse.success_response(None)
