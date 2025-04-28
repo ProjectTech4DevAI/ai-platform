@@ -1,7 +1,7 @@
 """Add document tables
 
 Revision ID: c43313eca57d
-Revises: 77dc462dc6b0
+Revises: 0f205e3779ee
 Create Date: 2025-04-07 10:04:10.414165
 
 """
@@ -12,7 +12,7 @@ import sqlmodel.sql.sqltypes
 
 # revision identifiers, used by Alembic.
 revision = "c43313eca57d"
-down_revision = "77dc462dc6b0"
+down_revision = "0f205e3779ee"
 branch_labels = None
 depends_on = None
 
