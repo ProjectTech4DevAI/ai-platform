@@ -1,7 +1,7 @@
 """Add collection tables
 
 Revision ID: f23675767ed2
-Revises: c43313eca57d
+Revises: 543f97951bd0
 Create Date: 2025-04-23 20:42:48.254463
 
 """
@@ -12,7 +12,7 @@ import sqlmodel.sql.sqltypes
 
 # revision identifiers, used by Alembic.
 revision = "f23675767ed2"
-down_revision = "c43313eca57d"
+down_revision = "543f97951bd0"
 branch_labels = None
 depends_on = None
 
