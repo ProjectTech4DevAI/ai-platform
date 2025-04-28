@@ -73,12 +73,13 @@ def delete_doc(
     current_user: CurrentUser,
     doc_id: UUID,
 ):
+    a_crud = OpenAIAssistantCrud()
     (d_crud, c_crud) = (
         x(session, current_user.id) for x in (DocumentCrud, CollectionCrud)
     )
     try:
         document = d_crud.delete(doc_id)
-        data = c_crud.delete(document, OpenAIAssistantCrud)
+        data = c_crud.delete(document, a_crud)
     except NoResultFound as err:
         raise HTTPException(status_code=400, detail=str(err))
     except Exception as err:
