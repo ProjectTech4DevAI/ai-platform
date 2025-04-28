@@ -108,7 +108,7 @@ class CollectionCrud:
         )
 
         for c in self.session.execute(statement):
-            self.delete(c, remote)
+            self.delete(c.Collection, remote)
         self.session.refresh(model)
 
         return model
