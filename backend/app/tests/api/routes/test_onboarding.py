@@ -77,7 +77,10 @@ def test_create_user_existing_email(
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "400: User already exists with this email"
+    assert (
+        response.json()["detail"]
+        == "400: API key already exists for this user and organization"
+    )
 
 
 def test_is_superuser_flag(
