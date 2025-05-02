@@ -8,7 +8,7 @@ from dataclasses import dataclass, field, fields, asdict, replace
 from openai import OpenAI, OpenAIError
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
 from pydantic import BaseModel, HttpUrl
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import NoResultFound, MultipleResultsFound, SQLAlchemyError
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.cloud import AmazonCloudStorage
