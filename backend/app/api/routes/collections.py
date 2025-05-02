@@ -66,8 +66,20 @@ class AssistantOptions(BaseModel):
     temperature: float = 1e-6
 
 
-class CreationRequest(DocumentOptions, AssistantOptions):
+class CallbackRequest(BaseModel):
     callback_url: HttpUrl
+
+
+class CreationRequest(
+    DocumentOptions,
+    AssistantOptions,
+    CallbackRequest,
+):
+    pass
+
+
+class DeletionRequest(CallbackRequest):
+    collection_id: UUID
 
 
 class CallbackHandler:
@@ -172,10 +184,6 @@ def create_collection(
     request: CreationRequest,
     background_tasks: BackgroundTasks,
 ):
-    if not settings.OPENAI_API_KEY:
-        detail = "OpenAI key not specified"
-        raise HTTPException(status_code=400, detail=detail)
-
     this = inspect.currentframe()
     route = router.url_path_for(this.f_code.co_name)
     payload = ResponsePayload("processing", route)
@@ -191,22 +199,47 @@ def create_collection(
     return APIResponse.success_response(data=None, metadata=asdict(payload))
 
 
+def do_delete_collection(
+    session: SessionDep,
+    current_user: CurrentUser,
+    request: DeletionRequest,
+    payload: ResponsePayload,
+):
+    callback = CallbackHandler(request.callback_url, payload)
+    c_crud = CollectionCrud(session, current_user.id)
+    try:
+        collection = c_crud.read_one(request.collection_id)
+        data = c_crud.delete(collection, OpenAIAssistantCrud)
+        callback.success(data.model_dump(mode="json"))
+    except (ValueError, SQLAlchemyError) as err:
+        callback.fail(str(err))
+    except Exception as err:
+        warnings.warn(
+            'Unexpected exception "{}": {}'.format(type(err).__name__, err),
+        )
+        callback.fail(str(err))
+
+
 @router.post("/delete/{collection_id}", response_model=APIResponse[Collection])
 def delete_collection(
     session: SessionDep,
     current_user: CurrentUser,
-    collection_id: UUID,
+    request: DeletionRequest,
+    background_tasks: BackgroundTasks,
 ):
-    c_crud = CollectionCrud(session, current_user.id)
-    try:
-        collection = c_crud.read_one(collection_id)
-        data = c_crud.delete(collection, OpenAIAssistantCrud)
-    except (ValueError, SQLAlchemyError) as err:
-        raise HTTPException(status_code=400, detail=str(err))
-    except Exception as err:
-        raise_from_unknown(err)
+    this = inspect.currentframe()
+    route = router.url_path_for(this.f_code.co_name)
+    payload = ResponsePayload("processing", route)
 
-    return APIResponse.success_response(data)
+    background_tasks.add_task(
+        do_delete_collection,
+        session,
+        current_user,
+        request,
+        payload,
+    )
+
+    return APIResponse.success_response(data=None, metadata=asdict(payload))
 
 
 @router.post("/info/{collection_id}", response_model=APIResponse[Collection])
