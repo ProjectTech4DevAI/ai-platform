@@ -95,7 +95,7 @@ def bm_fields(cls: BaseModel):
 
 def _backout(crud: OpenAIAssistantCrud, assistant_id: str):
     try:
-        crud.delete(assistant.id)
+        crud.delete(assistant_id)
     except OpenAIError:
         warnings.warn(
             ": ".join(
