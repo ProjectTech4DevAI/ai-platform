@@ -43,7 +43,7 @@ def list_docs(
     return APIResponse.success_response(data)
 
 
-@router.post("/cp", response_model=APIResponse[Document], include_in_schema=False)
+@router.post("/cp", response_model=APIResponse[Document])
 def upload_doc(
     session: SessionDep,
     current_user: CurrentUser,
