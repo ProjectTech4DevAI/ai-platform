@@ -50,7 +50,7 @@ def login_access_token(
     )
 
 
-@router.post("/login/test-token", response_model=UserPublic)
+@router.post("/login/test-token", response_model=UserPublic,include_in_schema=False)
 def test_token(current_user: CurrentUser) -> Any:
     """
     Test access token
@@ -58,7 +58,7 @@ def test_token(current_user: CurrentUser) -> Any:
     return current_user
 
 
-@router.post("/password-recovery/{email}")
+@router.post("/password-recovery/{email}",include_in_schema=False)
 def recover_password(email: str, session: SessionDep) -> Message:
     """
     Password Recovery
@@ -82,7 +82,7 @@ def recover_password(email: str, session: SessionDep) -> Message:
     return Message(message="Password recovery email sent")
 
 
-@router.post("/reset-password/")
+@router.post("/reset-password/",include_in_schema=False)
 def reset_password(session: SessionDep, body: NewPassword) -> Message:
     """
     Reset password
@@ -108,7 +108,7 @@ def reset_password(session: SessionDep, body: NewPassword) -> Message:
 @router.post(
     "/password-recovery-html-content/{email}",
     dependencies=[Depends(get_current_active_superuser)],
-    response_class=HTMLResponse,
+    response_class=HTMLResponse,include_in_schema=False
 )
 def recover_password_html_content(email: str, session: SessionDep) -> Any:
     """
