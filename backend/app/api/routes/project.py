@@ -87,7 +87,11 @@ def update_project(*, session: SessionDep, project_id: int, project_in: ProjectU
 
 
 # Delete a project
-@router.delete("/{project_id}", dependencies=[Depends(get_current_active_superuser)],include_in_schema=False)
+@router.delete(
+    "/{project_id}",
+    dependencies=[Depends(get_current_active_superuser)],
+    include_in_schema=False,
+)
 def delete_project(session: SessionDep, project_id: int):
     project = get_project_by_id(session=session, project_id=project_id)
     if project is None:
