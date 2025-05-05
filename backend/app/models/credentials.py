@@ -5,6 +5,7 @@ from datetime import datetime
 
 from app.core.util import now
 
+
 class CredsBase(SQLModel):
     organization_id: int = Field(foreign_key="organization.id")
     is_active: bool = True

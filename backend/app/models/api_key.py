@@ -6,6 +6,7 @@ from sqlmodel import SQLModel, Field, Relationship
 
 from app.core.util import now
 
+
 class APIKeyBase(SQLModel):
     organization_id: int = Field(
         foreign_key="organization.id", nullable=False, ondelete="CASCADE"
@@ -20,7 +21,7 @@ class APIKeyBase(SQLModel):
 
 class APIKeyPublic(APIKeyBase):
     id: int
-    inserted_at: datetime= Field(default_factory=now, nullable=False)
+    inserted_at: datetime = Field(default_factory=now, nullable=False)
 
 
 class APIKey(APIKeyBase, table=True):

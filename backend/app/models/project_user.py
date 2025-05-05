@@ -5,6 +5,7 @@ from sqlmodel import SQLModel, Field, Relationship
 
 from app.core.util import now
 
+
 # Shared properties
 class ProjectUserBase(SQLModel):
     project_id: int = Field(

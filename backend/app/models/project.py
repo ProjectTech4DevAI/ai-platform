@@ -4,6 +4,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 from app.core.util import now
 
+
 # Shared properties for a Project
 class ProjectBase(SQLModel):
     name: str = Field(index=True, max_length=255)
