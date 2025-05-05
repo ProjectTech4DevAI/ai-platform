@@ -43,7 +43,6 @@ def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
     "/{org_id}",
     dependencies=[Depends(get_current_active_superuser)],
     response_model=APIResponse[CredsPublic],
-    include_in_schema=False,
 )
 def read_credential(*, session: SessionDep, org_id: int):
     try:
