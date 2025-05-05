@@ -3,6 +3,7 @@ import sqlalchemy as sa
 from sqlmodel import Field, Relationship, SQLModel
 from datetime import datetime
 
+from app.core.util import now
 
 class CredsBase(SQLModel):
     organization_id: int = Field(foreign_key="organization.id")

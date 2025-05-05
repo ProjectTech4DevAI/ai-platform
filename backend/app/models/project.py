@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Optional
 from sqlmodel import Field, Relationship, SQLModel
 
+from app.core.util import now
 
 # Shared properties for a Project
 class ProjectBase(SQLModel):

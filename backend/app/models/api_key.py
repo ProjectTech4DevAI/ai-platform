@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Optional, List
 from sqlmodel import SQLModel, Field, Relationship
 
+from app.core.util import now
 
 class APIKeyBase(SQLModel):
     organization_id: int = Field(
@@ -19,7 +20,7 @@ class APIKeyBase(SQLModel):
 
 class APIKeyPublic(APIKeyBase):
     id: int
-    inserted_at: datetime
+    inserted_at: datetime= Field(default_factory=now, nullable=False)
 
 
 class APIKey(APIKeyBase, table=True):
