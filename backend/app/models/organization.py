@@ -6,6 +6,8 @@ from sqlalchemy.orm import relationship
 
 if TYPE_CHECKING:
     from .credentials import Credential
+    from .project import Project
+    from .api_key import APIKey
 
 
 # Shared properties for an Organization
@@ -32,8 +34,13 @@ class Organization(OrganizationBase, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
     # Relationship back to Creds
-    api_keys: list["APIKey"] = Relationship(back_populates="organization")
+    api_keys: list["APIKey"] = Relationship(
+        back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete"}
+    )
     creds: list["Credential"] = Relationship(
+        back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete"}
+    )
+    project: list["Project"] = Relationship(
         back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete"}
     )
 

@@ -45,8 +45,7 @@ def upgrade():
         ),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.ForeignKeyConstraint(
-            ["organization_id"],
-            ["organization.id"],
+            ["organization_id"], ["organization.id"], ondelete="CASCADE"
         ),
         sa.PrimaryKeyConstraint("id"),
     )

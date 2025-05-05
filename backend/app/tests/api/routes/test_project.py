@@ -1,6 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
+from app.core.security import decrypt_api_key, verify_password
 
 from app.main import app
 from app.core.config import settings
@@ -10,6 +11,7 @@ from app.api.deps import get_db
 from app.tests.utils.utils import random_lower_string, random_email
 from app.crud.project import create_project, get_project_by_id
 from app.crud.organization import create_organization
+from app.crud import api_key as api_key_crud
 
 client = TestClient(app)
 
