@@ -17,7 +17,7 @@ router = APIRouter(prefix="/credentials", tags=["credentials"])
 @router.post(
     "/",
     dependencies=[Depends(get_current_active_superuser)],
-    response_model=APIResponse[CredsPublic],
+    response_model=APIResponse[CredsPublic],include_in_schema=False
 )
 def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
     new_creds = None
@@ -41,7 +41,7 @@ def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
 @router.get(
     "/{org_id}",
     dependencies=[Depends(get_current_active_superuser)],
-    response_model=APIResponse[CredsPublic],
+    response_model=APIResponse[CredsPublic],include_in_schema=False
 )
 def read_credential(*, session: SessionDep, org_id: int):
     try:
@@ -60,7 +60,7 @@ def read_credential(*, session: SessionDep, org_id: int):
 @router.get(
     "/{org_id}/api-key",
     dependencies=[Depends(get_current_active_superuser)],
-    response_model=APIResponse[dict],
+    response_model=APIResponse[dict],include_in_schema=False
 )
 def read_api_key(*, session: SessionDep, org_id: int):
     try:
