@@ -20,10 +20,10 @@ depends_on = None
 def upgrade():
     op.create_table(
         "credential",
-        sa.Column("organization_id", sa.Integer(), nullable=False),
-        sa.Column("is_active", sa.Boolean(), nullable=False),
         sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("is_active", sa.Boolean(), nullable=False),
         sa.Column("credential", sa.JSON(), nullable=True),
+        sa.Column("organization_id", sa.Integer(), nullable=False),
         sa.Column("inserted_at", sa.DateTime(), nullable=True),
         sa.Column("updated_at", sa.DateTime(), nullable=True),
         sa.Column("deleted_at", sa.DateTime(), nullable=True),

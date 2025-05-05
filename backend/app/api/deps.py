@@ -130,7 +130,8 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     return JSONResponse(
         status_code=exc.status_code,
         content=APIResponse.failure_response(exc.detail).model_dump()
-        | {"detail": exc.detail},  # TEMPORARY: Keep "detail" for backward compatibility
+        # TEMPORARY: Keep "detail" for backward compatibility
+        | {"detail": exc.detail},
     )
 
 
@@ -194,7 +195,6 @@ def verify_user_project_organization(
         select(ProjectUser).where(
             ProjectUser.user_id == current_user.id,
             ProjectUser.project_id == project_id,
-            ProjectUser.is_deleted == False,
         )
     ).first()
 

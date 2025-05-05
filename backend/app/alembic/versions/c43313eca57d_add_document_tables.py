@@ -27,7 +27,8 @@ def upgrade():
         sa.Column(
             "object_store_url", sqlmodel.sql.sqltypes.AutoString(), nullable=False
         ),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.Column("inserted_at", sa.DateTime(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.Column("deleted_at", sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(["owner_id"], ["user.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
