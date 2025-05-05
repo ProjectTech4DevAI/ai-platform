@@ -26,8 +26,8 @@ class ProjectUpdate(SQLModel):
 class Project(ProjectBase, table=True):
     id: int = Field(default=None, primary_key=True)
     organization_id: int = Field(foreign_key="organization.id", index=True)
-    inserted_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    inserted_at: datetime = Field(default_factory=now, nullable=False)
+    updated_at: datetime = Field(default_factory=now, nullable=False)
 
     users: list["ProjectUser"] = Relationship(
         back_populates="project", cascade_delete=True

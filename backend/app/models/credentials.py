@@ -24,11 +24,11 @@ class Credential(CredsBase, table=True):
     id: int = Field(default=None, primary_key=True)
     credential: Dict[str, Any] = Field(default=None, sa_column=sa.Column(sa.JSON))
     inserted_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=now,
         sa_column=sa.Column(sa.DateTime, default=datetime.utcnow),
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=now,
         sa_column=sa.Column(sa.DateTime, onupdate=datetime.utcnow),
     )
     deleted_at: Optional[datetime] = Field(
