@@ -90,7 +90,8 @@ def update_organization(
 @router.delete(
     "/{org_id}",
     dependencies=[Depends(get_current_active_superuser)],
-    response_model=APIResponse[None],include_in_schema=False
+    response_model=APIResponse[None],
+    include_in_schema=False,
 )
 def delete_organization(session: SessionDep, org_id: int):
     org = get_organization_by_id(session=session, org_id=org_id)
