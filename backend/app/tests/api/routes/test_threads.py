@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-import pytest
+import pytest, uuid
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlmodel import select
@@ -12,8 +12,9 @@ from app.api.routes.threads import (
     setup_thread,
     process_message_content,
     handle_openai_error,
+    poll_run_and_prepare_response,
 )
-from app.models import APIKey
+from app.models import APIKey, ThreadResponse
 import openai
 
 # Wrap the router in a FastAPI app instance.
@@ -386,3 +387,115 @@ def test_handle_openai_error_with_none_body():
     error.__str__.return_value = "None body error"
     result = handle_openai_error(error)
     assert result == "None body error"
+
+
+@patch("app.api.routes.threads.OpenAI")
+def test_poll_run_and_prepare_response_completed(mock_openai, db):
+    mock_client = MagicMock()
+    mock_run = MagicMock()
+    mock_run.status = "completed"
+    mock_client.beta.threads.runs.create_and_poll.return_value = mock_run
+
+    mock_message = MagicMock()
+    mock_message.content = [MagicMock(text=MagicMock(value="Answer "))]
+    mock_client.beta.threads.messages.list.return_value.data = [mock_message]
+    mock_openai.return_value = mock_client
+
+    request = {
+        "question": "What is Glific?",
+        "assistant_id": "assist_123",
+        "thread_id": "test_thread_001",
+        "remove_citation": True,
+    }
+
+    poll_run_and_prepare_response(request, mock_client, db)
+
+    result = db.get(ThreadResponse, "test_thread_001")
+    assert result.message.strip() == "Answer"
+
+
+@patch("app.api.routes.threads.OpenAI")
+def test_threads_start_endpoint_creates_thread(mock_openai, db):
+    """Test /threads/start creates thread and schedules background task."""
+    mock_client = MagicMock()
+    mock_thread = MagicMock()
+    mock_thread.id = "mock_thread_001"
+    mock_client.beta.threads.create.return_value = mock_thread
+    mock_client.beta.threads.messages.create.return_value = None
+    mock_openai.return_value = mock_client
+
+    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
+    if not api_key_record:
+        pytest.skip("No API key found in the database for testing")
+
+    headers = {"X-API-KEY": api_key_record.key}
+    data = {"question": "What's 2+2?", "assistant_id": "assist_123"}
+
+    response = client.post("/threads/start", json=data, headers=headers)
+    assert response.status_code == 200
+    res_json = response.json()
+    assert res_json["success"]
+    assert res_json["data"]["thread_id"] == "mock_thread_001"
+    assert res_json["data"]["status"] == "processing"
+    assert res_json["data"]["question"] == "What's 2+2?"
+
+
+def test_threads_result_endpoint_success(db):
+    """Test /threads/result/{thread_id} returns completed thread."""
+    thread_id = f"test_processing_{uuid.uuid4()}"
+    question = "Capital of France?"
+    message = "Paris."
+
+    db.add(ThreadResponse(thread_id=thread_id, question=question, message=message))
+    db.commit()
+
+    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
+    if not api_key_record:
+        pytest.skip("No API key found in the database for testing")
+
+    headers = {"X-API-KEY": api_key_record.key}
+    response = client.get(f"/threads/result/{thread_id}", headers=headers)
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["status"] == "success"
+    assert data["message"] == "Paris."
+    assert data["thread_id"] == thread_id
+    assert data["question"] == question
+
+
+def test_threads_result_endpoint_processing(db):
+    """Test /threads/result/{thread_id} returns processing status if no message yet."""
+    thread_id = f"test_processing_{uuid.uuid4()}"
+    question = "What is Glific?"
+
+    db.add(ThreadResponse(thread_id=thread_id, question=question, message=None))
+    db.commit()
+
+    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
+    if not api_key_record:
+        pytest.skip("No API key found in the database for testing")
+
+    headers = {"X-API-KEY": api_key_record.key}
+    response = client.get(f"/threads/result/{thread_id}", headers=headers)
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["status"] == "processing"
+    assert data["message"] is None
+    assert data["thread_id"] == thread_id
+    assert data["question"] == question
+
+
+def test_threads_result_not_found(db):
+    """Test /threads/result/{thread_id} returns error for nonexistent thread."""
+    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
+    if not api_key_record:
+        pytest.skip("No API key found in the database for testing")
+
+    headers = {"X-API-KEY": api_key_record.key}
+    response = client.get("/threads/result/nonexistent_thread", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["success"] is False
+    assert "not found" in response.json()["error"].lower()

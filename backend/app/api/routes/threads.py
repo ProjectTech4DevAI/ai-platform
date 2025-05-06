@@ -9,6 +9,7 @@ from sqlmodel import Session
 from app.api.deps import get_current_user_org, get_db
 from app.core import logging, settings
 from app.models import UserOrganization
+from app.crud import upsert_thread_result, get_thread_result
 from app.utils import APIResponse
 
 logger = logging.getLogger(__name__)
@@ -137,6 +138,32 @@ def process_run(request: dict, client: OpenAI):
         send_callback(request["callback_url"], callback_response.model_dump())
 
 
+def poll_run_and_prepare_response(request: dict, client: OpenAI, db: Session):
+    "process a run and send result to DB"
+    thread_id = request["thread_id"]
+    question = request["question"]
+
+    try:
+        run = client.beta.threads.runs.create_and_poll(
+            thread_id=thread_id,
+            assistant_id=request["assistant_id"],
+        )
+
+        if run.status == "completed":
+            messages = client.beta.threads.messages.list(thread_id=thread_id)
+            latest_message = messages.data[0]
+            message_content = latest_message.content[0].text.value
+            processed_message = process_message_content(
+                message_content, request.get("remove_citation", False)
+            )
+            upsert_thread_result(db, thread_id, question, processed_message)
+        else:
+            upsert_thread_result(db, thread_id, question, None)
+
+    except openai.OpenAIError:
+        upsert_thread_result(db, thread_id, question, None)
+
+
 @router.post("/threads")
 async def threads(
     request: dict,
@@ -214,3 +241,66 @@ async def threads_sync(
 
     except openai.OpenAIError as e:
         return APIResponse.failure_response(error=handle_openai_error(e))
+
+
+@router.post("/threads/start")
+async def start_thread(
+    request: dict,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    _current_user: UserOrganization = Depends(get_current_user_org),
+):
+    """
+    Create a new OpenAI thread for the given question and start polling in the background.
+
+    - If successful, returns the thread ID and a 'processing' status.
+    - Stores the thread and question in the database.
+    """
+
+    question = request["question"]
+
+    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+    is_success, error = setup_thread(client, request)
+    if not is_success:
+        return APIResponse.failure_response(error=error)
+
+    thread_id = request["thread_id"]
+    upsert_thread_result(db, thread_id, question, None)
+
+    background_tasks.add_task(poll_run_and_prepare_response, request, client, db)
+
+    return APIResponse.success_response(
+        data={
+            "thread_id": thread_id,
+            "question": question,
+            "status": "processing",
+            "message": "Thread created and polling started in background.",
+        }
+    )
+
+
+@router.get("/threads/result/{thread_id}")
+async def get_thread_result_by_id(
+    thread_id: str,
+    db: Session = Depends(get_db),
+    _current_user: UserOrganization = Depends(get_current_user_org),
+):
+    """
+    Retrieve the result of a previously started OpenAI thread using its thread ID.
+    """
+    result = get_thread_result(db, thread_id)
+
+    if not result:
+        return APIResponse.failure_response(error="Thread not found.")
+
+    status = "success" if result.message else "processing"
+
+    return APIResponse.success_response(
+        data={
+            "thread_id": result.thread_id,
+            "question": result.question,
+            "status": status,
+            "message": result.message,
+        }
+    )

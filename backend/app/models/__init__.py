@@ -50,3 +50,5 @@ from .credentials import (
     CredsPublic,
     CredsUpdate,
 )
+
+from .threads import ThreadResponse
