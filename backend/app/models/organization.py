@@ -1,7 +1,9 @@
+from datetime import datetime
 from typing import List, TYPE_CHECKING
 from sqlmodel import Field, Relationship, SQLModel
 from sqlalchemy.orm import relationship
 
+from app.core.util import now
 
 if TYPE_CHECKING:
     from .credentials import Credential
@@ -29,6 +31,8 @@ class OrganizationUpdate(SQLModel):
 # Database model for Organization
 class Organization(OrganizationBase, table=True):
     id: int = Field(default=None, primary_key=True)
+    inserted_at: datetime = Field(default_factory=now, nullable=False)
+    updated_at: datetime = Field(default_factory=now, nullable=False)
 
     # Relationship back to Creds
     api_keys: list["APIKey"] = Relationship(
@@ -45,6 +49,8 @@ class Organization(OrganizationBase, table=True):
 # Properties to return via API
 class OrganizationPublic(OrganizationBase):
     id: int
+    inserted_at: datetime
+    updated_at: datetime
 
 
 class OrganizationsPublic(SQLModel):

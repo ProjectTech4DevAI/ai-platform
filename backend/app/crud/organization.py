@@ -1,5 +1,5 @@
 from typing import Any, Optional
-
+from datetime import datetime
 from sqlmodel import Session, select
 
 from app.models import Organization, OrganizationCreate
@@ -9,6 +9,8 @@ def create_organization(
     *, session: Session, org_create: OrganizationCreate
 ) -> Organization:
     db_org = Organization.model_validate(org_create)
+    db_org.inserted_at = datetime.utcnow()
+    db_org.updated_at = datetime.utcnow()
     session.add(db_org)
     session.commit()
     session.refresh(db_org)

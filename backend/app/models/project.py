@@ -1,5 +1,8 @@
+from datetime import datetime
 from typing import Optional
 from sqlmodel import Field, Relationship, SQLModel
+
+from app.core.util import now
 
 
 # Shared properties for a Project
@@ -25,6 +28,8 @@ class ProjectUpdate(SQLModel):
 class Project(ProjectBase, table=True):
     id: int = Field(default=None, primary_key=True)
     organization_id: int = Field(foreign_key="organization.id", index=True)
+    inserted_at: datetime = Field(default_factory=now, nullable=False)
+    updated_at: datetime = Field(default_factory=now, nullable=False)
 
     users: list["ProjectUser"] = Relationship(
         back_populates="project", cascade_delete=True
@@ -37,6 +42,8 @@ class Project(ProjectBase, table=True):
 class ProjectPublic(ProjectBase):
     id: int
     organization_id: int
+    inserted_at: datetime
+    updated_at: datetime
 
 
 class ProjectsPublic(SQLModel):
