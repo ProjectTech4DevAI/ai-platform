@@ -98,5 +98,4 @@ class TestCollectionDelete:
         assistant = OpenAIAssistantCrud(client)
         crud.delete(documents[0], assistant)
 
-        for _, c in resources:
-            assert c.deleted_at is not None
+        assert all(y.deleted_at for (_, y) in resources)
