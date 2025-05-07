@@ -59,6 +59,7 @@ dependencies = [
     { name = "jinja2" },
     { name = "moto", extra = ["s3"] },
     { name = "openai" },
+    { name = "openai-responses" },
     { name = "passlib", extra = ["bcrypt"] },
     { name = "pre-commit" },
     { name = "psycopg", extra = ["binary"] },
@@ -94,6 +95,7 @@ requires-dist = [
     { name = "jinja2", specifier = ">=3.1.4,<4.0.0" },
     { name = "moto", extras = ["s3"], specifier = ">=5.1.1" },
     { name = "openai", specifier = ">=1.67.0" },
+    { name = "openai-responses" },
     { name = "passlib", extras = ["bcrypt"], specifier = ">=1.7.4,<2.0.0" },
     { name = "pre-commit", specifier = ">=3.8.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.1.13,<4.0.0" },
@@ -1054,6 +1056,20 @@ wheels = [
 ]
 
 [[package]]
+name = "openai-responses"
+version = "0.12.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "openai" },
+    { name = "requests-toolbelt" },
+    { name = "respx" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/75/6b/64f475aba3b2ef7eeb732565dfe593ad9dd8017b183bb1ba5901a2f871a1/openai_responses-0.12.0.tar.gz", hash = "sha256:7ac85e39e1dd72241f13d43fb0e24d8b894053566074916d911c7d7eab2e90f4", size = 26594 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/37/82/36aadbcf577acc6623cb660e262bb7c0b436141d6032687359cd349034c7/openai_responses-0.12.0-py3-none-any.whl", hash = "sha256:81d9775e751f7367b73accf4b3c8926506f40bcd6588d8186c7a91ecfada087f", size = 51700 },
+]
+
+[[package]]
 name = "packaging"
 version = "24.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1432,6 +1448,18 @@ wheels = [
 ]
 
 [[package]]
+name = "requests-toolbelt"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f3/61/d7545dafb7ac2230c70d38d31cbfe4cc64f7144dc41f6e4e4b78ecd9f5bb/requests-toolbelt-1.0.0.tar.gz", hash = "sha256:7681a0a3d047012b5bdc0ee37d7f8f07ebe76ab08caeccfc3921ce23c88d5bc6", size = 206888 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3f/51/d4db610ef29373b879047326cbf6fa98b6c1969d6f6dc423279de2b1be2c/requests_toolbelt-1.0.0-py2.py3-none-any.whl", hash = "sha256:cccfdd665f0a24fcf4726e690f65639d272bb0637b9b92dfd91a5568ccf6bd06", size = 54481 },
+]
+
+[[package]]
 name = "responses"
 version = "0.25.7"
 source = { registry = "https://pypi.org/simple" }
@@ -1443,6 +1471,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/81/7e/2345ac3299bd62bd7163216702bbc88976c099cfceba5b889f2a457727a1/responses-0.25.7.tar.gz", hash = "sha256:8ebae11405d7a5df79ab6fd54277f6f2bc29b2d002d0dd2d5c632594d1ddcedb", size = 79203 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e4/fc/1d20b64fa90e81e4fa0a34c9b0240a6cfb1326b7e06d18a5432a9917c316/responses-0.25.7-py3-none-any.whl", hash = "sha256:92ca17416c90fe6b35921f52179bff29332076bb32694c0df02dcac2c6bc043c", size = 34732 },
+]
+
+[[package]]
+name = "respx"
+version = "0.22.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f4/7c/96bd0bc759cf009675ad1ee1f96535edcb11e9666b985717eb8c87192a95/respx-0.22.0.tar.gz", hash = "sha256:3c8924caa2a50bd71aefc07aa812f2466ff489f1848c96e954a5362d17095d91", size = 28439 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8e/67/afbb0978d5399bc9ea200f1d4489a23c9a1dad4eee6376242b8182389c79/respx-0.22.0-py2.py3-none-any.whl", hash = "sha256:631128d4c9aba15e56903fb5f66fb1eff412ce28dd387ca3a81339e52dbd3ad0", size = 25127 },
 ]
 
 [[package]]
