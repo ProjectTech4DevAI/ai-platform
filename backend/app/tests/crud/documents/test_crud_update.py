@@ -30,7 +30,7 @@ class TestDatabaseUpdate:
         crud = DocumentCrud(db, documents.owner_id)
         (a, b) = (crud.update(y) for (_, y) in zip(range(2), documents))
 
-        assert a.created_at <= b.created_at
+        assert a.inserted_at <= b.inserted_at
 
     def test_insert_does_not_delete(
         self,
