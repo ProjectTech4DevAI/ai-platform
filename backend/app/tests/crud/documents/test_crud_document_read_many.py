@@ -3,7 +3,7 @@ from sqlmodel import Session
 
 from app.crud import DocumentCrud
 
-from app.tests.utils.document import DocumentStore, DocumentIndexGenerator
+from app.tests.utils.document import DocumentStore
 
 
 @pytest.fixture
