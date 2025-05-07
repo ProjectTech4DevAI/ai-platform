@@ -80,3 +80,29 @@ class TestCollectionDelete:
         crud = CollectionCrud(db, c_id)
         with pytest.raises(PermissionError):
             crud.delete(collection, assistant)
+
+    @openai_responses.mock()
+    def test_delete_document_deletes_collections(self, db: Session):
+        store = DocumentStore(db)
+        documents = store.fill(1)
+
+        client = OpenAI(api_key=self._api_key)
+        resources = []
+        for _ in range(2):
+            coll = get_collection(db, client)
+            crud = CollectionCrud(db, coll.owner_id)
+            collection = crud.create(coll, documents)
+
+            resources.append(
+                (
+                    crud,
+                    collection,
+                )
+            )
+
+        ((crud, _), _) = resources
+        assistant = OpenAIAssistantCrud(client)
+        crud.delete(documents[0], assistant)
+
+        for _, c in resources:
+            assert c.deleted_at is not None
