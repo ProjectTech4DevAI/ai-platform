@@ -3,12 +3,11 @@ from uuid import UUID
 import pytest
 import openai_responses
 from openai import OpenAI
-from sqlmodel import Session, select
-from sqlalchemy.exc import NoResultFound
+from sqlmodel import Session
 
-from app.crud import CollectionCrud, DocumentCrud
+from app.crud import CollectionCrud
 from app.crud.rag import OpenAIAssistantCrud
-from app.models import Collection, Document
+from app.models import Collection
 from app.tests.utils.utils import get_user_id_by_email
 from app.tests.utils.document import DocumentStore
 
@@ -42,6 +41,7 @@ def get_collection(db, client):
 
 class TestCollectionDelete:
     _api_key = "sk-fake123"
+    _n_collections = 5
 
     @openai_responses.mock()
     def test_delete_marks_deleted(self, db: Session):
@@ -88,19 +88,13 @@ class TestCollectionDelete:
 
         client = OpenAI(api_key=self._api_key)
         resources = []
-        for _ in range(2):
+        for _ in range(self._n_collections):
             coll = get_collection(db, client)
             crud = CollectionCrud(db, coll.owner_id)
             collection = crud.create(coll, documents)
+            resources.append((crud, collection))
 
-            resources.append(
-                (
-                    crud,
-                    collection,
-                )
-            )
-
-        ((crud, _), _) = resources
+        ((crud, _), *_) = resources
         assistant = OpenAIAssistantCrud(client)
         crud.delete(documents[0], assistant)
 
