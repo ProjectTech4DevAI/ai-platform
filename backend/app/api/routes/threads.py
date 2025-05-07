@@ -56,7 +56,7 @@ def validate_thread(client: OpenAI, thread_id: str) -> tuple[bool, str]:
         return False, f"Invalid thread ID provided {thread_id}"
 
 
-@observe(as_type="generation")
+@observe()
 def setup_thread(client: OpenAI, request: dict) -> tuple[bool, str]:
     """Set up thread and add message, either creating new or using existing."""
     thread_id = request.get("thread_id")
@@ -113,7 +113,7 @@ def create_success_response(request: dict, message: str) -> APIResponse:
     )
 
 
-@observe(as_type="generation")
+@observe()
 def process_run(request: dict, client: OpenAI):
     """Process a run and send callback with results."""
     try:
