@@ -211,7 +211,7 @@ def do_delete_collection(
         collection = c_crud.read_one(request.collection_id)
         data = c_crud.delete(collection, OpenAIAssistantCrud)
         callback.success(data.model_dump(mode="json"))
-    except (ValueError, SQLAlchemyError) as err:
+    except (ValueError, PermissionError, SQLAlchemyError) as err:
         callback.fail(str(err))
     except Exception as err:
         warnings.warn(
