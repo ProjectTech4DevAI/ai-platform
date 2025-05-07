@@ -128,10 +128,6 @@ def process_run(request: dict, client: OpenAI):
         )
 
         if run.status == "completed":
-            print(run.usage.prompt_tokens)
-            print(run.usage.completion_tokens)
-            print(run.usage.total_tokens)
-            print(run.model)
             langfuse_context.update_current_observation(
                 model=run.model,
                 usage_details={
