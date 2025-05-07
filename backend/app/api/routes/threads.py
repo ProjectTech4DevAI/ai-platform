@@ -56,7 +56,7 @@ def validate_thread(client: OpenAI, thread_id: str) -> tuple[bool, str]:
         return False, f"Invalid thread ID provided {thread_id}"
 
 
-@observe()
+@observe(capture_input=False)
 def setup_thread(client: OpenAI, request: dict) -> tuple[bool, str]:
     """Set up thread and add message, either creating new or using existing."""
     thread_id = request.get("thread_id")
@@ -76,7 +76,7 @@ def setup_thread(client: OpenAI, request: dict) -> tuple[bool, str]:
             )
             request["thread_id"] = thread.id
             langfuse_context.update_current_trace(
-                session_id=thread.id, name="Setting up new Thread", output=thread.id
+                session_id=thread.id, name="New Thread ID created", output=thread.id
             )
             return True, None
         except openai.OpenAIError as e:
@@ -113,7 +113,7 @@ def create_success_response(request: dict, message: str) -> APIResponse:
     )
 
 
-@observe()
+@observe(as_type="generation")
 def process_run(request: dict, client: OpenAI):
     """Process a run and send callback with results."""
     try:
@@ -128,6 +128,10 @@ def process_run(request: dict, client: OpenAI):
         )
 
         if run.status == "completed":
+            print(run.usage.prompt_tokens)
+            print(run.usage.completion_tokens)
+            print(run.usage.total_tokens)
+            print(run.model)
             langfuse_context.update_current_observation(
                 model=run.model,
                 usage_details={
