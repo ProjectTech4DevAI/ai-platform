@@ -458,11 +458,11 @@ def test_threads_start_endpoint_creates_thread(mock_openai, db):
     mock_client.beta.threads.messages.create.return_value = None
     mock_openai.return_value = mock_client
 
-    api_key = db.exec(select(APIKey).where(APIKey.is_deleted == False)).first()
-    if not api_key:
+    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
+    if not api_key_record:
         pytest.skip("No API key found in the database for testing")
-    headers = {"X-API-KEY": api_key.key}
 
+    headers = {"X-API-KEY": api_key_record.key}
     data = {"question": "What's 2+2?", "assistant_id": "assist_123"}
     response = client.post("/threads/start", json=data, headers=headers)
     assert response.status_code == 200
@@ -481,10 +481,11 @@ def test_threads_result_endpoint_success(db):
     db.add(ThreadResponse(thread_id=thread_id, question=question, message=message))
     db.commit()
 
-    api_key = db.exec(select(APIKey).where(APIKey.is_deleted == False)).first()
-    if not api_key:
+    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
+    if not api_key_record:
         pytest.skip("No API key found in the database for testing")
-    headers = {"X-API-KEY": api_key.key}
+
+    headers = {"X-API-KEY": api_key_record.key}
 
     response = client.get(f"/threads/result/{thread_id}", headers=headers)
 
@@ -503,10 +504,11 @@ def test_threads_result_endpoint_processing(db):
     db.add(ThreadResponse(thread_id=thread_id, question=question, message=None))
     db.commit()
 
-    api_key = db.exec(select(APIKey).where(APIKey.is_deleted == False)).first()
-    if not api_key:
+    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
+    if not api_key_record:
         pytest.skip("No API key found in the database for testing")
-    headers = {"X-API-KEY": api_key.key}
+
+    headers = {"X-API-KEY": api_key_record.key}
 
     response = client.get(f"/threads/result/{thread_id}", headers=headers)
 
@@ -519,10 +521,11 @@ def test_threads_result_endpoint_processing(db):
 
 
 def test_threads_result_not_found(db):
-    api_key = db.exec(select(APIKey).where(APIKey.is_deleted == False)).first()
-    if not api_key:
+    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
+    if not api_key_record:
         pytest.skip("No API key found in the database for testing")
-    headers = {"X-API-KEY": api_key.key}
+
+    headers = {"X-API-KEY": api_key_record.key}
 
     response = client.get("/threads/result/nonexistent_thread", headers=headers)
 
@@ -537,10 +540,11 @@ def test_start_thread_setup_fails(mock_openai, mock_setup_thread, db):
     mock_setup_thread.return_value = (False, "Assistant not found")
     mock_openai.return_value = MagicMock()
 
-    api_key = db.exec(select(APIKey).where(APIKey.is_deleted == False)).first()
-    if not api_key:
+    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
+    if not api_key_record:
         pytest.skip("No API key found in the database for testing")
-    headers = {"X-API-KEY": api_key.key}
+
+    headers = {"X-API-KEY": api_key_record.key}
 
     data = {"question": "Test fail", "assistant_id": "bad_assist"}
     response = client.post("/threads/start", json=data, headers=headers)
