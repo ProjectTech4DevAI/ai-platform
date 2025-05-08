@@ -1,5 +1,3 @@
-from uuid import UUID
-
 import pytest
 from openai_responses import OpenAIMock
 from openai import OpenAI
