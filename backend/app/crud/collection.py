@@ -15,6 +15,22 @@ class CollectionCrud:
         self.session = session
         self.owner_id = owner_id
 
+    def _update(self, collection: Collection):
+        if not collection.owner_id:
+            collection.owner_id = self.owner_id
+        elif collection.owner_id != self.owner_id:
+            err = "Invalid collection ownership: owner={} attempter={}".format(
+                self.owner_id,
+                collection.owner_id,
+            )
+            raise PermissionError(err)
+
+        self.session.add(collection)
+        self.session.commit()
+        self.session.refresh(collection)
+
+        return collection
+
     def _exists(self, collection: Collection):
         n = (
             self.session.query(func.count(Collection.id))
@@ -31,7 +47,7 @@ class CollectionCrud:
         if self._exists(collection):
             raise FileExistsError("Collection already present")
 
-        collection = self.update(collection)
+        collection = self._update(collection)
         dc_crud = DocumentCollectionCrud(self.session)
         dc_crud.create(collection, documents)
 
@@ -69,22 +85,6 @@ class CollectionCrud:
 
         return self.session.exec(statement).all()
 
-    def update(self, collection: Collection):
-        if not collection.owner_id:
-            collection.owner_id = self.owner_id
-        elif collection.owner_id != self.owner_id:
-            err = "Invalid collection ownership: owner={} attempter={}".format(
-                self.owner_id,
-                collection.owner_id,
-            )
-            raise PermissionError(err)
-
-        self.session.add(collection)
-        self.session.commit()
-        self.session.refresh(collection)
-
-        return collection
-
     @ft.singledispatchmethod
     def delete(self, model, remote):  # remote should be an OpenAICrud
         raise TypeError(type(model))
@@ -93,7 +93,7 @@ class CollectionCrud:
     def _(self, model: Collection, remote):
         remote.delete(model.llm_service_id)
         model.deleted_at = now()
-        return self.update(model)
+        return self._update(model)
 
     @delete.register
     def _(self, model: Document, remote):
