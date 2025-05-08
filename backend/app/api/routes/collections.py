@@ -287,7 +287,8 @@ def collection_documents(
     c_crud = CollectionCrud(session, current_user.id)
     dc_crud = DocumentCollectionCrud(session)
     try:
-        data = dc_crud.read(c_crud.read_one(collection_id), skip, limit)
+        collection = c_crud.read_one(collection_id)
+        data = dc_crud.read(collection, skip, limit)
     except (SQLAlchemyError, ValueError) as err:
         raise HTTPException(status_code=400, detail=str(err))
 
