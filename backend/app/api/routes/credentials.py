@@ -18,7 +18,6 @@ router = APIRouter(prefix="/credentials", tags=["credentials"])
     "/",
     dependencies=[Depends(get_current_active_superuser)],
     response_model=APIResponse[CredsPublic],
-    include_in_schema=False,
 )
 def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
     new_creds = None
