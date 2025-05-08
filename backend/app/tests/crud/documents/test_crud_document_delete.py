@@ -28,7 +28,7 @@ class TestDatabaseDelete:
         assert document.deleted_at is not None
 
     def test_delete_follows_insert(self, document: Document):
-        assert document.created_at <= document.deleted_at
+        assert document.inserted_at <= document.deleted_at
 
     def test_cannot_delete_others_documents(self, db: Session):
         store = DocumentStore(db)
