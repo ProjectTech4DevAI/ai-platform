@@ -5,6 +5,7 @@ from sqlmodel import Session
 
 from app.crud import CollectionCrud
 from app.core.config import settings
+from app.models import Collection
 from app.tests.utils.document import DocumentStore
 from app.tests.utils.collection import get_collection, openai_credentials
 
@@ -26,19 +27,29 @@ def create_and_claim(db: Session, n: int):
         return crud.owner_id
 
 
+@pytest.fixture(scope="class")
+def refresh(self, db: Session):
+    db.query(Collection).delete()
+    db.commit()
+
+
 @pytest.mark.usefixtures("openai_credentials")
-class TestCollectionReadMany:
+class TestCollectionReadAll:
     _ncollections = 5
 
-    def test_number_read_is_expected(self, db: Session):
-        owner = create_and_claim(db, self._ncollections)
+    def test_number_read_is_expected(
+        self,
+        db: Session,
+    ):
+        db.query(Collection).delete()
 
+        owner = create_and_claim(db, self._ncollections)
         crud = CollectionCrud(db, owner)
         docs = crud.read_all()
+
         assert len(docs) == self._ncollections
 
     def test_deleted_docs_are_excluded(self, db: Session):
         owner = create_and_claim(db, self._ncollections)
-
         crud = CollectionCrud(db, owner)
         assert all(x.deleted_at is None for x in crud.read_all())
