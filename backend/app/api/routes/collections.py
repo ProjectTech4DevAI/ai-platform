@@ -261,12 +261,10 @@ def collection_info(
 def list_collections(
     session: SessionDep,
     current_user: CurrentUser,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, gt=0, le=100),
 ):
     c_crud = CollectionCrud(session, current_user.id)
     try:
-        data = c_crud.read_many(skip, limit)
+        data = c_crud.read_all()
     except (ValueError, SQLAlchemyError) as err:
         raise HTTPException(status_code=403, detail=str(err))
     except Exception as err:

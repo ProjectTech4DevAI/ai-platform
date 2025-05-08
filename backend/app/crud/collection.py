@@ -63,25 +63,13 @@ class CollectionCrud:
 
         return self.session.exec(statement).one()
 
-    def read_many(
-        self,
-        skip: Optional[int] = None,
-        limit: Optional[int] = None,
-    ):
+    def read_all(self):
         statement = select(Collection).where(
             and_(
                 Collection.owner_id == self.owner_id,
                 Collection.deleted_at.is_(None),
             )
         )
-        if skip is not None:
-            if skip < 0:
-                raise ValueError(f"Negative skip: {skip}")
-            statement = statement.offset(skip)
-        if limit is not None:
-            if limit < 0:
-                raise ValueError(f"Negative limit: {limit}")
-            statement = statement.limit(limit)
 
         return self.session.exec(statement).all()
 
