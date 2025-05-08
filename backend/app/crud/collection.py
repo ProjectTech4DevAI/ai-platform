@@ -32,7 +32,7 @@ class CollectionCrud:
         return collection
 
     def _exists(self, collection: Collection):
-        n = (
+        present = (
             self.session.query(func.count(Collection.id))
             .filter(
                 Collection.llm_service_id == collection.llm_service_id,
@@ -41,7 +41,7 @@ class CollectionCrud:
             .scalar()
         )
 
-        return bool(n)
+        return bool(present)
 
     def create(self, collection: Collection, documents: list[Document]):
         if self._exists(collection):
