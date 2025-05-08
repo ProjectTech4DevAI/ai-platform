@@ -74,7 +74,8 @@ def upload_doc(
 
 
 @router.get(
-    "/rm/{doc_id}", response_model=APIResponse[Document]
+    "/rm/{doc_id}",
+    response_model=APIResponse[Document],
 )
 def delete_doc(
     session: SessionDep,
