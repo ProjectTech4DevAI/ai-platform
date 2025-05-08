@@ -1,5 +1,7 @@
+import pytest
 from openai import OpenAI
 
+from app.core.config import settings
 from app.models import Collection
 from app.tests.utils.utils import get_user_id_by_email
 
@@ -14,7 +16,7 @@ def get_collection(db, client=None):
     owner_id = get_user_id_by_email(db)
 
     if client is None:
-        client = OpenAI(api_key=constants.openai_mock_key)
+        client = OpenAI(api_key=settings.OPENAI_API_KEY)
     vector_store = client.vector_stores.create()
     assistant = client.beta.assistants.create(
         model=constants.openai_model,
@@ -37,3 +39,8 @@ def get_collection(db, client=None):
         llm_service_id=assistant.id,
         llm_service_name=constants.llm_service_name,
     )
+
+
+@pytest.fixture(scope="class")
+def openai_credentials():
+    settings.OPENAI_API_KEY = constants.openai_mock_key

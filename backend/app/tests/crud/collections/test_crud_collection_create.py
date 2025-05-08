@@ -1,12 +1,14 @@
+import pytest
 import openai_responses
 from sqlmodel import Session, select
 
 from app.crud import CollectionCrud
-from app.models import Collection, Document, DocumentCollection
+from app.models import DocumentCollection
 from app.tests.utils.document import DocumentStore
-from app.tests.utils.collection import get_collection
+from app.tests.utils.collection import get_collection, openai_credentials
 
 
+@pytest.mark.usefixtures("openai_credentials")
 class TestCollectionCreate:
     _n_documents = 10
 

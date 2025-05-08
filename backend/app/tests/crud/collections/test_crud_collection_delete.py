@@ -5,18 +5,20 @@ import openai_responses
 from openai import OpenAI
 from sqlmodel import Session
 
+from app.core.config import settings
 from app.crud import CollectionCrud
 from app.crud.rag import OpenAIAssistantCrud
 from app.tests.utils.document import DocumentStore
-from app.tests.utils.collection import constants, get_collection
+from app.tests.utils.collection import get_collection, openai_credentials
 
 
+@pytest.mark.usefixtures("openai_credentials")
 class TestCollectionDelete:
     _n_collections = 5
 
     @openai_responses.mock()
     def test_delete_marks_deleted(self, db: Session):
-        client = OpenAI(api_key=constants.openai_mock_key)
+        client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
         assistant = OpenAIAssistantCrud(client)
         collection = get_collection(db, client)
@@ -28,7 +30,7 @@ class TestCollectionDelete:
 
     @openai_responses.mock()
     def test_delete_follows_insert(self, db: Session):
-        client = OpenAI(api_key=constants.openai_mock_key)
+        client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
         assistant = OpenAIAssistantCrud(client)
         collection = get_collection(db, client)
@@ -40,7 +42,7 @@ class TestCollectionDelete:
 
     @openai_responses.mock()
     def test_cannot_delete_others_collections(self, db: Session):
-        client = OpenAI(api_key=constants.openai_mock_key)
+        client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
         assistant = OpenAIAssistantCrud(client)
         collection = get_collection(db, client)
@@ -57,7 +59,7 @@ class TestCollectionDelete:
         store = DocumentStore(db)
         documents = store.fill(1)
 
-        client = OpenAI(api_key=constants.openai_mock_key)
+        client = OpenAI(api_key=settings.OPENAI_API_KEY)
         resources = []
         for _ in range(self._n_collections):
             coll = get_collection(db, client)
