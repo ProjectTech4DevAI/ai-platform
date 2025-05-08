@@ -19,15 +19,11 @@ class TestCollectionCreate:
         crud = CollectionCrud(db, collection.owner_id)
         collection = crud.create(collection, documents)
 
-        statement = (
-            select(Document, Collection)
-            .join(
-                DocumentCollection,
-                DocumentCollection.document_id == Document.id,
-            )
-            .where(DocumentCollection.collection_id == collection.id)
+        statement = select(DocumentCollection).where(
+            DocumentCollection.collection_id == collection.id
         )
 
-        docs = set(x.id for x in documents)
-        for i in db.exec(statement):
-            assert i.Document.id in docs and i.Collection.id == collection.id
+        source = set(x.id for x in documents)
+        target = set(x.document_id for x in db.exec(statement))
+
+        assert source == target
