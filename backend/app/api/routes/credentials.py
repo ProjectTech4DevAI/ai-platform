@@ -61,7 +61,6 @@ def read_credential(*, session: SessionDep, org_id: int):
     "/{org_id}/api-key",
     dependencies=[Depends(get_current_active_superuser)],
     response_model=APIResponse[dict],
-    include_in_schema=False,
 )
 def read_api_key(*, session: SessionDep, org_id: int):
     try:
