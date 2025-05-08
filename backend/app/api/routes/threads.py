@@ -1,10 +1,11 @@
 import re
-
 import openai
 import requests
+
 from fastapi import APIRouter, BackgroundTasks, Depends
 from openai import OpenAI
 from sqlmodel import Session
+from langfuse.decorators import observe, langfuse_context
 
 from app.api.deps import get_current_user_org, get_db
 from app.core import logging, settings
@@ -56,10 +57,10 @@ def validate_thread(client: OpenAI, thread_id: str) -> tuple[bool, str]:
         return False, f"Invalid thread ID provided {thread_id}"
 
 
+@observe(capture_input=False)
 def setup_thread(client: OpenAI, request: dict) -> tuple[bool, str]:
     """Set up thread and add message, either creating new or using existing."""
     thread_id = request.get("thread_id")
-
     if thread_id:
         try:
             client.beta.threads.messages.create(
@@ -75,6 +76,9 @@ def setup_thread(client: OpenAI, request: dict) -> tuple[bool, str]:
                 thread_id=thread.id, role="user", content=request["question"]
             )
             request["thread_id"] = thread.id
+            langfuse_context.update_current_trace(
+                session_id=thread.id, name="New Thread ID created", output=thread.id
+            )
             return True, None
         except openai.OpenAIError as e:
             return False, handle_openai_error(e)
@@ -110,6 +114,7 @@ def create_success_response(request: dict, message: str) -> APIResponse:
     )
 
 
+@observe(as_type="generation")
 def process_run(request: dict, client: OpenAI):
     """Process a run and send callback with results."""
     try:
@@ -117,14 +122,31 @@ def process_run(request: dict, client: OpenAI):
             thread_id=request["thread_id"],
             assistant_id=request["assistant_id"],
         )
+        langfuse_context.update_current_trace(
+            session_id=request["thread_id"],
+            input=request["question"],
+            name="Thread Run Started",
+        )
 
         if run.status == "completed":
+            langfuse_context.update_current_observation(
+                model=run.model,
+                usage_details={
+                    "prompt_tokens": run.usage.prompt_tokens,
+                    "completion_tokens": run.usage.completion_tokens,
+                    "total_tokens": run.usage.total_tokens,
+                },
+            )
             messages = client.beta.threads.messages.list(thread_id=request["thread_id"])
             latest_message = messages.data[0]
             message_content = latest_message.content[0].text.value
             message = process_message_content(
                 message_content, request.get("remove_citation", False)
             )
+            langfuse_context.update_current_trace(
+                output=message, name="Thread Run Completed"
+            )
+
             callback_response = create_success_response(request, message)
         else:
             callback_response = APIResponse.failure_response(
@@ -173,7 +195,11 @@ async def threads(
 ):
     """Asynchronous endpoint that processes requests in background."""
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
-
+    langfuse_context.configure(
+        secret_key=settings.LANGFUSE_SECRET_KEY,
+        public_key=settings.LANGFUSE_PUBLIC_KEY,
+        host=settings.LANGFUSE_HOST,
+    )
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
     if not is_valid:
