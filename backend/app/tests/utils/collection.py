@@ -1,5 +1,8 @@
+from uuid import UUID
+
 import pytest
 from openai import OpenAI
+from sqlmodel import Session
 
 from app.core.config import settings
 from app.models import Collection
@@ -12,7 +15,12 @@ class constants:
     llm_service_name = "test-service-name"
 
 
-def get_collection(db, client=None):
+def uuid_increment(value: UUID):
+    inc = int(value) + 1  # hopefully doesn't overflow!
+    return UUID(int=inc)
+
+
+def get_collection(db: Session, client=None):
     owner_id = get_user_id_by_email(db)
 
     if client is None:

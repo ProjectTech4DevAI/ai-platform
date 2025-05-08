@@ -9,7 +9,11 @@ from app.core.config import settings
 from app.crud import CollectionCrud
 from app.crud.rag import OpenAIAssistantCrud
 from app.tests.utils.document import DocumentStore
-from app.tests.utils.collection import get_collection, openai_credentials
+from app.tests.utils.collection import (
+    get_collection,
+    openai_credentials,
+    uuid_increment,
+)
 
 
 @pytest.mark.usefixtures("openai_credentials")
@@ -46,9 +50,7 @@ class TestCollectionDelete:
 
         assistant = OpenAIAssistantCrud(client)
         collection = get_collection(db, client)
-
-        value = int(collection.id) + 1  # hopefully doesn't overflow
-        c_id = UUID(int=value)
+        c_id = uuid_increment(collection.id)
 
         crud = CollectionCrud(db, c_id)
         with pytest.raises(PermissionError):
