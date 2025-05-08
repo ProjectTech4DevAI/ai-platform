@@ -7,7 +7,6 @@ from sqlmodel import Session
 
 from app.crud import CollectionCrud
 from app.crud.rag import OpenAIAssistantCrud
-from app.models import Collection
 from app.tests.utils.document import DocumentStore
 from app.tests.utils.collection import constants, get_collection
 

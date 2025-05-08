@@ -1,12 +1,10 @@
 import openai_responses
-from openai import OpenAI
 from sqlmodel import Session, select
 
 from app.crud import CollectionCrud
 from app.models import Collection, Document, DocumentCollection
-from app.tests.utils.utils import get_user_id_by_email
 from app.tests.utils.document import DocumentStore
-from app.tests.utils.collection import constants, get_collection
+from app.tests.utils.collection import get_collection
 
 
 class TestCollectionCreate:
@@ -17,8 +15,7 @@ class TestCollectionCreate:
         store = DocumentStore(db)
         documents = store.fill(self._n_documents)
 
-        client = OpenAI(api_key=constants.openai_mock_key)
-        collection = get_collection(db, client)
+        collection = get_collection(db)
         crud = CollectionCrud(db, collection.owner_id)
         collection = crud.create(collection, documents)
 
