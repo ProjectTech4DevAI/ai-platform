@@ -25,7 +25,7 @@ def raise_from_unknown(error: Exception):
     raise HTTPException(status_code=500, detail=str(error))
 
 
-@router.get("/ls", response_model=APIResponse[List[Document]], include_in_schema=False)
+@router.get("/ls", response_model=APIResponse[List[Document]])
 def list_docs(
     session: SessionDep,
     current_user: CurrentUser,
