@@ -8,44 +8,16 @@ from sqlmodel import Session
 from app.crud import CollectionCrud
 from app.crud.rag import OpenAIAssistantCrud
 from app.models import Collection
-from app.tests.utils.utils import get_user_id_by_email
 from app.tests.utils.document import DocumentStore
-
-
-def get_collection(db, client):
-    owner_id = get_user_id_by_email(db)
-
-    vector_store = client.vector_stores.create()
-    assistant = client.beta.assistants.create(
-        model="gpt-4o",
-        tools=[
-            {
-                "type": "file_search",
-            },
-        ],
-        tool_resources={
-            "file_search": {
-                "vector_store_ids": [
-                    vector_store.id,
-                ],
-            },
-        },
-    )
-
-    return Collection(
-        owner_id=owner_id,
-        llm_service_id=assistant.id,
-        llm_service_name="test-service-name",
-    )
+from app.tests.utils.collection import constants, get_collection
 
 
 class TestCollectionDelete:
-    _api_key = "sk-fake123"
     _n_collections = 5
 
     @openai_responses.mock()
     def test_delete_marks_deleted(self, db: Session):
-        client = OpenAI(api_key=self._api_key)
+        client = OpenAI(api_key=constants.openai_mock_key)
 
         assistant = OpenAIAssistantCrud(client)
         collection = get_collection(db, client)
@@ -57,7 +29,7 @@ class TestCollectionDelete:
 
     @openai_responses.mock()
     def test_delete_follows_insert(self, db: Session):
-        client = OpenAI(api_key=self._api_key)
+        client = OpenAI(api_key=constants.openai_mock_key)
 
         assistant = OpenAIAssistantCrud(client)
         collection = get_collection(db, client)
@@ -69,7 +41,7 @@ class TestCollectionDelete:
 
     @openai_responses.mock()
     def test_cannot_delete_others_collections(self, db: Session):
-        client = OpenAI(api_key=self._api_key)
+        client = OpenAI(api_key=constants.openai_mock_key)
 
         assistant = OpenAIAssistantCrud(client)
         collection = get_collection(db, client)
@@ -86,7 +58,7 @@ class TestCollectionDelete:
         store = DocumentStore(db)
         documents = store.fill(1)
 
-        client = OpenAI(api_key=self._api_key)
+        client = OpenAI(api_key=constants.openai_mock_key)
         resources = []
         for _ in range(self._n_collections):
             coll = get_collection(db, client)
