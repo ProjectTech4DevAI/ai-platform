@@ -101,10 +101,6 @@ class CallbackHandler:
         self(APIResponse.success_response(body), "complete")
 
 
-def bm_fields(cls: BaseModel):
-    yield from cls.__fields__.keys()
-
-
 def _backout(crud: OpenAIAssistantCrud, assistant_id: str):
     try:
         crud.delete(assistant_id)
@@ -143,8 +139,8 @@ def do_create_collection(
     d_crud = DocumentCrud(session, current_user.id)
     a_crud = OpenAIAssistantCrud(client)
 
-    kwargs = {x: getattr(request, x) for x in bm_fields(AssistantOptions)}
     docs = request(d_crud)
+    kwargs = {x: getattr(request, x) for x in AssistantOptions.__fields__.keys()}
     try:
         documents = list(v_crud.update(vector_store.id, storage, docs))
         assistant = a_crud.create(vector_store.id, **kwargs)
