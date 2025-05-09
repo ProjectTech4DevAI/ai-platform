@@ -75,7 +75,10 @@ class CreationRequest(
     AssistantOptions,
     CallbackRequest,
 ):
-    pass
+    def extract_super_type(self, cls: CreationRequest):
+        for field_name in cls.__fields__.keys():
+            field_value = getattr(self, field_name)
+            yield (field_name, field_value)
 
 
 class DeletionRequest(CallbackRequest):
@@ -128,25 +131,26 @@ def do_create_collection(
     # Create the assistant and vector store
     #
 
-    v_crud = OpenAIVectorStoreCrud(client)
+    vector_store_crud = OpenAIVectorStoreCrud(client)
     try:
-        vector_store = v_crud.create()
+        vector_store = vector_store_crud.create()
     except OpenAIError as err:
         callback.fail(str(err))
         return
 
     storage = AmazonCloudStorage(current_user)
-    d_crud = DocumentCrud(session, current_user.id)
-    a_crud = OpenAIAssistantCrud(client)
+    document_crud = DocumentCrud(session, current_user.id)
+    assistant_crud = OpenAIAssistantCrud(client)
 
-    docs = request(d_crud)
-    kwargs = {x: getattr(request, x) for x in AssistantOptions.__fields__.keys()}
+    docs = request(document_crud)
+    kwargs = dict(request.extract_super_type(AssistantOptions))
     try:
-        documents = list(v_crud.update(vector_store.id, storage, docs))
-        assistant = a_crud.create(vector_store.id, **kwargs)
+        updates = vector_store_crud.update(vector_store.id, storage, docs)
+        documents = list(updates)
+        assistant = assistant_crud.create(vector_store.id, **kwargs)
     except Exception as err:  # blanket to handle SQL and OpenAI errors
         logging.error(f"File Search setup error: {err} ({type(err).__name__})")
-        v_crud.delete(vector_store.id)
+        vector_store_crud.delete(vector_store.id)
         callback.fail(str(err))
         return
 
@@ -154,15 +158,15 @@ def do_create_collection(
     # Store the results
     #
 
-    c_crud = CollectionCrud(session, current_user.id)
+    collection_crud = CollectionCrud(session, current_user.id)
     collection = Collection(
         llm_service_id=assistant.id,
         llm_service_name=request.model,
     )
     try:
-        c_crud.create(collection, documents)
+        collection_crud.create(collection, documents)
     except SQLAlchemyError as err:
-        _backout(a_crud, assistant.id)
+        _backout(assistant_crud, assistant.id)
         callback.fail(str(err))
         return
 
@@ -202,10 +206,10 @@ def do_delete_collection(
     payload: ResponsePayload,
 ):
     callback = CallbackHandler(request.callback_url, payload)
-    c_crud = CollectionCrud(session, current_user.id)
+    collection_crud = CollectionCrud(session, current_user.id)
     try:
-        collection = c_crud.read_one(request.collection_id)
-        data = c_crud.delete(collection, OpenAIAssistantCrud)
+        collection = collection_crud.read_one(request.collection_id)
+        data = collection_crud.delete(collection, OpenAIAssistantCrud)
         callback.success(data.model_dump(mode="json"))
     except (ValueError, PermissionError, SQLAlchemyError) as err:
         callback.fail(str(err))
@@ -244,9 +248,9 @@ def collection_info(
     current_user: CurrentUser,
     collection_id: UUID,
 ):
-    c_crud = CollectionCrud(session, current_user.id)
+    collection_crud = CollectionCrud(session, current_user.id)
     try:
-        data = c_crud.read_one(collection_id)
+        data = collection_crud.read_one(collection_id)
     except NoResultFound as err:
         raise HTTPException(status_code=404, detail=str(err))
     except MultipleResultsFound as err:
@@ -262,9 +266,9 @@ def list_collections(
     session: SessionDep,
     current_user: CurrentUser,
 ):
-    c_crud = CollectionCrud(session, current_user.id)
+    collection_crud = CollectionCrud(session, current_user.id)
     try:
-        data = c_crud.read_all()
+        data = collection_crud.read_all()
     except (ValueError, SQLAlchemyError) as err:
         raise HTTPException(status_code=403, detail=str(err))
     except Exception as err:
@@ -284,11 +288,11 @@ def collection_documents(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, gt=0, le=100),
 ):
-    c_crud = CollectionCrud(session, current_user.id)
-    dc_crud = DocumentCollectionCrud(session)
+    collection_crud = CollectionCrud(session, current_user.id)
+    document_collection_crud = DocumentCollectionCrud(session)
     try:
-        collection = c_crud.read_one(collection_id)
-        data = dc_crud.read(collection, skip, limit)
+        collection = collection_crud.read_one(collection_id)
+        data = document_collection_crud.read(collection, skip, limit)
     except (SQLAlchemyError, ValueError) as err:
         raise HTTPException(status_code=400, detail=str(err))
 
