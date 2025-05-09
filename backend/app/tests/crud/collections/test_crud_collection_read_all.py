@@ -10,7 +10,7 @@ from app.tests.utils.document import DocumentStore
 from app.tests.utils.collection import get_collection, openai_credentials
 
 
-def create_and_claim(db: Session, n: int):
+def create_collections(db: Session, n: int):
     crud = None
     store = DocumentStore(db)
     documents = store.fill(1)
@@ -43,13 +43,13 @@ class TestCollectionReadAll:
     ):
         db.query(Collection).delete()
 
-        owner = create_and_claim(db, self._ncollections)
+        owner = create_collections(db, self._ncollections)
         crud = CollectionCrud(db, owner)
         docs = crud.read_all()
 
         assert len(docs) == self._ncollections
 
     def test_deleted_docs_are_excluded(self, db: Session):
-        owner = create_and_claim(db, self._ncollections)
+        owner = create_collections(db, self._ncollections)
         crud = CollectionCrud(db, owner)
         assert all(x.deleted_at is None for x in crud.read_all())
