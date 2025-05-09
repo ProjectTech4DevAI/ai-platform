@@ -536,3 +536,23 @@ def test_threads_result_not_found(db):
     assert response.status_code == 200
     assert response.json()["success"] is False
     assert "not found" in response.json()["error"].lower()
+
+
+@patch("app.api.routes.threads.setup_thread")
+@patch("app.api.routes.threads.OpenAI")
+def test_start_thread_setup_fails(mock_openai, mock_setup_thread, db):
+    mock_setup_thread.return_value = (False, "Assistant not found")
+    mock_openai.return_value = MagicMock()
+
+    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
+    if not api_key_record:
+        pytest.skip("No API key found in the database for testing")
+
+    headers = {"X-API-KEY": api_key_record.key}
+
+    data = {"question": "Test fail", "assistant_id": "bad_assist"}
+    response = client.post("/threads/start", json=data, headers=headers)
+    body = response.json()
+    assert response.status_code == 200
+    assert body["success"] is False
+    assert "Assistant not found" in body["error"]
