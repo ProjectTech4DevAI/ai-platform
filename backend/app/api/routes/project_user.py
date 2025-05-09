@@ -17,7 +17,9 @@ router = APIRouter(prefix="/project/users", tags=["project_users"])
 
 
 # Add a user to a project
-@router.post("/{user_id}", response_model=APIResponse[ProjectUserPublic])
+@router.post(
+    "/{user_id}", response_model=APIResponse[ProjectUserPublic], include_in_schema=False
+)
 def add_user(
     request: Request,
     user_id: uuid.UUID,
@@ -52,7 +54,9 @@ def add_user(
 
 
 # Get all users in a project
-@router.get("/", response_model=APIResponse[list[ProjectUserPublic]])
+@router.get(
+    "/", response_model=APIResponse[list[ProjectUserPublic]], include_in_schema=False
+)
 def list_project_users(
     session: Session = Depends(get_db),
     current_user: UserProjectOrg = Depends(verify_user_project_organization),
@@ -72,7 +76,9 @@ def list_project_users(
 
 
 # Remove a user from a project
-@router.delete("/{user_id}", response_model=APIResponse[Message])
+@router.delete(
+    "/{user_id}", response_model=APIResponse[Message], include_in_schema=False
+)
 def remove_user(
     request: Request,
     user_id: uuid.UUID,
