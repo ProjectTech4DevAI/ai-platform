@@ -458,10 +458,10 @@ def test_threads_start_endpoint_creates_thread(mock_openai, db):
     mock_client.beta.threads.messages.create.return_value = None
     mock_openai.return_value = mock_client
 
-    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted == False)).first()
-    if not api_key_record:
+    api_key = db.exec(select(APIKey).where(APIKey.is_deleted == False)).first()
+    if not api_key:
         pytest.skip("No API key found in the database for testing")
-    headers = {"X-API-KEY": api_key_record.key}
+    headers = {"X-API-KEY": api_key.key}
 
     data = {"question": "What's 2+2?", "assistant_id": "assist_123"}
     response = client.post("/threads/start", json=data, headers=headers)
