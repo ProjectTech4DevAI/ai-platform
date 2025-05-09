@@ -75,7 +75,7 @@ class CreationRequest(
     AssistantOptions,
     CallbackRequest,
 ):
-    def extract_super_type(self, cls: CreationRequest):
+    def extract_super_type(self, cls: "CreationRequest"):
         for field_name in cls.__fields__.keys():
             field_value = getattr(self, field_name)
             yield (field_name, field_value)
