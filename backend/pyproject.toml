@@ -27,6 +27,7 @@ dependencies = [
     "pytest>=7.4.4",
     "pre-commit>=3.8.0",
     "openai_responses",
+    "langfuse>=2.60.3",
 ]
 
 [tool.uv]

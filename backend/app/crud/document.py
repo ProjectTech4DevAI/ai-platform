@@ -69,6 +69,8 @@ class DocumentCrud:
             )
             raise PermissionError(error)
 
+        document.updated_at = now()
+
         self.session.add(document)
         self.session.commit()
         self.session.refresh(document)
@@ -78,5 +80,6 @@ class DocumentCrud:
     def delete(self, doc_id: UUID):
         document = self.read_one(doc_id)
         document.deleted_at = now()
+        document.updated_at = now()
 
         return self.update(document)

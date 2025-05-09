@@ -111,6 +111,7 @@ def delete_api_key(session: Session, api_key_id: int) -> None:
 
     api_key.is_deleted = True
     api_key.deleted_at = datetime.utcnow()
+    api_key.updated_at = datetime.utcnow()
 
     session.add(api_key)
     session.commit()

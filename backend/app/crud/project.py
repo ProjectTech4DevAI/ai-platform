@@ -1,5 +1,5 @@
 from typing import List, Optional
-
+from datetime import datetime
 from sqlmodel import Session, select
 
 from app.models import Project, ProjectCreate
@@ -7,6 +7,8 @@ from app.models import Project, ProjectCreate
 
 def create_project(*, session: Session, project_create: ProjectCreate) -> Project:
     db_project = Project.model_validate(project_create)
+    db_project.inserted_at = datetime.utcnow()
+    db_project.updated_at = datetime.utcnow()
     session.add(db_project)
     session.commit()
     session.refresh(db_project)
