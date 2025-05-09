@@ -221,7 +221,7 @@ def do_delete_collection(
         callback.fail(str(err))
 
 
-@router.post("/delete/{collection_id}", response_model=APIResponse[Collection])
+@router.post("/delete")
 def delete_collection(
     session: SessionDep,
     current_user: CurrentUser,
