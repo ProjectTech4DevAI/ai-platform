@@ -536,3 +536,23 @@ def test_threads_result_not_found(db):
     assert response.status_code == 200
     assert response.json()["success"] is False
     assert "not found" in response.json()["error"].lower()
+
+
+@patch("app.api.routes.threads.OpenAI")
+def test_threads_start_missing_question(mock_openai, db):
+    """Test /threads/start with missing 'question' key in request."""
+    mock_openai.return_value = MagicMock()
+
+    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
+    if not api_key_record:
+        pytest.skip("No API key found in the database for testing")
+
+    headers = {"X-API-KEY": api_key_record.key}
+
+    bad_data = {"assistant_id": "assist_123"}  # no "question" key
+
+    response = client.post("/threads/start", json=bad_data, headers=headers)
+
+    assert response.status_code == 422  # Unprocessable Entity (FastAPI will raise 422)
+    error_response = response.json()
+    assert "detail" in error_response
