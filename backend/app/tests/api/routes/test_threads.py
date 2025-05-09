@@ -16,6 +16,7 @@ from app.api.routes.threads import (
 )
 from app.models import APIKey, ThreadResponse
 import openai
+from openai import OpenAIError
 
 # Wrap the router in a FastAPI app instance.
 app = FastAPI()
@@ -499,3 +500,21 @@ def test_threads_result_not_found(db):
     assert response.status_code == 200
     assert response.json()["success"] is False
     assert "not found" in response.json()["error"].lower()
+
+
+@patch("app.api.routes.threads.OpenAI")
+def test_poll_run_and_prepare_response_openai_error_handling(mock_openai, db):
+    mock_client = MagicMock()
+    mock_error = OpenAIError("Simulated OpenAI error")
+    mock_client.beta.threads.runs.create_and_poll.side_effect = mock_error
+    mock_openai.return_value = mock_client
+
+    request = {
+        "question": "Failing run",
+        "assistant_id": "assist_123",
+        "thread_id": "test_openai_error",
+    }
+
+    poll_run_and_prepare_response(request, mock_client, db)
+    result = db.get(ThreadResponse, "test_openai_error")
+    assert result.message is None
