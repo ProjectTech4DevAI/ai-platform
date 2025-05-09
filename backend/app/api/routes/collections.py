@@ -209,7 +209,8 @@ def do_delete_collection(
     collection_crud = CollectionCrud(session, current_user.id)
     try:
         collection = collection_crud.read_one(request.collection_id)
-        data = collection_crud.delete(collection, OpenAIAssistantCrud)
+        assistant = OpenAIAssistantCrud()
+        data = collection_crud.delete(collection, assistant)
         callback.success(data.model_dump(mode="json"))
     except (ValueError, PermissionError, SQLAlchemyError) as err:
         callback.fail(str(err))
