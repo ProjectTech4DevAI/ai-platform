@@ -7,11 +7,8 @@ from sqlalchemy.exc import NoResultFound
 from app.core.config import settings
 from app.crud import CollectionCrud
 from app.tests.utils.document import DocumentStore
-from app.tests.utils.collection import (
-    get_collection,
-    openai_credentials,
-    uuid_increment,
-)
+from app.tests.utils.collection import get_collection, uuid_increment
+from app.tests.utils.utils import openai_credentials
 
 
 def mk_collection(db: Session):
