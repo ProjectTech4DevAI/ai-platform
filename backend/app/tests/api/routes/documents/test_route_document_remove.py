@@ -48,7 +48,7 @@ class TestDocumentRouteRemove:
         statement = select(Document).where(Document.id == document.id)
         result = db.exec(statement).one()
 
-        assert result.removed_at is not None
+        assert result.deleted_at is not None
 
     @openai_responses.mock()
     def test_cannot_remove_unknown_document(
