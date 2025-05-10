@@ -13,10 +13,10 @@ from app.tests.utils.document import (
 
 @pytest.fixture
 def route():
-    return Route("rm")
+    return Route("remove")
 
 
-class TestDocumentRouteDelete:
+class TestDocumentRouteRemove:
     def test_response_is_success(
         self,
         db: Session,
@@ -28,7 +28,7 @@ class TestDocumentRouteDelete:
 
         assert response.is_success
 
-    def test_item_is_soft_deleted(
+    def test_item_is_soft_removed(
         self,
         db: Session,
         route: Route,
@@ -42,9 +42,9 @@ class TestDocumentRouteDelete:
         statement = select(Document).where(Document.id == document.id)
         result = db.exec(statement).one()
 
-        assert result.deleted_at is not None
+        assert result.removed_at is not None
 
-    def test_cannot_delete_unknown_document(
+    def test_cannot_remove_unknown_document(
         self,
         db: Session,
         route: Route,
