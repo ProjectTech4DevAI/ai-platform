@@ -11,6 +11,7 @@ from app.api.deps import get_current_user_org, get_db
 from app.core import logging, settings
 from app.models import UserOrganization
 from app.utils import APIResponse
+from app.crud import get_key_by_org
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["threads"])
@@ -167,7 +168,15 @@ async def threads(
     _current_user: UserOrganization = Depends(get_current_user_org),
 ):
     """Asynchronous endpoint that processes requests in background."""
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    api_key = get_key_by_org(session=_session, org_id=_current_user.organization_id)
+
+    if not api_key:
+        return APIResponse.failure_response(
+            error="API key not configured for this organization."
+        )
+
+    client = OpenAI(api_key=api_key)
+
     langfuse_context.configure(
         secret_key=settings.LANGFUSE_SECRET_KEY,
         public_key=settings.LANGFUSE_PUBLIC_KEY,
@@ -206,7 +215,14 @@ async def threads_sync(
     _current_user: UserOrganization = Depends(get_current_user_org),
 ):
     """Synchronous endpoint that processes requests immediately."""
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    api_key = get_key_by_org(session=_session, org_id=_current_user.organization_id)
+
+    if not api_key:
+        return APIResponse.failure_response(
+            error="API key not configured for this organization."
+        )
+
+    client = OpenAI(api_key=api_key)
 
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
