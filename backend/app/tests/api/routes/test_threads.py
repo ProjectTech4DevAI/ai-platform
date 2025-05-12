@@ -473,16 +473,13 @@ def test_poll_run_and_prepare_response_non_completed(mock_openai, db):
 def test_threads_start_endpoint_creates_thread(mock_openai, db):
     """Test /threads/start creates thread and schedules background task."""
     mock_client = MagicMock()
-
-    # Simulate created thread with a known ID
     mock_thread = MagicMock()
     mock_thread.id = "mock_thread_001"
     mock_client.beta.threads.create.return_value = mock_thread
     mock_client.beta.threads.messages.create.return_value = None
     mock_openai.return_value = mock_client
 
-    # Get a valid API key from test DB
-    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted.is_(False))).first()
+    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
     if not api_key_record:
         pytest.skip("No API key found in the database for testing")
 
@@ -491,7 +488,6 @@ def test_threads_start_endpoint_creates_thread(mock_openai, db):
 
     response = client.post("/threads/start", json=data, headers=headers)
     assert response.status_code == 200
-
     res_json = response.json()
     assert res_json["success"]
     assert res_json["data"]["thread_id"] == "mock_thread_001"
@@ -565,15 +561,16 @@ def test_threads_start_missing_question(mock_openai, db):
     """Test /threads/start with missing 'question' key in request."""
     mock_openai.return_value = MagicMock()
 
-    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted.is_(False))).first()
+    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
     if not api_key_record:
         pytest.skip("No API key found in the database for testing")
 
     headers = {"X-API-KEY": api_key_record.key}
-    bad_data = {"assistant_id": "assist_123"}  # missing "question" / "prompt"
+
+    bad_data = {"assistant_id": "assist_123"}  # no "question" key
 
     response = client.post("/threads/start", json=bad_data, headers=headers)
 
-    assert response.status_code in (422, 500)
+    assert response.status_code == 422  # Unprocessable Entity (FastAPI will raise 422)
     error_response = response.json()
-    assert "detail" in error_response or "error" in error_response
+    assert "detail" in error_response
