@@ -1,6 +1,6 @@
 import uuid
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlmodel import Session, select
 from app.core.security import (
     verify_password,
