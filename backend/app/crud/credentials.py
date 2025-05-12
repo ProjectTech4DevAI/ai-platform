@@ -9,7 +9,7 @@ from app.core.providers import (
     validate_provider_credentials,
     get_supported_providers,
 )
-from app.core.security import encrypt_api_key
+from app.core.security import encrypt_api_key, decrypt_api_key
 
 
 def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Credential]:
@@ -88,7 +88,17 @@ def get_provider_credential(
     )
     creds = session.exec(statement).first()
 
-    return creds.credential if creds else None
+    if creds and creds.credential:
+        # Decrypt api_key if present
+        if "api_key" in creds.credential:
+            try:
+                creds.credential["api_key"] = decrypt_api_key(
+                    creds.credential["api_key"]
+                )
+            except Exception as e:
+                raise ValueError(f"Failed to decrypt API key: {str(e)}")
+        return creds.credential
+    return None
 
 
 def get_providers(*, session: Session, org_id: int) -> List[str]:
