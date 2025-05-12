@@ -110,8 +110,8 @@ def delete_api_key(session: Session, api_key_id: int) -> None:
         raise ValueError("API key not found or already deleted")
 
     api_key.is_deleted = True
-    api_key.deleted_at = datetime.utcnow()
-    api_key.updated_at = datetime.utcnow()
+    api_key.deleted_at = datetime.now(timezone.utc)
+    api_key.updated_at = datetime.now(timezone.utc)
 
     session.add(api_key)
     session.commit()

@@ -1,7 +1,7 @@
 from typing import Optional, Dict, Any, List
 from sqlmodel import Session, select
 from sqlalchemy.exc import IntegrityError
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.models import Credential, CredsCreate, CredsUpdate
 from app.core.providers import (
@@ -35,7 +35,7 @@ def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Crede
             provider=provider,
             credential=encrypted_credentials,
         )
-        credential.inserted_at = datetime.utcnow()
+        credential.inserted_at = datetime.now(timezone.utc)
         try:
             session.add(credential)
             session.commit()
@@ -140,7 +140,7 @@ def update_creds_for_org(
         raise ValueError(f"No credentials found for provider {creds_in.provider}")
 
     creds.credential = encrypted_credentials
-    creds.updated_at = datetime.utcnow()
+    creds.updated_at = datetime.now(timezone.utc)
     session.add(creds)
     session.commit()
     session.refresh(creds)
@@ -166,7 +166,7 @@ def remove_provider_credential(
 
     # Soft delete by setting is_active to False
     creds.is_active = False
-    creds.updated_at = datetime.utcnow()
+    creds.updated_at = datetime.now(timezone.utc)
 
     try:
         session.add(creds)
@@ -191,7 +191,7 @@ def remove_creds_for_org(
 
     for cred in creds:
         cred.is_active = False
-        cred.updated_at = datetime.utcnow()
+        cred.updated_at = datetime.now(timezone.utc)
         session.add(cred)
 
     session.commit()
