@@ -257,3 +257,173 @@ def test_delete_all_credentials_not_found(
 
     assert response.status_code == 404  # Expect 404 for not found
     assert response.json()["detail"] == "Credentials for organization not found"
+
+
+def test_duplicate_credential_creation(
+    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+):
+    org, creds_data = create_organization_and_creds
+    # First create credentials
+    response = client.post(
+        f"{settings.API_V1_STR}/credentials/",
+        json=creds_data.dict(),
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 200
+
+    # Try to create the same credentials again
+    response = client.post(
+        f"{settings.API_V1_STR}/credentials/",
+        json=creds_data.dict(),
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 400
+    assert "already exist" in response.json()["detail"]
+
+
+def test_multiple_provider_credentials(
+    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+):
+    org, _ = create_organization_and_creds
+
+    # Create OpenAI credentials
+    openai_creds = {
+        "organization_id": org.id,
+        "is_active": True,
+        "credential": {
+            Provider.OPENAI.value: {
+                "api_key": "sk-" + generate_random_string(10),
+                "model": "gpt-4",
+                "temperature": 0.7,
+            }
+        },
+    }
+
+    # Create Langfuse credentials
+    langfuse_creds = {
+        "organization_id": org.id,
+        "is_active": True,
+        "credential": {
+            Provider.LANGFUSE.value: {
+                "secret_key": "sk-" + generate_random_string(10),
+                "public_key": "pk-" + generate_random_string(10),
+                "host": "https://cloud.langfuse.com",
+            }
+        },
+    }
+
+    # Create both credentials
+    response = client.post(
+        f"{settings.API_V1_STR}/credentials/",
+        json=openai_creds,
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 200
+
+    response = client.post(
+        f"{settings.API_V1_STR}/credentials/",
+        json=langfuse_creds,
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 200
+
+    # Fetch all credentials
+    response = client.get(
+        f"{settings.API_V1_STR}/credentials/{org.id}",
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert len(data) == 2
+    providers = [cred["provider"] for cred in data]
+    assert Provider.OPENAI.value in providers
+    assert Provider.LANGFUSE.value in providers
+
+
+def test_credential_encryption(
+    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+):
+    org, creds_data = create_organization_and_creds
+    original_api_key = creds_data.credential[Provider.OPENAI.value]["api_key"]
+
+    # Create credentials
+    response = client.post(
+        f"{settings.API_V1_STR}/credentials/",
+        json=creds_data.dict(),
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 200
+
+    # Get the raw credential from database to verify encryption
+    from app.models.credentials import Credentials
+    from app.core.security import decrypt_api_key
+
+    db_cred = (
+        db.query(Credentials)
+        .filter(
+            Credentials.organization_id == org.id,
+            Credentials.provider == Provider.OPENAI.value,
+        )
+        .first()
+    )
+
+    assert db_cred is not None
+    # Verify the stored credential is encrypted
+    assert db_cred.credential["api_key"] != original_api_key
+
+    # Verify we can decrypt and get the original value
+    decrypted_api_key = decrypt_api_key(db_cred.credential["api_key"])
+    assert decrypted_api_key == original_api_key
+
+
+def test_credential_encryption_consistency(
+    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+):
+    org, creds_data = create_organization_and_creds
+    original_api_key = creds_data.credential[Provider.OPENAI.value]["api_key"]
+
+    # Create credentials
+    response = client.post(
+        f"{settings.API_V1_STR}/credentials/",
+        json=creds_data.dict(),
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 200
+
+    # Fetch the credentials through the API
+    response = client.get(
+        f"{settings.API_V1_STR}/credentials/{org.id}/{Provider.OPENAI.value}",
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()["data"]
+
+    # Verify the API returns the decrypted value
+    assert data["api_key"] == original_api_key
+
+    # Update the credentials
+    new_api_key = "sk-" + generate_random_string(10)
+    update_data = {
+        "provider": Provider.OPENAI.value,
+        "credential": {
+            "api_key": new_api_key,
+            "model": "gpt-4",
+            "temperature": 0.7,
+        },
+    }
+
+    response = client.patch(
+        f"{settings.API_V1_STR}/credentials/{org.id}",
+        json=update_data,
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 200
+
+    # Verify the updated value is also properly encrypted/decrypted
+    response = client.get(
+        f"{settings.API_V1_STR}/credentials/{org.id}/{Provider.OPENAI.value}",
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["api_key"] == new_api_key
