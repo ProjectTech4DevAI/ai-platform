@@ -7,7 +7,7 @@ from dataclasses import dataclass, field, fields, asdict, replace
 
 from openai import OpenAI, OpenAIError
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound, SQLAlchemyError
 
 from app.api.deps import CurrentUser, SessionDep
@@ -40,8 +40,13 @@ class ResponsePayload:
 
 
 class DocumentOptions(BaseModel):
-    documents: List[UUID]
-    batch_size: int = 1
+    documents: List[UUID] = Field(
+        description="List of document IDs",
+    )
+    batch_size: int = Field(
+        default=1,
+        description="Number of documents to send to OpenAI",
+    )
 
     def model_post_init(self, __context: Any):
         self.documents = list(set(self.documents))
