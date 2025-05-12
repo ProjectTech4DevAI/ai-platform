@@ -177,7 +177,6 @@ async def threads(
         return APIResponse.failure_response(
             error="API key not configured for this organization."
         )
-    print(api_key)
     client = OpenAI(api_key=api_key)
 
     langfuse_context.configure(

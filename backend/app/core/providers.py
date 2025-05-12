@@ -6,27 +6,13 @@ class Provider(str, Enum):
     """Enumeration of supported credential providers."""
 
     OPENAI = "openai"
-    GEMINI = "gemini"
-    ANTHROPIC = "anthropic"
-    MISTRAL = "mistral"
-    COHERE = "cohere"
-    HUGGINGFACE = "huggingface"
-    AZURE = "azure"
     AWS = "aws"
-    GOOGLE = "google"
 
 
 # Required fields for each provider's credentials
 PROVIDER_REQUIRED_FIELDS: Dict[str, List[str]] = {
     Provider.OPENAI: ["api_key"],
-    Provider.GEMINI: ["api_key"],
-    Provider.ANTHROPIC: ["api_key"],
-    Provider.MISTRAL: ["api_key"],
-    Provider.COHERE: ["api_key"],
-    Provider.HUGGINGFACE: ["api_key"],
-    Provider.AZURE: ["api_key", "endpoint"],
     Provider.AWS: ["access_key_id", "secret_access_key", "region"],
-    Provider.GOOGLE: ["api_key"],
 }
 
 

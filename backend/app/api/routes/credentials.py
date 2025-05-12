@@ -1,4 +1,8 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
+
 from app.api.deps import SessionDep, get_current_active_superuser
 from app.crud.credentials import (
     get_creds_by_org,
@@ -9,12 +13,9 @@ from app.crud.credentials import (
     remove_provider_credential,
 )
 from app.models import CredsCreate, CredsPublic, CredsUpdate
-from app.utils import APIResponse
-from datetime import datetime
-from app.core.providers import validate_provider
-from typing import List
-from sqlalchemy.exc import IntegrityError
 from app.models.organization import Organization
+from app.utils import APIResponse
+from app.core.providers import validate_provider
 
 router = APIRouter(prefix="/credentials", tags=["credentials"])
 
@@ -36,14 +37,10 @@ def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
                 status_code=400,
                 detail="Credentials already exist for this organization",
             )
-
         new_creds = set_creds_for_org(session=session, creds_add=creds_in)
         if not new_creds:
             raise HTTPException(status_code=500, detail="Failed to create credentials")
-
-        # Return all created credentials
         return APIResponse.success_response(new_creds)
-
     except ValueError as e:
         if "Unsupported provider" in str(e):
             raise HTTPException(status_code=400, detail=str(e))
@@ -67,8 +64,8 @@ def read_credential(*, session: SessionDep, org_id: int):
         if not creds:
             raise HTTPException(status_code=404, detail="Credentials not found")
         return APIResponse.success_response(creds)
-    except HTTPException as e:
-        raise e  # Ensure HTTPException is not wrapped again
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"An unexpected error occurred: {str(e)}"
@@ -88,17 +85,19 @@ def read_provider_credential(*, session: SessionDep, org_id: int, provider: str)
         provider_creds = get_provider_credential(
             session=session, org_id=org_id, provider=provider_enum
         )
+        if provider_creds is None:
+            raise HTTPException(
+                status_code=404, detail="Provider credentials not found"
+            )
+        return APIResponse.success_response(provider_creds)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"An unexpected error occurred: {str(e)}"
         )
-
-    if provider_creds is None:
-        raise HTTPException(status_code=404, detail="Provider credentials not found")
-
-    return APIResponse.success_response(provider_creds)
 
 
 @router.patch(
@@ -110,31 +109,19 @@ def read_provider_credential(*, session: SessionDep, org_id: int, provider: str)
 )
 def update_credential(*, session: SessionDep, org_id: int, creds_in: CredsUpdate):
     try:
-        # Validate incoming payload
         if not creds_in or not creds_in.provider or not creds_in.credential:
             raise HTTPException(
                 status_code=400, detail="Provider and credential must be provided"
             )
-
-        # Defensive check to ensure organization exists
-        try:
-            organization = session.get(Organization, org_id)
-        except Exception as e:
-            raise HTTPException(
-                status_code=500, detail=f"Failed to fetch organization: {str(e)}"
-            )
-
+        organization = session.get(Organization, org_id)
         if not organization:
             raise HTTPException(status_code=404, detail="Organization not found")
-
         updated_creds = update_creds_for_org(
             session=session, org_id=org_id, creds_in=creds_in
         )
         if not updated_creds:
             raise HTTPException(status_code=404, detail="Failed to update credentials")
-
         return APIResponse.success_response(updated_creds)
-
     except IntegrityError as e:
         if "ForeignKeyViolation" in str(e):
             raise HTTPException(
@@ -169,21 +156,21 @@ def delete_provider_credential(*, session: SessionDep, org_id: int, provider: st
         updated_creds = remove_provider_credential(
             session=session, org_id=org_id, provider=provider_enum
         )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=404, detail="Provider credentials not found"
-        )  # Updated to return 404
+        if not updated_creds:
+            raise HTTPException(
+                status_code=404, detail="Provider credentials not found"
+            )
+        return APIResponse.success_response(
+            {"message": "Provider credentials removed successfully"}
+        )
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Provider credentials not found")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"An unexpected error occurred: {str(e)}"
         )
-
-    if not updated_creds:  # Ensure proper check for no credentials found
-        raise HTTPException(status_code=404, detail="Provider credentials not found")
-
-    return APIResponse.success_response(
-        {"message": "Provider credentials removed successfully"}
-    )
 
 
 @router.delete(
@@ -196,14 +183,16 @@ def delete_provider_credential(*, session: SessionDep, org_id: int, provider: st
 def delete_all_credentials(*, session: SessionDep, org_id: int):
     try:
         creds = remove_creds_for_org(session=session, org_id=org_id)
+        if not creds:
+            raise HTTPException(
+                status_code=404, detail="Credentials for organization not found"
+            )
+        return APIResponse.success_response(
+            {"message": "Credentials deleted successfully"}
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"An unexpected error occurred: {str(e)}"
         )
-
-    if not creds:  # Ensure proper check for no credentials found
-        raise HTTPException(
-            status_code=404, detail="Credentials for organization not found"
-        )
-
-    return APIResponse.success_response({"message": "Credentials deleted successfully"})
