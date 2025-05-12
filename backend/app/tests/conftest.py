@@ -7,13 +7,7 @@ from sqlmodel import Session, delete
 from app.core.config import settings
 from app.core.db import engine, init_db
 from app.main import app
-from app.models import (
-    APIKey,
-    Organization,
-    Project,
-    ProjectUser,
-    User,
-)
+from app.models import APIKey, Organization, Project, ProjectUser, User, OpenAI_Thread
 from app.tests.utils.user import authentication_token_from_email
 from app.tests.utils.utils import get_superuser_token_headers
 
@@ -29,6 +23,7 @@ def db() -> Generator[Session, None, None]:
         session.execute(delete(Organization))
         session.execute(delete(APIKey))
         session.execute(delete(User))
+        session.execute(delete(OpenAI_Thread))
         session.commit()
 
 
