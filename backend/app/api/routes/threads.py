@@ -11,8 +11,8 @@ from app.api.deps import get_current_user_org, get_db
 from app.core import logging, settings
 from app.models import UserOrganization
 from app.utils import APIResponse
-from app.crud import get_key_by_org
-from app.core.security import decrypt_api_key
+from app.crud.credentials import get_provider_credential
+from app.core.security import decrypt_credentials
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["threads"])
@@ -169,15 +169,17 @@ async def threads(
     _current_user: UserOrganization = Depends(get_current_user_org),
 ):
     """Asynchronous endpoint that processes requests in background."""
-    encrypted_key = get_key_by_org(
-        session=_session, org_id=_current_user.organization_id
+    credentials = get_provider_credential(
+        session=_session,
+        org_id=_current_user.organization_id,
+        provider="openai",
+        project_id=request.get("project_id"),
     )
-    api_key = decrypt_api_key(encrypted_key)
-    if not api_key:
+    if not credentials or "api_key" not in credentials:
         return APIResponse.failure_response(
-            error="API key not configured for this organization."
+            error="OpenAI API key not configured for this organization."
         )
-    client = OpenAI(api_key=api_key)
+    client = OpenAI(api_key=credentials["api_key"])
 
     langfuse_context.configure(
         secret_key=settings.LANGFUSE_SECRET_KEY,
@@ -218,16 +220,18 @@ async def threads_sync(
 ):
     """Synchronous endpoint that processes requests immediately."""
 
-    encrypted_key = get_key_by_org(
-        session=_session, org_id=_current_user.organization_id
+    credentials = get_provider_credential(
+        session=_session,
+        org_id=_current_user.organization_id,
+        provider="openai",
+        project_id=_current_user.project_id,
     )
-    api_key = decrypt_api_key(encrypted_key)
-    if not api_key:
+    if not credentials or "api_key" not in credentials:
         return APIResponse.failure_response(
-            error="API key not configured for this organization."
+            error="OpenAI API key not configured for this organization."
         )
 
-    client = OpenAI(api_key=api_key)
+    client = OpenAI(api_key=credentials["api_key"])
 
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
