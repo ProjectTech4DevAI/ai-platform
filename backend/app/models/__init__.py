@@ -1,8 +1,9 @@
 from sqlmodel import SQLModel
 
 from .auth import Token, TokenPayload
+from .collection import Collection
 from .document import Document
-
+from .document_collection import DocumentCollection
 from .message import Message
 
 from .project_user import (

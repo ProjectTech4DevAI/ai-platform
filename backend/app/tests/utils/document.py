@@ -12,41 +12,25 @@ from sqlmodel import Session, delete
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
-from app.crud.user import get_user_by_email
 from app.models import Document
 from app.utils import APIResponse
 
+from .utils import SequentialUuidGenerator, get_user_id_by_email
+
 
 @ft.cache
-def get_user_id_by_email(db: Session):
-    user = get_user_by_email(session=db, email=settings.FIRST_SUPERUSER)
-    return user.id
+def _get_user_id_by_email(db: Session):
+    return get_user_id_by_email(db)
 
 
 def httpx_to_standard(response: Response):
     return APIResponse(**response.json())
 
 
-class DocumentIndexGenerator:
-    def __init__(self, start=0):
-        self.start = start
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        uu_id = self.peek()
-        self.start += 1
-        return uu_id
-
-    def peek(self):
-        return UUID(int=self.start)
-
-
 class DocumentMaker:
     def __init__(self, db: Session):
-        self.owner_id = get_user_id_by_email(db)
-        self.index = DocumentIndexGenerator()
+        self.owner_id = _get_user_id_by_email(db)
+        self.index = SequentialUuidGenerator()
 
     def __iter__(self):
         return self

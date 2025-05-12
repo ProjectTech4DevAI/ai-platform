@@ -1,12 +1,15 @@
 import os
+
+# import logging
 import functools as ft
 from pathlib import Path
 from dataclasses import dataclass, asdict
-from urllib.parse import ParseResult, urlunparse
+from urllib.parse import ParseResult, urlparse, urlunparse
 
 import boto3
 from fastapi import UploadFile
 from botocore.exceptions import ClientError
+from botocore.response import StreamingBody
 
 from app.api.deps import CurrentUser
 from app.core.config import settings
@@ -69,6 +72,15 @@ class SimpleStorageName:
 
         return ParseResult(**kwargs)
 
+    @classmethod
+    def from_url(cls, url: str):
+        url = urlparse(url)
+        path = Path(url.path)
+        if path.is_absolute():
+            path = path.relative_to(path.root)
+
+        return cls(Bucket=url.netloc, Key=str(path))
+
 
 class CloudStorage:
     def __init__(self, user: CurrentUser):
@@ -77,13 +89,16 @@ class CloudStorage:
     def put(self, source: UploadFile, basename: str):
         raise NotImplementedError()
 
+    def stream(self, url: str) -> StreamingBody:
+        raise NotImplementedError()
+
 
 class AmazonCloudStorage(CloudStorage):
     def __init__(self, user: CurrentUser):
         super().__init__(user)
         self.aws = AmazonCloudStorageClient()
 
-    def put(self, source: UploadFile, basename: str):
+    def put(self, source: UploadFile, basename: Path) -> SimpleStorageName:
         key = Path(str(self.user.id), basename)
         destination = SimpleStorageName(str(key))
 
@@ -101,3 +116,11 @@ class AmazonCloudStorage(CloudStorage):
             raise CloudStorageError(f'AWS Error: "{err}"') from err
 
         return destination
+
+    def stream(self, url: str) -> StreamingBody:
+        name = SimpleStorageName.from_url(url)
+        kwargs = asdict(name)
+        try:
+            return self.aws.client.get_object(**kwargs).get("Body")
+        except ClientError as err:
+            raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err

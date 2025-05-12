@@ -51,6 +51,9 @@ class User(UserBase, table=True):
     documents: list["Document"] = Relationship(
         back_populates="owner", cascade_delete=True
     )
+    collections: list["Collection"] = Relationship(
+        back_populates="owner", cascade_delete=True
+    )
     projects: list["ProjectUser"] = Relationship(
         back_populates="user", cascade_delete=True
     )

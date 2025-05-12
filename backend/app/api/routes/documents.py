@@ -1,28 +1,20 @@
-import warnings
 from uuid import UUID, uuid4
 from typing import List
+from pathlib import Path
 
 from fastapi import APIRouter, File, UploadFile, HTTPException, Query
 
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound, SQLAlchemyError
 
-from app.crud import DocumentCrud
+from app.crud import DocumentCrud, CollectionCrud
 from app.models import Document
 from app.utils import APIResponse
 from app.api.deps import CurrentUser, SessionDep
+from app.core.util import raise_from_unknown
 from app.core.cloud import AmazonCloudStorage, CloudStorageError
+from app.crud.rag import OpenAIAssistantCrud
 
 router = APIRouter(prefix="/documents", tags=["documents"])
-
-
-def raise_from_unknown(error: Exception):
-    warnings.warn(
-        'Unexpected exception "{}": {}'.format(
-            type(error).__name__,
-            error,
-        )
-    )
-    raise HTTPException(status_code=500, detail=str(error))
 
 
 @router.get("/ls", response_model=APIResponse[List[Document]])
@@ -50,9 +42,9 @@ def upload_doc(
     src: UploadFile = File(...),
 ):
     storage = AmazonCloudStorage(current_user)
-    basename = uuid4()
+    document_id = uuid4()
     try:
-        object_store_url = storage.put(src, str(basename))
+        object_store_url = storage.put(src, Path(str(document_id)))
     except CloudStorageError as err:
         raise HTTPException(status_code=503, detail=str(err))
     except Exception as err:
@@ -60,7 +52,9 @@ def upload_doc(
 
     crud = DocumentCrud(session, current_user.id)
     document = Document(
-        id=basename, fname=src.filename, object_store_url=str(object_store_url)
+        id=document_id,
+        fname=src.filename,
+        object_store_url=str(object_store_url),
     )
 
     try:
@@ -82,15 +76,17 @@ def delete_doc(
     current_user: CurrentUser,
     doc_id: UUID,
 ):
-    crud = DocumentCrud(session, current_user.id)
+    a_crud = OpenAIAssistantCrud()
+    (d_crud, c_crud) = (
+        x(session, current_user.id) for x in (DocumentCrud, CollectionCrud)
+    )
     try:
-        data = crud.delete(doc_id)
+        document = d_crud.delete(doc_id)
+        data = c_crud.delete(document, a_crud)
     except NoResultFound as err:
         raise HTTPException(status_code=400, detail=str(err))
     except Exception as err:
         raise_from_unknown(err)
-
-    # TODO: perform delete on the collection
 
     return APIResponse.success_response(data)
 

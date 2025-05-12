@@ -1,5 +1,5 @@
 from uuid import UUID
-from typing import Optional
+from typing import Optional, List
 
 from sqlmodel import Session, select, and_
 
@@ -43,6 +43,21 @@ class DocumentCrud:
             statement = statement.limit(limit)
 
         return self.session.exec(statement).all()
+
+    def read_each(self, doc_ids: List[UUID]):
+        statement = select(Document).where(
+            and_(
+                Document.owner_id == self.owner_id,
+                Document.id.in_(doc_ids),
+            )
+        )
+        results = self.session.exec(statement).all()
+
+        (m, n) = map(len, (results, doc_ids))
+        if m != n:
+            raise ValueError(f"Requested {n} retrieved {m}")
+
+        return results
 
     def update(self, document: Document):
         if not document.owner_id:
