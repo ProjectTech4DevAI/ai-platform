@@ -17,7 +17,7 @@ from app.core.util import now, raise_from_unknown, post_callback
 from app.crud import DocumentCrud, CollectionCrud, DocumentCollectionCrud
 from app.crud.rag import OpenAIVectorStoreCrud, OpenAIAssistantCrud
 from app.models import Collection, Document
-from app.utils import APIResponse
+from app.utils import APIResponse, load_description
 
 router = APIRouter(prefix="/collections", tags=["collections"])
 
@@ -182,7 +182,10 @@ def do_create_collection(
     callback.success(collection.model_dump(mode="json"))
 
 
-@router.post("/create")
+@router.post(
+    "/create",
+    description=load_description("collections/create.md"),
+)
 def create_collection(
     session: SessionDep,
     current_user: CurrentUser,
