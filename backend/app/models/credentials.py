@@ -1,6 +1,5 @@
 from typing import Dict, Any, Optional
 import sqlalchemy as sa
-from sqlalchemy.ext.mutable import MutableDict
 from sqlmodel import Field, Relationship, SQLModel
 from datetime import datetime
 
@@ -21,7 +20,6 @@ class CredsCreate(CredsBase):
 
     credential: Dict[str, Any] = Field(
         default=None,
-        sa_column=sa.Column(MutableDict.as_mutable(sa.JSON)),
         description="Dictionary mapping provider names to their credentials",
     )
 
@@ -35,7 +33,6 @@ class CredsUpdate(SQLModel):
         description="Name of the provider to update/add credentials for"
     )
     credential: Dict[str, Any] = Field(
-        sa_column=sa.Column(MutableDict.as_mutable(sa.JSON)),
         description="Credentials for the specified provider",
     )
     is_active: Optional[bool] = Field(
@@ -55,9 +52,9 @@ class Credential(CredsBase, table=True):
     provider: str = Field(
         index=True, description="Provider name like 'openai', 'gemini'"
     )
-    credential: Dict[str, Any] = Field(
-        sa_column=sa.Column(MutableDict.as_mutable(sa.JSON)),
-        description="Provider-specific credentials (e.g., API keys)",
+    credential: str = Field(
+        sa_column=sa.Column(sa.String),
+        description="Encrypted provider-specific credentials",
     )
     inserted_at: datetime = Field(
         default_factory=now,
@@ -74,13 +71,31 @@ class Credential(CredsBase, table=True):
     organization: Optional["Organization"] = Relationship(back_populates="creds")
     project: Optional["Project"] = Relationship(back_populates="creds")
 
+    def to_public(self) -> "CredsPublic":
+        """Convert the database model to a public model with decrypted credentials."""
+        from app.core.security import decrypt_credentials
+
+        return CredsPublic(
+            id=self.id,
+            organization_id=self.organization_id,
+            project_id=self.project_id,
+            is_active=self.is_active,
+            provider=self.provider,
+            credential=decrypt_credentials(self.credential)
+            if self.credential
+            else None,
+            inserted_at=self.inserted_at,
+            updated_at=self.updated_at,
+            deleted_at=self.deleted_at,
+        )
+
 
 class CredsPublic(CredsBase):
     """Public representation of credentials, excluding sensitive information."""
 
     id: int
     provider: str
-    credential: Dict[str, Any]
+    credential: Optional[Dict[str, Any]] = None
     inserted_at: datetime
     updated_at: datetime
     deleted_at: Optional[datetime]

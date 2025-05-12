@@ -64,7 +64,7 @@ def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
         new_creds = set_creds_for_org(session=session, creds_add=creds_in)
         if not new_creds:
             raise HTTPException(status_code=500, detail="Failed to create credentials")
-        return APIResponse.success_response(new_creds)
+        return APIResponse.success_response([cred.to_public() for cred in new_creds])
     except ValueError as e:
         if "Unsupported provider" in str(e):
             raise HTTPException(status_code=400, detail=str(e))
@@ -87,7 +87,7 @@ def read_credential(*, session: SessionDep, org_id: int, project_id: int | None 
         creds = get_creds_by_org(session=session, org_id=org_id, project_id=project_id)
         if not creds:
             raise HTTPException(status_code=404, detail="Credentials not found")
-        return APIResponse.success_response(creds)
+        return APIResponse.success_response([cred.to_public() for cred in creds])
     except HTTPException:
         raise
     except Exception as e:
@@ -150,7 +150,9 @@ def update_credential(*, session: SessionDep, org_id: int, creds_in: CredsUpdate
         )
         if not updated_creds:
             raise HTTPException(status_code=404, detail="Failed to update credentials")
-        return APIResponse.success_response(updated_creds)
+        return APIResponse.success_response(
+            [cred.to_public() for cred in updated_creds]
+        )
     except IntegrityError as e:
         if "ForeignKeyViolation" in str(e):
             raise HTTPException(

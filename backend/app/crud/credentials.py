@@ -9,7 +9,7 @@ from app.core.providers import (
     validate_provider_credentials,
     get_supported_providers,
 )
-from app.core.security import encrypt_api_key, decrypt_api_key
+from app.core.security import encrypt_credentials, decrypt_credentials
 
 
 def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Credential]:
@@ -24,9 +24,8 @@ def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Crede
         validate_provider(provider)
         validate_provider_credentials(provider, credentials)
 
-        # Encrypt API key if present
-        if isinstance(credentials, dict) and "api_key" in credentials:
-            credentials["api_key"] = encrypt_api_key(credentials["api_key"])
+        # Encrypt entire credentials object
+        encrypted_credentials = encrypt_credentials(credentials)
 
         # Create a row for each provider
         credential = Credential(
@@ -34,7 +33,7 @@ def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Crede
             project_id=creds_add.project_id,
             is_active=creds_add.is_active,
             provider=provider,
-            credential=credentials,
+            credential=encrypted_credentials,
         )
         credential.inserted_at = datetime.utcnow()
         try:
@@ -76,13 +75,14 @@ def get_key_by_org(
 def get_creds_by_org(
     *, session: Session, org_id: int, project_id: Optional[int] = None
 ) -> List[Credential]:
-    """Fetches all active credentials for the given organization."""
+    """Fetches all credentials for an organization."""
     statement = select(Credential).where(
         Credential.organization_id == org_id,
         Credential.is_active == True,
         Credential.project_id == project_id if project_id is not None else True,
     )
-    return session.exec(statement).all()
+    creds = session.exec(statement).all()
+    return creds
 
 
 def get_provider_credential(
@@ -100,15 +100,8 @@ def get_provider_credential(
     creds = session.exec(statement).first()
 
     if creds and creds.credential:
-        # Decrypt api_key if present
-        if "api_key" in creds.credential:
-            try:
-                creds.credential["api_key"] = decrypt_api_key(
-                    creds.credential["api_key"]
-                )
-            except Exception as e:
-                raise ValueError(f"Failed to decrypt API key: {str(e)}")
-        return creds.credential
+        # Decrypt entire credentials object
+        return decrypt_credentials(creds.credential)
     return None
 
 
@@ -121,84 +114,38 @@ def get_providers(
 
 
 def update_creds_for_org(
-    session: Session, org_id: int, creds_in: CredsUpdate
+    *, session: Session, org_id: int, creds_in: CredsUpdate
 ) -> List[Credential]:
-    if not creds_in:
-        raise ValueError(
-            "Missing request body or failed to parse JSON into CredsUpdate"
-        )
-
-    """Update credentials for an organization. Can update specific provider or add new provider."""
+    """Updates credentials for a specific provider of an organization."""
     if not creds_in.provider or not creds_in.credential:
-        raise ValueError("Provider and credential information must be provided")
+        raise ValueError("Provider and credential must be provided")
 
-    # Validate provider and credentials
     validate_provider(creds_in.provider)
     validate_provider_credentials(creds_in.provider, creds_in.credential)
 
-    # Encrypt API key if present
-    if isinstance(creds_in.credential, dict) and "api_key" in creds_in.credential:
-        creds_in.credential["api_key"] = encrypt_api_key(creds_in.credential["api_key"])
+    # Encrypt the entire credentials object
+    encrypted_credentials = encrypt_credentials(creds_in.credential)
 
-    # Check if credentials exist for this provider
     statement = select(Credential).where(
         Credential.organization_id == org_id,
         Credential.provider == creds_in.provider,
+        Credential.is_active == True,
         Credential.project_id == creds_in.project_id
         if creds_in.project_id is not None
         else True,
     )
-    existing_cred = session.exec(statement).first()
+    creds = session.exec(statement).first()
 
-    if existing_cred:
-        # Update existing credentials
-        existing_cred.credential = creds_in.credential
-        existing_cred.is_active = (
-            creds_in.is_active if creds_in.is_active is not None else True
-        )
-        if creds_in.project_id is not None:
-            existing_cred.project_id = creds_in.project_id
-        existing_cred.updated_at = datetime.utcnow()
-        try:
-            session.add(existing_cred)
-            session.commit()
-            session.refresh(existing_cred)
-            return [existing_cred]
-        except IntegrityError as e:
-            session.rollback()
-            raise ValueError(f"Error while updating credentials: {str(e)}")
-    else:
-        # Check if there are any other active credentials for this provider in the organization
-        if creds_in.project_id is not None:
-            other_creds = session.exec(
-                select(Credential).where(
-                    Credential.organization_id == org_id,
-                    Credential.provider == creds_in.provider,
-                    Credential.project_id == creds_in.project_id,
-                    Credential.is_active == True,
-                )
-            ).first()
-            if other_creds:
-                raise ValueError(
-                    f"Active credentials for provider '{creds_in.provider}' already exist for this organization and project combination"
-                )
+    if not creds:
+        raise ValueError(f"No credentials found for provider {creds_in.provider}")
 
-        # Create new credentials
-        new_cred = Credential(
-            organization_id=org_id,
-            provider=creds_in.provider,
-            credential=creds_in.credential,
-            project_id=creds_in.project_id,
-            is_active=creds_in.is_active if creds_in.is_active is not None else True,
-        )
-        try:
-            session.add(new_cred)
-            session.commit()
-            session.refresh(new_cred)
-            return [new_cred]
-        except IntegrityError as e:
-            session.rollback()
-            raise ValueError(f"Error while creating credentials: {str(e)}")
+    creds.credential = encrypted_credentials
+    creds.updated_at = datetime.utcnow()
+    session.add(creds)
+    session.commit()
+    session.refresh(creds)
+
+    return [creds]
 
 
 def remove_provider_credential(
@@ -232,26 +179,19 @@ def remove_provider_credential(
 
 
 def remove_creds_for_org(
-    session: Session, org_id: int, project_id: Optional[int] = None
-):
-    """
-    Removes all credentials for a specific organization by marking them as inactive.
-    Returns the list of updated credentials or None if no credentials were found.
-    """
-    creds = session.exec(
-        select(Credential).where(
-            Credential.organization_id == org_id,
-            Credential.is_active == True,
-            Credential.project_id == project_id if project_id is not None else True,
-        )
-    ).all()
-
-    if not creds:
-        return None  # Return None if no credentials are found
+    *, session: Session, org_id: int, project_id: Optional[int] = None
+) -> List[Credential]:
+    """Removes all credentials for an organization."""
+    statement = select(Credential).where(
+        Credential.organization_id == org_id,
+        Credential.is_active == True,
+        Credential.project_id == project_id if project_id is not None else True,
+    )
+    creds = session.exec(statement).all()
 
     for cred in creds:
         cred.is_active = False
-        cred.deleted_at = datetime.utcnow()
+        cred.updated_at = datetime.utcnow()
         session.add(cred)
 
     session.commit()
