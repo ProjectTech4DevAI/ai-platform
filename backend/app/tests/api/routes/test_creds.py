@@ -43,21 +43,16 @@ def create_organization_and_creds(db: Session, superuser_token_headers: dict[str
 
 
 def test_set_creds_for_org(db: Session, superuser_token_headers: dict[str, str]):
-    unique_org_id = 2
-    existing_org = (
-        db.query(Organization).filter(Organization.id == unique_org_id).first()
-    )
+    unique_name = "Test Organization " + generate_random_string(5)
 
-    if not existing_org:
-        new_org = Organization(
-            id=unique_org_id, name="Test Organization", is_active=True
-        )
-        db.add(new_org)
-        db.commit()
+    new_org = Organization(name=unique_name, is_active=True)
+    db.add(new_org)
+    db.commit()
+    db.refresh(new_org)
 
     api_key = "sk-" + generate_random_string(10)
     creds_data = {
-        "organization_id": unique_org_id,
+        "organization_id": new_org.id,
         "is_active": True,
         "credential": {"openai": {"api_key": api_key}},
     }
@@ -69,10 +64,9 @@ def test_set_creds_for_org(db: Session, superuser_token_headers: dict[str, str])
     )
 
     assert response.status_code == 200
-
     created_creds = response.json()
     assert "data" in created_creds
-    assert created_creds["data"]["organization_id"] == unique_org_id
+    assert created_creds["data"]["organization_id"] == new_org.id
     assert created_creds["data"]["credential"]["openai"]["api_key"] == api_key
 
 
