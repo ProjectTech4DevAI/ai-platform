@@ -3,9 +3,19 @@ from typing import Optional
 from datetime import datetime
 
 
-class ThreadResponse(SQLModel, table=True):
-    thread_id: str = Field(primary_key=True)
-    message: Optional[str]
-    question: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+class OpenAIThreadBase(SQLModel):
+    thread_id: str = Field(index=True, unique=True)
+    prompt: str
+    response: Optional[str] = None
+    status: Optional[str] = None
+    error: Optional[str] = None
+
+
+class OpenAIThreadCreate(OpenAIThreadBase):
+    pass  # Used for requests, no `id` or timestamps
+
+
+class OpenAI_Thread(OpenAIThreadBase, table=True):
+    id: int = Field(default=None, primary_key=True)
+    inserted_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

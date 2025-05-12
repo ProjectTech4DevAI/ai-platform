@@ -52,4 +52,4 @@ from .credentials import (
     CredsUpdate,
 )
 
-from .threads import ThreadResponse
+from .threads import OpenAI_Thread, OpenAIThreadBase, OpenAIThreadCreate

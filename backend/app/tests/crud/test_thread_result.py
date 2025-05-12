@@ -1,7 +1,7 @@
 import pytest
 from sqlmodel import SQLModel, Session, create_engine
 
-from app.models import ThreadResponse
+from app.models import OpenAI_Thread, OpenAIThreadCreate
 from app.crud import upsert_thread_result, get_thread_result
 
 
@@ -16,23 +16,41 @@ def session():
 
 def test_upsert_and_get_thread_result(session: Session):
     thread_id = "thread_test_123"
-    question = "What is the capital of Spain?"
-    message = "Madrid is the capital of Spain."
+    prompt = "What is the capital of Spain?"
+    response = "Madrid is the capital of Spain."
 
-    # Initially insert
-    upsert_thread_result(session, thread_id, question, message)
+    # Insert
+    upsert_thread_result(
+        session,
+        OpenAIThreadCreate(
+            thread_id=thread_id,
+            prompt=prompt,
+            response=response,
+            status="completed",
+            error=None,
+        ),
+    )
 
     # Retrieve
     result = get_thread_result(session, thread_id)
 
     assert result is not None
     assert result.thread_id == thread_id
-    assert result.question == question
-    assert result.message == message
+    assert result.prompt == prompt
+    assert result.response == response
 
-    # Update with new message
-    updated_message = "Madrid."
-    upsert_thread_result(session, thread_id, question, updated_message)
+    # Update with new response
+    updated_response = "Madrid."
+    upsert_thread_result(
+        session,
+        OpenAIThreadCreate(
+            thread_id=thread_id,
+            prompt=prompt,
+            response=updated_response,
+            status="completed",
+            error=None,
+        ),
+    )
 
     result_updated = get_thread_result(session, thread_id)
-    assert result_updated.message == updated_message
+    assert result_updated.response == updated_response

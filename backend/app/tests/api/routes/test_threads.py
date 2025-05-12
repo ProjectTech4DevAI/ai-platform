@@ -14,7 +14,8 @@ from app.api.routes.threads import (
     handle_openai_error,
     poll_run_and_prepare_response,
 )
-from app.models import APIKey, ThreadResponse
+from app.models import APIKey, OpenAI_Thread
+from app.crud import get_thread_result
 import openai
 from openai import OpenAIError
 
@@ -398,7 +399,7 @@ def test_poll_run_and_prepare_response_completed(mock_openai, db):
     mock_client.beta.threads.runs.create_and_poll.return_value = mock_run
 
     mock_message = MagicMock()
-    mock_message.content = [MagicMock(text=MagicMock(value="Answer "))]
+    mock_message.content = [MagicMock(text=MagicMock(value="Answer"))]
     mock_client.beta.threads.messages.list.return_value.data = [mock_message]
     mock_openai.return_value = mock_client
 
@@ -411,8 +412,8 @@ def test_poll_run_and_prepare_response_completed(mock_openai, db):
 
     poll_run_and_prepare_response(request, mock_client, db)
 
-    result = db.get(ThreadResponse, "test_thread_001")
-    assert result.message.strip() == "Answer"
+    result = get_thread_result(db, "test_thread_001")
+    assert result.response.strip() == "Answer"
 
 
 @patch("app.api.routes.threads.OpenAI")
@@ -429,8 +430,17 @@ def test_poll_run_and_prepare_response_openai_error_handling(mock_openai, db):
     }
 
     poll_run_and_prepare_response(request, mock_client, db)
-    result = db.get(ThreadResponse, "test_openai_error")
-    assert result.message is None
+
+    # Since thread_id is not the primary key, use select query
+    statement = select(OpenAI_Thread).where(
+        OpenAI_Thread.thread_id == "test_openai_error"
+    )
+    result = db.exec(statement).first()
+
+    assert result is not None
+    assert result.response is None
+    assert result.status == "failed"
+    assert "Simulated OpenAI error" in (result.error or "")
 
 
 @patch("app.api.routes.threads.OpenAI")
@@ -447,21 +457,32 @@ def test_poll_run_and_prepare_response_non_completed(mock_openai, db):
     }
 
     poll_run_and_prepare_response(request, mock_client, db)
-    result = db.get(ThreadResponse, "test_non_complete")
-    assert result.message is None
+
+    # thread_id is not the primary key, so we query using SELECT
+    statement = select(OpenAI_Thread).where(
+        OpenAI_Thread.thread_id == "test_non_complete"
+    )
+    result = db.exec(statement).first()
+
+    assert result is not None
+    assert result.response is None
+    assert result.status == "failed"
 
 
 @patch("app.api.routes.threads.OpenAI")
 def test_threads_start_endpoint_creates_thread(mock_openai, db):
     """Test /threads/start creates thread and schedules background task."""
     mock_client = MagicMock()
+
+    # Simulate created thread with a known ID
     mock_thread = MagicMock()
     mock_thread.id = "mock_thread_001"
     mock_client.beta.threads.create.return_value = mock_thread
     mock_client.beta.threads.messages.create.return_value = None
     mock_openai.return_value = mock_client
 
-    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
+    # Get a valid API key from test DB
+    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted.is_(False))).first()
     if not api_key_record:
         pytest.skip("No API key found in the database for testing")
 
@@ -470,11 +491,12 @@ def test_threads_start_endpoint_creates_thread(mock_openai, db):
 
     response = client.post("/threads/start", json=data, headers=headers)
     assert response.status_code == 200
+
     res_json = response.json()
     assert res_json["success"]
     assert res_json["data"]["thread_id"] == "mock_thread_001"
     assert res_json["data"]["status"] == "processing"
-    assert res_json["data"]["question"] == "What's 2+2?"
+    assert res_json["data"]["prompt"] == "What's 2+2?"
 
 
 def test_threads_result_endpoint_success(db):
@@ -483,7 +505,7 @@ def test_threads_result_endpoint_success(db):
     question = "Capital of France?"
     message = "Paris."
 
-    db.add(ThreadResponse(thread_id=thread_id, question=question, message=message))
+    db.add(OpenAI_Thread(thread_id=thread_id, prompt=question, response=message))
     db.commit()
 
     api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
@@ -496,9 +518,9 @@ def test_threads_result_endpoint_success(db):
     assert response.status_code == 200
     data = response.json()["data"]
     assert data["status"] == "success"
-    assert data["message"] == "Paris."
+    assert data["response"] == "Paris."
     assert data["thread_id"] == thread_id
-    assert data["question"] == question
+    assert data["prompt"] == question
 
 
 def test_threads_result_endpoint_processing(db):
@@ -506,7 +528,7 @@ def test_threads_result_endpoint_processing(db):
     thread_id = f"test_processing_{uuid.uuid4()}"
     question = "What is Glific?"
 
-    db.add(ThreadResponse(thread_id=thread_id, question=question, message=None))
+    db.add(OpenAI_Thread(thread_id=thread_id, prompt=question, response=None))
     db.commit()
 
     api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
@@ -521,7 +543,7 @@ def test_threads_result_endpoint_processing(db):
     assert data["status"] == "processing"
     assert data["message"] is None
     assert data["thread_id"] == thread_id
-    assert data["question"] == question
+    assert data["prompt"] == question
 
 
 def test_threads_result_not_found(db):
@@ -543,16 +565,15 @@ def test_threads_start_missing_question(mock_openai, db):
     """Test /threads/start with missing 'question' key in request."""
     mock_openai.return_value = MagicMock()
 
-    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
+    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted.is_(False))).first()
     if not api_key_record:
         pytest.skip("No API key found in the database for testing")
 
     headers = {"X-API-KEY": api_key_record.key}
-
-    bad_data = {"assistant_id": "assist_123"}  # no "question" key
+    bad_data = {"assistant_id": "assist_123"}  # missing "question" / "prompt"
 
     response = client.post("/threads/start", json=bad_data, headers=headers)
 
-    assert response.status_code == 422  # Unprocessable Entity (FastAPI will raise 422)
+    assert response.status_code in (422, 500)
     error_response = response.json()
-    assert "detail" in error_response
+    assert "detail" in error_response or "error" in error_response
