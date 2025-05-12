@@ -38,8 +38,23 @@ def upgrade():
     op.drop_constraint("project_organization_id_fkey", "project", type_="foreignkey")
     op.create_foreign_key(None, "project", "organization", ["organization_id"], ["id"])
 
+    # Add project_id column and foreign key
+    op.add_column("credential", sa.Column("project_id", sa.Integer(), nullable=True))
+    op.create_foreign_key(
+        "credential_project_id_fkey",
+        "credential",
+        "project",
+        ["project_id"],
+        ["id"],
+        ondelete="SET NULL",
+    )
+
 
 def downgrade():
+    # Drop project_id foreign key and column
+    op.drop_constraint("credential_project_id_fkey", "credential", type_="foreignkey")
+    op.drop_column("credential", "project_id")
+
     op.drop_constraint(None, "project", type_="foreignkey")
     op.create_foreign_key(
         "project_organization_id_fkey",

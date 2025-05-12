@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.core.util import now
@@ -34,7 +34,9 @@ class Project(ProjectBase, table=True):
     users: list["ProjectUser"] = Relationship(
         back_populates="project", cascade_delete=True
     )
-
+    creds: list["Credential"] = Relationship(
+        back_populates="project", sa_relationship_kwargs={"cascade": "all, delete"}
+    )
     organization: Optional["Organization"] = Relationship(back_populates="project")
 
 

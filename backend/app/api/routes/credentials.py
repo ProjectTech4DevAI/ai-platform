@@ -30,12 +30,14 @@ router = APIRouter(prefix="/credentials", tags=["credentials"])
 def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
     try:
         existing_creds = get_creds_by_org(
-            session=session, org_id=creds_in.organization_id
+            session=session,
+            org_id=creds_in.organization_id,
+            project_id=creds_in.project_id,
         )
         if existing_creds:
             raise HTTPException(
                 status_code=400,
-                detail="Credentials already exist for this organization",
+                detail="Credentials already exist for this organization and project combination",
             )
         new_creds = set_creds_for_org(session=session, creds_add=creds_in)
         if not new_creds:
@@ -58,9 +60,9 @@ def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
     summary="Get all credentials for an organization",
     description="Retrieves all provider credentials associated with a specific organization. This endpoint requires superuser privileges.",
 )
-def read_credential(*, session: SessionDep, org_id: int):
+def read_credential(*, session: SessionDep, org_id: int, project_id: int | None = None):
     try:
-        creds = get_creds_by_org(session=session, org_id=org_id)
+        creds = get_creds_by_org(session=session, org_id=org_id, project_id=project_id)
         if not creds:
             raise HTTPException(status_code=404, detail="Credentials not found")
         return APIResponse.success_response(creds)
@@ -79,11 +81,16 @@ def read_credential(*, session: SessionDep, org_id: int):
     summary="Get specific provider credentials",
     description="Retrieves credentials for a specific provider (e.g., 'openai', 'anthropic') for a given organization. This endpoint requires superuser privileges.",
 )
-def read_provider_credential(*, session: SessionDep, org_id: int, provider: str):
+def read_provider_credential(
+    *, session: SessionDep, org_id: int, provider: str, project_id: int | None = None
+):
     try:
         provider_enum = validate_provider(provider)
         provider_creds = get_provider_credential(
-            session=session, org_id=org_id, provider=provider_enum
+            session=session,
+            org_id=org_id,
+            provider=provider_enum,
+            project_id=project_id,
         )
         if provider_creds is None:
             raise HTTPException(
@@ -150,11 +157,16 @@ def update_credential(*, session: SessionDep, org_id: int, creds_in: CredsUpdate
     summary="Delete specific provider credentials",
     description="Removes credentials for a specific provider while keeping other provider credentials intact. This endpoint requires superuser privileges.",
 )
-def delete_provider_credential(*, session: SessionDep, org_id: int, provider: str):
+def delete_provider_credential(
+    *, session: SessionDep, org_id: int, provider: str, project_id: int | None = None
+):
     try:
         provider_enum = validate_provider(provider)
         updated_creds = remove_provider_credential(
-            session=session, org_id=org_id, provider=provider_enum
+            session=session,
+            org_id=org_id,
+            provider=provider_enum,
+            project_id=project_id,
         )
         if not updated_creds:
             raise HTTPException(
@@ -180,9 +192,13 @@ def delete_provider_credential(*, session: SessionDep, org_id: int, provider: st
     summary="Delete all organization credentials",
     description="Removes all credentials for a specific organization. This is a soft delete operation that marks credentials as inactive. This endpoint requires superuser privileges.",
 )
-def delete_all_credentials(*, session: SessionDep, org_id: int):
+def delete_all_credentials(
+    *, session: SessionDep, org_id: int, project_id: int | None = None
+):
     try:
-        creds = remove_creds_for_org(session=session, org_id=org_id)
+        creds = remove_creds_for_org(
+            session=session, org_id=org_id, project_id=project_id
+        )
         if not creds:
             raise HTTPException(
                 status_code=404, detail="Credentials for organization not found"

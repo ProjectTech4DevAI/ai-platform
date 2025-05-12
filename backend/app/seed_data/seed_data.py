@@ -67,6 +67,7 @@ def create_organization(session: Session, org_data_raw: dict) -> Organization:
         organization = Organization(
             id=org_data.id, name=org_data.name, is_active=org_data.is_active
         )
+        print(organization)
         session.add(organization)
         return organization
     except Exception as e:

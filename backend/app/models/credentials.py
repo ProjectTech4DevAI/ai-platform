@@ -9,6 +9,7 @@ from app.core.util import now
 
 class CredsBase(SQLModel):
     organization_id: int = Field(foreign_key="organization.id")
+    project_id: Optional[int] = Field(default=None, foreign_key="project.id")
     is_active: bool = True
 
 
@@ -40,6 +41,9 @@ class CredsUpdate(SQLModel):
     is_active: Optional[bool] = Field(
         default=None, description="Whether the credentials are active"
     )
+    project_id: Optional[int] = Field(
+        default=None, description="Project ID to associate with these credentials"
+    )
 
 
 class Credential(CredsBase, table=True):
@@ -68,6 +72,7 @@ class Credential(CredsBase, table=True):
     )
 
     organization: Optional["Organization"] = Relationship(back_populates="creds")
+    project: Optional["Project"] = Relationship(back_populates="creds")
 
 
 class CredsPublic(CredsBase):

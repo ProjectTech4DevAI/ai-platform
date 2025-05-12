@@ -31,6 +31,7 @@ def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Crede
         # Create a row for each provider
         credential = Credential(
             organization_id=creds_add.organization_id,
+            project_id=creds_add.project_id,
             is_active=creds_add.is_active,
             provider=provider,
             credential=credentials,
@@ -51,13 +52,18 @@ def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Crede
 
 
 def get_key_by_org(
-    *, session: Session, org_id: int, provider: str = "openai"
+    *,
+    session: Session,
+    org_id: int,
+    provider: str = "openai",
+    project_id: Optional[int] = None,
 ) -> Optional[str]:
     """Fetches the API key from the credentials for the given organization and provider."""
     statement = select(Credential).where(
         Credential.organization_id == org_id,
         Credential.provider == provider,
         Credential.is_active == True,
+        Credential.project_id == project_id if project_id is not None else True,
     )
     creds = session.exec(statement).first()
 
@@ -67,16 +73,20 @@ def get_key_by_org(
     return None
 
 
-def get_creds_by_org(*, session: Session, org_id: int) -> List[Credential]:
+def get_creds_by_org(
+    *, session: Session, org_id: int, project_id: Optional[int] = None
+) -> List[Credential]:
     """Fetches all active credentials for the given organization."""
     statement = select(Credential).where(
-        Credential.organization_id == org_id, Credential.is_active == True
+        Credential.organization_id == org_id,
+        Credential.is_active == True,
+        Credential.project_id == project_id if project_id is not None else True,
     )
     return session.exec(statement).all()
 
 
 def get_provider_credential(
-    *, session: Session, org_id: int, provider: str
+    *, session: Session, org_id: int, provider: str, project_id: Optional[int] = None
 ) -> Optional[Dict[str, Any]]:
     """Fetches credentials for a specific provider of an organization."""
     validate_provider(provider)
@@ -85,6 +95,7 @@ def get_provider_credential(
         Credential.organization_id == org_id,
         Credential.provider == provider,
         Credential.is_active == True,
+        Credential.project_id == project_id if project_id is not None else True,
     )
     creds = session.exec(statement).first()
 
@@ -101,9 +112,11 @@ def get_provider_credential(
     return None
 
 
-def get_providers(*, session: Session, org_id: int) -> List[str]:
+def get_providers(
+    *, session: Session, org_id: int, project_id: Optional[int] = None
+) -> List[str]:
     """Returns a list of all active providers for which credentials are stored."""
-    creds = get_creds_by_org(session=session, org_id=org_id)
+    creds = get_creds_by_org(session=session, org_id=org_id, project_id=project_id)
     return [cred.provider for cred in creds]
 
 
@@ -129,7 +142,11 @@ def update_creds_for_org(
 
     # Check if credentials exist for this provider
     statement = select(Credential).where(
-        Credential.organization_id == org_id, Credential.provider == creds_in.provider
+        Credential.organization_id == org_id,
+        Credential.provider == creds_in.provider,
+        Credential.project_id == creds_in.project_id
+        if creds_in.project_id is not None
+        else True,
     )
     existing_cred = session.exec(statement).first()
 
@@ -139,6 +156,8 @@ def update_creds_for_org(
         existing_cred.is_active = (
             creds_in.is_active if creds_in.is_active is not None else True
         )
+        if creds_in.project_id is not None:
+            existing_cred.project_id = creds_in.project_id
         existing_cred.updated_at = datetime.utcnow()
         try:
             session.add(existing_cred)
@@ -154,6 +173,7 @@ def update_creds_for_org(
             organization_id=org_id,
             provider=creds_in.provider,
             credential=creds_in.credential,
+            project_id=creds_in.project_id,
             is_active=creds_in.is_active if creds_in.is_active is not None else True,
         )
         try:
@@ -167,13 +187,15 @@ def update_creds_for_org(
 
 
 def remove_provider_credential(
-    session: Session, org_id: int, provider: str
+    session: Session, org_id: int, provider: str, project_id: Optional[int] = None
 ) -> Credential:
     """Remove credentials for a specific provider."""
     validate_provider(provider)
 
     statement = select(Credential).where(
-        Credential.organization_id == org_id, Credential.provider == provider
+        Credential.organization_id == org_id,
+        Credential.provider == provider,
+        Credential.project_id == project_id if project_id is not None else True,
     )
     creds = session.exec(statement).first()
 
@@ -194,14 +216,18 @@ def remove_provider_credential(
         raise ValueError(f"Error while removing provider credentials: {str(e)}")
 
 
-def remove_creds_for_org(session: Session, org_id: int):
+def remove_creds_for_org(
+    session: Session, org_id: int, project_id: Optional[int] = None
+):
     """
     Removes all credentials for a specific organization by marking them as inactive.
     Returns the list of updated credentials or None if no credentials were found.
     """
     creds = session.exec(
         select(Credential).where(
-            Credential.organization_id == org_id, Credential.is_active == True
+            Credential.organization_id == org_id,
+            Credential.is_active == True,
+            Credential.project_id == project_id if project_id is not None else True,
         )
     ).all()
 

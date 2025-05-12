@@ -1,4 +1,4 @@
-"""add credetial table
+"""add credential table
 
 Revision ID: 543f97951bd0
 Revises: 8d7a05fd0ad4
