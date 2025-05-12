@@ -7,12 +7,14 @@ class Provider(str, Enum):
 
     OPENAI = "openai"
     AWS = "aws"
+    LANGFUSE = "langfuse"
 
 
 # Required fields for each provider's credentials
 PROVIDER_REQUIRED_FIELDS: Dict[str, List[str]] = {
     Provider.OPENAI: ["api_key"],
     Provider.AWS: ["access_key_id", "secret_access_key", "region"],
+    Provider.LANGFUSE: ["secret_key", "public_key", "host"],
 }
 
 

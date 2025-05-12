@@ -168,6 +168,21 @@ def update_creds_for_org(
             session.rollback()
             raise ValueError(f"Error while updating credentials: {str(e)}")
     else:
+        # Check if there are any other active credentials for this provider in the organization
+        if creds_in.project_id is not None:
+            other_creds = session.exec(
+                select(Credential).where(
+                    Credential.organization_id == org_id,
+                    Credential.provider == creds_in.provider,
+                    Credential.project_id == creds_in.project_id,
+                    Credential.is_active == True,
+                )
+            ).first()
+            if other_creds:
+                raise ValueError(
+                    f"Active credentials for provider '{creds_in.provider}' already exist for this organization and project combination"
+                )
+
         # Create new credentials
         new_cred = Credential(
             organization_id=org_id,
