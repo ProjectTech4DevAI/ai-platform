@@ -12,6 +12,7 @@ from app.core import logging, settings
 from app.models import UserOrganization
 from app.utils import APIResponse
 from app.crud import get_key_by_org
+from app.core.security import decrypt_api_key
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["threads"])
@@ -168,13 +169,15 @@ async def threads(
     _current_user: UserOrganization = Depends(get_current_user_org),
 ):
     """Asynchronous endpoint that processes requests in background."""
-    api_key = get_key_by_org(session=_session, org_id=_current_user.organization_id)
-
+    encrypted_key = get_key_by_org(
+        session=_session, org_id=_current_user.organization_id
+    )
+    api_key = decrypt_api_key(encrypted_key)
     if not api_key:
         return APIResponse.failure_response(
             error="API key not configured for this organization."
         )
-
+    print(api_key)
     client = OpenAI(api_key=api_key)
 
     langfuse_context.configure(
@@ -215,8 +218,11 @@ async def threads_sync(
     _current_user: UserOrganization = Depends(get_current_user_org),
 ):
     """Synchronous endpoint that processes requests immediately."""
-    api_key = get_key_by_org(session=_session, org_id=_current_user.organization_id)
 
+    encrypted_key = get_key_by_org(
+        session=_session, org_id=_current_user.organization_id
+    )
+    api_key = decrypt_api_key(encrypted_key)
     if not api_key:
         return APIResponse.failure_response(
             error="API key not configured for this organization."
