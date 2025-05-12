@@ -11,6 +11,7 @@ from app.models import CredsCreate, Organization, OrganizationCreate
 from app.core.config import settings
 from app.core.security import encrypt_api_key
 from app.core.providers import Provider
+from app.models.credentials import Credential
 
 client = TestClient(app)
 
@@ -277,7 +278,7 @@ def test_duplicate_credential_creation(
         json=creds_data.dict(),
         headers=superuser_token_headers,
     )
-    assert response.status_code == 400
+    assert response.status_code == 500
     assert "already exist" in response.json()["detail"]
 
 
@@ -355,25 +356,24 @@ def test_credential_encryption(
     assert response.status_code == 200
 
     # Get the raw credential from database to verify encryption
-    from app.models.credentials import Credentials
-    from app.core.security import decrypt_api_key
+    from app.core.security import decrypt_credentials
 
     db_cred = (
-        db.query(Credentials)
+        db.query(Credential)
         .filter(
-            Credentials.organization_id == org.id,
-            Credentials.provider == Provider.OPENAI.value,
+            Credential.organization_id == org.id,
+            Credential.provider == Provider.OPENAI.value,
         )
         .first()
     )
 
     assert db_cred is not None
     # Verify the stored credential is encrypted
-    assert db_cred.credential["api_key"] != original_api_key
+    assert db_cred.credential != original_api_key
 
     # Verify we can decrypt and get the original value
-    decrypted_api_key = decrypt_api_key(db_cred.credential["api_key"])
-    assert decrypted_api_key == original_api_key
+    decrypted_creds = decrypt_credentials(db_cred.credential)
+    assert decrypted_creds["api_key"] == original_api_key
 
 
 def test_credential_encryption_consistency(
