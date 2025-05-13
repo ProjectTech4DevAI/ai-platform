@@ -5,23 +5,14 @@ from app.models import OpenAI_Thread, OpenAIThreadCreate
 from app.crud import upsert_thread_result, get_thread_result
 
 
-@pytest.fixture
-def session():
-    """Creates a new in-memory database session for each test."""
-    engine = create_engine("sqlite://", echo=False)
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
-        yield session
-
-
-def test_upsert_and_get_thread_result(session: Session):
+def test_upsert_and_get_thread_result(db: Session):
     thread_id = "thread_test_123"
     prompt = "What is the capital of Spain?"
     response = "Madrid is the capital of Spain."
 
     # Insert
     upsert_thread_result(
-        session,
+        db,
         OpenAIThreadCreate(
             thread_id=thread_id,
             prompt=prompt,
@@ -32,7 +23,7 @@ def test_upsert_and_get_thread_result(session: Session):
     )
 
     # Retrieve
-    result = get_thread_result(session, thread_id)
+    result = get_thread_result(db, thread_id)
 
     assert result is not None
     assert result.thread_id == thread_id
@@ -42,7 +33,7 @@ def test_upsert_and_get_thread_result(session: Session):
     # Update with new response
     updated_response = "Madrid."
     upsert_thread_result(
-        session,
+        db,
         OpenAIThreadCreate(
             thread_id=thread_id,
             prompt=prompt,
@@ -52,5 +43,5 @@ def test_upsert_and_get_thread_result(session: Session):
         ),
     )
 
-    result_updated = get_thread_result(session, thread_id)
+    result_updated = get_thread_result(db, thread_id)
     assert result_updated.response == updated_response
