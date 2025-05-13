@@ -1,7 +1,7 @@
 """Added provider column to the credential table
 
 Revision ID: 904ed70e7dab
-Revises: 543f97951bd0
+Revises: 79e47bc3aac6
 Create Date: 2025-05-10 11:13:17.868238
 
 """
@@ -11,7 +11,7 @@ import sqlmodel.sql.sqltypes
 
 
 revision = "904ed70e7dab"
-down_revision = "f23675767ed2"
+down_revision = "79e47bc3aac6"
 branch_labels = None
 depends_on = None
 
