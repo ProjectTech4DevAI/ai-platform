@@ -15,7 +15,7 @@ class CredsBase(SQLModel):
 class CredsCreate(CredsBase):
     """Create new credentials for an organization.
     The credential field should be a dictionary mapping provider names to their credentials.
-    Example: {"openai": {"api_key": "..."}, "gemini": {"api_key": "..."}}
+    Example: {"openai": {"api_key": "..."}, "langfuse": {"public_key": "..."}}
     """
 
     credential: Dict[str, Any] = Field(

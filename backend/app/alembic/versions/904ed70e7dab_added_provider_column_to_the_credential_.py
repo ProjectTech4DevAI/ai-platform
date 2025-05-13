@@ -17,16 +17,25 @@ depends_on = None
 
 
 def upgrade():
+    # Add new columns to credential table
     op.add_column(
         "credential",
         sa.Column("provider", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     )
+    op.add_column("credential", sa.Column("project_id", sa.Integer(), nullable=True))
+
+    # Create indexes and constraints
     op.create_index(
         op.f("ix_credential_provider"), "credential", ["provider"], unique=False
     )
+
+    # Drop existing foreign keys
     op.drop_constraint(
         "credential_organization_id_fkey", "credential", type_="foreignkey"
     )
+    op.drop_constraint("project_organization_id_fkey", "project", type_="foreignkey")
+
+    # Create all foreign keys together
     op.create_foreign_key(
         "credential_organization_id_fkey",
         "credential",
@@ -35,11 +44,13 @@ def upgrade():
         ["id"],
         ondelete="CASCADE",
     )
-    op.drop_constraint("project_organization_id_fkey", "project", type_="foreignkey")
-    op.create_foreign_key(None, "project", "organization", ["organization_id"], ["id"])
-
-    # Add project_id column and foreign key
-    op.add_column("credential", sa.Column("project_id", sa.Integer(), nullable=True))
+    op.create_foreign_key(
+        None,
+        "project",
+        "organization",
+        ["organization_id"],
+        ["id"],
+    )
     op.create_foreign_key(
         "credential_project_id_fkey",
         "credential",
@@ -55,7 +66,13 @@ def downgrade():
     op.drop_constraint("credential_project_id_fkey", "credential", type_="foreignkey")
     op.drop_column("credential", "project_id")
 
+    # Drop existing foreign keys
     op.drop_constraint(None, "project", type_="foreignkey")
+    op.drop_constraint(
+        "credential_organization_id_fkey", "credential", type_="foreignkey"
+    )
+
+    # Create all foreign keys together
     op.create_foreign_key(
         "project_organization_id_fkey",
         "project",
@@ -64,9 +81,6 @@ def downgrade():
         ["id"],
         ondelete="CASCADE",
     )
-    op.drop_constraint(
-        "credential_organization_id_fkey", "credential", type_="foreignkey"
-    )
     op.create_foreign_key(
         "credential_organization_id_fkey",
         "credential",
@@ -74,5 +88,6 @@ def downgrade():
         ["organization_id"],
         ["id"],
     )
+
     op.drop_index(op.f("ix_credential_provider"), table_name="credential")
     op.drop_column("credential", "provider")
