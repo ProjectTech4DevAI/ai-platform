@@ -1,6 +1,5 @@
 from uuid import UUID
 
-import pytest
 from openai import OpenAI
 from sqlmodel import Session
 
@@ -11,7 +10,6 @@ from app.tests.utils.utils import get_user_id_by_email
 
 class constants:
     openai_model = "gpt-4o"
-    openai_mock_key = "sk-fake123"
     llm_service_name = "test-service-name"
 
 
@@ -47,8 +45,3 @@ def get_collection(db: Session, client=None):
         llm_service_id=assistant.id,
         llm_service_name=constants.llm_service_name,
     )
-
-
-@pytest.fixture(scope="class")
-def openai_credentials():
-    settings.OPENAI_API_KEY = constants.openai_mock_key

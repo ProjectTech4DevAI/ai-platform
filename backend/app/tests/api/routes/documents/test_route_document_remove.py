@@ -1,4 +1,5 @@
 import pytest
+import openai_responses
 from sqlmodel import Session, select
 
 from app.models import Document
@@ -9,14 +10,18 @@ from app.tests.utils.document import (
     WebCrawler,
     crawler,
 )
+from app.tests.utils.collection import get_collection
+from app.tests.utils.utils import openai_credentials
 
 
 @pytest.fixture
 def route():
-    return Route("rm")
+    return Route("remove")
 
 
-class TestDocumentRouteDelete:
+@pytest.mark.usefixtures("openai_credentials")
+class TestDocumentRouteRemove:
+    @openai_responses.mock()
     def test_response_is_success(
         self,
         db: Session,
@@ -28,7 +33,8 @@ class TestDocumentRouteDelete:
 
         assert response.is_success
 
-    def test_item_is_soft_deleted(
+    @openai_responses.mock()
+    def test_item_is_soft_removed(
         self,
         db: Session,
         route: Route,
@@ -44,7 +50,8 @@ class TestDocumentRouteDelete:
 
         assert result.deleted_at is not None
 
-    def test_cannot_delete_unknown_document(
+    @openai_responses.mock()
+    def test_cannot_remove_unknown_document(
         self,
         db: Session,
         route: Route,

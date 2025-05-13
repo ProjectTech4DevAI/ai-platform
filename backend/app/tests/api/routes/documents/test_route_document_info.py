@@ -14,10 +14,10 @@ from app.tests.utils.document import (
 
 @pytest.fixture
 def route():
-    return Route("stat")
+    return Route("info")
 
 
-class TestDocumentRouteStat:
+class TestDocumentRouteInfo:
     def test_response_is_success(
         self,
         db: Session,
@@ -29,7 +29,7 @@ class TestDocumentRouteStat:
 
         assert response.is_success
 
-    def test_stat_reflects_database(
+    def test_info_reflects_database(
         self,
         db: Session,
         route: Route,
@@ -43,7 +43,7 @@ class TestDocumentRouteStat:
 
         assert source == target.data
 
-    def test_cannot_stat_unknown_document(
+    def test_cannot_info_unknown_document(
         self,
         db: Session,
         route: Route,

@@ -44,6 +44,7 @@ def create_organization_and_creds(db: Session):
 
 
 def test_set_creds_for_org(db: Session, superuser_token_headers: dict[str, str]):
+
     org = Organization(name="Org for Set Creds", is_active=True)
     db.add(org)
     db.commit()

@@ -44,4 +44,12 @@ from .user import (
     UpdatePassword,
 )
 
-from .credentials import Credential, CredsBase, CredsCreate, CredsPublic, CredsUpdate
+from .credentials import (
+    Credential,
+    CredsBase,
+    CredsCreate,
+    CredsPublic,
+    CredsUpdate,
+)
+
+from .threads import OpenAI_Thread, OpenAIThreadBase, OpenAIThreadCreate
