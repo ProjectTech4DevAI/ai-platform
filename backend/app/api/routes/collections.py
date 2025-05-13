@@ -182,6 +182,7 @@ def do_create_collection(
 
     collection_crud = CollectionCrud(session, current_user.id)
     collection = Collection(
+        id=UUID(payload.key),
         llm_service_id=assistant.id,
         llm_service_name=request.model,
     )
