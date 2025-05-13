@@ -41,7 +41,7 @@ def scratch():
 
 @pytest.fixture
 def route():
-    return Route("cp")
+    return Route("upload")
 
 
 @pytest.fixture
