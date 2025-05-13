@@ -181,10 +181,21 @@ async def threads(
         )
     client = OpenAI(api_key=credentials["api_key"])
 
+    langfuse_credentials = get_provider_credential(
+        session=_session,
+        org_id=_current_user.organization_id,
+        provider="langfuse",
+        project_id=request.get("project_id"),
+    )
+    if not langfuse_credentials:
+        return APIResponse.failure_response(
+            error="LANGFUSE keys not configured for this organization."
+        )
+
     langfuse_context.configure(
-        secret_key=settings.LANGFUSE_SECRET_KEY,
-        public_key=settings.LANGFUSE_PUBLIC_KEY,
-        host=settings.LANGFUSE_HOST,
+        secret_key=langfuse_credentials["secret_key"],
+        public_key=langfuse_credentials["public_key"],
+        host=langfuse_credentials["host"],
     )
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
