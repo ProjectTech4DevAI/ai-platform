@@ -45,7 +45,11 @@ class DocumentOptions(BaseModel):
     )
     batch_size: int = Field(
         default=1,
-        description="Number of documents to send to OpenAI",
+        description=(
+            "Number of documents to send to OpenAI in a single "
+            "transaction. See the `file_ids` parameter in the "
+            "vector store [create batch](https://platform.openai.com/docs/api-reference/vector-stores-file-batches/createBatch)."
+        ),
     )
 
     def model_post_init(self, __context: Any):
@@ -66,13 +70,36 @@ class AssistantOptions(BaseModel):
     # Fields to be passed along to OpenAI. They must be a subset of
     # parameters accepted by the OpenAI.clien.beta.assistants.create
     # API.
-    model: str
-    instructions: str
-    temperature: float = 1e-6
+    model: str = Field(
+        description=(
+            "OpenAI model to attach to this assistant. The model "
+            "must compatable with the assistants API; see the "
+            "OpenAI [model documentation](https://platform.openai.com/docs/models/compare) for more."
+        ),
+    )
+    instructions: str = Field(
+        description=(
+            "Assistant instruction. Sometimes referred to as the " '"system" prompt.'
+        ),
+    )
+    temperature: float = Field(
+        default=1e-6,
+        description=(
+            "Model temperature. The default is slightly "
+            "greater-than zero because it is [unknown how OpenAI "
+            "handles zero](https://community.openai.com/t/clarifications-on-setting-temperature-0/886447/5)."
+        ),
+    )
 
 
 class CallbackRequest(BaseModel):
-    callback_url: HttpUrl
+    callback_url: HttpUrl = Field(
+        description=(
+            "URL to call to report collection creation information. "
+            "If this value is not set, poll the `info` endpoint "
+            "using the `key` parameter from `create` response"
+        )
+    )
 
 
 class CreationRequest(
