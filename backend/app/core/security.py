@@ -119,7 +119,7 @@ def encrypt_api_key(api_key: str) -> str:
     try:
         return get_fernet().encrypt(api_key.encode()).decode()
     except Exception as e:
-        raise ValueError(f"Failed to encrypt API key: {str(e)}")
+        raise ValueError(f"Failed to encrypt API key: {e}")
 
 
 def decrypt_api_key(encrypted_api_key: str) -> str:
@@ -138,7 +138,7 @@ def decrypt_api_key(encrypted_api_key: str) -> str:
     try:
         return get_fernet().decrypt(encrypted_api_key.encode()).decode()
     except Exception as e:
-        raise ValueError(f"Failed to decrypt API key: {str(e)}")
+        raise ValueError(f"Failed to decrypt API key: {e}")
 
 
 def encrypt_credentials(credentials: dict) -> str:
@@ -158,7 +158,7 @@ def encrypt_credentials(credentials: dict) -> str:
         credentials_str = json.dumps(credentials)
         return get_fernet().encrypt(credentials_str.encode()).decode()
     except Exception as e:
-        raise ValueError(f"Failed to encrypt credentials: {str(e)}")
+        raise ValueError(f"Failed to encrypt credentials: {e}")
 
 
 def decrypt_credentials(encrypted_credentials: str) -> dict:
@@ -178,4 +178,4 @@ def decrypt_credentials(encrypted_credentials: str) -> dict:
         decrypted_str = get_fernet().decrypt(encrypted_credentials.encode()).decode()
         return json.loads(decrypted_str)
     except Exception as e:
-        raise ValueError(f"Failed to decrypt credentials: {str(e)}")
+        raise ValueError(f"Failed to decrypt credentials: {e}")
