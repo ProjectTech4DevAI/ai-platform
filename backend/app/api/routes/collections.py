@@ -229,7 +229,10 @@ def do_delete_collection(
         callback.fail(str(err))
 
 
-@router.post("/delete")
+@router.post(
+    "/delete",
+    description=load_description("collections/delete.md"),
+)
 def delete_collection(
     session: SessionDep,
     current_user: CurrentUser,
@@ -251,7 +254,11 @@ def delete_collection(
     return APIResponse.success_response(data=None, metadata=asdict(payload))
 
 
-@router.post("/info/{collection_id}", response_model=APIResponse[Collection])
+@router.post(
+    "/info/{collection_id}",
+    description=load_description("collections/info.md"),
+    response_model=APIResponse[Collection],
+)
 def collection_info(
     session: SessionDep,
     current_user: CurrentUser,
@@ -270,7 +277,11 @@ def collection_info(
     return APIResponse.success_response(data)
 
 
-@router.post("/list", response_model=APIResponse[List[Collection]])
+@router.post(
+    "/list",
+    description=load_description("collections/list.md"),
+    response_model=APIResponse[List[Collection]],
+)
 def list_collections(
     session: SessionDep,
     current_user: CurrentUser,
@@ -288,6 +299,7 @@ def list_collections(
 
 @router.post(
     "/docs/{collection_id}",
+    description=load_description("collections/docs.md"),
     response_model=APIResponse[List[Document]],
 )
 def collection_documents(
