@@ -7,6 +7,7 @@ from dataclasses import dataclass, field, fields, asdict, replace
 
 from openai import OpenAI, OpenAIError
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
+from fastapi import Path as FastPath
 from pydantic import BaseModel, Field, HttpUrl
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound, SQLAlchemyError
 
@@ -94,11 +95,7 @@ class AssistantOptions(BaseModel):
 
 class CallbackRequest(BaseModel):
     callback_url: HttpUrl = Field(
-        description=(
-            "URL to call to report collection creation information. "
-            "If this value is not set, poll the `info` endpoint "
-            "using the `key` parameter from `create` response"
-        )
+        description="URL to call to report endpoint status",
     )
 
 
@@ -114,7 +111,7 @@ class CreationRequest(
 
 
 class DeletionRequest(CallbackRequest):
-    collection_id: UUID
+    collection_id: UUID = Field("Collection to delete")
 
 
 class CallbackHandler:
@@ -289,7 +286,7 @@ def delete_collection(
 def collection_info(
     session: SessionDep,
     current_user: CurrentUser,
-    collection_id: UUID,
+    collection_id: UUID = FastPath(description="Collection to retrieve"),
 ):
     collection_crud = CollectionCrud(session, current_user.id)
     try:
@@ -332,7 +329,7 @@ def list_collections(
 def collection_documents(
     session: SessionDep,
     current_user: CurrentUser,
-    collection_id: UUID,
+    collection_id: UUID = FastPath(description="Collection to retrieve"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, gt=0, le=100),
 ):
