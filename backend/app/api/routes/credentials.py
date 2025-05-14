@@ -66,8 +66,6 @@ def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
             raise HTTPException(status_code=500, detail="Failed to create credentials")
         return APIResponse.success_response([cred.to_public() for cred in new_creds])
     except ValueError as e:
-        if "Unsupported provider" in str(e):
-            raise HTTPException(status_code=400, detail=str(e))
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(
@@ -83,17 +81,10 @@ def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
     description="Retrieves all provider credentials associated with a specific organization and project combination. If project_id is not provided, returns credentials for the organization level. This endpoint requires superuser privileges.",
 )
 def read_credential(*, session: SessionDep, org_id: int, project_id: int | None = None):
-    try:
-        creds = get_creds_by_org(session=session, org_id=org_id, project_id=project_id)
-        if not creds:
-            raise HTTPException(status_code=404, detail="Credentials not found")
-        return APIResponse.success_response([cred.to_public() for cred in creds])
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"An unexpected error occurred: {str(e)}"
-        )
+    creds = get_creds_by_org(session=session, org_id=org_id, project_id=project_id)
+    if not creds:
+        raise HTTPException(status_code=404, detail="Credentials not found")
+    return APIResponse.success_response([cred.to_public() for cred in creds])
 
 
 @router.get(
@@ -106,27 +97,16 @@ def read_credential(*, session: SessionDep, org_id: int, project_id: int | None 
 def read_provider_credential(
     *, session: SessionDep, org_id: int, provider: str, project_id: int | None = None
 ):
-    try:
-        provider_enum = validate_provider(provider)
-        provider_creds = get_provider_credential(
-            session=session,
-            org_id=org_id,
-            provider=provider_enum,
-            project_id=project_id,
-        )
-        if provider_creds is None:
-            raise HTTPException(
-                status_code=404, detail="Provider credentials not found"
-            )
-        return APIResponse.success_response(provider_creds)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"An unexpected error occurred: {str(e)}"
-        )
+    provider_enum = validate_provider(provider)
+    provider_creds = get_provider_credential(
+        session=session,
+        org_id=org_id,
+        provider=provider_enum,
+        project_id=project_id,
+    )
+    if provider_creds is None:
+        raise HTTPException(status_code=404, detail="Provider credentials not found")
+    return APIResponse.success_response(provider_creds)
 
 
 @router.patch(
@@ -163,11 +143,7 @@ def update_credential(*, session: SessionDep, org_id: int, creds_in: CredsUpdate
             status_code=500, detail=f"An unexpected database error occurred: {str(e)}"
         )
     except ValueError as e:
-        if "Unsupported provider" in str(e):
-            raise HTTPException(status_code=400, detail=str(e))
         raise HTTPException(status_code=404, detail=str(e))
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"An unexpected error occurred: {str(e)}"
@@ -201,8 +177,6 @@ def delete_provider_credential(
         )
     except ValueError:
         raise HTTPException(status_code=404, detail="Provider credentials not found")
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"An unexpected error occurred: {str(e)}"
@@ -230,8 +204,6 @@ def delete_all_credentials(
         return APIResponse.success_response(
             {"message": "Credentials deleted successfully"}
         )
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"An unexpected error occurred: {str(e)}"
