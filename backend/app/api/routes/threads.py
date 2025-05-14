@@ -12,6 +12,8 @@ from app.core import logging, settings
 from app.models import UserOrganization, OpenAIThreadCreate
 from app.crud import upsert_thread_result, get_thread_result
 from app.utils import APIResponse
+from app.crud.credentials import get_provider_credential
+from app.core.security import decrypt_credentials
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["threads"])
@@ -220,11 +222,33 @@ async def threads(
     _current_user: UserOrganization = Depends(get_current_user_org),
 ):
     """Asynchronous endpoint that processes requests in background."""
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    credentials = get_provider_credential(
+        session=_session,
+        org_id=_current_user.organization_id,
+        provider="openai",
+        project_id=request.get("project_id"),
+    )
+    if not credentials or "api_key" not in credentials:
+        return APIResponse.failure_response(
+            error="OpenAI API key not configured for this organization."
+        )
+    client = OpenAI(api_key=credentials["api_key"])
+
+    langfuse_credentials = get_provider_credential(
+        session=_session,
+        org_id=_current_user.organization_id,
+        provider="langfuse",
+        project_id=request.get("project_id"),
+    )
+    if not langfuse_credentials:
+        return APIResponse.failure_response(
+            error="LANGFUSE keys not configured for this organization."
+        )
+
     langfuse_context.configure(
-        secret_key=settings.LANGFUSE_SECRET_KEY,
-        public_key=settings.LANGFUSE_PUBLIC_KEY,
-        host=settings.LANGFUSE_HOST,
+        secret_key=langfuse_credentials["secret_key"],
+        public_key=langfuse_credentials["public_key"],
+        host=langfuse_credentials["host"],
     )
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
@@ -259,7 +283,19 @@ async def threads_sync(
     _current_user: UserOrganization = Depends(get_current_user_org),
 ):
     """Synchronous endpoint that processes requests immediately."""
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+    credentials = get_provider_credential(
+        session=_session,
+        org_id=_current_user.organization_id,
+        provider="openai",
+        project_id=_current_user.project_id,
+    )
+    if not credentials or "api_key" not in credentials:
+        return APIResponse.failure_response(
+            error="OpenAI API key not configured for this organization."
+        )
+
+    client = OpenAI(api_key=credentials["api_key"])
 
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))

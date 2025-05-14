@@ -30,4 +30,12 @@ from .api_key import (
     delete_api_key,
 )
 
+from .credentials import (
+    set_creds_for_org,
+    get_creds_by_org,
+    get_key_by_org,
+    update_creds_for_org,
+    remove_creds_for_org,
+)
+
 from .thread_results import upsert_thread_result, get_thread_result

@@ -1,104 +1,199 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from sqlmodel import Session, select
 from sqlalchemy.exc import IntegrityError
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.models import Credential, CredsCreate, CredsUpdate
+from app.core.providers import (
+    validate_provider,
+    validate_provider_credentials,
+    get_supported_providers,
+)
+from app.core.security import encrypt_credentials, decrypt_credentials
+from app.core.util import now
 
 
-def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> Credential:
-    creds = Credential.model_validate(creds_add)
+def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Credential]:
+    """Set credentials for an organization. Creates a separate row for each provider."""
+    created_credentials = []
 
-    # Set the inserted_at timestamp (current UTC time)
-    creds.inserted_at = datetime.utcnow()
+    if not creds_add.credential:
+        raise ValueError("No credentials provided")
+
+    for provider, credentials in creds_add.credential.items():
+        # Validate provider and credentials
+        validate_provider(provider)
+        validate_provider_credentials(provider, credentials)
+
+        # Encrypt entire credentials object
+        encrypted_credentials = encrypt_credentials(credentials)
+
+        # Create a row for each provider
+        credential = Credential(
+            organization_id=creds_add.organization_id,
+            project_id=creds_add.project_id,
+            is_active=creds_add.is_active,
+            provider=provider,
+            credential=encrypted_credentials,
+        )
+        credential.inserted_at = now()
+        try:
+            session.add(credential)
+            session.commit()
+            session.refresh(credential)
+            created_credentials.append(credential)
+        except IntegrityError as e:
+            session.rollback()
+            raise ValueError(
+                f"Error while adding credentials for provider {provider}: {str(e)}"
+            )
+
+    return created_credentials
+
+
+def get_key_by_org(
+    *,
+    session: Session,
+    org_id: int,
+    provider: str = "openai",
+    project_id: Optional[int] = None,
+) -> Optional[str]:
+    """Fetches the API key from the credentials for the given organization and provider."""
+    statement = select(Credential).where(
+        Credential.organization_id == org_id,
+        Credential.provider == provider,
+        Credential.is_active == True,
+        Credential.project_id == project_id if project_id is not None else True,
+    )
+    creds = session.exec(statement).first()
+
+    if creds and creds.credential and "api_key" in creds.credential:
+        return creds.credential["api_key"]
+
+    return None
+
+
+def get_creds_by_org(
+    *, session: Session, org_id: int, project_id: Optional[int] = None
+) -> List[Credential]:
+    """Fetches all credentials for an organization."""
+    statement = select(Credential).where(
+        Credential.organization_id == org_id,
+        Credential.is_active == True,
+        Credential.project_id == project_id if project_id is not None else True,
+    )
+    creds = session.exec(statement).all()
+    return creds
+
+
+def get_provider_credential(
+    *, session: Session, org_id: int, provider: str, project_id: Optional[int] = None
+) -> Optional[Dict[str, Any]]:
+    """Fetches credentials for a specific provider of an organization."""
+    validate_provider(provider)
+
+    statement = select(Credential).where(
+        Credential.organization_id == org_id,
+        Credential.provider == provider,
+        Credential.is_active == True,
+        Credential.project_id == project_id if project_id is not None else True,
+    )
+    creds = session.exec(statement).first()
+
+    if creds and creds.credential:
+        # Decrypt entire credentials object
+        return decrypt_credentials(creds.credential)
+    return None
+
+
+def get_providers(
+    *, session: Session, org_id: int, project_id: Optional[int] = None
+) -> List[str]:
+    """Returns a list of all active providers for which credentials are stored."""
+    creds = get_creds_by_org(session=session, org_id=org_id, project_id=project_id)
+    return [cred.provider for cred in creds]
+
+
+def update_creds_for_org(
+    *, session: Session, org_id: int, creds_in: CredsUpdate
+) -> List[Credential]:
+    """Updates credentials for a specific provider of an organization."""
+    if not creds_in.provider or not creds_in.credential:
+        raise ValueError("Provider and credential must be provided")
+
+    validate_provider(creds_in.provider)
+    validate_provider_credentials(creds_in.provider, creds_in.credential)
+
+    # Encrypt the entire credentials object
+    encrypted_credentials = encrypt_credentials(creds_in.credential)
+
+    statement = select(Credential).where(
+        Credential.organization_id == org_id,
+        Credential.provider == creds_in.provider,
+        Credential.is_active == True,
+        Credential.project_id == creds_in.project_id
+        if creds_in.project_id is not None
+        else True,
+    )
+    creds = session.exec(statement).first()
+
+    if not creds:
+        raise ValueError(f"No credentials found for provider {creds_in.provider}")
+
+    creds.credential = encrypted_credentials
+    creds.updated_at = now()
+    session.add(creds)
+    session.commit()
+    session.refresh(creds)
+
+    return [creds]
+
+
+def remove_provider_credential(
+    session: Session, org_id: int, provider: str, project_id: Optional[int] = None
+) -> Credential:
+    """Remove credentials for a specific provider."""
+    validate_provider(provider)
+
+    statement = select(Credential).where(
+        Credential.organization_id == org_id,
+        Credential.provider == provider,
+        Credential.project_id == project_id if project_id is not None else True,
+    )
+    creds = session.exec(statement).first()
+
+    if not creds:
+        raise ValueError(f"Credentials not found for provider '{provider}'")
+
+    # Soft delete by setting is_active to False
+    creds.is_active = False
+    creds.updated_at = now()
 
     try:
         session.add(creds)
         session.commit()
         session.refresh(creds)
+        return creds
     except IntegrityError as e:
-        session.rollback()  # Rollback the session if there's a unique constraint violation
-        raise ValueError(f"Error while adding credentials: {str(e)}")
-
-    return creds
-
-
-def get_creds_by_org(*, session: Session, org_id: int) -> Optional[Credential]:
-    """Fetches the credentials for the given organization."""
-    statement = select(Credential).where(Credential.organization_id == org_id)
-    return session.exec(statement).first()
-
-
-def get_key_by_org(*, session: Session, org_id: int) -> Optional[str]:
-    """Fetches the API key from the credentials for the given organization."""
-    statement = select(Credential).where(Credential.organization_id == org_id)
-    creds = session.exec(statement).first()
-
-    # Check if creds exists and if the credential field contains the api_key
-    if (
-        creds
-        and creds.credential
-        and "openai" in creds.credential
-        and "api_key" in creds.credential["openai"]
-    ):
-        return creds.credential["openai"]["api_key"]
-
-    return None
-
-
-def update_creds_for_org(
-    session: Session, org_id: int, creds_in: CredsUpdate
-) -> Credential:
-    # Fetch the current credentials for the organization
-    creds = session.exec(
-        select(Credential).where(Credential.organization_id == org_id)
-    ).first()
-
-    if not creds:
-        raise ValueError(f"Credentials not found")
-
-    # Update the credentials data with the provided values
-    creds_data = creds_in.dict(exclude_unset=True)
-
-    # Directly update the fields on the original creds object instead of creating a new one
-    for key, value in creds_data.items():
-        setattr(creds, key, value)
-
-    # Set the updated_at timestamp (current UTC time)
-    creds.updated_at = datetime.utcnow()
-
-    try:
-        # Add the updated creds to the session and flush the changes to the database
-        session.add(creds)
-        session.flush()  # This will flush the changes to the database but without committing
-        session.commit()  # Now we commit the changes to make them permanent
-    except IntegrityError as e:
-        # Rollback in case of any integrity errors (e.g., constraint violations)
         session.rollback()
-        raise ValueError(f"Error while updating credentials: {str(e)}")
-
-    # Refresh the session to get the latest updated data
-    session.refresh(creds)
-
-    return creds
+        raise ValueError(f"Error while removing provider credentials: {str(e)}")
 
 
-def remove_creds_for_org(*, session: Session, org_id: int) -> Optional[Credential]:
-    """Removes (soft deletes) the credentials for the given organization."""
-    statement = select(Credential).where(Credential.organization_id == org_id)
-    creds = session.exec(statement).first()
+def remove_creds_for_org(
+    *, session: Session, org_id: int, project_id: Optional[int] = None
+) -> List[Credential]:
+    """Removes all credentials for an organization."""
+    statement = select(Credential).where(
+        Credential.organization_id == org_id,
+        Credential.is_active == True,
+        Credential.project_id == project_id if project_id is not None else True,
+    )
+    creds = session.exec(statement).all()
 
-    if creds:
-        try:
-            # Soft delete: Set is_active to False and set deleted_at timestamp
-            creds.is_active = False
-            creds.deleted_at = (
-                datetime.utcnow()
-            )  # Set the current time as the deleted_at timestamp
-            session.add(creds)
-            session.commit()
-        except IntegrityError as e:
-            session.rollback()  # Rollback in case of a failure during delete operation
-            raise ValueError(f"Error while deleting credentials: {str(e)}")
+    for cred in creds:
+        cred.is_active = False
+        cred.updated_at = now()
+        session.add(cred)
 
+    session.commit()
     return creds

@@ -1,4 +1,4 @@
-"""add credetial table
+"""add credential table
 
 Revision ID: 543f97951bd0
 Revises: 8d7a05fd0ad4
@@ -22,7 +22,7 @@ def upgrade():
         "credential",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("is_active", sa.Boolean(), nullable=False),
-        sa.Column("credential", sa.JSON(), nullable=True),
+        sa.Column("credential", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("organization_id", sa.Integer(), nullable=False),
         sa.Column("inserted_at", sa.DateTime(), nullable=True),
         sa.Column("updated_at", sa.DateTime(), nullable=True),

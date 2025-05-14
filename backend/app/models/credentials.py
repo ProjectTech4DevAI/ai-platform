@@ -8,23 +8,54 @@ from app.core.util import now
 
 class CredsBase(SQLModel):
     organization_id: int = Field(foreign_key="organization.id")
+    project_id: Optional[int] = Field(default=None, foreign_key="project.id")
     is_active: bool = True
 
 
 class CredsCreate(CredsBase):
-    credential: Dict[str, Any] = Field(default=None, sa_column=sa.Column(sa.JSON))
+    """Create new credentials for an organization.
+    The credential field should be a dictionary mapping provider names to their credentials.
+    Example: {"openai": {"api_key": "..."}, "langfuse": {"public_key": "..."}}
+    """
+
+    credential: Dict[str, Any] = Field(
+        default=None,
+        description="Dictionary mapping provider names to their credentials",
+    )
 
 
 class CredsUpdate(SQLModel):
-    credential: Optional[Dict[str, Any]] = Field(
-        default=None, sa_column=sa.Column(sa.JSON)
+    """Update credentials for an organization.
+    Can update a specific provider's credentials or add a new provider.
+    """
+
+    provider: str = Field(
+        description="Name of the provider to update/add credentials for"
     )
-    is_active: Optional[bool] = Field(default=None)
+    credential: Dict[str, Any] = Field(
+        description="Credentials for the specified provider",
+    )
+    is_active: Optional[bool] = Field(
+        default=None, description="Whether the credentials are active"
+    )
+    project_id: Optional[int] = Field(
+        default=None, description="Project ID to associate with these credentials"
+    )
 
 
 class Credential(CredsBase, table=True):
+    """Database model for storing provider credentials.
+    Each row represents credentials for a single provider.
+    """
+
     id: int = Field(default=None, primary_key=True)
-    credential: Dict[str, Any] = Field(default=None, sa_column=sa.Column(sa.JSON))
+    provider: str = Field(
+        index=True, description="Provider name like 'openai', 'gemini'"
+    )
+    credential: str = Field(
+        sa_column=sa.Column(sa.String),
+        description="Encrypted provider-specific credentials",
+    )
     inserted_at: datetime = Field(
         default_factory=now,
         sa_column=sa.Column(sa.DateTime, default=datetime.utcnow),
@@ -38,11 +69,33 @@ class Credential(CredsBase, table=True):
     )
 
     organization: Optional["Organization"] = Relationship(back_populates="creds")
+    project: Optional["Project"] = Relationship(back_populates="creds")
+
+    def to_public(self) -> "CredsPublic":
+        """Convert the database model to a public model with decrypted credentials."""
+        from app.core.security import decrypt_credentials
+
+        return CredsPublic(
+            id=self.id,
+            organization_id=self.organization_id,
+            project_id=self.project_id,
+            is_active=self.is_active,
+            provider=self.provider,
+            credential=decrypt_credentials(self.credential)
+            if self.credential
+            else None,
+            inserted_at=self.inserted_at,
+            updated_at=self.updated_at,
+            deleted_at=self.deleted_at,
+        )
 
 
 class CredsPublic(CredsBase):
+    """Public representation of credentials, excluding sensitive information."""
+
     id: int
-    credential: Dict[str, Any]
+    provider: str
+    credential: Optional[Dict[str, Any]] = None
     inserted_at: datetime
     updated_at: datetime
     deleted_at: Optional[datetime]
