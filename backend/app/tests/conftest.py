@@ -13,6 +13,8 @@ from app.models import (
     Project,
     ProjectUser,
     User,
+    OpenAI_Thread,
+    Credential,
 )
 from app.tests.utils.user import authentication_token_from_email
 from app.tests.utils.utils import get_superuser_token_headers
@@ -26,9 +28,11 @@ def db() -> Generator[Session, None, None]:
         # Delete data in reverse dependency order
         session.execute(delete(ProjectUser))  # Many-to-many relationship
         session.execute(delete(Project))
+        session.execute(delete(Credential))
         session.execute(delete(Organization))
         session.execute(delete(APIKey))
         session.execute(delete(User))
+        session.execute(delete(OpenAI_Thread))
         session.commit()
 
 

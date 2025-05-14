@@ -9,7 +9,8 @@ from langfuse.decorators import observe, langfuse_context
 
 from app.api.deps import get_current_user_org, get_db
 from app.core import logging, settings
-from app.models import UserOrganization
+from app.models import UserOrganization, OpenAIThreadCreate
+from app.crud import upsert_thread_result, get_thread_result
 from app.utils import APIResponse
 
 logger = logging.getLogger(__name__)
@@ -113,6 +114,24 @@ def create_success_response(request: dict, message: str) -> APIResponse:
     )
 
 
+def run_and_poll_thread(client: OpenAI, thread_id: str, assistant_id: str):
+    """Runs and polls a thread with the specified assistant using the OpenAI client."""
+    return client.beta.threads.runs.create_and_poll(
+        thread_id=thread_id,
+        assistant_id=assistant_id,
+    )
+
+
+def extract_response_from_thread(
+    client: OpenAI, thread_id: str, remove_citation: bool = False
+) -> str:
+    """Fetches and processes the latest message from a thread."""
+    messages = client.beta.threads.messages.list(thread_id=thread_id)
+    latest_message = messages.data[0]
+    message_content = latest_message.content[0].text.value
+    return process_message_content(message_content, remove_citation)
+
+
 @observe(as_type="generation")
 def process_run(request: dict, client: OpenAI):
     """Process a run and send callback with results."""
@@ -157,6 +176,40 @@ def process_run(request: dict, client: OpenAI):
     except openai.OpenAIError as e:
         callback_response = APIResponse.failure_response(error=handle_openai_error(e))
         send_callback(request["callback_url"], callback_response.model_dump())
+
+
+def poll_run_and_prepare_response(request: dict, client: OpenAI, db: Session):
+    """Handles a thread run, processes the response, and upserts the result to the database."""
+    thread_id = request["thread_id"]
+    prompt = request["question"]
+
+    try:
+        run = run_and_poll_thread(client, thread_id, request["assistant_id"])
+
+        status = run.status or "unknown"
+        response = None
+        error = None
+
+        if status == "completed":
+            response = extract_response_from_thread(
+                client, thread_id, request.get("remove_citation", False)
+            )
+
+    except openai.OpenAIError as e:
+        status = "failed"
+        error = str(e)
+        response = None
+
+    upsert_thread_result(
+        db,
+        OpenAIThreadCreate(
+            thread_id=thread_id,
+            prompt=prompt,
+            response=response,
+            status=status,
+            error=error,
+        ),
+    )
 
 
 @router.post("/threads")
@@ -240,3 +293,72 @@ async def threads_sync(
 
     except openai.OpenAIError as e:
         return APIResponse.failure_response(error=handle_openai_error(e))
+
+
+@router.post("/threads/start")
+async def start_thread(
+    request: OpenAIThreadCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    _current_user: UserOrganization = Depends(get_current_user_org),
+):
+    """
+    Create a new OpenAI thread for the given question and start polling in the background.
+    """
+    prompt = request["question"]
+    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+    is_success, error = setup_thread(client, request)
+    if not is_success:
+        return APIResponse.failure_response(error=error)
+
+    thread_id = request["thread_id"]
+
+    upsert_thread_result(
+        db,
+        OpenAIThreadCreate(
+            thread_id=thread_id,
+            prompt=prompt,
+            response=None,
+            status="processing",
+            error=None,
+        ),
+    )
+
+    background_tasks.add_task(poll_run_and_prepare_response, request, client, db)
+
+    return APIResponse.success_response(
+        data={
+            "thread_id": thread_id,
+            "prompt": prompt,
+            "status": "processing",
+            "message": "Thread created and polling started in background.",
+        }
+    )
+
+
+@router.get("/threads/result/{thread_id}")
+async def get_thread(
+    thread_id: str,
+    db: Session = Depends(get_db),
+    _current_user: UserOrganization = Depends(get_current_user_org),
+):
+    """
+    Retrieve the result of a previously started OpenAI thread using its thread ID.
+    """
+    result = get_thread_result(db, thread_id)
+
+    if not result:
+        return APIResponse.failure_response(error="Thread not found.")
+
+    status = result.status or ("success" if result.response else "processing")
+
+    return APIResponse.success_response(
+        data={
+            "thread_id": result.thread_id,
+            "prompt": result.prompt,
+            "status": status,
+            "response": result.response,
+            "error": result.error,
+        }
+    )
