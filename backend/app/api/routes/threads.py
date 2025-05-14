@@ -333,7 +333,7 @@ async def threads_sync(
 
 @router.post("/threads/start")
 async def start_thread(
-    request: OpenAIThreadCreate,
+    request: dict,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     _current_user: UserOrganization = Depends(get_current_user_org),
