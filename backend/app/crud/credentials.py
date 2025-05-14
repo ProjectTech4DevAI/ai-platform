@@ -10,6 +10,7 @@ from app.core.providers import (
     get_supported_providers,
 )
 from app.core.security import encrypt_credentials, decrypt_credentials
+from app.core.util import now
 
 
 def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Credential]:
@@ -35,7 +36,7 @@ def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Crede
             provider=provider,
             credential=encrypted_credentials,
         )
-        credential.inserted_at = datetime.now(timezone.utc)
+        credential.inserted_at = now()
         try:
             session.add(credential)
             session.commit()
@@ -140,7 +141,7 @@ def update_creds_for_org(
         raise ValueError(f"No credentials found for provider {creds_in.provider}")
 
     creds.credential = encrypted_credentials
-    creds.updated_at = datetime.now(timezone.utc)
+    creds.updated_at = now()
     session.add(creds)
     session.commit()
     session.refresh(creds)
@@ -166,7 +167,7 @@ def remove_provider_credential(
 
     # Soft delete by setting is_active to False
     creds.is_active = False
-    creds.updated_at = datetime.now(timezone.utc)
+    creds.updated_at = now()
 
     try:
         session.add(creds)
@@ -191,7 +192,7 @@ def remove_creds_for_org(
 
     for cred in creds:
         cred.is_active = False
-        cred.updated_at = datetime.now(timezone.utc)
+        cred.updated_at = now()
         session.add(cred)
 
     session.commit()

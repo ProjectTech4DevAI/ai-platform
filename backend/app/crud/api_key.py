@@ -12,6 +12,7 @@ import base64
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from app.core import settings
+from app.core.util import now
 
 from app.models.api_key import APIKey, APIKeyPublic
 
@@ -110,8 +111,8 @@ def delete_api_key(session: Session, api_key_id: int) -> None:
         raise ValueError("API key not found or already deleted")
 
     api_key.is_deleted = True
-    api_key.deleted_at = datetime.now(timezone.utc)
-    api_key.updated_at = datetime.now(timezone.utc)
+    api_key.deleted_at = now()
+    api_key.updated_at = now()
 
     session.add(api_key)
     session.commit()

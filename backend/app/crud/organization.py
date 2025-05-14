@@ -3,14 +3,15 @@ from datetime import datetime, timezone
 from sqlmodel import Session, select
 
 from app.models import Organization, OrganizationCreate
+from app.core.util import now
 
 
 def create_organization(
     *, session: Session, org_create: OrganizationCreate
 ) -> Organization:
     db_org = Organization.model_validate(org_create)
-    db_org.inserted_at = datetime.now(timezone.utc)
-    db_org.updated_at = datetime.now(timezone.utc)
+    db_org.inserted_at = now()
+    db_org.updated_at = now()
     session.add(db_org)
     session.commit()
     session.refresh(db_org)

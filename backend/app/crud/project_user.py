@@ -3,6 +3,8 @@ from sqlmodel import Session, select, delete, func
 from app.models import ProjectUser, ProjectUserPublic, User, Project
 from datetime import datetime, timezone
 
+from app.core.util import now
+
 
 def is_project_admin(session: Session, user_id: str, project_id: int) -> bool:
     """
@@ -62,7 +64,7 @@ def remove_user_from_project(
         raise ValueError("User is not a member of this project or already removed.")
 
     project_user.is_deleted = True
-    project_user.deleted_at = datetime.now(timezone.utc)
+    project_user.deleted_at = now()
     session.add(project_user)  # Required to mark as dirty for commit
     session.commit()
 
