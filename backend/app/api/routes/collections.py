@@ -99,7 +99,7 @@ class CallbackRequest(BaseModel):
         description="URL to call to report endpoint status",
     )
 
-      
+
 class CreationRequest(
     DocumentOptions,
     AssistantOptions,
