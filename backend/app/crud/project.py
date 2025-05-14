@@ -1,14 +1,15 @@
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlmodel import Session, select
 
 from app.models import Project, ProjectCreate
+from app.core.util import now
 
 
 def create_project(*, session: Session, project_create: ProjectCreate) -> Project:
     db_project = Project.model_validate(project_create)
-    db_project.inserted_at = datetime.utcnow()
-    db_project.updated_at = datetime.utcnow()
+    db_project.inserted_at = now()
+    db_project.updated_at = now()
     session.add(db_project)
     session.commit()
     session.refresh(db_project)

@@ -51,3 +51,5 @@ from .credentials import (
     CredsPublic,
     CredsUpdate,
 )
+
+from .threads import OpenAI_Thread, OpenAIThreadBase, OpenAIThreadCreate

@@ -2,11 +2,17 @@ import random
 import string
 from uuid import UUID
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.core.config import settings
 from app.crud.user import get_user_by_email
+
+
+@pytest.fixture(scope="class")
+def openai_credentials():
+    settings.OPENAI_API_KEY = "sk-fake123"
 
 
 def random_lower_string() -> str:

@@ -2,7 +2,7 @@ import inspect
 import logging
 import warnings
 from uuid import UUID, uuid4
-from typing import Any, List
+from typing import Any, List, Optional
 from dataclasses import dataclass, field, fields, asdict, replace
 
 from openai import OpenAI, OpenAIError
@@ -94,11 +94,12 @@ class AssistantOptions(BaseModel):
 
 
 class CallbackRequest(BaseModel):
-    callback_url: HttpUrl = Field(
+    callback_url: Optional[HttpUrl] = Field(
+        default=None,
         description="URL to call to report endpoint status",
     )
 
-
+      
 class CreationRequest(
     DocumentOptions,
     AssistantOptions,
@@ -115,9 +116,28 @@ class DeletionRequest(CallbackRequest):
 
 
 class CallbackHandler:
-    def __init__(self, url: HttpUrl, payload: ResponsePayload):
-        self.url = url
+    def __init__(self, payload: ResponsePayload):
         self.payload = payload
+
+    def fail(self, body):
+        raise NotImplementedError()
+
+    def success(self, body):
+        raise NotImplementedError()
+
+
+class SilentCallback(CallbackHandler):
+    def fail(self, body):
+        return
+
+    def success(self, body):
+        return
+
+
+class WebHookCallback(CallbackHandler):
+    def __init__(self, url: HttpUrl, payload: ResponsePayload):
+        super().__init__(payload)
+        self.url = url
 
     def __call__(self, response: APIResponse, status: str):
         time = ResponsePayload.now()
@@ -154,7 +174,10 @@ def do_create_collection(
     payload: ResponsePayload,
 ):
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
-    callback = CallbackHandler(request.callback_url, payload)
+    if request.callback_url is None:
+        callback = SilentCallback(payload)
+    else:
+        callback = WebHookCallback(request.callback_url, payload)
 
     #
     # Create the assistant and vector store
@@ -189,6 +212,7 @@ def do_create_collection(
 
     collection_crud = CollectionCrud(session, current_user.id)
     collection = Collection(
+        id=UUID(payload.key),
         llm_service_id=assistant.id,
         llm_service_name=request.model,
     )

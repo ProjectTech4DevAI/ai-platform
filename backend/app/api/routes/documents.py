@@ -19,7 +19,7 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 
 
 @router.get(
-    "/ls",
+    "/list",
     description=load_description("documents/list.md"),
     response_model=APIResponse[List[Document]],
 )
@@ -41,7 +41,7 @@ def list_docs(
 
 
 @router.post(
-    "/cp",
+    "/upload",
     description=load_description("documents/upload.md"),
     response_model=APIResponse[Document],
 )
@@ -77,11 +77,11 @@ def upload_doc(
 
 
 @router.get(
-    "/rm/{doc_id}",
+    "/remove/{doc_id}",
     description=load_description("documents/delete.md"),
     response_model=APIResponse[Document],
 )
-def delete_doc(
+def remove_doc(
     session: SessionDep,
     current_user: CurrentUser,
     doc_id: UUID = Path(description="Document to delete"),
@@ -102,7 +102,7 @@ def delete_doc(
 
 
 @router.get(
-    "/stat/{doc_id}",
+    "/info/{doc_id}",
     description=load_description("documents/info.md"),
     response_model=APIResponse[Document],
 )
