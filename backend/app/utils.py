@@ -1,3 +1,4 @@
+import functools as ft
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -143,3 +144,17 @@ def verify_password_reset_token(token: str) -> str | None:
         return str(decoded_token["sub"])
     except InvalidTokenError:
         return None
+
+
+@ft.singledispatch
+def load_description(filename: Path) -> str:
+    if not filename.exists():
+        this = Path(__file__)
+        filename = this.parent.joinpath("api", "docs", filename)
+
+    return filename.read_text()
+
+
+@load_description.register
+def _(filename: str) -> str:
+    return load_description(Path(filename))
