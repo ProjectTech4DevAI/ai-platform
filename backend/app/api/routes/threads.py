@@ -239,27 +239,28 @@ async def threads(
         logger.error(f"Failed to initialize OpenAI client: {e}")
         return APIResponse.failure_response(error="Failed to initialize OpenAI client.")
 
-    langfuse_credentials = get_provider_credential(
-        session=_session,
-        org_id=_current_user.organization_id,
-        provider="langfuse",
-        project_id=request.get("project_id"),
-    )
-    if not langfuse_credentials:
-        return APIResponse.failure_response(
-            error="LANGFUSE keys not configured for this organization."
-        )
+    # Try to configure Langfuse, but continue if it fails
     try:
-        langfuse_context.configure(
-            secret_key=langfuse_credentials["secret_key"],
-            public_key=langfuse_credentials["public_key"],
-            host=langfuse_credentials["host"],
+        langfuse_credentials = get_provider_credential(
+            session=_session,
+            org_id=_current_user.organization_id,
+            provider="langfuse",
+            project_id=request.get("project_id"),
         )
+        if langfuse_credentials:
+            try:
+                langfuse_context.configure(
+                    secret_key=langfuse_credentials["secret_key"],
+                    public_key=langfuse_credentials["public_key"],
+                    host=langfuse_credentials["host"],
+                )
+            except Exception as e:
+                logger.warning(f"Failed to configure Langfuse tracing: {e}")
+                # Continue execution without Langfuse
     except Exception as e:
-        logger.error(f"Failed to configure Langfuse: {e}")
-        return APIResponse.failure_response(
-            error="Failed to configure Langfuse tracing."
-        )
+        logger.warning(f"Failed to retrieve Langfuse credentials: {e}")
+        # Continue execution without Langfuse
+
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
     if not is_valid:
