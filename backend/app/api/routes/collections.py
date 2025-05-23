@@ -7,7 +7,8 @@ from dataclasses import dataclass, field, fields, asdict, replace
 
 from openai import OpenAI, OpenAIError
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
-from pydantic import BaseModel, HttpUrl
+from fastapi import Path as FastPath
+from pydantic import BaseModel, Field, HttpUrl
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound, SQLAlchemyError
 
 from app.api.deps import CurrentUser, SessionDep
@@ -17,7 +18,7 @@ from app.core.util import now, raise_from_unknown, post_callback
 from app.crud import DocumentCrud, CollectionCrud, DocumentCollectionCrud
 from app.crud.rag import OpenAIVectorStoreCrud, OpenAIAssistantCrud
 from app.models import Collection, Document
-from app.utils import APIResponse
+from app.utils import APIResponse, load_description
 
 router = APIRouter(prefix="/collections", tags=["collections"])
 
@@ -40,8 +41,17 @@ class ResponsePayload:
 
 
 class DocumentOptions(BaseModel):
-    documents: List[UUID]
-    batch_size: int = 1
+    documents: List[UUID] = Field(
+        description="List of document IDs",
+    )
+    batch_size: int = Field(
+        default=1,
+        description=(
+            "Number of documents to send to OpenAI in a single "
+            "transaction. See the `file_ids` parameter in the "
+            "vector store [create batch](https://platform.openai.com/docs/api-reference/vector-stores-file-batches/createBatch)."
+        ),
+    )
 
     def model_post_init(self, __context: Any):
         self.documents = list(set(self.documents))
@@ -61,13 +71,33 @@ class AssistantOptions(BaseModel):
     # Fields to be passed along to OpenAI. They must be a subset of
     # parameters accepted by the OpenAI.clien.beta.assistants.create
     # API.
-    model: str
-    instructions: str
-    temperature: float = 1e-6
+    model: str = Field(
+        description=(
+            "OpenAI model to attach to this assistant. The model "
+            "must compatable with the assistants API; see the "
+            "OpenAI [model documentation](https://platform.openai.com/docs/models/compare) for more."
+        ),
+    )
+    instructions: str = Field(
+        description=(
+            "Assistant instruction. Sometimes referred to as the " '"system" prompt.'
+        ),
+    )
+    temperature: float = Field(
+        default=1e-6,
+        description=(
+            "Model temperature. The default is slightly "
+            "greater-than zero because it is [unknown how OpenAI "
+            "handles zero](https://community.openai.com/t/clarifications-on-setting-temperature-0/886447/5)."
+        ),
+    )
 
 
 class CallbackRequest(BaseModel):
-    callback_url: Optional[HttpUrl] = None
+    callback_url: Optional[HttpUrl] = Field(
+        default=None,
+        description="URL to call to report endpoint status",
+    )
 
 
 class CreationRequest(
@@ -82,7 +112,7 @@ class CreationRequest(
 
 
 class DeletionRequest(CallbackRequest):
-    collection_id: UUID
+    collection_id: UUID = Field("Collection to delete")
 
 
 class CallbackHandler:
@@ -200,7 +230,10 @@ def do_create_collection(
     callback.success(collection.model_dump(mode="json"))
 
 
-@router.post("/create")
+@router.post(
+    "/create",
+    description=load_description("collections/create.md"),
+)
 def create_collection(
     session: SessionDep,
     current_user: CurrentUser,
@@ -228,7 +261,11 @@ def do_delete_collection(
     request: DeletionRequest,
     payload: ResponsePayload,
 ):
-    callback = CallbackHandler(request.callback_url, payload)
+    if request.callback_url is None:
+        callback = SilentCallback(payload)
+    else:
+        callback = WebHookCallback(request.callback_url, payload)
+
     collection_crud = CollectionCrud(session, current_user.id)
     try:
         collection = collection_crud.read_one(request.collection_id)
@@ -244,7 +281,10 @@ def do_delete_collection(
         callback.fail(str(err))
 
 
-@router.post("/delete")
+@router.post(
+    "/delete",
+    description=load_description("collections/delete.md"),
+)
 def delete_collection(
     session: SessionDep,
     current_user: CurrentUser,
@@ -266,11 +306,15 @@ def delete_collection(
     return APIResponse.success_response(data=None, metadata=asdict(payload))
 
 
-@router.post("/info/{collection_id}", response_model=APIResponse[Collection])
+@router.post(
+    "/info/{collection_id}",
+    description=load_description("collections/info.md"),
+    response_model=APIResponse[Collection],
+)
 def collection_info(
     session: SessionDep,
     current_user: CurrentUser,
-    collection_id: UUID,
+    collection_id: UUID = FastPath(description="Collection to retrieve"),
 ):
     collection_crud = CollectionCrud(session, current_user.id)
     try:
@@ -285,7 +329,11 @@ def collection_info(
     return APIResponse.success_response(data)
 
 
-@router.post("/list", response_model=APIResponse[List[Collection]])
+@router.post(
+    "/list",
+    description=load_description("collections/list.md"),
+    response_model=APIResponse[List[Collection]],
+)
 def list_collections(
     session: SessionDep,
     current_user: CurrentUser,
@@ -303,12 +351,13 @@ def list_collections(
 
 @router.post(
     "/docs/{collection_id}",
+    description=load_description("collections/docs.md"),
     response_model=APIResponse[List[Document]],
 )
 def collection_documents(
     session: SessionDep,
     current_user: CurrentUser,
-    collection_id: UUID,
+    collection_id: UUID = FastPath(description="Collection to retrieve"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, gt=0, le=100),
 ):

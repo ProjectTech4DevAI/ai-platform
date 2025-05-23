@@ -3,12 +3,13 @@ from typing import List
 from pathlib import Path
 
 from fastapi import APIRouter, File, UploadFile, HTTPException, Query
+from fastapi import Path as FastPath
 
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound, SQLAlchemyError
 
 from app.crud import DocumentCrud, CollectionCrud
 from app.models import Document
-from app.utils import APIResponse
+from app.utils import APIResponse, load_description
 from app.api.deps import CurrentUser, SessionDep
 from app.core.util import raise_from_unknown
 from app.core.cloud import AmazonCloudStorage, CloudStorageError
@@ -17,7 +18,11 @@ from app.crud.rag import OpenAIAssistantCrud
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-@router.get("/list", response_model=APIResponse[List[Document]])
+@router.get(
+    "/list",
+    description=load_description("documents/list.md"),
+    response_model=APIResponse[List[Document]],
+)
 def list_docs(
     session: SessionDep,
     current_user: CurrentUser,
@@ -35,7 +40,11 @@ def list_docs(
     return APIResponse.success_response(data)
 
 
-@router.post("/upload", response_model=APIResponse[Document])
+@router.post(
+    "/upload",
+    description=load_description("documents/upload.md"),
+    response_model=APIResponse[Document],
+)
 def upload_doc(
     session: SessionDep,
     current_user: CurrentUser,
@@ -69,12 +78,13 @@ def upload_doc(
 
 @router.get(
     "/remove/{doc_id}",
+    description=load_description("documents/delete.md"),
     response_model=APIResponse[Document],
 )
 def remove_doc(
     session: SessionDep,
     current_user: CurrentUser,
-    doc_id: UUID,
+    doc_id: UUID = Path(description="Document to delete"),
 ):
     a_crud = OpenAIAssistantCrud()
     (d_crud, c_crud) = (
@@ -91,11 +101,15 @@ def remove_doc(
     return APIResponse.success_response(data)
 
 
-@router.get("/info/{doc_id}", response_model=APIResponse[Document])
+@router.get(
+    "/info/{doc_id}",
+    description=load_description("documents/info.md"),
+    response_model=APIResponse[Document],
+)
 def doc_info(
     session: SessionDep,
     current_user: CurrentUser,
-    doc_id: UUID,
+    doc_id: UUID = FastPath(description="Document to retrieve"),
 ):
     crud = DocumentCrud(session, current_user.id)
     try:
