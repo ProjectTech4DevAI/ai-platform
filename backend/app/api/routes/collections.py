@@ -261,7 +261,11 @@ def do_delete_collection(
     request: DeletionRequest,
     payload: ResponsePayload,
 ):
-    callback = CallbackHandler(request.callback_url, payload)
+    if request.callback_url is None:
+        callback = SilentCallback(payload)
+    else:
+        callback = WebHookCallback(request.callback_url, payload)
+
     collection_crud = CollectionCrud(session, current_user.id)
     try:
         collection = collection_crud.read_one(request.collection_id)
