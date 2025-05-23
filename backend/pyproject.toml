@@ -28,6 +28,13 @@ dependencies = [
     "pre-commit>=3.8.0",
     "openai_responses",
     "langfuse>=2.60.3",
+    "pandas>=2.2.3",
+    "scikit-learn>=1.6.1",
+    "sentence-transformers>=4.1.0",
+    "torch>=2.7.0",
+    "transformers>=4.51.3",
+    "chromadb>=1.0.9",
+    "hdbscan>=0.8.40",
 ]
 
 [tool.uv]
