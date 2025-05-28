@@ -416,7 +416,7 @@ async def analyze_threads(
         experiment = LangfuseExperiment(
             db=_session,
             org_id=_current_user.organization_id,
-            project_id=request.get("project_id")
+            project_id=request.get("project_id"),
         )
 
         # Run the experiment with configurable parameters
@@ -428,27 +428,29 @@ async def analyze_threads(
             "total_traces": len(results_df),
             "clusters": results_df["cluster"].value_counts().to_dict(),
             "cluster_labels": results_df["cluster_label"].value_counts().to_dict(),
-            "sample_messages": {}
+            "sample_messages": {},
         }
 
         # Add sample messages for each cluster
         for label in results_df["cluster_label"].unique():
             if pd.notna(label):  # Skip NaN labels
-                sample_messages = results_df[results_df["cluster_label"] == label]["message"].head(5).tolist()
+                sample_messages = (
+                    results_df[results_df["cluster_label"] == label]["message"]
+                    .head(5)
+                    .tolist()
+                )
                 analysis_results["sample_messages"][label] = sample_messages
 
         return APIResponse.success_response(
             data={
                 "status": "success",
                 "message": "Thread analysis completed successfully",
-                "analysis": analysis_results
+                "analysis": analysis_results,
             }
         )
 
     except ValueError as e:
-        return APIResponse.failure_response(
-            error=f"Configuration error: {str(e)}"
-        )
+        return APIResponse.failure_response(error=f"Configuration error: {str(e)}")
     except Exception as e:
         logger.error(f"Error in thread analysis: {str(e)}")
         return APIResponse.failure_response(
