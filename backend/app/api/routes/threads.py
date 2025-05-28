@@ -59,7 +59,6 @@ def validate_thread(client: OpenAI, thread_id: str) -> tuple[bool, str]:
         return False, f"Invalid thread ID provided {thread_id}"
 
 
-@observe(capture_input=False)
 def setup_thread(client: OpenAI, request: dict) -> tuple[bool, str]:
     """Set up thread and add message, either creating new or using existing."""
     thread_id = request.get("thread_id")
@@ -78,9 +77,6 @@ def setup_thread(client: OpenAI, request: dict) -> tuple[bool, str]:
                 thread_id=thread.id, role="user", content=request["question"]
             )
             request["thread_id"] = thread.id
-            langfuse_context.update_current_trace(
-                session_id=thread.id, name="New Thread ID created", output=thread.id
-            )
             return True, None
         except openai.OpenAIError as e:
             return False, handle_openai_error(e)
@@ -135,8 +131,8 @@ def extract_response_from_thread(
 
 
 @observe(as_type="generation")
-def process_run(request: dict, client: OpenAI):
-    """Process a run and send callback with results."""
+def process_run_core(request: dict, client: OpenAI) -> tuple[dict, str]:
+    """Core function to process a run and return the response and message."""
     try:
         run = client.beta.threads.runs.create_and_poll(
             thread_id=request["thread_id"],
@@ -167,17 +163,21 @@ def process_run(request: dict, client: OpenAI):
                 output=message, name="Thread Run Completed"
             )
 
-            callback_response = create_success_response(request, message)
+            return create_success_response(request, message).model_dump(), None
         else:
-            callback_response = APIResponse.failure_response(
-                error=f"Run failed with status: {run.status}"
-            )
-
-        send_callback(request["callback_url"], callback_response.model_dump())
+            error_msg = f"Run failed with status: {run.status}"
+            return APIResponse.failure_response(error=error_msg).model_dump(), error_msg
 
     except openai.OpenAIError as e:
-        callback_response = APIResponse.failure_response(error=handle_openai_error(e))
-        send_callback(request["callback_url"], callback_response.model_dump())
+        error_msg = handle_openai_error(e)
+        return APIResponse.failure_response(error=error_msg).model_dump(), error_msg
+
+
+@observe(as_type="generation")
+def process_run(request: dict, client: OpenAI):
+    """Process a run and send callback with results."""
+    response, _ = process_run_core(request, client)
+    send_callback(request["callback_url"], response)
 
 
 def poll_run_and_prepare_response(request: dict, client: OpenAI, db: Session):
@@ -276,6 +276,7 @@ async def threads(
     return initial_response
 
 
+@observe()
 @router.post("/threads/sync")
 async def threads_sync(
     request: dict,
@@ -288,7 +289,7 @@ async def threads_sync(
         session=_session,
         org_id=_current_user.organization_id,
         provider="openai",
-        project_id=_current_user.project_id,
+        project_id=request.get("project_id"),
     )
     if not credentials or "api_key" not in credentials:
         return APIResponse.failure_response(
@@ -296,6 +297,25 @@ async def threads_sync(
         )
 
     client = OpenAI(api_key=credentials["api_key"])
+
+    # Get Langfuse credentials
+    langfuse_credentials = get_provider_credential(
+        session=_session,
+        org_id=_current_user.organization_id,
+        provider="langfuse",
+        project_id=request.get("project_id"),
+    )
+    if not langfuse_credentials:
+        return APIResponse.failure_response(
+            error="LANGFUSE keys not configured for this organization."
+        )
+
+    # Configure Langfuse
+    langfuse_context.configure(
+        secret_key=langfuse_credentials["secret_key"],
+        public_key=langfuse_credentials["public_key"],
+        host=langfuse_credentials.get("host", "https://cloud.langfuse.com"),
+    )
 
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
@@ -308,27 +328,10 @@ async def threads_sync(
         return APIResponse.failure_response(error=error_message)
 
     try:
-        # Process run
-        run = client.beta.threads.runs.create_and_poll(
-            thread_id=request["thread_id"],
-            assistant_id=request["assistant_id"],
-        )
-
-        if run.status == "completed":
-            messages = client.beta.threads.messages.list(thread_id=request["thread_id"])
-            latest_message = messages.data[0]
-            message_content = latest_message.content[0].text.value
-            message = process_message_content(
-                message_content, request.get("remove_citation", False)
-            )
-            return create_success_response(request, message)
-        else:
-            return APIResponse.failure_response(
-                error=f"Run failed with status: {run.status}"
-            )
-
-    except openai.OpenAIError as e:
-        return APIResponse.failure_response(error=handle_openai_error(e))
+        response, error_message = process_run_core(request, client)
+        return response
+    finally:
+        langfuse_context.flush()
 
 
 @router.post("/threads/start")
