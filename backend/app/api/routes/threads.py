@@ -1,6 +1,7 @@
 import re
 import openai
 import requests
+import pandas as pd
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 from openai import OpenAI
@@ -14,6 +15,7 @@ from app.crud import upsert_thread_result, get_thread_result
 from app.utils import APIResponse
 from app.crud.credentials import get_provider_credential
 from app.core.security import decrypt_credentials
+from app.crud.langfusexp import LangfuseExperiment
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["threads"])
@@ -398,3 +400,57 @@ async def get_thread(
             "error": result.error,
         }
     )
+
+
+@router.post("/threads/analyze")
+async def analyze_threads(
+    request: dict,
+    _session: Session = Depends(get_db),
+    _current_user: UserOrganization = Depends(get_current_user_org),
+):
+    """
+    Analyze threads using Langfuse experiment to cluster and label similar conversations.
+    """
+    try:
+        # Initialize the experiment
+        experiment = LangfuseExperiment(
+            db=_session,
+            org_id=_current_user.organization_id,
+            project_id=request.get("project_id")
+        )
+
+        # Run the experiment with configurable parameters
+        pages_to_fetch = request.get("pages_to_fetch", 2)
+        results_df = experiment.run_experiment(pages_to_fetch=pages_to_fetch)
+
+        # Convert results to a more API-friendly format
+        analysis_results = {
+            "total_traces": len(results_df),
+            "clusters": results_df["cluster"].value_counts().to_dict(),
+            "cluster_labels": results_df["cluster_label"].value_counts().to_dict(),
+            "sample_messages": {}
+        }
+
+        # Add sample messages for each cluster
+        for label in results_df["cluster_label"].unique():
+            if pd.notna(label):  # Skip NaN labels
+                sample_messages = results_df[results_df["cluster_label"] == label]["message"].head(5).tolist()
+                analysis_results["sample_messages"][label] = sample_messages
+
+        return APIResponse.success_response(
+            data={
+                "status": "success",
+                "message": "Thread analysis completed successfully",
+                "analysis": analysis_results
+            }
+        )
+
+    except ValueError as e:
+        return APIResponse.failure_response(
+            error=f"Configuration error: {str(e)}"
+        )
+    except Exception as e:
+        logger.error(f"Error in thread analysis: {str(e)}")
+        return APIResponse.failure_response(
+            error=f"Failed to analyze threads: {str(e)}"
+        )
