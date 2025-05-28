@@ -276,7 +276,6 @@ async def threads(
     return initial_response
 
 
-@observe()
 @router.post("/threads/sync")
 async def threads_sync(
     request: dict,
