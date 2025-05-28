@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from fastapi import HTTPException
 from requests import Session, RequestException
 from pydantic import BaseModel, HttpUrl
+from langfuse import Langfuse
+from langfuse.decorators import langfuse_context
 
 
 def now():
@@ -32,3 +34,37 @@ def post_callback(url: HttpUrl, payload: BaseModel):
             errno += 1
 
     return not errno
+
+
+def configure_langfuse(credentials: dict) -> tuple[Langfuse, bool]:
+    """
+    Configure Langfuse client and context with the provided credentials.
+
+    Args:
+        credentials: Dictionary containing Langfuse credentials (public_key, secret_key, host)
+
+    Returns:
+        Tuple of (Langfuse client instance, success boolean)
+    """
+    if not credentials:
+        return None, False
+
+    try:
+        # Configure Langfuse client
+        langfuse = Langfuse(
+            public_key=credentials["public_key"],
+            secret_key=credentials["secret_key"],
+            host=credentials.get("host", "https://cloud.langfuse.com"),
+        )
+
+        # Configure Langfuse context
+        langfuse_context.configure(
+            secret_key=credentials["secret_key"],
+            public_key=credentials["public_key"],
+            host=credentials.get("host", "https://cloud.langfuse.com"),
+        )
+
+        return langfuse, True
+    except Exception as e:
+        warnings.warn(f"Failed to configure Langfuse: {str(e)}")
+        return None, False

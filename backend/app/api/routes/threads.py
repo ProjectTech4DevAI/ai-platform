@@ -14,6 +14,7 @@ from app.crud import upsert_thread_result, get_thread_result
 from app.utils import APIResponse
 from app.crud.credentials import get_provider_credential
 from app.core.security import decrypt_credentials
+from app.core.util import configure_langfuse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["threads"])
@@ -245,11 +246,13 @@ async def threads(
             error="LANGFUSE keys not configured for this organization."
         )
 
-    langfuse_context.configure(
-        secret_key=langfuse_credentials["secret_key"],
-        public_key=langfuse_credentials["public_key"],
-        host=langfuse_credentials["host"],
-    )
+    # Configure Langfuse
+    _, success = configure_langfuse(langfuse_credentials)
+    if not success:
+        return APIResponse.failure_response(
+            error="Failed to configure Langfuse client."
+        )
+
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
     if not is_valid:
@@ -310,11 +313,11 @@ async def threads_sync(
         )
 
     # Configure Langfuse
-    langfuse_context.configure(
-        secret_key=langfuse_credentials["secret_key"],
-        public_key=langfuse_credentials["public_key"],
-        host=langfuse_credentials.get("host", "https://cloud.langfuse.com"),
-    )
+    _, success = configure_langfuse(langfuse_credentials)
+    if not success:
+        return APIResponse.failure_response(
+            error="Failed to configure Langfuse client."
+        )
 
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))

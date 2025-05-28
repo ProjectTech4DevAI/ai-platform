@@ -8,6 +8,7 @@ from app.models import UserOrganization
 from app.utils import APIResponse
 from app.crud.credentials import get_provider_credential
 from app.api.routes.threads import threads_sync
+from app.core.util import configure_langfuse
 
 router = APIRouter(tags=["evaluation"])
 
@@ -47,17 +48,11 @@ async def evaluate_threads(
         )
 
     # Configure Langfuse
-    langfuse = Langfuse(
-        public_key=langfuse_credentials["public_key"],
-        secret_key=langfuse_credentials["secret_key"],
-        host=langfuse_credentials.get("host", "https://cloud.langfuse.com"),
-    )
-
-    langfuse_context.configure(
-        secret_key=langfuse_credentials["secret_key"],
-        public_key=langfuse_credentials["public_key"],
-        host=langfuse_credentials.get("host", "https://cloud.langfuse.com"),
-    )
+    langfuse, success = configure_langfuse(langfuse_credentials)
+    if not success:
+        return APIResponse.failure_response(
+            error="Failed to configure Langfuse client."
+        )
 
     try:
         # Get dataset
