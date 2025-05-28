@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, BackgroundTasks
+from fastapi import APIRouter, Depends
 from sqlmodel import Session
 from langfuse import Langfuse
 from langfuse.decorators import langfuse_context
@@ -7,7 +7,7 @@ from app.api.deps import get_current_user_org, get_db
 from app.models import UserOrganization
 from app.utils import APIResponse
 from app.crud.credentials import get_provider_credential
-from app.api.routes.threads import threads
+from app.api.routes.threads import threads_sync
 
 router = APIRouter(tags=["evaluation"])
 
@@ -18,7 +18,6 @@ async def evaluate_threads(
     assistant_id: str,
     dataset_name: str,
     project_id: int,
-    background_tasks: BackgroundTasks,
     _session: Session = Depends(get_db),
     _current_user: UserOrganization = Depends(get_current_user_org),
 ):
@@ -75,29 +74,28 @@ async def evaluate_threads(
                     "project_id": project_id,
                 }
 
-                # Process thread asynchronously
-                response = await threads(
+                # Process thread synchronously
+                response = await threads_sync(
                     request=request,
-                    background_tasks=background_tasks,
                     _session=_session,
                     _current_user=_current_user,
                 )
 
-                # Extract message from the initial response
+                # Extract message from the response
                 if isinstance(response, APIResponse) and response.success:
+                    print(f"Response: {response.data}")
+                    output = response.data.get("message", "")
                     thread_id = response.data.get("thread_id")
-                    # Note: The actual response will be sent to the callback URL
-                    # We're just tracking that the thread was created
-                    output = f"Thread created with ID: {thread_id}"
                 else:
                     output = ""
+                    thread_id = None
 
-                # Evaluate based on thread creation success
+                # Evaluate based on response success
                 is_match = bool(output)  # Simplified evaluation for now
                 langfuse.score(
                     trace_id=trace_id, name="thread_creation_success", value=is_match
                 )
-
+                print(f"Evaluating item: {item.input}, Match: {is_match}")
                 results.append(
                     {
                         "input": item.input,
@@ -119,7 +117,7 @@ async def evaluate_threads(
                 "results": results,
                 "total_items": len(results),
                 "matches": sum(1 for r in results if r["match"]),
-                "note": "Threads are being processed in the background. Check the callback URLs for actual responses.",
+                "note": "All threads have been processed synchronously.",
             }
         )
 
