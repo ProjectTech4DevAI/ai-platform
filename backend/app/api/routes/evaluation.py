@@ -77,10 +77,9 @@ async def evaluate_threads(
                 )
 
                 # Extract message from the response
-                if isinstance(response, APIResponse) and response.success:
-                    print(f"Response: {response.data}")
-                    output = response.data.get("message", "")
-                    thread_id = response.data.get("thread_id")
+                if isinstance(response, dict) and response.get("success"):
+                    output = response.get("data", {}).get("message", "")
+                    thread_id = response.get("data", {}).get("thread_id")
                 else:
                     output = ""
                     thread_id = None
@@ -90,7 +89,6 @@ async def evaluate_threads(
                 langfuse.score(
                     trace_id=trace_id, name="thread_creation_success", value=is_match
                 )
-                print(f"Evaluating item: {item.input}, Match: {is_match}")
                 results.append(
                     {
                         "input": item.input,
