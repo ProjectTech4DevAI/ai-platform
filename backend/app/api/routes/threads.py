@@ -13,7 +13,6 @@ from app.models import UserOrganization, OpenAIThreadCreate
 from app.crud import upsert_thread_result, get_thread_result
 from app.utils import APIResponse
 from app.crud.credentials import get_provider_credential
-from app.core.security import decrypt_credentials
 from app.core.util import configure_langfuse, configure_openai
 
 logger = logging.getLogger(__name__)

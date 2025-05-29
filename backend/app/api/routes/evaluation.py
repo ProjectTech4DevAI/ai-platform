@@ -1,7 +1,6 @@
 import logging
 from fastapi import APIRouter, Depends
 from sqlmodel import Session
-from langfuse import Langfuse
 from langfuse.decorators import langfuse_context
 
 from app.api.deps import get_current_user_org, get_db
@@ -27,7 +26,10 @@ async def evaluate_threads(
     _session: Session = Depends(get_db),
     _current_user: UserOrganization = Depends(get_current_user_org),
 ):
-    """Endpoint to run thread evaluations using Langfuse."""
+    """
+    Endpoint to run Lanfuse evaluations using LLM-as-a-judge.
+    Read more here: https://langfuse.com/changelog/2024-11-19-llm-as-a-judge-for-datasets
+    """
     logger.info(
         f"Starting evaluation for experiment: {experiment_name}, dataset: {dataset_name}, assistant: {assistant_id}"
     )
