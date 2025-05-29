@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends
 from sqlmodel import Session
 from langfuse import Langfuse
@@ -9,6 +10,10 @@ from app.utils import APIResponse
 from app.crud.credentials import get_provider_credential
 from app.api.routes.threads import threads_sync
 from app.core.util import configure_langfuse
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["evaluation"])
 
@@ -23,6 +28,10 @@ async def evaluate_threads(
     _current_user: UserOrganization = Depends(get_current_user_org),
 ):
     """Endpoint to run thread evaluations using Langfuse."""
+    logger.info(
+        f"Starting evaluation for experiment: {experiment_name}, dataset: {dataset_name}, assistant: {assistant_id}"
+    )
+
     # Get OpenAI credentials
     credentials = get_provider_credential(
         session=_session,
@@ -56,10 +65,14 @@ async def evaluate_threads(
 
     try:
         # Get dataset
+        logger.info(f"Fetching dataset: {dataset_name}")
         dataset = langfuse.get_dataset(dataset_name)
         results = []
+        total_items = len(dataset.items)
+        logger.info(f"Processing {total_items} items from {dataset_name} dataset")
 
-        for item in dataset.items:
+        for idx, item in enumerate(dataset.items, 1):
+            logger.info(f"Processing item {idx}/{total_items}: {item.input[:20]}...")
             with item.observe(run_name=experiment_name) as trace_id:
                 # Prepare request
                 request = {
@@ -85,7 +98,7 @@ async def evaluate_threads(
                     thread_id = None
 
                 # Evaluate based on response success
-                is_match = bool(output)  # Simplified evaluation for now
+                is_match = bool(output)
                 langfuse.score(
                     trace_id=trace_id, name="thread_creation_success", value=is_match
                 )
@@ -98,21 +111,27 @@ async def evaluate_threads(
                         "thread_id": thread_id if is_match else None,
                     }
                 )
+                logger.info(f"Completed processing item {idx} (match: {is_match})")
 
         # Flush Langfuse events
         langfuse_context.flush()
         langfuse.flush()
 
+        matches = sum(1 for r in results if r["match"])
+        logger.info(
+            f"Evaluation completed. Total items: {len(results)}, Matches: {matches}"
+        )
         return APIResponse.success_response(
             data={
                 "experiment_name": experiment_name,
                 "dataset_name": dataset_name,
                 "results": results,
                 "total_items": len(results),
-                "matches": sum(1 for r in results if r["match"]),
+                "matches": matches,
                 "note": "All threads have been processed synchronously.",
             }
         )
 
     except Exception as e:
+        logger.error(f"Error during evaluation: {str(e)}", exc_info=True)
         return APIResponse.failure_response(error=str(e))
