@@ -19,11 +19,9 @@ cli = typer.Typer(help=__doc__)
 
 HEADERS = {
     "accept": "application/json",
-    "X-API-KEY": "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8", # First start session with seed API key
+    "X-API-KEY": "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8", # from seed data but must hit POST /api/v1/credentials before running this script
     "Content-Type": "application/json",
 }
-
-HARYANA_ASSISTANT_ID = 'asst_fz7oIQ2goRLfrP1mWceBcjje'
 
 PAYLOAD = {
     "project_id": 1,
@@ -32,18 +30,18 @@ PAYLOAD = {
 ENDPOINT = "http://0.0.0.0:8000/api/v1/threads/sync"
 
 @dataclass
-class DataclassConfig:
+class DatasetConfig:
     assistant_id: str
     filename: str
     query_column: str
 
 DATASETS = {
-    "kunji": DataclassConfig(
+    "kunji": DatasetConfig(
         assistant_id='asst_fz7oIQ2goRLfrP1mWceBcjje',
         filename="glific_kunji_test_queries.csv",
         query_column="prompt_text"
     ),
-    "sneha": DataclassConfig(
+    "sneha": DatasetConfig(
         assistant_id="asst_U34ZORFHMrY6a8JqrFLzyUuy",
         filename="sneha_goldens.csv",
         query_column="Question"
