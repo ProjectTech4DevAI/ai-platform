@@ -9,7 +9,7 @@ from app.models import UserOrganization
 from app.utils import APIResponse
 from app.crud.credentials import get_provider_credential
 from app.api.routes.threads import threads_sync
-from app.core.util import configure_langfuse
+from app.core.util import configure_langfuse, configure_openai
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -39,7 +39,10 @@ async def evaluate_threads(
         provider="openai",
         project_id=project_id,
     )
-    if not credentials or "api_key" not in credentials:
+
+    # Configure OpenAI client
+    client, success = configure_openai(credentials)
+    if not success:
         return APIResponse.failure_response(
             error="OpenAI API key not configured for this organization."
         )

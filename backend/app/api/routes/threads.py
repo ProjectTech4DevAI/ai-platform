@@ -14,7 +14,7 @@ from app.crud import upsert_thread_result, get_thread_result
 from app.utils import APIResponse
 from app.crud.credentials import get_provider_credential
 from app.core.security import decrypt_credentials
-from app.core.util import configure_langfuse
+from app.core.util import configure_langfuse, configure_openai
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["threads"])
@@ -229,11 +229,13 @@ async def threads(
         provider="openai",
         project_id=request.get("project_id"),
     )
-    if not credentials or "api_key" not in credentials:
+
+    # Configure OpenAI client
+    client, success = configure_openai(credentials)
+    if not success:
         return APIResponse.failure_response(
             error="OpenAI API key not configured for this organization."
         )
-    client = OpenAI(api_key=credentials["api_key"])
 
     langfuse_credentials = get_provider_credential(
         session=_session,
@@ -286,19 +288,19 @@ async def threads_sync(
     _current_user: UserOrganization = Depends(get_current_user_org),
 ):
     """Synchronous endpoint that processes requests immediately."""
-
     credentials = get_provider_credential(
         session=_session,
         org_id=_current_user.organization_id,
         provider="openai",
         project_id=request.get("project_id"),
     )
-    if not credentials or "api_key" not in credentials:
+
+    # Configure OpenAI client
+    client, success = configure_openai(credentials)
+    if not success:
         return APIResponse.failure_response(
             error="OpenAI API key not configured for this organization."
         )
-
-    client = OpenAI(api_key=credentials["api_key"])
 
     # Get Langfuse credentials
     langfuse_credentials = get_provider_credential(
@@ -347,7 +349,19 @@ async def start_thread(
     Create a new OpenAI thread for the given question and start polling in the background.
     """
     prompt = request["question"]
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    credentials = get_provider_credential(
+        session=db,
+        org_id=_current_user.organization_id,
+        provider="openai",
+        project_id=request.get("project_id"),
+    )
+
+    # Configure OpenAI client
+    client, success = configure_openai(credentials)
+    if not success:
+        return APIResponse.failure_response(
+            error="OpenAI API key not configured for this organization."
+        )
 
     is_success, error = setup_thread(client, request)
     if not is_success:

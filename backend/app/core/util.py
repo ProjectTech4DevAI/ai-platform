@@ -7,6 +7,7 @@ from requests import Session, RequestException
 from pydantic import BaseModel, HttpUrl
 from langfuse import Langfuse
 from langfuse.decorators import langfuse_context
+from openai import OpenAI
 
 
 def now():
@@ -67,4 +68,26 @@ def configure_langfuse(credentials: dict) -> tuple[Langfuse, bool]:
         return langfuse, True
     except Exception as e:
         warnings.warn(f"Failed to configure Langfuse: {str(e)}")
+        return None, False
+
+
+def configure_openai(credentials: dict) -> tuple[OpenAI, bool]:
+    """
+    Configure OpenAI client with the provided credentials.
+
+    Args:
+        credentials: Dictionary containing OpenAI credentials (api_key)
+
+    Returns:
+        Tuple of (OpenAI client instance, success boolean)
+    """
+    if not credentials or "api_key" not in credentials:
+        return None, False
+
+    try:
+        # Configure OpenAI client
+        client = OpenAI(api_key=credentials["api_key"])
+        return client, True
+    except Exception as e:
+        warnings.warn(f"Failed to configure OpenAI client: {str(e)}")
         return None, False
