@@ -6,6 +6,7 @@ from app.api.deps import get_current_user_org, get_db
 from app.models import UserOrganization
 from app.utils import APIResponse
 from app.crud.evaluation import run_evaluation
+from app.models.evaluation import Experiment
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["evaluation"])
 
 
-@router.post("/evaluate")
+@router.post("/evaluate", response_model=Experiment)
 async def evaluate_threads(
     experiment_name: str,
     assistant_id: str,
@@ -22,7 +23,7 @@ async def evaluate_threads(
     project_id: int,
     _session: Session = Depends(get_db),
     _current_user: UserOrganization = Depends(get_current_user_org),
-):
+) -> Experiment:
     """
     Endpoint to run Lanfuse evaluations using LLM-as-a-judge.
     Read more here: https://langfuse.com/changelog/2024-11-19-llm-as-a-judge-for-datasets
@@ -40,7 +41,7 @@ async def evaluate_threads(
         _current_user=_current_user,
     )
 
-    if not success:
-        return APIResponse.failure_response(error=error)
+    if not success or data is None:
+        raise ValueError(error or "Failed to run evaluation")
 
-    return APIResponse.success_response(data=data)
+    return data

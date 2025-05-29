@@ -7,6 +7,7 @@ from app.models import UserOrganization
 from app.crud.credentials import get_provider_credential
 from app.api.routes.threads import threads_sync
 from app.core.util import configure_langfuse, configure_openai
+from app.models.evaluation import Experiment, EvaluationResult
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -20,7 +21,7 @@ async def run_evaluation(
     project_id: int,
     _session: Session,
     _current_user: UserOrganization,
-) -> Tuple[bool, Dict, Optional[str]]:
+) -> Tuple[bool, Optional[Experiment], Optional[str]]:
     """
     Run Langfuse evaluations using LLM-as-a-judge.
 
@@ -33,7 +34,7 @@ async def run_evaluation(
         _current_user: Current user organization
 
     Returns:
-        Tuple of (success, response_data, error_message)
+        Tuple of (success, experiment_data, error_message)
     """
     # Get OpenAI credentials
     credentials = get_provider_credential(
@@ -46,7 +47,7 @@ async def run_evaluation(
     # Configure OpenAI client
     client, success = configure_openai(credentials)
     if not success:
-        return False, {}, "OpenAI API key not configured for this organization."
+        return False, None, "OpenAI API key not configured for this organization."
 
     # Get Langfuse credentials
     langfuse_credentials = get_provider_credential(
@@ -56,12 +57,12 @@ async def run_evaluation(
         project_id=project_id,
     )
     if not langfuse_credentials:
-        return False, {}, "LANGFUSE keys not configured for this organization."
+        return False, None, "LANGFUSE keys not configured for this organization."
 
     # Configure Langfuse
     langfuse, success = configure_langfuse(langfuse_credentials)
     if not success:
-        return False, {}, "Failed to configure Langfuse client."
+        return False, None, "Failed to configure Langfuse client."
 
     try:
         return await _process_evaluation(
@@ -75,7 +76,7 @@ async def run_evaluation(
         )
     except Exception as e:
         logger.error(f"Error during evaluation: {str(e)}", exc_info=True)
-        return False, {}, str(e)
+        return False, None, str(e)
 
 
 async def _process_evaluation(
@@ -86,12 +87,12 @@ async def _process_evaluation(
     project_id: int,
     _session: Session,
     _current_user: UserOrganization,
-) -> Tuple[bool, Dict, Optional[str]]:
+) -> Tuple[bool, Optional[Experiment], Optional[str]]:
     """Internal function to process the evaluation."""
     # Get dataset
     logger.info(f"Fetching dataset: {dataset_name}")
     dataset = langfuse.get_dataset(dataset_name)
-    results: List[Dict] = []
+    results: List[EvaluationResult] = []
     total_items = len(dataset.items)
     logger.info(f"Processing {total_items} items from {dataset_name} dataset")
 
@@ -127,33 +128,33 @@ async def _process_evaluation(
                 trace_id=trace_id, name="thread_creation_success", value=is_match
             )
             results.append(
-                {
-                    "input": item.input,
-                    "output": output,
-                    "expected": item.expected_output,
-                    "match": is_match,
-                    "thread_id": thread_id if is_match else None,
-                }
+                EvaluationResult(
+                    input=item.input,
+                    output=output,
+                    expected=item.expected_output,
+                    match=is_match,
+                    thread_id=thread_id if is_match else None,
+                )
             )
             logger.info(f"Completed processing item {idx} (match: {is_match})")
 
     # Flush Langfuse events
     langfuse.flush()
 
-    matches = sum(1 for r in results if r["match"])
+    matches = sum(1 for r in results if r.match)
     logger.info(
         f"Evaluation completed. Total items: {len(results)}, Matches: {matches}"
     )
 
     return (
         True,
-        {
-            "experiment_name": experiment_name,
-            "dataset_name": dataset_name,
-            "results": results,
-            "total_items": len(results),
-            "matches": matches,
-            "note": "All threads have been processed synchronously.",
-        },
+        Experiment(
+            experiment_name=experiment_name,
+            dataset_name=dataset_name,
+            results=results,
+            total_items=len(results),
+            matches=matches,
+            note="All threads have been processed synchronously.",
+        ),
         None,
     )
