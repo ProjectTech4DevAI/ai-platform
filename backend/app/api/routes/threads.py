@@ -1,6 +1,7 @@
 import re
 import openai
 import requests
+import asyncio
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 from openai import OpenAI
@@ -331,8 +332,51 @@ async def threads_sync(
         return APIResponse.failure_response(error=error_message)
 
     try:
-        response, error_message = process_run_core(request, client)
-        return response
+        # Create a run
+        run = client.beta.threads.runs.create(
+            thread_id=request["thread_id"],
+            assistant_id=request["assistant_id"],
+        )
+
+        # Poll for completion
+        while True:
+            run = client.beta.threads.runs.retrieve(
+                thread_id=request["thread_id"], run_id=run.id
+            )
+
+            if run.status == "completed":
+                # Get the messages
+                messages = client.beta.threads.messages.list(
+                    thread_id=request["thread_id"]
+                )
+
+                # Get the latest assistant message
+                for message in messages.data:
+                    if message.role == "assistant":
+                        response_text = ""
+                        for content in message.content:
+                            if content.type == "text":
+                                response_text = content.text.value
+                                break
+
+                        return APIResponse.success_response(
+                            data={
+                                "status": "success",
+                                "message": response_text,
+                                "thread_id": request["thread_id"],
+                            }
+                        )
+                break
+            elif run.status in ["failed", "cancelled", "expired"]:
+                return APIResponse.failure_response(
+                    error=f"Run failed with status: {run.status}"
+                )
+
+            # Wait before polling again
+            await asyncio.sleep(1)
+
+    except Exception as e:
+        return APIResponse.failure_response(error=str(e))
     finally:
         langfuse_context.flush()
 

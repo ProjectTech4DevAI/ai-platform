@@ -2,6 +2,9 @@ import logging
 from typing import Dict, List, Optional, Tuple
 from sqlmodel import Session
 from langfuse import Langfuse
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 
 from app.models import UserOrganization
 from app.crud.credentials import get_provider_credential
@@ -12,6 +15,9 @@ from app.models.evaluation import Experiment, EvaluationResult
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Maximum number of concurrent tasks
+MAX_CONCURRENT_TASKS = 5
 
 
 async def run_evaluation(
@@ -92,58 +98,96 @@ async def _process_evaluation(
     # Get dataset
     logger.info(f"Fetching dataset: {dataset_name}")
     dataset = langfuse.get_dataset(dataset_name)
-    results: List[EvaluationResult] = []
     total_items = len(dataset.items)
     logger.info(f"Processing {total_items} items from {dataset_name} dataset")
 
+    # Create a semaphore to limit concurrent tasks
+    semaphore = asyncio.Semaphore(MAX_CONCURRENT_TASKS)
+    active_tasks = set()
+    results = []
+
+    async def process_item(idx: int, item) -> EvaluationResult:
+        async with semaphore:
+            start_time = datetime.now()
+            task_id = id(asyncio.current_task())
+            active_tasks.add(task_id)
+            logger.info(
+                f"[{start_time.strftime('%H:%M:%S')}] Starting item {idx}/{total_items} "
+                f"(Task {task_id}, Active tasks: {len(active_tasks)}): {item.input[:20]}..."
+            )
+
+            try:
+                with item.observe(run_name=experiment_name) as trace_id:
+                    # Prepare request
+                    request = {
+                        "question": item.input,
+                        "assistant_id": assistant_id,
+                        "remove_citation": True,
+                        "project_id": project_id,
+                    }
+
+                    # Process thread synchronously
+                    response = await threads_sync(
+                        request=request,
+                        _session=_session,
+                        _current_user=_current_user,
+                    )
+
+                    # Extract message from the response
+                    if isinstance(response, dict) and response.get("success"):
+                        output = response.get("data", {}).get("message", "")
+                        thread_id = response.get("data", {}).get("thread_id")
+                    else:
+                        output = ""
+                        thread_id = None
+
+                    # Evaluate based on response success
+                    is_match = bool(output)
+                    langfuse.score(
+                        trace_id=trace_id,
+                        name="thread_creation_success",
+                        value=is_match,
+                    )
+
+                    end_time = datetime.now()
+                    duration = (end_time - start_time).total_seconds()
+                    logger.info(
+                        f"[{end_time.strftime('%H:%M:%S')}] Completed item {idx}/{total_items} "
+                        f"(Task {task_id}, Active tasks: {len(active_tasks)}, "
+                        f"match: {is_match}, duration: {duration:.2f}s)"
+                    )
+
+                    return EvaluationResult(
+                        input=item.input,
+                        output=output,
+                        expected=item.expected_output,
+                        match=is_match,
+                        thread_id=thread_id if is_match else None,
+                    )
+            finally:
+                active_tasks.remove(task_id)
+
+    # Create tasks for all items
+    logger.info(
+        f"Starting parallel processing of {total_items} items with max {MAX_CONCURRENT_TASKS} concurrent tasks"
+    )
+
+    # Create tasks and gather results
+    tasks = []
     for idx, item in enumerate(dataset.items, 1):
-        logger.info(f"Processing item {idx}/{total_items}: {item.input[:20]}...")
-        with item.observe(run_name=experiment_name) as trace_id:
-            # Prepare request
-            request = {
-                "question": item.input,
-                "assistant_id": assistant_id,
-                "remove_citation": True,
-                "project_id": project_id,
-            }
+        task = asyncio.create_task(process_item(idx, item))
+        tasks.append(task)
 
-            # Process thread synchronously
-            response = await threads_sync(
-                request=request,
-                _session=_session,
-                _current_user=_current_user,
-            )
-
-            # Extract message from the response
-            if isinstance(response, dict) and response.get("success"):
-                output = response.get("data", {}).get("message", "")
-                thread_id = response.get("data", {}).get("thread_id")
-            else:
-                output = ""
-                thread_id = None
-
-            # Evaluate based on response success
-            is_match = bool(output)
-            langfuse.score(
-                trace_id=trace_id, name="thread_creation_success", value=is_match
-            )
-            results.append(
-                EvaluationResult(
-                    input=item.input,
-                    output=output,
-                    expected=item.expected_output,
-                    match=is_match,
-                    thread_id=thread_id if is_match else None,
-                )
-            )
-            logger.info(f"Completed processing item {idx} (match: {is_match})")
+    # Wait for all tasks to complete
+    results = await asyncio.gather(*tasks)
 
     # Flush Langfuse events
     langfuse.flush()
 
     matches = sum(1 for r in results if r.match)
     logger.info(
-        f"Evaluation completed. Total items: {len(results)}, Matches: {matches}"
+        f"Evaluation completed. Total items: {len(results)}, Matches: {matches}, "
+        f"Success rate: {(matches/len(results))*100:.1f}%"
     )
 
     return (
@@ -154,7 +198,7 @@ async def _process_evaluation(
             results=results,
             total_items=len(results),
             matches=matches,
-            note="All threads have been processed synchronously.",
+            note="All threads have been processed in parallel with semaphore control.",
         ),
         None,
     )
