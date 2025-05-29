@@ -27,10 +27,28 @@ HARYANA_ASSISTANT_ID = 'asst_fz7oIQ2goRLfrP1mWceBcjje'
 
 PAYLOAD = {
     "project_id": 1,
-    "assistant_id": HARYANA_ASSISTANT_ID
 }
 
 ENDPOINT = "http://0.0.0.0:8000/api/v1/threads/sync"
+
+@dataclass
+class DataclassConfig:
+    assistant_id: str
+    filename: str
+    query_column: str
+
+DATASETS = {
+    "kunji": DataclassConfig(
+        assistant_id='asst_fz7oIQ2goRLfrP1mWceBcjje',
+        filename="glific_kunji_test_queries.csv",
+        query_column="prompt_text"
+    ),
+    "sneha": DataclassConfig(
+        assistant_id="asst_U34ZORFHMrY6a8JqrFLzyUuy",
+        filename="sneha_goldens.csv",
+        query_column="Question"
+    )
+}
 
 @dataclass
 class BenchItem:
@@ -47,7 +65,8 @@ def estimate_cost(
     model: str, prompt_tokens: int, completion_tokens: int
 ) -> float:
     usd_per_1m = {
-        "gpt-4o": {"input": 2.00, "cached_input": 1.25, "output": 10.00},
+        "gpt-4o": {"input": 2.50, "cached_input": 1.25, "output": 10.00},
+        "gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
         # Extend with more models as needed: https://platform.openai.com/docs/pricing
     }
 
@@ -74,8 +93,8 @@ def output_csv(items: List[BenchItem]):
 
     return filename
 
-def send_request(prompt: str, i: int, total: int) -> BenchItem:
-    local_payload = {**PAYLOAD, "question": prompt}
+def send_request(prompt: str, i: int, total: int, assistant_id: str) -> BenchItem:
+    local_payload = {**PAYLOAD, "question": prompt, "assistant_id": assistant_id}
 
     start = time.perf_counter()
     response = requests.post(ENDPOINT, headers=HEADERS, json=local_payload)
@@ -101,7 +120,8 @@ def send_request(prompt: str, i: int, total: int) -> BenchItem:
 @cli.command()
 def assistants(
     count: int = typer.Option(None, help="Number of queries to process. If not set, will process all CSV rows."),
-    workers: int = typer.Option(1, help="Number of workers to use for processing queries.")
+    workers: int = typer.Option(1, help="Number of workers to use for processing queries."),
+    dataset: str = typer.Option("kunji", help="Dataset to use for benchmarking (kunji or sneha).")
 ):
     """
     Runs Glific test queries on Kunji OpenAI Assistant to measure latency and cost.
@@ -110,9 +130,11 @@ def assistants(
 
     Note that increasing the number of workers beyond 1 can impact accuracy of duration.
     """
+    config = DATASETS[dataset]
+
     csv_file_path = os.path.join(
         os.path.dirname(__file__),
-        "data", "glific_kunji_test_queries.csv"
+        "data", config.filename
     )
     results = []
     with open(csv_file_path, 'r') as file:
@@ -124,10 +146,10 @@ def assistants(
 
         typer.echo(f"Total queries: {len(csv_data)}")
 
-        # dedupe csv_data by row['prompt_text']
+        # dedupe csv_data by query value
         seen_prompts = set()
         csv_data = [
-            row for row in csv_data if row['prompt_text'] not in seen_prompts and not seen_prompts.add(row['prompt_text'])
+            row for row in csv_data if row[config.query_column] not in seen_prompts and not seen_prompts.add(row[config.query_column])
         ]
 
         typer.echo(f"Total deduped queries: {len(csv_data)}")
@@ -135,7 +157,7 @@ def assistants(
 
         with ThreadPoolExecutor(max_workers=workers) as executor:
             futures = {
-                executor.submit(send_request, row['prompt_text'], i, total): row
+                executor.submit(send_request, row[config.query_column], i, total, config.assistant_id): row
                 for i, row in enumerate(csv_data)
             }
 
