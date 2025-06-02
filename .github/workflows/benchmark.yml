@@ -29,6 +29,8 @@ jobs:
 
       - run: cp .env.example .env
 
+      - run: echo "$LANGFUSE_HOST"
+
       - name: Run server
         run: |
           docker compose up -d
