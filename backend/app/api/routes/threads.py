@@ -322,13 +322,13 @@ async def threads_sync(
                 message_content, request.get("remove_citation", False)
             )
 
-            cost_info = {
-                "prompt_tokens": run.usage.prompt_tokens,
-                "completion_tokens": run.usage.completion_tokens,
+            diagnostics = {
+                "input_tokens": run.usage.prompt_tokens,
+                "output_tokens": run.usage.completion_tokens,
                 "total_tokens": run.usage.total_tokens,
-                "model": run.model
+                "model": run.model,
             }
-            request = { **request, **cost_info }
+            request = {**request, **{"diagnostics": diagnostics}}
 
             return create_success_response(request, message)
         else:
