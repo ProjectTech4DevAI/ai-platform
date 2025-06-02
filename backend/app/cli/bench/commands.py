@@ -185,7 +185,6 @@ def send_benchmark_request(
 
     if response.status_code == 200:
         result = response.json()
-        typer.echo(f"response.json(): {json.dumps(result, indent=2)}")
         result = result["data"]
         diagnostics = result["diagnostics"]
         return BenchItem(

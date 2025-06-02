@@ -61,13 +61,12 @@ jobs:
             }'
 
       - name: Run benchmark
-        id: benchmark
         run: |
-          # Run benchmark
           docker compose exec backend uv run ai-cli bench ${{ matrix.service }} --dataset ${{ matrix.dataset }} --count ${{ matrix.count }}
-          # Get the latest benchmark file
+          docker compose cp backend:/app/bench_results_*.csv ./
           LATEST_BENCH=$(ls -t bench_results_*.csv | head -n1)
           cp $LATEST_BENCH bench-${{ matrix.service }}-${{ matrix.dataset }}-${{ matrix.count }}.csv
+          ls -l bench-${{ matrix.service }}-${{ matrix.dataset }}-${{ matrix.count }}.csv
 
       - name: backend logs on failure
         if: failure()
