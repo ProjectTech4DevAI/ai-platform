@@ -31,11 +31,7 @@ jobs:
 
       - run: |
           cp .env.example .env
-
-      - name: Update .env file
-        run: |
           sed -i 's/changethis/secret123/g' .env
-          sed -i 's/changeme/secret123/g' .env
 
       - name: Run server
         run: |
@@ -52,7 +48,7 @@ jobs:
         run: |
           curl -X POST "http://localhost:8000/api/v1/credentials/" \
             -H "Content-Type: application/json" \
-            -H "X-API-KEY: ${{ env.LOCAL_CREDENTIALS_ORG_OPENAI_API_KEY }}" \
+            -H "X-API-KEY: ${{ env.LOCAL_CREDENTIALS_API_KEY }}" \
             -d '{
               "organization_id": 1,
               "project_id": 1,
