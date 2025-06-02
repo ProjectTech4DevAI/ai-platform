@@ -1,0 +1,50 @@
+name: RAG Benchmark
+
+run-name: RAG Benchmark by ${{ github.actor }}
+
+on:
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        service: [assistants, responses]
+        dataset: [kunji, sneha]
+        count: [2]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Start server and run benchmark
+        id: benchmark
+        run: |
+          # Start server in detached mode
+          docker compose up -d
+          # Wait for server to be ready
+          sleep 10
+          # Run benchmark
+          docker compose exec backend uv run ai-cli bench ${{ matrix.service }} --dataset ${{ matrix.dataset }} --count ${{ matrix.count }}
+          # Get the latest benchmark file
+          LATEST_BENCH=$(ls -t bench_results_*.csv | head -n1)
+          echo "benchmark_file=$LATEST_BENCH" >> $GITHUB_OUTPUT
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-${{ matrix.service }}-${{ matrix.dataset }}-${{ matrix.count }}.csv
+          path: ${{ steps.benchmark.outputs.benchmark_file }}
+
+      - name: Add results to job summary
+        run: |
+          echo "## Benchmark Results for ${{ matrix.service }} - ${{ matrix.dataset }}" >> $GITHUB_STEP_SUMMARY
+          echo "```csv" >> $GITHUB_STEP_SUMMARY
+          cat ${{ steps.benchmark.outputs.benchmark_file }} >> $GITHUB_STEP_SUMMARY
+          echo "```" >> $GITHUB_STEP_SUMMARY
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down
