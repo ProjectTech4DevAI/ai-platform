@@ -125,6 +125,7 @@ def get_api_key_by_value(session: Session, api_key_value: str) -> APIKeyPublic |
     """
     # Get all active API keys
     api_keys = session.exec(select(APIKey).where(APIKey.is_deleted == False)).all()
+    print(f"api_keys: {api_keys}")
 
     for api_key in api_keys:
         decrypted_key = decrypt_api_key(api_key.key)
