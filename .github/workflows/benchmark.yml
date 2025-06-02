@@ -27,18 +27,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup .env
-        run: |
-          cp .env.example .env
-          echo "OPENAI_API_KEY=${{ env.OPENAI_API_KEY }}" >> .env
-          echo "LANGFUSE_PUBLIC_KEY=${{ env.LANGFUSE_PUBLIC_KEY }}" >> .env
-          echo "LANGFUSE_SECRET_KEY=${{ env.LANGFUSE_SECRET_KEY }}" >> .env
-          echo "LANGFUSE_HOST=${{ env.LANGFUSE_HOST }}" >> .env
-          echo "LOCAL_CREDENTIALS_CREATE_PAYLOAD=${{ env.LOCAL_CREDENTIALS_CREATE_PAYLOAD }}" >> .env
-          echo "LOCAL_CREDENTIALS_API_KEY=${{ env.LOCAL_CREDENTIALS_API_KEY }}" >> .env
-          echo "SECRET_KEY=secret123" >> .env
-          echo "FIRST_SUPERUSER_PASSWORD=secret123" >> .env
-
       - name: Run server
         run: |
           docker compose up -d
