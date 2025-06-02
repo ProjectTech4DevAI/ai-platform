@@ -62,7 +62,11 @@ jobs:
 
       - name: Run benchmark
         run: |
-          docker compose exec backend uv run ai-cli bench ${{ matrix.service }} --dataset ${{ matrix.dataset }} --count ${{ matrix.count }}
+          docker compose exec backend uv run ai-cli bench ${{ matrix.service }} --dataset ${{ matrix.dataset }} --count ${{ matrix.count }} | tee benchmark_output.txt
+          echo "## Benchmark Results for ${{ matrix.service }} - ${{ matrix.dataset }} (${{ matrix.count }} queries)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat benchmark_output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
           # Find latest benchmark file inside container first
           CONTAINER_LATEST=$(docker compose exec backend sh -c "ls -t bench_results_*.csv | head -n1")
           # Copy the specific file out
