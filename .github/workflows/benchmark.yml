@@ -55,15 +55,9 @@ jobs:
         run: |
           curl -X POST http://localhost:8000/api/v1/credentials -H "Content-Type: application/json" -H "X-API-KEY: ${{ env.LOCAL_CREDENTIALS_API_KEY }}" -d "${{ env.LOCAL_CREDENTIALS_CREATE_PAYLOAD }}"
 
-      - name: Start server and run benchmark
+      - name: Run benchmark
         id: benchmark
         run: |
-          # Start server in detached mode
-          docker compose up -d
-          # Wait for server to be ready
-          sleep 10
-          # Create local credentials
-          curl -X POST http://localhost:8000/api/v1/credentials -H "Content-Type: application/json" -H "X-API-KEY: ${{ env.LOCAL_CREDENTIALS_API_KEY }}" -d "${{ env.LOCAL_CREDENTIALS_CREATE_PAYLOAD }}"
           # Run benchmark
           docker compose exec backend uv run ai-cli bench ${{ matrix.service }} --dataset ${{ matrix.dataset }} --count ${{ matrix.count }}
           # Get the latest benchmark file
