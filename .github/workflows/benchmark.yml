@@ -22,7 +22,7 @@ jobs:
       LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
       LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
       LANGFUSE_HOST: ${{ secrets.LANGFUSE_HOST }}
-      LOCAL_CREDENTIALS_CREATE_PAYLOAD: ${{ secrets.LOCAL_CREDENTIALS_CREATE_PAYLOAD }}
+      LOCAL_CREDENTIALS_ORG_OPENAI_API_KEY: ${{ secrets.LOCAL_CREDENTIALS_ORG_OPENAI_API_KEY }}
       LOCAL_CREDENTIALS_API_KEY: ${{ secrets.LOCAL_CREDENTIALS_API_KEY }}
 
     steps:
@@ -47,7 +47,19 @@ jobs:
 
       - name: Create local credentials
         run: |
-          curl -X POST http://localhost:8000/api/v1/credentials -H "Content-Type: application/json" -H "X-API-KEY: ${{ env.LOCAL_CREDENTIALS_API_KEY }}" -d "${{ env.LOCAL_CREDENTIALS_CREATE_PAYLOAD }}" -v
+          curl -X POST "http://localhost:8000/api/v1/credentials/" \
+            -H "Content-Type: application/json" \
+            -H "X-API-KEY: ${{ env.LOCAL_CREDENTIALS_ORG_OPENAI_API_KEY }}" \
+            -d '{
+              "organization_id": 1,
+              "project_id": 1,
+              "is_active": true,
+              "credential": {
+                "openai": {
+                  "api_key": "${{ env.LOCAL_CREDENTIALS_ORG_OPENAI_API_KEY }}"
+                }
+              }
+            }'
 
       - name: Run benchmark
         id: benchmark
