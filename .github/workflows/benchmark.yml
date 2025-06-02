@@ -63,7 +63,9 @@ jobs:
       - name: Run benchmark
         run: |
           docker compose exec backend uv run ai-cli bench ${{ matrix.service }} --dataset ${{ matrix.dataset }} --count ${{ matrix.count }} | tee benchmark_output.txt
-          echo "## Benchmark Results for ${{ matrix.service }} - ${{ matrix.dataset }} (${{ matrix.count }} queries)" >> $GITHUB_STEP_SUMMARY
+          # Extract mean duration from benchmark output
+          MEAN_DURATION=$(grep '^Mean duration:' benchmark_output.txt | awk '{print $3}')
+          echo "## Benchmark Results for ${{ matrix.service }} - ${{ matrix.dataset }} (${{ matrix.count }} queries, ${MEAN_DURATION} avg)" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat benchmark_output.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
