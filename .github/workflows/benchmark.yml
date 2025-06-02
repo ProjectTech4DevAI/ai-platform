@@ -45,12 +45,6 @@ jobs:
       - name: Wait for server to be ready
         run: sleep 10
 
-      - name: Run migrations
-        run: docker compose exec backend uv run alembic upgrade head
-
-      - name: Seed data
-        run: docker compose exec backend uv run python -m app.seed_data.seed_data
-
       - name: Create local credentials
         run: |
           curl -X POST http://localhost:8000/api/v1/credentials -H "Content-Type: application/json" -H "X-API-KEY: ${{ env.LOCAL_CREDENTIALS_API_KEY }}" -d "${{ env.LOCAL_CREDENTIALS_CREATE_PAYLOAD }}"
