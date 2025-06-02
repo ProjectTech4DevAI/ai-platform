@@ -36,10 +36,9 @@ jobs:
           docker compose up -d
           sleep 20
 
-      - name: Fallback logic
+      - name: prestart logs on failure
         if: failure()
         run: |
-          echo "Benchmark failed. Running fallback logic.."
           docker compose logs -f prestart
           exit 1
 
@@ -67,6 +66,12 @@ jobs:
           # Get the latest benchmark file
           LATEST_BENCH=$(ls -t bench_results_*.csv | head -n1)
           echo "benchmark_file=$LATEST_BENCH" >> $GITHUB_OUTPUT
+
+      - name: backend logs on failure
+        if: failure()
+        run: |
+          docker compose logs -f backend
+          exit 1
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
