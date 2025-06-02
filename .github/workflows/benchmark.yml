@@ -15,7 +15,7 @@ jobs:
       matrix:
         service: [assistants, responses]
         dataset: [kunji, sneha]
-        count: [2]
+        count: [10]
 
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -67,7 +67,7 @@ jobs:
           docker compose exec backend uv run ai-cli bench ${{ matrix.service }} --dataset ${{ matrix.dataset }} --count ${{ matrix.count }}
           # Get the latest benchmark file
           LATEST_BENCH=$(ls -t bench_results_*.csv | head -n1)
-          echo "benchmark_file=$LATEST_BENCH" >> $GITHUB_OUTPUT
+          cp $LATEST_BENCH bench-${{ matrix.service }}-${{ matrix.dataset }}-${{ matrix.count }}.csv
 
       - name: backend logs on failure
         if: failure()
@@ -80,14 +80,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: bench-${{ matrix.service }}-${{ matrix.dataset }}-${{ matrix.count }}.csv
-          path: ${{ steps.benchmark.outputs.benchmark_file }}
-
-      - name: Add results to job summary
-        run: |
-          echo "## Benchmark Results for ${{ matrix.service }} - ${{ matrix.dataset }}" >> $GITHUB_STEP_SUMMARY
-          echo "```csv" >> $GITHUB_STEP_SUMMARY
-          cat ${{ steps.benchmark.outputs.benchmark_file }} >> $GITHUB_STEP_SUMMARY
-          echo "```" >> $GITHUB_STEP_SUMMARY
+          path: bench-${{ matrix.service }}-${{ matrix.dataset }}-${{ matrix.count }}.csv
 
       - name: Cleanup
         if: always()
