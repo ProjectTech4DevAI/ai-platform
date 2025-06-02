@@ -18,7 +18,7 @@ cli = typer.Typer(help=__doc__)
 
 HEADERS = {
     "accept": "application/json",
-    "X-API-KEY": "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8",  # from seed data but must hit POST /api/v1/credentials before running this script
+    "X-API-KEY": os.getenv("LOCAL_CREDENTIALS_API_KEY"),
     "Content-Type": "application/json",
 }
 
