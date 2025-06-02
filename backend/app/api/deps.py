@@ -47,8 +47,10 @@ def get_current_user(
 ) -> User:
     """Authenticate user via API Key first, fallback to JWT token. Returns only User."""
 
+    print(f"api_key: {api_key}")
     if api_key:
         api_key_record = get_api_key_by_value(session, api_key)
+        print(f"api_key_record: {api_key_record}")
         if not api_key_record:
             raise HTTPException(status_code=401, detail="Invalid API Key")
 
