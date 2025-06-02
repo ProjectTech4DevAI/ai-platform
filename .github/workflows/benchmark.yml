@@ -36,6 +36,7 @@ jobs:
       - name: Run server
         run: |
           docker compose up -d
+          sleep 20
 
       - name: Fallback logic
         if: failure()
