@@ -129,13 +129,16 @@ def get_api_key_by_value(session: Session, api_key_value: str) -> APIKeyPublic |
     for api_key in api_keys:
         decrypted_key = decrypt_api_key(api_key.key)
         print(
-            f"d_start: {decrypted_key[:10]}, d_end: {decrypted_key[-10:]}, start: {api_key_value[:10]}, end: {api_key_value[-10:]}"
+            f"d_start: {decrypted_key[:10]}, d_end: {decrypted_key[-10:]}, start: {api_key_value[:10]}, end: {api_key_value[-10:]}, compare: {decrypted_key == api_key_value}"
         )
         if api_key_value == decrypted_key:
             api_key_dict = api_key.model_dump()
 
             api_key_dict["key"] = decrypted_key
 
+            print(
+                f"APIKeyPublic.model_validate(api_key_dict): {APIKeyPublic.model_validate(api_key_dict)}"
+            )
             return APIKeyPublic.model_validate(api_key_dict)
     return None
 
