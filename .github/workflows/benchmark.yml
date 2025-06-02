@@ -15,7 +15,7 @@ jobs:
       matrix:
         service: [assistants, responses]
         dataset: [kunji, sneha]
-        count: [10]
+        count: [3]
 
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -36,7 +36,6 @@ jobs:
       - name: Run server
         run: |
           docker compose up -d
-          sleep 20
 
       - name: prestart logs on failure
         if: failure()
@@ -63,14 +62,16 @@ jobs:
       - name: Run benchmark
         run: |
           docker compose exec backend uv run ai-cli bench ${{ matrix.service }} --dataset ${{ matrix.dataset }} --count ${{ matrix.count }}
-          docker compose cp backend:/app/bench_results_*.csv ./
-          LATEST_BENCH=$(ls -t bench_results_*.csv | head -n1)
-          cp $LATEST_BENCH bench-${{ matrix.service }}-${{ matrix.dataset }}-${{ matrix.count }}.csv
+          # Find latest benchmark file inside container first
+          CONTAINER_LATEST=$(docker compose exec backend sh -c "ls -t bench_results_*.csv | head -n1")
+          # Copy the specific file out
+          docker compose cp backend:/app/$CONTAINER_LATEST ./
+          cp $CONTAINER_LATEST bench-${{ matrix.service }}-${{ matrix.dataset }}-${{ matrix.count }}.csv
           ls -l bench-${{ matrix.service }}-${{ matrix.dataset }}-${{ matrix.count }}.csv
 
       - name: backend logs on failure
         if: failure()
-        timeout-minutes: 2
+        timeout-minutes: 1
         run: |
           docker compose logs -f backend
           exit 1

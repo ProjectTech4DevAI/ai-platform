@@ -13,4 +13,4 @@ cli = typer.Typer(help=__doc__)
 cli.add_typer(bench_cli, name="bench", help="Run benchmarks")
 
 if __name__ == "__main__":
-   cli()
+    cli()
