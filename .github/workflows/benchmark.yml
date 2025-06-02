@@ -69,6 +69,7 @@ jobs:
 
       - name: backend logs on failure
         if: failure()
+        timeout-minutes: 2
         run: |
           docker compose logs -f backend
           exit 1
