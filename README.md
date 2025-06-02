@@ -58,13 +58,13 @@ docker compose watch
 
 This should start all necessary services for the project and will also mount file system as volume for easy development.
 
-You verify backend running by doing health-check
+You verify backend running by doing a health check
 
 ```bash
 curl http://[your-domain]:8000/api/v1/utils/health/
 ```
 
-or by visiting: http://[your-domain]:8000/api/v1/utils/health-check/ in the browser
+or by visiting: http://[your-domain]:8000/api/v1/utils/health/ in the browser
 
 ## Backend Development
 

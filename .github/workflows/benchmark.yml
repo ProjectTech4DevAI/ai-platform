@@ -29,7 +29,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - run: cp .env.example .env
+      - run: |
+          cp .env.example .env
+
+      - name: Update .env file
+        run: |
+          sed -i 's/changethis/secret123/g' .env
+          sed -i 's/changeme/secret123/g' .env
 
       - name: Run server
         run: |
