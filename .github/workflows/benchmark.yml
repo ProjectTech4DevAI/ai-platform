@@ -13,11 +13,9 @@ jobs:
 
     strategy:
       matrix:
-        include:
-          - { service: assistants, dataset: kunji, count: 10 }
-          - { service: responses, dataset: kunji, count: 10 }
-          - { service: assistants, dataset: sneha, count: 10 }
-          - { service: responses, dataset: sneha, count: 10 }
+        dataset: [kunji, sneha]
+        service: [assistants, responses]
+        count: [100]
 
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
