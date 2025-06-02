@@ -40,7 +40,16 @@ jobs:
           echo "FIRST_SUPERUSER_PASSWORD=secret123" >> .env
 
       - name: Run server
-        run: docker compose up -d
+        run: |
+          docker compose up -d || {
+            echo "=== Docker Compose Logs ==="
+            docker compose logs
+            echo "=== Prestart Container Logs ==="
+            docker compose logs prestart
+            echo "=== Backend Container Logs ==="
+            docker compose logs backend
+            exit 1
+          }
 
       - name: Wait for server to be ready
         run: sleep 10
