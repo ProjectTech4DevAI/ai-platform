@@ -27,6 +27,34 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup .env
+        run: |
+          cp .env.example .env
+          echo "OPENAI_API_KEY=${{ env.OPENAI_API_KEY }}" >> .env
+          echo "LANGFUSE_PUBLIC_KEY=${{ env.LANGFUSE_PUBLIC_KEY }}" >> .env
+          echo "LANGFUSE_SECRET_KEY=${{ env.LANGFUSE_SECRET_KEY }}" >> .env
+          echo "LANGFUSE_HOST=${{ env.LANGFUSE_HOST }}" >> .env
+          echo "LOCAL_CREDENTIALS_CREATE_PAYLOAD=${{ env.LOCAL_CREDENTIALS_CREATE_PAYLOAD }}" >> .env
+          echo "LOCAL_CREDENTIALS_API_KEY=${{ env.LOCAL_CREDENTIALS_API_KEY }}" >> .env
+          echo "SECRET_KEY=secret123" >> .env
+          echo "FIRST_SUPERUSER_PASSWORD=secret123" >> .env
+
+      - name: Run server
+        run: docker compose up -d
+
+      - name: Wait for server to be ready
+        run: sleep 10
+
+      - name: Run migrations
+        run: docker compose exec backend uv run alembic upgrade head
+
+      - name: Seed data
+        run: docker compose exec backend uv run python -m app.seed_data.seed_data
+
+      - name: Create local credentials
+        run: |
+          curl -X POST http://localhost:8000/api/v1/credentials -H "Content-Type: application/json" -H "X-API-KEY: ${{ env.LOCAL_CREDENTIALS_API_KEY }}" -d "${{ env.LOCAL_CREDENTIALS_CREATE_PAYLOAD }}"
+
       - name: Start server and run benchmark
         id: benchmark
         run: |
