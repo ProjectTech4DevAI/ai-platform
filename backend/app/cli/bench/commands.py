@@ -106,8 +106,15 @@ def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
         "output": 0.60,
     }
 
+    GPT_4o_2024_08_06_COSTING = {
+        "input": 2.50,
+        "cached_input": 1.25,
+        "output": 10.00,
+    }
+
     usd_per_1m = {
-        "gpt-4o": {"input": 2.50, "cached_input": 1.25, "output": 10.00},
+        "gpt-4o": GPT_4o_2024_08_06_COSTING,
+        "gpt-4o-2024-08-06": GPT_4o_2024_08_06_COSTING,
         "gpt-4o-mini": GPT_4o_MINI_2024_07_18_COSTING,
         "gpt-4o-mini-2024-07-18": GPT_4o_MINI_2024_07_18_COSTING,
         # Extend with more models as needed: https://platform.openai.com/docs/pricing

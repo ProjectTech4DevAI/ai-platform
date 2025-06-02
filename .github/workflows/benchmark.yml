@@ -15,7 +15,7 @@ jobs:
       matrix:
         service: [assistants, responses]
         dataset: [kunji, sneha]
-        count: [3]
+        count: [10]
 
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
