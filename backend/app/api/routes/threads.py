@@ -288,7 +288,7 @@ async def threads_sync(
         session=_session,
         org_id=_current_user.organization_id,
         provider="openai",
-        project_id=_current_user.project_id,
+        project_id=request.get("project_id"),
     )
     if not credentials or "api_key" not in credentials:
         return APIResponse.failure_response(
@@ -321,6 +321,15 @@ async def threads_sync(
             message = process_message_content(
                 message_content, request.get("remove_citation", False)
             )
+
+            diagnostics = {
+                "input_tokens": run.usage.prompt_tokens,
+                "output_tokens": run.usage.completion_tokens,
+                "total_tokens": run.usage.total_tokens,
+                "model": run.model,
+            }
+            request = {**request, **{"diagnostics": diagnostics}}
+
             return create_success_response(request, message)
         else:
             return APIResponse.failure_response(
