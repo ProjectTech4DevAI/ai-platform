@@ -11,7 +11,7 @@ class APIKeyBase(SQLModel):
     organization_id: int = Field(
         foreign_key="organization.id", nullable=False, ondelete="CASCADE"
     )
-    user_id: uuid.UUID = Field(
+    user_id: int = Field(
         foreign_key="user.id", nullable=False, ondelete="CASCADE"
     )
     key: str = Field(
