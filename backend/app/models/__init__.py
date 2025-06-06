@@ -53,3 +53,5 @@ from .credentials import (
 )
 
 from .threads import OpenAI_Thread, OpenAIThreadBase, OpenAIThreadCreate
+
+from .prompt import Prompt

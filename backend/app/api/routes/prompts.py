@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session
+from sqlmodel import Session, select
 from typing import List, Optional
 from langfuse.client import Langfuse
 from pydantic import BaseModel
@@ -8,6 +8,7 @@ from app.api.deps import get_current_user_org, get_db
 from app.crud.credentials import get_provider_credential
 from app.models import UserOrganization
 from app.utils import APIResponse
+from app.crud.prompt import add_prompt, get_prompt_by_name, list_prompts
 
 router = APIRouter(prefix="/prompts", tags=["prompts"])
 
@@ -66,7 +67,7 @@ def create_new_prompt(
     langfuse_client = initialize_langfuse(request.project_id, _session, _current_user)
     langfuse_client.create_prompt(
         name=request.name,
-        type=request.type,
+        type="text",
         prompt=request.prompt,
         labels=request.labels,
         tags=request.tags,
@@ -76,6 +77,9 @@ def create_new_prompt(
             "supported_languages": request.supported_languages,
         },
     )
+    # Add prompt name to Prompt table if not exists using CRUD
+    if not get_prompt_by_name(_session, request.name):
+        add_prompt(_session, request.name)
     return APIResponse.success_response(
         message="Prompt created successfully",
         data=request.dict(),
@@ -87,6 +91,10 @@ def get_prompt(
     _session: Session = Depends(get_db),
     _current_user: UserOrganization = Depends(get_current_user_org)
 ):
+    # Fetch prompt name from Prompt table using CRUD
+    prompt_row = get_prompt_by_name(_session, request.name)
+    if not prompt_row:
+        raise HTTPException(status_code=404, detail="Prompt not found in DB")
     langfuse_client = initialize_langfuse(request.project_id, _session, _current_user)
     prompt = langfuse_client.get_prompt(request.name, request.type, request.version)
     return APIResponse.success_response(
@@ -100,6 +108,10 @@ def update_prompt(
     _session: Session = Depends(get_db),
     _current_user: UserOrganization = Depends(get_current_user_org)
 ):
+    # Ensure prompt name exists in Prompt table using CRUD
+    prompt_row = get_prompt_by_name(_session, request.name)
+    if not prompt_row:
+        raise HTTPException(status_code=404, detail="Prompt not found in DB for update")
     langfuse_client = initialize_langfuse(request.project_id, _session, _current_user)
     langfuse_client.update_prompt(
         request.name,
@@ -111,4 +123,14 @@ def update_prompt(
     return APIResponse.success_response(
         message="Prompt updated successfully",
         data=request.dict(),
+    )
+
+# Optionally, add a list endpoint for all prompt names
+@router.get("/list")
+def list_prompt_names(_session: Session = Depends(get_db)):
+    prompts = list_prompts(_session)
+    names = [p.name for p in prompts]
+    return APIResponse.success_response(
+        message="Prompt names fetched successfully",
+        data=names,
     )
