@@ -99,6 +99,12 @@ def upgrade():
     # Re-add primary key
     conn.execute(sa.text('ALTER TABLE "user" ADD PRIMARY KEY (id);'))
 
+    # Create sequence for new integer IDs
+    conn.execute(sa.text('DROP SEQUENCE user_id_seq;'))
+    conn.execute(sa.text('CREATE SEQUENCE user_id_seq START 1;'))
+    conn.execute(sa.text("ALTER TABLE \"user\" ALTER COLUMN id SET DEFAULT nextval('user_id_seq');"))
+    conn.execute(sa.text("SELECT setval('user_id_seq', (SELECT MAX(id) FROM \"user\"));"))
+
     # Drop mapping table
     conn.execute(sa.text('DROP TABLE uuid_to_int_map;'))
 

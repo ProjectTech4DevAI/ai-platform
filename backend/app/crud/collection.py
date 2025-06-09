@@ -11,7 +11,7 @@ from .document_collection import DocumentCollectionCrud
 
 
 class CollectionCrud:
-    def __init__(self, session: Session, owner_id: UUID):
+    def __init__(self, session: Session, owner_id: int):
         self.session = session
         self.owner_id = owner_id
 
