@@ -1,14 +1,14 @@
 import uuid
 import json
 from pathlib import Path
-from sqlmodel import Session, select, delete
+from sqlmodel import Session, delete, text
 from app.models import Organization, Project, User, APIKey
 from app.core.security import get_password_hash, encrypt_api_key
 from app.core.db import engine
 import logging
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, UUID4, Field
-from typing import Optional, List
+from pydantic import BaseModel, EmailStr
+from typing import Optional
 
 
 # Pydantic models for data validation
@@ -150,6 +150,27 @@ def clear_database(session: Session) -> None:
     logging.info("Existing data cleared.")
 
 
+def reset_sequences(session: Session):
+    """Reset PostgreSQL sequences after manual ID insertion."""
+    tables_and_seqs = {
+        "organization": "organization_id_seq",
+        "project": "project_id_seq",
+        "apikey": "apikey_id_seq",
+    }
+
+    for table, seq in tables_and_seqs.items():
+        stmt = text(
+            f"""
+            SELECT setval('{seq}',
+            COALESCE((SELECT MAX(id) FROM {table}), 1) + 1, false);
+        """
+        )
+        session.exec(stmt)
+        logging.info(f"Reset sequence {seq} for table {table}")
+    session.commit()
+    logging.info(f"Reset sequence Successfully for all tables.")
+
+
 def seed_database(session: Session) -> None:
     """Seed the database with initial data."""
     logging.info("Starting database seeding...")
@@ -193,6 +214,9 @@ def seed_database(session: Session) -> None:
 
         logging.info("Database seeding completed successfully!")
         session.commit()
+
+        # Reset sequences after manual ID insertion
+        reset_sequences(session)
     except Exception as e:
         logging.error(f"Error during seeding: {e}")
         session.rollback()
