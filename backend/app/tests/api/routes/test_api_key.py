@@ -67,7 +67,7 @@ def test_create_duplicate_api_key(db: Session, superuser_token_headers: dict[str
         headers=superuser_token_headers,
     )
     assert response.status_code == 400
-    assert "API Key already exists" in response.json()["detail"]
+    assert "API Key already exists" in response.json()["error"]
 
 
 def test_list_api_keys(db: Session, superuser_token_headers: dict[str, str]):
@@ -117,7 +117,7 @@ def test_get_nonexistent_api_key(db: Session, superuser_token_headers: dict[str,
         headers=superuser_token_headers,
     )
     assert response.status_code == 404
-    assert "API Key does not exist" in response.json()["detail"]
+    assert "API Key does not exist" in response.json()["error"]
 
 
 def test_revoke_api_key(db: Session, superuser_token_headers: dict[str, str]):
@@ -148,4 +148,5 @@ def test_revoke_nonexistent_api_key(
         headers=superuser_token_headers,
     )
     assert response.status_code == 400
-    assert "API key not found or already deleted" in response.json()["detail"]
+    print(response.json())
+    assert "API key not found or already deleted" in response.json()["error"]
