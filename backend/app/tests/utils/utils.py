@@ -4,10 +4,14 @@ from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session
+from sqlmodel import Session, select
+from typing import Type, TypeVar
 
 from app.core.config import settings
 from app.crud.user import get_user_by_email
+
+
+T = TypeVar("T")
 
 
 @pytest.fixture(scope="class")
@@ -38,6 +42,15 @@ def get_superuser_token_headers(client: TestClient) -> dict[str, str]:
 def get_user_id_by_email(db: Session):
     user = get_user_by_email(session=db, email=settings.FIRST_SUPERUSER)
     return user.id
+
+
+def get_non_existent_id(session: Session, model: Type[T]) -> int:
+    """
+    Returns an ID that does not exist for the given model.
+    It fetches the current max ID and adds 1.
+    """
+    result = session.exec(select(model.id).order_by(model.id.desc())).first()
+    return (result or 0) + 1
 
 
 class SequentialUuidGenerator:
