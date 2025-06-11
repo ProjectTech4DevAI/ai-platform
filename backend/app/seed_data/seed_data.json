@@ -40,14 +40,14 @@
   "apikeys": [
     {
       "organization_name": "Project Tech4dev",
-      "user_id": "4629f304-10c5-45f8-80f5-26ea1066a1cb",
+      "user_email": "superuser@example.com",
       "api_key": "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8",
       "is_deleted": false,
       "deleted_at": null
     },
     {
       "organization_name": "Project Tech4dev",
-      "user_id": "375503ac-f9d1-465e-8a87-be6974799ce1",
+      "user_email": "org_admin@example.com",
       "api_key": "ApiKey Px8y47B6roJHin1lWLkR88eiDrFdXSJRZmFQazzai8j9",
       "is_deleted": false,
       "deleted_at": null

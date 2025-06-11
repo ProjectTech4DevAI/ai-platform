@@ -35,7 +35,7 @@ class UserData(BaseModel):
 
 class APIKeyData(BaseModel):
     organization_name: str
-    user_id: str
+    user_email: EmailStr
     api_key: str
     is_deleted: bool
     deleted_at: Optional[str] = None
@@ -61,9 +61,7 @@ def create_organization(session: Session, org_data_raw: dict) -> Organization:
     try:
         org_data = OrgData.model_validate(org_data_raw)
         logging.info(f"Creating organization: {org_data.name}")
-        organization = Organization(
-            name=org_data.name, is_active=org_data.is_active
-        )
+        organization = Organization(name=org_data.name, is_active=org_data.is_active)
         session.add(organization)
         session.flush()  # Ensure ID is assigned
         return organization
@@ -79,10 +77,14 @@ def create_project(session: Session, project_data_raw: dict) -> Project:
         logging.info(f"Creating project: {project_data.name}")
         # Query organization ID by name
         organization = session.exec(
-            select(Organization).where(Organization.name == project_data.organization_name)
+            select(Organization).where(
+                Organization.name == project_data.organization_name
+            )
         ).first()
         if not organization:
-            raise ValueError(f"Organization '{project_data.organization_name}' not found")
+            raise ValueError(
+                f"Organization '{project_data.organization_name}' not found"
+            )
         project = Project(
             name=project_data.name,
             description=project_data.description,
@@ -123,17 +125,27 @@ def create_api_key(session: Session, api_key_data_raw: dict) -> APIKey:
     """Create an API key from data."""
     try:
         api_key_data = APIKeyData.model_validate(api_key_data_raw)
-        logging.info(f"Creating API key for user {api_key_data.user_id}")
+        logging.info(f"Creating API key for user {api_key_data.user_email}")
         # Query organization ID by name
         organization = session.exec(
-            select(Organization).where(Organization.name == api_key_data.organization_name)
+            select(Organization).where(
+                Organization.name == api_key_data.organization_name
+            )
         ).first()
         if not organization:
-            raise ValueError(f"Organization '{api_key_data.organization_name}' not found")
+            raise ValueError(
+                f"Organization '{api_key_data.organization_name}' not found"
+            )
+        # Query user ID by email
+        user = session.exec(
+            select(User).where(User.email == api_key_data.user_email)
+        ).first()
+        if not user:
+            raise ValueError(f"User '{api_key_data.user_email}' not found")
         encrypted_api_key = encrypt_api_key(api_key_data.api_key)
         api_key = APIKey(
             organization_id=organization.id,
-            user_id=uuid.UUID(api_key_data.user_id),
+            user_id=user.id,
             key=encrypted_api_key,
             is_deleted=api_key_data.is_deleted,
             deleted_at=api_key_data.deleted_at,
