@@ -10,6 +10,8 @@ from app.api.deps import get_current_user_org, get_db
 from app.crud.credentials import get_provider_credential
 from app.models import UserOrganization
 from app.utils import APIResponse
+from app.core import logging, settings
+from app.core.exception_handlers import OpenAIServiceException, BadRequestException
 
 router = APIRouter(tags=["responses"])
 
@@ -89,8 +91,8 @@ async def responses_sync(
         project_id=request.project_id,
     )
     if not credentials or "api_key" not in credentials:
-        return APIResponse.failure_response(
-            error="OpenAI API key not configured for this organization."
+        raise BadRequestException(
+            "OpenAI API key not configured for this organization."
         )
 
     client = OpenAI(api_key=credentials["api_key"])
@@ -129,4 +131,4 @@ async def responses_sync(
             ),
         )
     except openai.OpenAIError as e:
-        return ResponsesAPIResponse.failure_response(error=handle_openai_error(e))
+        raise OpenAIServiceException(handle_openai_error(e))

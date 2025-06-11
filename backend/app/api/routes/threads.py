@@ -14,6 +14,11 @@ from app.crud import upsert_thread_result, get_thread_result
 from app.utils import APIResponse
 from app.crud.credentials import get_provider_credential
 from app.core.security import decrypt_credentials
+from app.core.exception_handlers import (
+    BadRequestException,
+    NotFoundException,
+    OpenAIServiceException,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["threads"])
@@ -214,6 +219,21 @@ def poll_run_and_prepare_response(request: dict, client: OpenAI, db: Session):
     )
 
 
+# Updated credential fetch with proper error handling
+def get_required_credentials(session, org_id, provider, project_id):
+    credentials = get_provider_credential(
+        session=session,
+        org_id=org_id,
+        provider=provider,
+        project_id=project_id,
+    )
+    if not credentials or "api_key" not in credentials:
+        raise BadRequestException(
+            f"{provider.upper()} API key not configured for this organization."
+        )
+    return credentials
+
+
 @router.post("/threads")
 async def threads(
     request: dict,
@@ -221,17 +241,9 @@ async def threads(
     _session: Session = Depends(get_db),
     _current_user: UserOrganization = Depends(get_current_user_org),
 ):
-    """Asynchronous endpoint that processes requests in background."""
-    credentials = get_provider_credential(
-        session=_session,
-        org_id=_current_user.organization_id,
-        provider="openai",
-        project_id=request.get("project_id"),
+    credentials = get_required_credentials(
+        _session, _current_user.organization_id, "openai", request.get("project_id")
     )
-    if not credentials or "api_key" not in credentials:
-        return APIResponse.failure_response(
-            error="OpenAI API key not configured for this organization."
-        )
     client = OpenAI(api_key=credentials["api_key"])
 
     langfuse_credentials = get_provider_credential(
@@ -241,8 +253,8 @@ async def threads(
         project_id=request.get("project_id"),
     )
     if not langfuse_credentials:
-        return APIResponse.failure_response(
-            error="LANGFUSE keys not configured for this organization."
+        raise BadRequestException(
+            "Langfuse credentials not configured for this organization."
         )
 
     langfuse_context.configure(
@@ -250,18 +262,18 @@ async def threads(
         public_key=langfuse_credentials["public_key"],
         host=langfuse_credentials["host"],
     )
-    # Validate thread
+
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
     if not is_valid:
-        return APIResponse.failure_response(error=error_message)
+        raise BadRequestException(error_message)
 
-    # Setup thread
     is_success, error_message = setup_thread(client, request)
     if not is_success:
-        return APIResponse.failure_response(error=error_message)
+        raise OpenAIServiceException(error_message)
 
-    # Send immediate response
-    initial_response = APIResponse.success_response(
+    background_tasks.add_task(process_run, request, client)
+
+    return APIResponse.success_response(
         data={
             "status": "processing",
             "message": "Run started",
@@ -270,11 +282,6 @@ async def threads(
         }
     )
 
-    # Schedule background task
-    background_tasks.add_task(process_run, request, client)
-
-    return initial_response
-
 
 @router.post("/threads/sync")
 async def threads_sync(
@@ -282,33 +289,20 @@ async def threads_sync(
     _session: Session = Depends(get_db),
     _current_user: UserOrganization = Depends(get_current_user_org),
 ):
-    """Synchronous endpoint that processes requests immediately."""
-
-    credentials = get_provider_credential(
-        session=_session,
-        org_id=_current_user.organization_id,
-        provider="openai",
-        project_id=request.get("project_id"),
+    credentials = get_required_credentials(
+        _session, _current_user.organization_id, "openai", request.get("project_id")
     )
-    if not credentials or "api_key" not in credentials:
-        return APIResponse.failure_response(
-            error="OpenAI API key not configured for this organization."
-        )
-
     client = OpenAI(api_key=credentials["api_key"])
 
-    # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
     if not is_valid:
-        return APIResponse.failure_response(error=error_message)
+        raise BadRequestException(error_message)
 
-    # Setup thread
     is_success, error_message = setup_thread(client, request)
     if not is_success:
-        return APIResponse.failure_response(error=error_message)
+        raise OpenAIServiceException(error_message)
 
     try:
-        # Process run
         run = client.beta.threads.runs.create_and_poll(
             thread_id=request["thread_id"],
             assistant_id=request["assistant_id"],
@@ -331,13 +325,11 @@ async def threads_sync(
             request = {**request, **{"diagnostics": diagnostics}}
 
             return create_success_response(request, message)
-        else:
-            return APIResponse.failure_response(
-                error=f"Run failed with status: {run.status}"
-            )
+
+        raise OpenAIServiceException(f"Run failed with status: {run.status}")
 
     except openai.OpenAIError as e:
-        return APIResponse.failure_response(error=handle_openai_error(e))
+        raise OpenAIServiceException(handle_openai_error(e))
 
 
 @router.post("/threads/start")
@@ -347,15 +339,12 @@ async def start_thread(
     db: Session = Depends(get_db),
     _current_user: UserOrganization = Depends(get_current_user_org),
 ):
-    """
-    Create a new OpenAI thread for the given question and start polling in the background.
-    """
     prompt = request["question"]
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
     is_success, error = setup_thread(client, request)
     if not is_success:
-        return APIResponse.failure_response(error=error)
+        raise OpenAIServiceException(error)
 
     thread_id = request["thread_id"]
 
@@ -388,13 +377,10 @@ async def get_thread(
     db: Session = Depends(get_db),
     _current_user: UserOrganization = Depends(get_current_user_org),
 ):
-    """
-    Retrieve the result of a previously started OpenAI thread using its thread ID.
-    """
     result = get_thread_result(db, thread_id)
 
     if not result:
-        return APIResponse.failure_response(error="Thread not found.")
+        raise NotFoundException("Thread not found.")
 
     status = result.status or ("success" if result.response else "processing")
 
