@@ -151,10 +151,8 @@ def update_creds_for_org(
 
 def remove_provider_credential(
     session: Session, org_id: int, provider: str, project_id: Optional[int] = None
-) -> Credential:
+) -> Credential | None:
     """Remove credentials for a specific provider."""
-    validate_provider(provider)
-
     statement = select(Credential).where(
         Credential.organization_id == org_id,
         Credential.provider == provider,
@@ -163,20 +161,16 @@ def remove_provider_credential(
     creds = session.exec(statement).first()
 
     if not creds:
-        raise ValueError(f"Credentials not found for provider '{provider}'")
+        return None
 
-    # Soft delete by setting is_active to False
+    # Soft delete
     creds.is_active = False
     creds.updated_at = now()
 
-    try:
-        session.add(creds)
-        session.commit()
-        session.refresh(creds)
-        return creds
-    except IntegrityError as e:
-        session.rollback()
-        raise ValueError(f"Error while removing provider credentials: {str(e)}")
+    session.add(creds)
+    session.commit()
+    session.refresh(creds)
+    return creds
 
 
 def remove_creds_for_org(

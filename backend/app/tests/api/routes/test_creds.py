@@ -12,6 +12,8 @@ from app.core.config import settings
 from app.core.security import encrypt_api_key
 from app.core.providers import Provider
 from app.models.credentials import Credential
+from app.core.security import decrypt_credentials
+
 
 client = TestClient(app)
 
@@ -105,7 +107,7 @@ def test_read_credentials_not_found(
         headers=superuser_token_headers,
     )
     assert response.status_code == 404
-    assert "Credentials not found" in response.json()["detail"]
+    assert "Credentials not found" in response.json()["error"]
 
 
 def test_read_provider_credential(
@@ -136,7 +138,7 @@ def test_read_provider_credential_not_found(
     )
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "Provider credentials not found"
+    assert response.json()["error"] == "Provider credentials not found"
 
 
 def test_update_credentials(
@@ -190,8 +192,8 @@ def test_update_credentials_not_found(
         headers=superuser_token_headers,
     )
 
-    assert response.status_code == 500  # Expect 404 for non-existent organization
-    assert "Organization not found" in response.json()["detail"]
+    assert response.status_code == 404  # Expect 404 for non-existent organization
+    assert "Organization not found" in response.json()["error"]
 
 
 def test_delete_provider_credential(
@@ -221,7 +223,7 @@ def test_delete_provider_credential_not_found(
     )
 
     assert response.status_code == 404  # Expect 404 for not found
-    assert response.json()["detail"] == "Provider credentials not found"
+    assert response.json()["error"] == "Provider credentials not found"
 
 
 def test_delete_all_credentials(
@@ -245,7 +247,7 @@ def test_delete_all_credentials(
         headers=superuser_token_headers,
     )
     assert response.status_code == 404  # Expect 404 as credentials are soft deleted
-    assert response.json()["detail"] == "Credentials not found"
+    assert response.json()["error"] == "Credentials not found"
 
 
 def test_delete_all_credentials_not_found(
@@ -257,7 +259,7 @@ def test_delete_all_credentials_not_found(
     )
 
     assert response.status_code == 500  # Expect 404 for not found
-    assert "Credentials for organization not found" in response.json()["detail"]
+    assert "Credentials for organization not found" in response.json()["error"]
 
 
 def test_duplicate_credential_creation(
@@ -278,8 +280,8 @@ def test_duplicate_credential_creation(
         json=creds_data.dict(),
         headers=superuser_token_headers,
     )
-    assert response.status_code == 500
-    assert "already exist" in response.json()["detail"]
+    assert response.status_code == 400
+    assert "already exist" in response.json()["error"]
 
 
 def test_multiple_provider_credentials(
@@ -354,9 +356,6 @@ def test_credential_encryption(
         headers=superuser_token_headers,
     )
     assert response.status_code == 200
-
-    # Get the raw credential from database to verify encryption
-    from app.core.security import decrypt_credentials
 
     db_cred = (
         db.query(Credential)
