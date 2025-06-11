@@ -47,9 +47,7 @@ def add_user_to_project(
     return ProjectUserPublic.model_validate(project_user)
 
 
-def remove_user_from_project(
-    session: Session, project_id: int, user_id: int
-) -> None:
+def remove_user_from_project(session: Session, project_id: int, user_id: int) -> None:
     """
     Removes a user from a project.
     """
@@ -94,9 +92,7 @@ def get_users_by_project(
 
 
 # Check if a user belongs to an at least one project in organization
-def is_user_part_of_organization(
-    session: Session, user_id: int, org_id: int
-) -> bool:
+def is_user_part_of_organization(session: Session, user_id: int, org_id: int) -> bool:
     """
     Checks if a user is part of at least one project within the organization.
     """

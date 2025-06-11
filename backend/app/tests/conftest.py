@@ -27,8 +27,8 @@ def db() -> Generator[Session, None, None]:
         yield session
         # Delete data in reverse dependency order
         session.execute(delete(ProjectUser))  # Many-to-many relationship
-        session.execute(delete(Project))
         session.execute(delete(Credential))
+        session.execute(delete(Project))
         session.execute(delete(Organization))
         session.execute(delete(APIKey))
         session.execute(delete(User))
