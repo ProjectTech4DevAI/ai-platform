@@ -1,61 +1,56 @@
 {
-    "organization": [
-      {
-        "id": 1,
-        "name": "Project Tech4dev",
-        "is_active": true
-      }
-    ],
-    "projects": [
-      {
-        "id": 1,
-        "name": "Glific",
-        "description": "Two way communication platform",
-        "is_active": true,
-        "organization_id": 1
-      },
-      {
-        "id": 2,
-        "name": "Dalgo",
-        "description": "Data platform for the social sector",
-        "is_active": true,
-        "organization_id": 1
-      }
-    ],
-    "users": [
-      {
-        "id": "4629f304-10c5-45f8-80f5-26ea1066a1cb",
-        "email": "superuser@example.com",
-        "password": "changethis",
-        "full_name": "SUPERUSER",
-        "is_active": true,
-        "is_superuser": true
-      },
-      {
-        "id": "375503ac-f9d1-465e-8a87-be6974799ce1",
-        "email": "org_admin@example.com",
-        "password": "admin123",
-        "full_name": "ADMIN",
-        "is_active": true,
-        "is_superuser": false
-      }
-    ],
-    "apikeys": [
-      {
-        "id": 1,
-        "organization_id": 1,
-        "user_id": "4629f304-10c5-45f8-80f5-26ea1066a1cb",
-        "api_key": "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8",
-        "is_deleted": false,
-        "deleted_at": null
-      },
-      {
-        "id": 2,
-        "organization_id": 1,
-        "user_id": "375503ac-f9d1-465e-8a87-be6974799ce1",
-        "api_key": "ApiKey Px8y47B6roJHin1lWLkR88eiDrFdXSJRZmFQazzai8j9",
-        "is_deleted": false,
-        "deleted_at": null
-      }
-    ]
-  }
+  "organization": [
+    {
+      "name": "Project Tech4dev",
+      "is_active": true
+    }
+  ],
+  "projects": [
+    {
+      "name": "Glific",
+      "description": "Two way communication platform",
+      "is_active": true,
+      "organization_name": "Project Tech4dev"
+    },
+    {
+      "name": "Dalgo",
+      "description": "Data platform for the social sector",
+      "is_active": true,
+      "organization_name": "Project Tech4dev"
+    }
+  ],
+  "users": [
+    {
+      "id": "4629f304-10c5-45f8-80f5-26ea1066a1cb",
+      "email": "superuser@example.com",
+      "password": "changethis",
+      "full_name": "SUPERUSER",
+      "is_active": true,
+      "is_superuser": true
+    },
+    {
+      "id": "375503ac-f9d1-465e-8a87-be6974799ce1",
+      "email": "org_admin@example.com",
+      "password": "admin123",
+      "full_name": "ADMIN",
+      "is_active": true,
+      "is_superuser": false
+    }
+  ],
+  "apikeys": [
+    {
+      "organization_name": "Project Tech4dev",
+      "user_id": "4629f304-10c5-45f8-80f5-26ea1066a1cb",
+      "api_key": "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8",
+      "is_deleted": false,
+      "deleted_at": null
+    },
+    {
+      "organization_name": "Project Tech4dev",
+      "user_id": "375503ac-f9d1-465e-8a87-be6974799ce1",
+      "api_key": "ApiKey Px8y47B6roJHin1lWLkR88eiDrFdXSJRZmFQazzai8j9",
+      "is_deleted": false,
+      "deleted_at": null
+    }
+  ]
+}
