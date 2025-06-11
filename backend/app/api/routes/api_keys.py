@@ -5,11 +5,10 @@ from app.api.deps import get_db, get_current_active_superuser
 from app.crud.api_key import (
     create_api_key,
     get_api_key,
-    get_api_keys_by_organization,
     delete_api_key,
-    get_api_key_by_user_org,
+    get_api_key_by_project,
 )
-from app.crud.organization import validate_organization
+from app.crud.project import validate_project
 from app.models import APIKeyPublic, User
 from app.utils import APIResponse
 
@@ -19,7 +18,7 @@ router = APIRouter(prefix="/apikeys", tags=["API Keys"])
 # Create API Key
 @router.post("/", response_model=APIResponse[APIKeyPublic])
 def create_key(
-    organization_id: int,
+    project_id: int,
     user_id: uuid.UUID,
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_superuser),
@@ -29,18 +28,21 @@ def create_key(
     """
     try:
         # Validate organization
-        validate_organization(session, organization_id)
+        project = validate_project(session, project_id)
 
-        existing_api_key = get_api_key_by_user_org(session, organization_id, user_id)
+        existing_api_key = get_api_key_by_project(session, project_id)
         if existing_api_key:
             raise HTTPException(
                 status_code=400,
-                detail="API Key already exists for this user and organization",
+                detail="API Key already exists for this user and project.",
             )
 
         # Create and return API key
         api_key = create_api_key(
-            session, organization_id=organization_id, user_id=user_id
+            session,
+            organization_id=project.organization_id,
+            user_id=user_id,
+            project_id=project_id,
         )
         return APIResponse.success_response(api_key)
 
@@ -49,22 +51,25 @@ def create_key(
 
 
 # List API Keys
-@router.get("/", response_model=APIResponse[list[APIKeyPublic]])
+@router.get("/", response_model=APIResponse[APIKeyPublic])
 def list_keys(
-    organization_id: int,
+    project_id: int,
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_superuser),
 ):
     """
-    Retrieve all API keys for the user's organization.
+    Retrieve all API keys for the given project.
     """
     try:
-        # Validate organization
-        validate_organization(session, organization_id)
+        # Validate project
+        project = validate_project(session=session, project_id=project_id)
 
-        # Retrieve API keys
-        api_keys = get_api_keys_by_organization(session, organization_id)
-        return APIResponse.success_response(api_keys)
+        # Retrieve the API key for this project (regardless of user)
+        api_key = get_api_key_by_project(session=session, project_id=project_id)
+        if not api_key:
+            raise HTTPException(status_code=404, detail="API key not found for project")
+
+        return APIResponse.success_response(api_key)
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

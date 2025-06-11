@@ -6,6 +6,7 @@ from app.crud.project import (
     create_project,
     get_project_by_id,
     get_projects_by_organization,
+    validate_project,
 )
 from app.tests.utils.utils import random_lower_string
 
@@ -84,3 +85,24 @@ def test_get_non_existent_project(db: Session) -> None:
     """Test retrieving a non-existent project should return None."""
     fetched_project = get_project_by_id(session=db, project_id=999)
     assert fetched_project is None
+
+
+def test_validate_project_success(db: Session) -> None:
+    """Test that a valid and active project passes validation."""
+    org = Organization(name=random_lower_string())
+    db.add(org)
+    db.commit()
+    db.refresh(org)
+
+    project = create_project(
+        session=db,
+        project_create=ProjectCreate(
+            name=random_lower_string(),
+            description="Valid project",
+            is_active=True,
+            organization_id=org.id,
+        ),
+    )
+
+    validated_project = validate_project(session=db, project_id=project.id)
+    assert validated_project.id == project.id

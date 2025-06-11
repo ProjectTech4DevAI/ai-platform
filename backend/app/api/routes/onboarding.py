@@ -10,21 +10,17 @@ from app.crud import (
     create_project,
     create_user,
     create_api_key,
-    get_api_key_by_user_org,
+    get_api_key_by_project,
 )
 from app.models import (
     OrganizationCreate,
     ProjectCreate,
     UserCreate,
-    APIKeyPublic,
-    Organization,
     Project,
     User,
     APIKey,
 )
-from app.core.security import get_password_hash
 from app.api.deps import (
-    CurrentUser,
     SessionDep,
     get_current_active_superuser,
 )
@@ -90,18 +86,19 @@ def onboard_user(request: OnboardingRequest, session: SessionDep):
             )
             user = create_user(session=session, user_create=user_create)
 
-        existing_key = get_api_key_by_user_org(
-            db=session, organization_id=organization.id, user_id=user.id
-        )
+        existing_key = get_api_key_by_project(session=session, project_id=project.id)
 
         if existing_key:
             raise HTTPException(
                 status_code=400,
-                detail="API key already exists for this user and organization",
+                detail="API key already exists for this user and project.",
             )
 
         api_key_public = create_api_key(
-            session=session, organization_id=organization.id, user_id=user.id
+            session=session,
+            organization_id=organization.id,
+            user_id=user.id,
+            project_id=project.id,
         )
 
         user.is_superuser = False
