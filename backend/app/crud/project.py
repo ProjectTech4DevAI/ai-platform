@@ -32,9 +32,9 @@ def validate_project(session: Session, project_id: int) -> Project:
     """
     project = get_project_by_id(session=session, project_id=project_id)
     if not project:
-        raise ValueError("Organization not found")
+        raise ValueError("Project not found")
 
     if not project.is_active:
-        raise ValueError("Organization is not active")
+        raise ValueError("Project is not active")
 
     return project

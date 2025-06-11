@@ -1,5 +1,5 @@
 import pytest
-from sqlmodel import SQLModel, Session, create_engine
+from sqlmodel import Session
 
 from app.models import Project, ProjectCreate, Organization
 from app.crud.project import (
@@ -106,3 +106,30 @@ def test_validate_project_success(db: Session) -> None:
 
     validated_project = validate_project(session=db, project_id=project.id)
     assert validated_project.id == project.id
+
+
+def test_validate_project_not_found(db: Session) -> None:
+    """Test that validation fails when project does not exist."""
+    with pytest.raises(ValueError, match="Project not found"):
+        validate_project(session=db, project_id=9999)
+
+
+def test_validate_project_inactive(db: Session) -> None:
+    """Test that validation fails when project is inactive."""
+    org = Organization(name=random_lower_string())
+    db.add(org)
+    db.commit()
+    db.refresh(org)
+
+    inactive_project = create_project(
+        session=db,
+        project_create=ProjectCreate(
+            name=random_lower_string(),
+            description="Inactive project",
+            is_active=False,
+            organization_id=org.id,
+        ),
+    )
+
+    with pytest.raises(ValueError, match="Project is not active"):
+        validate_project(session=db, project_id=inactive_project.id)
