@@ -3,7 +3,7 @@ import pytest
 from sqlmodel import Session, select
 from app.crud import api_key as api_key_crud
 from app.models import APIKey, User, Organization
-from app.tests.utils.utils import random_email
+from app.tests.utils.utils import random_email, get_non_existent_id
 from app.core.security import get_password_hash, verify_password, decrypt_api_key
 
 
@@ -142,6 +142,6 @@ def test_get_api_key_by_user_org(db: Session) -> None:
 
 def test_get_api_key_by_user_org_not_found(db: Session) -> None:
     org = create_test_organization(db)
-    user_id = uuid.uuid4()
+    user_id = get_non_existent_id(db, User)
     result = api_key_crud.get_api_key_by_user_org(db, org.id, user_id)
     assert result is None
