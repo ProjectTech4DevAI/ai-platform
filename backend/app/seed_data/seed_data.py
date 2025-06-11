@@ -1,14 +1,15 @@
-import uuid
 import json
-from pathlib import Path
-from sqlmodel import Session, delete, select
-from app.models import Organization, Project, User, APIKey
-from app.core.security import get_password_hash, encrypt_api_key
-from app.core.db import engine
 import logging
 from datetime import datetime
-from pydantic import BaseModel, EmailStr
+from pathlib import Path
 from typing import Optional
+
+from pydantic import BaseModel, EmailStr
+from sqlmodel import Session, delete, select
+
+from app.core.db import engine
+from app.core.security import encrypt_api_key, get_password_hash
+from app.models import APIKey, Organization, Project, User
 
 
 # Pydantic models for data validation
