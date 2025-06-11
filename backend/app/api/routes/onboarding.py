@@ -24,9 +24,13 @@ from app.models import (
 )
 from app.core.security import get_password_hash
 from app.api.deps import (
-    CurrentUser,
     SessionDep,
     get_current_active_superuser,
+)
+
+from app.core.exception_handlers import (
+    BadRequestException,
+    UnhandledAppException,
 )
 
 router = APIRouter(tags=["onboarding"])
@@ -55,8 +59,8 @@ class OnboardingResponse(BaseModel):
 )
 def onboard_user(request: OnboardingRequest, session: SessionDep):
     """
-    Handles quick onboarding of a new user : Accepts Organization name, project name, email, password and user name, then gives back an API key which
-    will be further used for authentication.
+    Handles quick onboarding of a new user: Accepts organization name, project name, email, password,
+    and user name, then returns an API key used for authentication.
     """
     try:
         existing_organization = get_organization_by_name(
@@ -72,7 +76,7 @@ def onboard_user(request: OnboardingRequest, session: SessionDep):
             session.query(Project).filter(Project.name == request.project_name).first()
         )
         if existing_project:
-            project = existing_project  # Use the existing project
+            project = existing_project
         else:
             project_create = ProjectCreate(
                 name=request.project_name, organization_id=organization.id
@@ -93,11 +97,9 @@ def onboard_user(request: OnboardingRequest, session: SessionDep):
         existing_key = get_api_key_by_user_org(
             db=session, organization_id=organization.id, user_id=user.id
         )
-
         if existing_key:
-            raise HTTPException(
-                status_code=400,
-                detail="API key already exists for this user and organization",
+            raise BadRequestException(
+                "API key already exists for this user and organization"
             )
 
         api_key_public = create_api_key(
@@ -115,6 +117,8 @@ def onboard_user(request: OnboardingRequest, session: SessionDep):
             api_key=api_key_public.key,
         )
 
+    except BadRequestException as e:
+        raise e
     except Exception as e:
         session.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise UnhandledAppException(str(e))

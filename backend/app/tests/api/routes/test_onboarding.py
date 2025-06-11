@@ -75,11 +75,11 @@ def test_create_user_existing_email(
     response = client.post(
         f"{settings.API_V1_STR}/onboard", json=data, headers=superuser_token_headers
     )
-
+    print(response.json())
     assert response.status_code == 400
     assert (
-        response.json()["detail"]
-        == "400: API key already exists for this user and organization"
+        response.json()["error"]
+        == "API key already exists for this user and organization"
     )
 
 
