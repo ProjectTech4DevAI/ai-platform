@@ -2,7 +2,7 @@ from typing import Optional, List, Tuple
 from sqlmodel import Session, select, and_
 
 from app.core.util import now
-from app.models import Assistant, AssistantCreate, AssistantPublic, AssistantUpdate
+from app.models import Assistant
 
 
 def get_assistant_by_id(session: Session, assistant_id: str) -> Optional[Assistant]:

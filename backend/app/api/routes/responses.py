@@ -1,7 +1,7 @@
-from typing import Optional
+from typing import Optional, Dict, Any
 
 import openai
-from pydantic import BaseModel
+from pydantic import BaseModel, Extra
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from openai import OpenAI
 from sqlmodel import Session
@@ -28,6 +28,11 @@ class ResponsesAPIRequest(BaseModel):
     question: str
     callback_url: Optional[str] = None
     response_id: Optional[str] = None
+
+    class Config:
+        extra = (
+            Extra.allow
+        )  # This allows additional fields to be included in the request
 
 
 class ResponsesSyncAPIRequest(BaseModel):
@@ -60,6 +65,11 @@ class _APIResponse(BaseModel):
     chunks: list[FileResultChunk]
     diagnostics: Optional[Diagnostics] = None
 
+    class Config:
+        extra = (
+            Extra.allow
+        )  # This allows additional fields to be included in the response
+
 
 class ResponsesAPIResponse(APIResponse[_APIResponse]):
     pass
@@ -75,6 +85,16 @@ def get_file_search_results(response):
             )
 
     return results
+
+
+def get_additional_data(request: dict) -> dict:
+    """Extract additional data from request, excluding specific keys."""
+    return {
+        k: v
+        for k, v in request.items()
+        if k
+        not in {"project_id", "assistant_id", "callback_url", "response_id", "question"}
+    }
 
 
 def process_response(request: ResponsesAPIRequest, client: OpenAI, assistant):
@@ -97,6 +117,8 @@ def process_response(request: ResponsesAPIRequest, client: OpenAI, assistant):
         )
         response_chunks = get_file_search_results(response)
 
+        # Convert request to dict and include all fields
+        request_dict = request.model_dump()
         callback_response = ResponsesAPIResponse.success_response(
             data=_APIResponse(
                 status="success",
@@ -109,6 +131,18 @@ def process_response(request: ResponsesAPIRequest, client: OpenAI, assistant):
                     total_tokens=response.usage.total_tokens,
                     model=response.model,
                 ),
+                **{
+                    k: v
+                    for k, v in request_dict.items()
+                    if k
+                    not in {
+                        "project_id",
+                        "assistant_id",
+                        "callback_url",
+                        "response_id",
+                        "question",
+                    }
+                },
             ),
         )
     except openai.OpenAIError as e:
