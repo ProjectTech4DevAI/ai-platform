@@ -138,8 +138,11 @@ def upgrade():
     conn.execute(sa.text('ALTER TABLE "user" ADD PRIMARY KEY (id);'))
 
     # Create sequence for new integer IDs
-    conn.execute(sa.text("DROP SEQUENCE user_id_seq;"))
-    conn.execute(sa.text("CREATE SEQUENCE user_id_seq START 1;"))
+    conn.execute(
+        sa.text(
+            "CREATE SEQUENCE user_id_seq START 1 OWNED BY \"user\".id;"
+        )
+    )
     conn.execute(
         sa.text(
             "ALTER TABLE \"user\" ALTER COLUMN id SET DEFAULT nextval('user_id_seq');"
