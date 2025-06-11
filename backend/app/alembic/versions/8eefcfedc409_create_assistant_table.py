@@ -23,6 +23,7 @@ def upgrade():
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("assistant_id", sa.VARCHAR(length=255), nullable=False),
         sa.Column("name", sa.VARCHAR(length=255), nullable=False),
+        sa.Column("max_num_results", sa.Integer, nullable=False),
         sa.Column("model", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("instructions", sa.Text(), nullable=False),
         sa.Column("temperature", sa.Float(), nullable=False),

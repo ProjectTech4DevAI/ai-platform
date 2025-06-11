@@ -2,12 +2,13 @@ from typing import Optional
 
 import openai
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends, BackgroundTasks
+from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from openai import OpenAI
 from sqlmodel import Session
 
 from app.api.deps import get_current_user_org, get_db
 from app.crud.credentials import get_provider_credential
+from app.crud.assistants import get_assistant_by_id
 from app.models import UserOrganization
 from app.utils import APIResponse
 
@@ -23,23 +24,27 @@ def handle_openai_error(e: openai.OpenAIError) -> str:
 
 class ResponsesAPIRequest(BaseModel):
     project_id: int
+    assistant_id: str
+    question: str
+    callback_url: Optional[str] = None
+    response_id: Optional[str] = None
 
+
+class ResponsesSyncAPIRequest(BaseModel):
+    project_id: int
     model: str
     instructions: str
     vector_store_ids: list[str]
     max_num_results: Optional[int] = 20
     temperature: Optional[float] = 0.1
     response_id: Optional[str] = None
-
     question: str
-    callback_url: Optional[str] = None
 
 
 class Diagnostics(BaseModel):
     input_tokens: int
     output_tokens: int
     total_tokens: int
-
     model: str
 
 
@@ -50,11 +55,9 @@ class FileResultChunk(BaseModel):
 
 class _APIResponse(BaseModel):
     status: str
-
     response_id: str
     message: str
     chunks: list[FileResultChunk]
-
     diagnostics: Optional[Diagnostics] = None
 
 
@@ -74,25 +77,24 @@ def get_file_search_results(response):
     return results
 
 
-def process_response(request: ResponsesAPIRequest, client: OpenAI):
+def process_response(request: ResponsesAPIRequest, client: OpenAI, assistant):
     """Process a response and send callback with results."""
     try:
         response = client.responses.create(
-            model=request.model,
+            model=assistant.model,
             previous_response_id=request.response_id,
-            instructions=request.instructions,
+            instructions=assistant.instructions,
             tools=[
                 {
                     "type": "file_search",
-                    "vector_store_ids": request.vector_store_ids,
-                    "max_num_results": request.max_num_results,
+                    "vector_store_ids": [assistant.vector_store_id],
+                    "max_num_results": assistant.max_num_results,
                 }
             ],
-            temperature=request.temperature,
+            temperature=assistant.temperature,
             input=[{"role": "user", "content": request.question}],
             include=["file_search_call.results"],
         )
-
         response_chunks = get_file_search_results(response)
 
         callback_response = ResponsesAPIResponse.success_response(
@@ -128,6 +130,21 @@ async def responses(
     _current_user: UserOrganization = Depends(get_current_user_org),
 ):
     """Asynchronous endpoint that processes requests in background."""
+    # Get assistant details
+    assistant = get_assistant_by_id(_session, request.assistant_id)
+    if not assistant:
+        raise HTTPException(
+            status_code=404,
+            detail="Assistant not found or not active",
+        )
+
+    # Verify project access
+    if assistant.project_id != request.project_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Assistant does not belong to the specified project",
+        )
+
     credentials = get_provider_credential(
         session=_session,
         org_id=_current_user.organization_id,
@@ -157,14 +174,14 @@ async def responses(
     }
 
     # Schedule background task
-    background_tasks.add_task(process_response, request, client)
+    background_tasks.add_task(process_response, request, client, assistant)
 
     return initial_response
 
 
 @router.post("/responses/sync", response_model=ResponsesAPIResponse)
 async def responses_sync(
-    request: ResponsesAPIRequest,
+    request: ResponsesSyncAPIRequest,
     _session: Session = Depends(get_db),
     _current_user: UserOrganization = Depends(get_current_user_org),
 ):
