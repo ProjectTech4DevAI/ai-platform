@@ -21,7 +21,6 @@
   ],
   "users": [
     {
-      "id": "4629f304-10c5-45f8-80f5-26ea1066a1cb",
       "email": "superuser@example.com",
       "password": "changethis",
       "full_name": "SUPERUSER",
@@ -29,7 +28,6 @@
       "is_superuser": true
     },
     {
-      "id": "375503ac-f9d1-465e-8a87-be6974799ce1",
       "email": "org_admin@example.com",
       "password": "admin123",
       "full_name": "ADMIN",

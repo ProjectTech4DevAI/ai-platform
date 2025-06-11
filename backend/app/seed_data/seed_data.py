@@ -25,7 +25,6 @@ class ProjectData(BaseModel):
 
 
 class UserData(BaseModel):
-    id: str
     email: EmailStr
     full_name: str
     is_superuser: bool
@@ -106,7 +105,6 @@ def create_user(session: Session, user_data_raw: dict) -> User:
         logging.info(f"Creating user: {user_data.email}")
         hashed_password = get_password_hash(user_data.password)
         user = User(
-            id=uuid.UUID(user_data.id),
             email=user_data.email,
             full_name=user_data.full_name,
             is_superuser=user_data.is_superuser,
