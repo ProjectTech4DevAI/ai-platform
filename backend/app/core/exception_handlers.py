@@ -43,6 +43,10 @@ class CallbackFailedException(Exception):
     pass
 
 
+class ForbiddenException(Exception):
+    pass
+
+
 # Exception Handler Registration
 def register_exception_handlers(app: FastAPI):
     @app.exception_handler(NotFoundException)
@@ -82,7 +86,8 @@ def register_exception_handlers(app: FastAPI):
         request: Request, exc: OpenAIServiceException
     ):
         return JSONResponse(
-            status_code=HTTP_502_BAD_GATEWAY, content={"detail": str(exc)}
+            status_code=HTTP_502_BAD_GATEWAY,
+            content=APIResponse.failure_response(str(exc)).model_dump(),
         )
 
     @app.exception_handler(CallbackFailedException)
@@ -118,4 +123,11 @@ def register_exception_handlers(app: FastAPI):
             content=APIResponse.failure_response(
                 str(exc) or "An unexpected error occurred."
             ).model_dump(),
+        )
+
+    @app.exception_handler(ForbiddenException)
+    async def forbidden_handler(request: Request, exc: ForbiddenException):
+        return JSONResponse(
+            status_code=HTTP_403_FORBIDDEN,
+            content=APIResponse.failure_response(str(exc)).model_dump(),
         )

@@ -9,20 +9,22 @@ from sqlalchemy.exc import NoResultFound, MultipleResultsFound, SQLAlchemyError
 
 from app.crud import DocumentCrud, CollectionCrud
 from app.models import Document
-from app.utils import APIResponse, load_description
+from app.utils import APIResponse
 from app.api.deps import CurrentUser, SessionDep
 from app.core.util import raise_from_unknown
 from app.core.cloud import AmazonCloudStorage, CloudStorageError
 from app.crud.rag import OpenAIAssistantCrud
+from app.core.exception_handlers import (
+    NotFoundException,
+    ServiceUnavailableException,
+    DatabaseException,
+    UnhandledAppException,
+)
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-@router.get(
-    "/list",
-    description=load_description("documents/list.md"),
-    response_model=APIResponse[List[Document]],
-)
+@router.get("/list", response_model=APIResponse[List[Document]])
 def list_docs(
     session: SessionDep,
     current_user: CurrentUser,
@@ -33,18 +35,14 @@ def list_docs(
     try:
         data = crud.read_many(skip, limit)
     except (ValueError, SQLAlchemyError) as err:
-        raise HTTPException(status_code=403, detail=str(err))
+        raise DatabaseException(str(err))
     except Exception as err:
-        raise_from_unknown(err)
+        raise UnhandledAppException(str(err))
 
     return APIResponse.success_response(data)
 
 
-@router.post(
-    "/upload",
-    description=load_description("documents/upload.md"),
-    response_model=APIResponse[Document],
-)
+@router.post("/upload", response_model=APIResponse[Document])
 def upload_doc(
     session: SessionDep,
     current_user: CurrentUser,
@@ -55,9 +53,9 @@ def upload_doc(
     try:
         object_store_url = storage.put(src, Path(str(document_id)))
     except CloudStorageError as err:
-        raise HTTPException(status_code=503, detail=str(err))
+        raise ServiceUnavailableException(str(err))
     except Exception as err:
-        raise_from_unknown(err)
+        raise UnhandledAppException(str(err))
 
     crud = DocumentCrud(session, current_user.id)
     document = Document(
@@ -69,18 +67,14 @@ def upload_doc(
     try:
         data = crud.update(document)
     except SQLAlchemyError as err:
-        raise HTTPException(status_code=403, detail=str(err))
+        raise DatabaseException(str(err))
     except Exception as err:
-        raise_from_unknown(err)
+        raise UnhandledAppException(str(err))
 
     return APIResponse.success_response(data)
 
 
-@router.get(
-    "/remove/{doc_id}",
-    description=load_description("documents/delete.md"),
-    response_model=APIResponse[Document],
-)
+@router.get("/remove/{doc_id}", response_model=APIResponse[Document])
 def remove_doc(
     session: SessionDep,
     current_user: CurrentUser,
@@ -94,18 +88,14 @@ def remove_doc(
         document = d_crud.delete(doc_id)
         data = c_crud.delete(document, a_crud)
     except NoResultFound as err:
-        raise HTTPException(status_code=400, detail=str(err))
+        raise NotFoundException(str(err))
     except Exception as err:
-        raise_from_unknown(err)
+        raise UnhandledAppException(str(err))
 
     return APIResponse.success_response(data)
 
 
-@router.get(
-    "/info/{doc_id}",
-    description=load_description("documents/info.md"),
-    response_model=APIResponse[Document],
-)
+@router.get("/info/{doc_id}", response_model=APIResponse[Document])
 def doc_info(
     session: SessionDep,
     current_user: CurrentUser,
@@ -115,10 +105,10 @@ def doc_info(
     try:
         data = crud.read_one(doc_id)
     except NoResultFound as err:
-        raise HTTPException(status_code=404, detail=str(err))
+        raise NotFoundException(str(err))
     except MultipleResultsFound as err:
-        raise HTTPException(status_code=503, detail=str(err))
+        raise ServiceUnavailableException(str(err))
     except Exception as err:
-        raise_from_unknown(err)
+        raise UnhandledAppException(str(err))
 
     return APIResponse.success_response(data)

@@ -19,6 +19,14 @@ from app.crud import DocumentCrud, CollectionCrud, DocumentCollectionCrud
 from app.crud.rag import OpenAIVectorStoreCrud, OpenAIAssistantCrud
 from app.models import Collection, Document
 from app.utils import APIResponse, load_description
+from app.core.exception_handlers import (
+    BadRequestException,
+    NotFoundException,
+    ServiceUnavailableException,
+    DatabaseException,
+    UnhandledAppException,
+)
+
 
 router = APIRouter(prefix="/collections", tags=["collections"])
 
@@ -230,10 +238,7 @@ def do_create_collection(
     callback.success(collection.model_dump(mode="json"))
 
 
-@router.post(
-    "/create",
-    description=load_description("collections/create.md"),
-)
+@router.post("/create")
 def create_collection(
     session: SessionDep,
     current_user: CurrentUser,
@@ -281,16 +286,19 @@ def do_delete_collection(
         callback.fail(str(err))
 
 
-@router.post(
-    "/delete",
-    description=load_description("collections/delete.md"),
-)
+@router.post("/delete")
 def delete_collection(
     session: SessionDep,
     current_user: CurrentUser,
     request: DeletionRequest,
     background_tasks: BackgroundTasks,
 ):
+    collection_crud = CollectionCrud(session, current_user.id)
+    try:
+        collection_crud.read_one(request.collection_id)
+    except NoResultFound:
+        raise NotFoundException("Collection with the given ID does not exist")
+
     this = inspect.currentframe()
     route = router.url_path_for(this.f_code.co_name)
     payload = ResponsePayload("processing", route)
@@ -306,11 +314,7 @@ def delete_collection(
     return APIResponse.success_response(data=None, metadata=asdict(payload))
 
 
-@router.post(
-    "/info/{collection_id}",
-    description=load_description("collections/info.md"),
-    response_model=APIResponse[Collection],
-)
+@router.post("/info/{collection_id}", response_model=APIResponse[Collection])
 def collection_info(
     session: SessionDep,
     current_user: CurrentUser,
@@ -320,20 +324,16 @@ def collection_info(
     try:
         data = collection_crud.read_one(collection_id)
     except NoResultFound as err:
-        raise HTTPException(status_code=404, detail=str(err))
+        raise NotFoundException(str(err))
     except MultipleResultsFound as err:
-        raise HTTPException(status_code=503, detail=str(err))
+        raise ServiceUnavailableException(str(err))
     except Exception as err:
-        raise_from_unknown(err)
+        raise UnhandledAppException(str(err))
 
     return APIResponse.success_response(data)
 
 
-@router.post(
-    "/list",
-    description=load_description("collections/list.md"),
-    response_model=APIResponse[List[Collection]],
-)
+@router.post("/list", response_model=APIResponse[List[Collection]])
 def list_collections(
     session: SessionDep,
     current_user: CurrentUser,
@@ -342,18 +342,14 @@ def list_collections(
     try:
         data = collection_crud.read_all()
     except (ValueError, SQLAlchemyError) as err:
-        raise HTTPException(status_code=403, detail=str(err))
+        raise DatabaseException(str(err))
     except Exception as err:
-        raise_from_unknown(err)
+        raise UnhandledAppException(str(err))
 
     return APIResponse.success_response(data)
 
 
-@router.post(
-    "/docs/{collection_id}",
-    description=load_description("collections/docs.md"),
-    response_model=APIResponse[List[Document]],
-)
+@router.post("/docs/{collection_id}", response_model=APIResponse[List[Document]])
 def collection_documents(
     session: SessionDep,
     current_user: CurrentUser,
@@ -367,6 +363,6 @@ def collection_documents(
         collection = collection_crud.read_one(collection_id)
         data = document_collection_crud.read(collection, skip, limit)
     except (SQLAlchemyError, ValueError) as err:
-        raise HTTPException(status_code=400, detail=str(err))
+        raise BadRequestException(str(err))
 
     return APIResponse.success_response(data)
