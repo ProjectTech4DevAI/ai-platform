@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = secrets.token_urlsafe(32)
     # 60 minutes * 24 hours * 1 days = 1 days
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 1
-    FRONTEND_HOST: str = "http://localhost:5173"
+    FRONTEND_HOST: str
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
 
     BACKEND_CORS_ORIGINS: Annotated[
@@ -96,18 +96,19 @@ class Settings(BaseSettings):
     def emails_enabled(self) -> bool:
         return bool(self.SMTP_HOST and self.EMAILS_FROM_EMAIL)
 
-    EMAIL_TEST_USER: EmailStr = "test@example.com"
+    EMAIL_TEST_USER: EmailStr
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
 
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""
     AWS_DEFAULT_REGION: str = ""
+    AWS_S3_BUCKET_PREFIX: str = ""
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def AWS_S3_BUCKET(self) -> str:
-        return f"ai-platform-documents-{self.ENVIRONMENT}"
+        return f"{self.AWS_S3_BUCKET_PREFIX}-{self.ENVIRONMENT}"
 
     LOG_DIR: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
 
