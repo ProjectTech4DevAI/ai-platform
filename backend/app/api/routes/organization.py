@@ -17,12 +17,11 @@ from app.api.deps import (
 )
 from app.crud.organization import create_organization, get_organization_by_id
 from app.utils import APIResponse
-from app.core.exception_handlers import NotFoundException
-
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
 
 
+# Retrieve organizations
 @router.get(
     "/",
     dependencies=[Depends(get_current_active_superuser)],
@@ -38,6 +37,7 @@ def read_organizations(session: SessionDep, skip: int = 0, limit: int = 100):
     return APIResponse.success_response(organizations)
 
 
+# Create a new organization
 @router.post(
     "/",
     dependencies=[Depends(get_current_active_superuser)],
@@ -54,12 +54,16 @@ def create_new_organization(*, session: SessionDep, org_in: OrganizationCreate):
     response_model=APIResponse[OrganizationPublic],
 )
 def read_organization(*, session: SessionDep, org_id: int):
+    """
+    Retrieve an organization by ID.
+    """
     org = get_organization_by_id(session=session, org_id=org_id)
     if org is None:
-        raise NotFoundException("Organization not found")
+        raise HTTPException(status_code=404, detail="Organization not found")
     return APIResponse.success_response(org)
 
 
+# Update an organization
 @router.patch(
     "/{org_id}",
     dependencies=[Depends(get_current_active_superuser)],
@@ -70,7 +74,7 @@ def update_organization(
 ):
     org = get_organization_by_id(session=session, org_id=org_id)
     if org is None:
-        raise NotFoundException("Organization not found")
+        raise HTTPException(status_code=404, detail="Organization not found")
 
     org_data = org_in.model_dump(exclude_unset=True)
     org = org.model_copy(update=org_data)
@@ -82,6 +86,7 @@ def update_organization(
     return APIResponse.success_response(org)
 
 
+# Delete an organization
 @router.delete(
     "/{org_id}",
     dependencies=[Depends(get_current_active_superuser)],
@@ -91,7 +96,7 @@ def update_organization(
 def delete_organization(session: SessionDep, org_id: int):
     org = get_organization_by_id(session=session, org_id=org_id)
     if org is None:
-        raise NotFoundException("Organization not found")
+        raise HTTPException(status_code=404, detail="Organization not found")
 
     session.delete(org)
     session.commit()

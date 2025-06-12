@@ -147,6 +147,5 @@ def test_revoke_nonexistent_api_key(
         params={"organization_id": org.id, "user_id": user.id},
         headers=superuser_token_headers,
     )
-    assert response.status_code == 400
-    print(response.json())
+    assert response.status_code == 404
     assert "API key not found or already deleted" in response.json()["error"]

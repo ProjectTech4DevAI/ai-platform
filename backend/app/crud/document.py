@@ -5,6 +5,7 @@ from sqlmodel import Session, select, and_
 
 from app.models import Document
 from app.core.util import now
+from app.core.exception_handlers import HTTPException
 
 
 class DocumentCrud:
@@ -20,7 +21,11 @@ class DocumentCrud:
             )
         )
 
-        return self.session.exec(statement).one()
+        result = self.session.exec(statement).one_or_none()
+        if result is None:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        return result
 
     def read_many(
         self,

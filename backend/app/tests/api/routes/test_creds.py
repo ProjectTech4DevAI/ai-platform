@@ -258,7 +258,7 @@ def test_delete_all_credentials_not_found(
         headers=superuser_token_headers,
     )
 
-    assert response.status_code == 500  # Expect 404 for not found
+    assert response.status_code == 404
     assert "Credentials for organization not found" in response.json()["error"]
 
 

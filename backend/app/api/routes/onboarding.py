@@ -28,15 +28,57 @@ from app.api.deps import (
     get_current_active_superuser,
 )
 
-from app.core.exception_handlers import (
-    BadRequestException,
-    UnhandledAppException,
-)
 
 router = APIRouter(tags=["onboarding"])
 
 
 # Pydantic models for input validation
+class OnboardingRequest(BaseModel):
+    organization_name: str
+    project_name: str
+    email: EmailStr
+    password: str
+    user_name: str
+
+
+class OnboardingResponse(BaseModel):
+    organization_id: int
+    project_id: int
+    user_id: uuid.UUID
+    api_key: str
+
+
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, EmailStr
+from sqlmodel import Session
+
+from app.crud import (
+    create_organization,
+    get_organization_by_name,
+    create_project,
+    create_user,
+    create_api_key,
+    get_api_key_by_user_org,
+)
+from app.models import (
+    OrganizationCreate,
+    ProjectCreate,
+    UserCreate,
+    APIKeyPublic,
+    Organization,
+    Project,
+    User,
+)
+from app.api.deps import (
+    SessionDep,
+    get_current_active_superuser,
+)
+
+router = APIRouter(tags=["onboarding"])
+
+
 class OnboardingRequest(BaseModel):
     organization_name: str
     project_name: str
@@ -59,66 +101,55 @@ class OnboardingResponse(BaseModel):
 )
 def onboard_user(request: OnboardingRequest, session: SessionDep):
     """
-    Handles quick onboarding of a new user: Accepts organization name, project name, email, password,
-    and user name, then returns an API key used for authentication.
+    Handles quick onboarding of a new user.
+    Accepts organization name, project name, email, password, and user name.
+    Returns an API key used for authentication.
     """
-    try:
-        existing_organization = get_organization_by_name(
-            session=session, name=request.organization_name
+    organization = get_organization_by_name(
+        session=session, name=request.organization_name
+    )
+    if not organization:
+        org_create = OrganizationCreate(name=request.organization_name)
+        organization = create_organization(session=session, org_create=org_create)
+
+    project = (
+        session.query(Project).filter(Project.name == request.project_name).first()
+    )
+    if not project:
+        project_create = ProjectCreate(
+            name=request.project_name, organization_id=organization.id
         )
-        if existing_organization:
-            organization = existing_organization
-        else:
-            org_create = OrganizationCreate(name=request.organization_name)
-            organization = create_organization(session=session, org_create=org_create)
+        project = create_project(session=session, project_create=project_create)
 
-        existing_project = (
-            session.query(Project).filter(Project.name == request.project_name).first()
+    user = session.query(User).filter(User.email == request.email).first()
+    if not user:
+        user_create = UserCreate(
+            name=request.user_name,
+            email=request.email,
+            password=request.password,
         )
-        if existing_project:
-            project = existing_project
-        else:
-            project_create = ProjectCreate(
-                name=request.project_name, organization_id=organization.id
-            )
-            project = create_project(session=session, project_create=project_create)
+        user = create_user(session=session, user_create=user_create)
 
-        existing_user = session.query(User).filter(User.email == request.email).first()
-        if existing_user:
-            user = existing_user
-        else:
-            user_create = UserCreate(
-                name=request.user_name,
-                email=request.email,
-                password=request.password,
-            )
-            user = create_user(session=session, user_create=user_create)
-
-        existing_key = get_api_key_by_user_org(
-            db=session, organization_id=organization.id, user_id=user.id
-        )
-        if existing_key:
-            raise BadRequestException(
-                "API key already exists for this user and organization"
-            )
-
-        api_key_public = create_api_key(
-            session=session, organization_id=organization.id, user_id=user.id
+    existing_key = get_api_key_by_user_org(
+        db=session, organization_id=organization.id, user_id=user.id
+    )
+    if existing_key:
+        raise HTTPException(
+            status_code=400,
+            detail="API key already exists for this user and organization",
         )
 
-        user.is_superuser = False
-        session.add(user)
-        session.commit()
+    api_key_public = create_api_key(
+        session=session, organization_id=organization.id, user_id=user.id
+    )
 
-        return OnboardingResponse(
-            organization_id=organization.id,
-            project_id=project.id,
-            user_id=user.id,
-            api_key=api_key_public.key,
-        )
+    user.is_superuser = False
+    session.add(user)
+    session.commit()
 
-    except BadRequestException as e:
-        raise e
-    except Exception as e:
-        session.rollback()
-        raise UnhandledAppException(str(e))
+    return OnboardingResponse(
+        organization_id=organization.id,
+        project_id=project.id,
+        user_id=user.id,
+        api_key=api_key_public.key,
+    )

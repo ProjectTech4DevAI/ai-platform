@@ -4,13 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlmodel import Session, select
 
-from app.models import (
-    Project,
-    ProjectCreate,
-    ProjectUpdate,
-    ProjectPublic,
-    Organization,
-)
+from app.models import Project, ProjectCreate, ProjectUpdate, ProjectPublic
 from app.api.deps import (
     CurrentUser,
     SessionDep,
@@ -22,14 +16,11 @@ from app.crud.project import (
     get_projects_by_organization,
 )
 from app.utils import APIResponse
-from app.core.exception_handlers import NotFoundException
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
 # Retrieve projects
-
-
 @router.get(
     "/",
     dependencies=[Depends(get_current_active_superuser)],
@@ -49,15 +40,13 @@ def read_projects(
     return APIResponse.success_response(projects)
 
 
+# Create a new project
 @router.post(
     "/",
     dependencies=[Depends(get_current_active_superuser)],
     response_model=APIResponse[ProjectPublic],
 )
 def create_new_project(*, session: SessionDep, project_in: ProjectCreate):
-    organization = session.get(Organization, project_in.organization_id)
-    if not organization:
-        raise NotFoundException("Organization not found")
     project = create_project(session=session, project_create=project_in)
     return APIResponse.success_response(project)
 
@@ -68,12 +57,16 @@ def create_new_project(*, session: SessionDep, project_in: ProjectCreate):
     response_model=APIResponse[ProjectPublic],
 )
 def read_project(*, session: SessionDep, project_id: int):
+    """
+    Retrieve a project by ID.
+    """
     project = get_project_by_id(session=session, project_id=project_id)
     if project is None:
-        raise NotFoundException("Project not found")
+        raise HTTPException(status_code=404, detail="Project not found")
     return APIResponse.success_response(project)
 
 
+# Update a project
 @router.patch(
     "/{project_id}",
     dependencies=[Depends(get_current_active_superuser)],
@@ -82,7 +75,7 @@ def read_project(*, session: SessionDep, project_id: int):
 def update_project(*, session: SessionDep, project_id: int, project_in: ProjectUpdate):
     project = get_project_by_id(session=session, project_id=project_id)
     if project is None:
-        raise NotFoundException("Project not found")
+        raise HTTPException(status_code=404, detail="Project not found")
 
     project_data = project_in.model_dump(exclude_unset=True)
     project = project.model_copy(update=project_data)
@@ -93,15 +86,16 @@ def update_project(*, session: SessionDep, project_id: int, project_in: ProjectU
     return APIResponse.success_response(project)
 
 
+# Delete a project
 @router.delete(
     "/{project_id}",
     dependencies=[Depends(get_current_active_superuser)],
-    response_model=APIResponse[None],
+    include_in_schema=False,
 )
 def delete_project(session: SessionDep, project_id: int):
     project = get_project_by_id(session=session, project_id=project_id)
     if project is None:
-        raise NotFoundException("Project not found")
+        raise HTTPException(status_code=404, detail="Project not found")
 
     session.delete(project)
     session.commit()

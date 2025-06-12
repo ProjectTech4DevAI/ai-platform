@@ -259,7 +259,7 @@ def test_update_user_me_email_exists(
         headers=normal_user_token_headers,
         json=data,
     )
-    assert r.status_code == 400
+    assert r.status_code == 409
     assert r.json()["error"] == "User with this email already exists"
 
 
@@ -376,7 +376,7 @@ def test_update_user_email_exists(
         headers=superuser_token_headers,
         json=data,
     )
-    assert r.status_code == 400
+    assert r.status_code == 409
     assert r.json()["error"] == "User with this email already exists"
 
 
