@@ -48,34 +48,6 @@ class OnboardingResponse(BaseModel):
     api_key: str
 
 
-import uuid
-
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, EmailStr
-from sqlmodel import Session
-
-from app.crud import (
-    create_organization,
-    get_organization_by_name,
-    create_project,
-    create_user,
-    create_api_key,
-    get_api_key_by_user_org,
-)
-from app.models import (
-    OrganizationCreate,
-    ProjectCreate,
-    UserCreate,
-    APIKeyPublic,
-    Organization,
-    Project,
-    User,
-)
-from app.api.deps import (
-    SessionDep,
-    get_current_active_superuser,
-)
-
 router = APIRouter(tags=["onboarding"])
 
 
