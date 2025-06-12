@@ -11,6 +11,7 @@ from app.core.providers import (
 )
 from app.core.security import encrypt_credentials, decrypt_credentials
 from app.core.util import now
+from app.core.exception_handlers import HTTPException
 
 
 def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Credential]:
@@ -149,10 +150,15 @@ def update_creds_for_org(
     return [creds]
 
 
+from sqlalchemy.exc import IntegrityError
+
+
 def remove_provider_credential(
     session: Session, org_id: int, provider: str, project_id: Optional[int] = None
-) -> Credential | None:
+) -> Credential:
     """Remove credentials for a specific provider."""
+    validate_provider(provider)
+
     statement = select(Credential).where(
         Credential.organization_id == org_id,
         Credential.provider == provider,
@@ -161,7 +167,9 @@ def remove_provider_credential(
     creds = session.exec(statement).first()
 
     if not creds:
-        return None
+        raise HTTPException(
+            status_code=404, detail=f"Credentials not found for provider '{provider}'"
+        )
 
     # Soft delete
     creds.is_active = False
@@ -170,6 +178,7 @@ def remove_provider_credential(
     session.add(creds)
     session.commit()
     session.refresh(creds)
+
     return creds
 
 

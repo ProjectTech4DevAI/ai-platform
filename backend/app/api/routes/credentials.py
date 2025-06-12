@@ -144,10 +144,7 @@ def update_credential(*, session: SessionDep, org_id: int, creds_in: CredsUpdate
 def delete_provider_credential(
     *, session: SessionDep, org_id: int, provider: str, project_id: int | None = None
 ):
-    try:
-        provider_enum = validate_provider(provider)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid provider name")
+    provider_enum = validate_provider(provider)
 
     updated_creds = remove_provider_credential(
         session=session,
@@ -155,8 +152,6 @@ def delete_provider_credential(
         provider=provider_enum,
         project_id=project_id,
     )
-    if not updated_creds:
-        raise HTTPException(status_code=404, detail="Provider credentials not found")
 
     return APIResponse.success_response(
         {"message": "Provider credentials removed successfully"}

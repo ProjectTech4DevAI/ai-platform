@@ -222,8 +222,11 @@ def test_delete_provider_credential_not_found(
         headers=superuser_token_headers,
     )
 
-    assert response.status_code == 404  # Expect 404 for not found
-    assert response.json()["error"] == "Provider credentials not found"
+    assert response.status_code == 404
+    assert (
+        response.json()["error"]
+        == f"Credentials not found for provider '{Provider.OPENAI}'"
+    )
 
 
 def test_delete_all_credentials(
