@@ -1,33 +1,31 @@
-import uuid
 import json
-from pathlib import Path
-from sqlmodel import Session, select, delete
-from app.models import Organization, Project, User, APIKey
-from app.core.security import get_password_hash, encrypt_api_key
-from app.core.db import engine
 import logging
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, UUID4, Field
-from typing import Optional, List
+from pathlib import Path
+from typing import Optional
+
+from pydantic import BaseModel, EmailStr
+from sqlmodel import Session, delete, select
+
+from app.core.db import engine
+from app.core.security import encrypt_api_key, get_password_hash
+from app.models import APIKey, Organization, Project, User
 
 
 # Pydantic models for data validation
 class OrgData(BaseModel):
-    id: int
     name: str
     is_active: bool
 
 
 class ProjectData(BaseModel):
-    id: int
     name: str
     description: str
     is_active: bool
-    organization_id: int
+    organization_name: str
 
 
 class UserData(BaseModel):
-    id: str
     email: EmailStr
     full_name: str
     is_superuser: bool
@@ -36,9 +34,8 @@ class UserData(BaseModel):
 
 
 class APIKeyData(BaseModel):
-    id: int
-    organization_id: int
-    user_id: str
+    organization_name: str
+    user_email: EmailStr
     api_key: str
     is_deleted: bool
     deleted_at: Optional[str] = None
@@ -64,10 +61,9 @@ def create_organization(session: Session, org_data_raw: dict) -> Organization:
     try:
         org_data = OrgData.model_validate(org_data_raw)
         logging.info(f"Creating organization: {org_data.name}")
-        organization = Organization(
-            id=org_data.id, name=org_data.name, is_active=org_data.is_active
-        )
+        organization = Organization(name=org_data.name, is_active=org_data.is_active)
         session.add(organization)
+        session.flush()  # Ensure ID is assigned
         return organization
     except Exception as e:
         logging.error(f"Error creating organization: {e}")
@@ -79,14 +75,24 @@ def create_project(session: Session, project_data_raw: dict) -> Project:
     try:
         project_data = ProjectData.model_validate(project_data_raw)
         logging.info(f"Creating project: {project_data.name}")
+        # Query organization ID by name
+        organization = session.exec(
+            select(Organization).where(
+                Organization.name == project_data.organization_name
+            )
+        ).first()
+        if not organization:
+            raise ValueError(
+                f"Organization '{project_data.organization_name}' not found"
+            )
         project = Project(
-            id=project_data.id,
             name=project_data.name,
             description=project_data.description,
             is_active=project_data.is_active,
-            organization_id=project_data.organization_id,
+            organization_id=organization.id,
         )
         session.add(project)
+        session.flush()  # Ensure ID is assigned
         return project
     except Exception as e:
         logging.error(f"Error creating project: {e}")
@@ -100,7 +106,6 @@ def create_user(session: Session, user_data_raw: dict) -> User:
         logging.info(f"Creating user: {user_data.email}")
         hashed_password = get_password_hash(user_data.password)
         user = User(
-            id=uuid.UUID(user_data.id),
             email=user_data.email,
             full_name=user_data.full_name,
             is_superuser=user_data.is_superuser,
@@ -108,6 +113,7 @@ def create_user(session: Session, user_data_raw: dict) -> User:
             hashed_password=hashed_password,
         )
         session.add(user)
+        session.flush()  # Ensure ID is assigned
         return user
     except Exception as e:
         logging.error(f"Error creating user: {e}")
@@ -118,12 +124,27 @@ def create_api_key(session: Session, api_key_data_raw: dict) -> APIKey:
     """Create an API key from data."""
     try:
         api_key_data = APIKeyData.model_validate(api_key_data_raw)
-        logging.info(f"Creating API key for user {api_key_data.user_id}")
+        logging.info(f"Creating API key for user {api_key_data.user_email}")
+        # Query organization ID by name
+        organization = session.exec(
+            select(Organization).where(
+                Organization.name == api_key_data.organization_name
+            )
+        ).first()
+        if not organization:
+            raise ValueError(
+                f"Organization '{api_key_data.organization_name}' not found"
+            )
+        # Query user ID by email
+        user = session.exec(
+            select(User).where(User.email == api_key_data.user_email)
+        ).first()
+        if not user:
+            raise ValueError(f"User '{api_key_data.user_email}' not found")
         encrypted_api_key = encrypt_api_key(api_key_data.api_key)
         api_key = APIKey(
-            id=api_key_data.id,
-            organization_id=api_key_data.organization_id,
-            user_id=uuid.UUID(api_key_data.user_id),
+            organization_id=organization.id,
+            user_id=user.id,
             key=encrypted_api_key,
             is_deleted=api_key_data.is_deleted,
             deleted_at=api_key_data.deleted_at,
@@ -133,6 +154,7 @@ def create_api_key(session: Session, api_key_data_raw: dict) -> APIKey:
                 api_key_data.created_at.replace("Z", "+00:00")
             )
         session.add(api_key)
+        session.flush()  # Ensure ID is assigned
         return api_key
     except Exception as e:
         logging.error(f"Error creating API key: {e}")
