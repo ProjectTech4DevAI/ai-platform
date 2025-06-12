@@ -5,7 +5,6 @@ from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.main import api_router
-from app.api.deps import http_exception_handler
 from app.core.config import settings
 from app.core.exception_handlers import register_exception_handlers
 
