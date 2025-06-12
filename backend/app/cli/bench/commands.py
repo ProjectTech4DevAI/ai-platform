@@ -1,6 +1,5 @@
 import os
 import csv
-import json
 import logging
 import time
 from datetime import datetime
@@ -10,6 +9,8 @@ from dataclasses import dataclass
 import requests
 import typer
 from tqdm import tqdm
+
+from ..utils import estimate_cost
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s"
@@ -45,7 +46,7 @@ class ResponsesDatasetConfig:
 
 
 def load_instructions(filename: str) -> str:
-    with open(os.path.join(os.path.dirname(__file__), "data", filename), "r") as file:
+    with open(os.path.join(os.path.dirname(__file__), "..", "data", filename), "r") as file:
         return file.read()
 
 
@@ -97,38 +98,6 @@ class BenchItem:
     total_tokens: int
     cost_estimate_usd: float
     model: str
-
-
-def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
-    GPT_4o_MINI_2024_07_18_COSTING = {
-        "input": 0.15,
-        "cached_input": 0.075,
-        "output": 0.60,
-    }
-
-    GPT_4o_2024_08_06_COSTING = {
-        "input": 2.50,
-        "cached_input": 1.25,
-        "output": 10.00,
-    }
-
-    usd_per_1m = {
-        "gpt-4o": GPT_4o_2024_08_06_COSTING,
-        "gpt-4o-2024-08-06": GPT_4o_2024_08_06_COSTING,
-        "gpt-4o-mini": GPT_4o_MINI_2024_07_18_COSTING,
-        "gpt-4o-mini-2024-07-18": GPT_4o_MINI_2024_07_18_COSTING,
-        # Extend with more models as needed: https://platform.openai.com/docs/pricing
-    }
-
-    pricing = usd_per_1m.get(model.lower())
-    if not pricing:
-        logging.warning(f"No pricing found for model '{model}'. Returning cost = 0.")
-        return 0.0
-
-    # We don't care about cached_input for now, this just to be mindful of upper bound cost to run benchmark
-    input_cost = (input_tokens / 1_000_000) * pricing["input"]
-    output_cost = (output_tokens / 1_000_000) * pricing["output"]
-    return input_cost + output_cost
 
 
 def output_csv(items: List[BenchItem]):
@@ -224,7 +193,7 @@ def load_and_dedupe_csv(
 ) -> List[dict]:
     """Load and deduplicate CSV data for benchmarking."""
     csv_file_path = os.path.join(
-        os.path.dirname(__file__), "data", dataset_config.filename
+        os.path.dirname(__file__), "..", "data", dataset_config.filename
     )
     with open(csv_file_path, "r") as file:
         csv_reader = csv.DictReader(file)
