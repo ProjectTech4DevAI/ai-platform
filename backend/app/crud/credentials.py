@@ -7,6 +7,7 @@ from app.models import Credential, CredsCreate, CredsUpdate
 from app.core.providers import (
     validate_provider,
     validate_provider_credentials,
+    get_supported_providers,
 )
 from app.core.security import encrypt_credentials, decrypt_credentials
 from app.core.util import now
@@ -18,7 +19,7 @@ def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Crede
     created_credentials = []
 
     if not creds_add.credential:
-        raise ValueError("No credentials provided")
+        raise HTTPException(400, "No credentials provided")
 
     for provider, credentials in creds_add.credential.items():
         # Validate provider and credentials
@@ -136,9 +137,10 @@ def update_creds_for_org(
         else True,
     )
     creds = session.exec(statement).first()
-
-    if not creds:
-        raise ValueError(f"No credentials found for provider {creds_in.provider}")
+    if creds is None:
+        raise HTTPException(
+            status_code=404, detail="Credentials not found for this provider"
+        )
 
     creds.credential = encrypted_credentials
     creds.updated_at = now()
@@ -147,9 +149,6 @@ def update_creds_for_org(
     session.refresh(creds)
 
     return [creds]
-
-
-from sqlalchemy.exc import IntegrityError
 
 
 def remove_provider_credential(
@@ -164,11 +163,6 @@ def remove_provider_credential(
         Credential.project_id == project_id if project_id is not None else True,
     )
     creds = session.exec(statement).first()
-
-    if not creds:
-        raise HTTPException(
-            status_code=404, detail=f"Credentials not found for provider '{provider}'"
-        )
 
     # Soft delete
     creds.is_active = False

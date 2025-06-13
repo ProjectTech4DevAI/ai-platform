@@ -1,6 +1,6 @@
 import uuid
-import pytest
-from sqlmodel import Session, select
+from datetime import datetime
+from sqlmodel import Session
 from app.crud import api_key as api_key_crud
 from app.models import APIKey, User, Organization
 from app.tests.utils.utils import random_email
@@ -76,34 +76,6 @@ def test_get_api_keys_by_organization(db: Session) -> None:
         assert len(key.key) > 32  # Raw key should be longer than 32 characters
         assert key.organization_id == org.id
         assert key.user_id in [user1.id, user2.id]
-
-
-def test_delete_api_key_already_deleted(db: Session) -> None:
-    user = create_test_user(db)
-    org = create_test_organization(db)
-
-    api_key = api_key_crud.create_api_key(db, org.id, user.id)
-    api_key_crud.delete_api_key(db, api_key.id)
-
-    with pytest.raises(HTTPException) as exc_info:
-        api_key_crud.delete_api_key(db, api_key.id)
-
-    assert exc_info.value.status_code == 404
-    assert "already deleted" in str(exc_info.value.detail)
-
-
-def test_delete_api_key_already_deleted(db: Session) -> None:
-    user = create_test_user(db)
-    org = create_test_organization(db)
-
-    api_key = api_key_crud.create_api_key(db, org.id, user.id)
-    api_key_crud.delete_api_key(db, api_key.id)
-
-    with pytest.raises(HTTPException) as exc_info:
-        api_key_crud.delete_api_key(db, api_key.id)
-
-    assert exc_info.value.status_code == 404
-    assert "already deleted" in exc_info.value.detail
 
 
 def test_get_api_key_by_value(db: Session) -> None:

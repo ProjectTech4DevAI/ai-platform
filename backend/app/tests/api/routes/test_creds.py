@@ -223,10 +223,8 @@ def test_delete_provider_credential_not_found(
     )
 
     assert response.status_code == 404
-    assert (
-        response.json()["error"]
-        == f"Credentials not found for provider '{Provider.OPENAI}'"
-    )
+    print(response.json())
+    assert response.json()["error"] == f"Provider credentials not found"
 
 
 def test_delete_all_credentials(

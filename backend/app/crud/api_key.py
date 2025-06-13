@@ -108,11 +108,6 @@ def delete_api_key(session: Session, api_key_id: int) -> None:
     """
     api_key = session.get(APIKey, api_key_id)
 
-    if not api_key or api_key.is_deleted:
-        raise HTTPException(
-            status_code=404, detail="API key not found or already deleted"
-        )
-
     api_key.is_deleted = True
     api_key.deleted_at = now()
     api_key.updated_at = now()

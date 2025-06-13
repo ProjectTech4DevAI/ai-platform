@@ -27,13 +27,15 @@ def create_key(
     """
     Generate a new API key for the user's organization.
     """
-    validate_organization(session, organization_id)
+    organization = validate_organization(session, organization_id)
+    if not organization:
+        raise HTTPException(404, "Organization not found")
 
     existing_api_key = get_api_key_by_user_org(session, organization_id, user_id)
     if existing_api_key:
         raise HTTPException(
-            status_code=400,
-            detail="API Key already exists for this user and organization",
+            400,
+            "API Key already exists for this user and organization",
         )
     api_key = create_api_key(session, organization_id=organization_id, user_id=user_id)
     return APIResponse.success_response(api_key)
@@ -48,7 +50,9 @@ def list_keys(
     """
     Retrieve all API keys for the user's organization.
     """
-    validate_organization(session, organization_id)
+    organization = validate_organization(session, organization_id)
+    if not organization:
+        raise HTTPException(404, "Organization not found")
     api_keys = get_api_keys_by_organization(session, organization_id)
     return APIResponse.success_response(api_keys)
 
@@ -64,7 +68,7 @@ def get_key(
     """
     api_key = get_api_key(session, api_key_id)
     if not api_key:
-        raise HTTPException(status_code=404, detail="API Key does not exist")
+        raise HTTPException(404, "API Key does not exist")
 
     return APIResponse.success_response(api_key)
 
@@ -78,5 +82,11 @@ def revoke_key(
     """
     Soft delete an API key (revoke access).
     """
+    api_key = get_api_key(session, api_key_id)
+
+    if not api_key:
+        raise HTTPException(404, "API key not found or already deleted")
+
     delete_api_key(session, api_key_id)
+
     return APIResponse.success_response({"message": "API key revoked successfully"})

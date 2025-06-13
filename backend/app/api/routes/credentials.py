@@ -11,6 +11,7 @@ from app.crud.credentials import (
     update_creds_for_org,
     remove_provider_credential,
 )
+from app.crud.organization import validate_organization
 from app.models import CredsCreate, CredsPublic, CredsUpdate
 from app.models.organization import Organization
 from app.models.project import Project
@@ -30,9 +31,7 @@ router = APIRouter(prefix="/credentials", tags=["credentials"])
 )
 def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
     # Validate organization
-    organization = session.get(Organization, creds_in.organization_id)
-    if not organization:
-        raise HTTPException(status_code=404, detail="Organization not found")
+    validate_organization(session, creds_in.organization_id)
 
     # Validate project if provided
     if creds_in.project_id:
@@ -65,7 +64,7 @@ def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
     # Create credentials
     new_creds = set_creds_for_org(session=session, creds_add=creds_in)
     if not new_creds:
-        raise HTTPException(status_code=500, detail="Failed to create credentials")
+        raise Exception(status_code=500, detail="Failed to create credentials")
 
     return APIResponse.success_response([cred.to_public() for cred in new_creds])
 
@@ -116,10 +115,7 @@ def read_provider_credential(
     description="Updates credentials for a specific organization and project combination. Can update specific provider credentials or add new providers. If project_id is provided in the update, credentials will be moved to that project. This endpoint requires superuser privileges.",
 )
 def update_credential(*, session: SessionDep, org_id: int, creds_in: CredsUpdate):
-    organization = session.get(Organization, org_id)
-    if not organization:
-        raise HTTPException(status_code=404, detail="Organization not found")
-
+    validate_organization(session, org_id)
     if not creds_in or not creds_in.provider or not creds_in.credential:
         raise HTTPException(
             status_code=400, detail="Provider and credential must be provided"
@@ -139,18 +135,24 @@ def update_credential(*, session: SessionDep, org_id: int, creds_in: CredsUpdate
     dependencies=[Depends(get_current_active_superuser)],
     response_model=APIResponse[dict],
     summary="Delete specific provider credentials for an organization and project",
-    description="Removes credentials for a specific provider while keeping other provider credentials intact. If project_id is provided, only removes credentials for that project. This endpoint requires superuser privileges.",
 )
 def delete_provider_credential(
     *, session: SessionDep, org_id: int, provider: str, project_id: int | None = None
 ):
     provider_enum = validate_provider(provider)
-
-    updated_creds = remove_provider_credential(
+    if not provider_enum:
+        raise HTTPException(status_code=400, detail="Invalid provider")
+    provider_creds = get_provider_credential(
         session=session,
         org_id=org_id,
         provider=provider_enum,
         project_id=project_id,
+    )
+    if provider_creds is None:
+        raise HTTPException(status_code=404, detail="Provider credentials not found")
+
+    updated_creds = remove_provider_credential(
+        session=session, org_id=org_id, provider=provider_enum, project_id=project_id
     )
 
     return APIResponse.success_response(
