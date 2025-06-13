@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str = ""
     POSTGRES_DB: str = ""
+    POSTGRES_DB_TEST: str = ""
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -72,6 +73,18 @@ class Settings(BaseSettings):
             host=self.POSTGRES_SERVER,
             port=self.POSTGRES_PORT,
             path=self.POSTGRES_DB,
+        )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def SQLALCHEMY_TEST_DATABASE_URI(self) -> PostgresDsn:
+        return MultiHostUrl.build(
+            scheme="postgresql+psycopg",
+            username=self.POSTGRES_USER,
+            password=self.POSTGRES_PASSWORD,
+            host=self.POSTGRES_SERVER,
+            port=self.POSTGRES_PORT,
+            path=self.POSTGRES_DB_TEST,
         )
 
     SMTP_TLS: bool = True
