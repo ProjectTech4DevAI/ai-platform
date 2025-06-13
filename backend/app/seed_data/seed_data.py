@@ -35,6 +35,7 @@ class UserData(BaseModel):
 
 class APIKeyData(BaseModel):
     organization_name: str
+    project_name: str
     user_email: EmailStr
     api_key: str
     is_deleted: bool
@@ -135,6 +136,11 @@ def create_api_key(session: Session, api_key_data_raw: dict) -> APIKey:
             raise ValueError(
                 f"Organization '{api_key_data.organization_name}' not found"
             )
+        project = session.exec(
+            select(Project).where(Project.name == api_key_data.project_name)
+        ).first()
+        if not project:
+            raise ValueError(f"Project '{api_key_data.project_name}' not found")
         # Query user ID by email
         user = session.exec(
             select(User).where(User.email == api_key_data.user_email)
@@ -144,6 +150,7 @@ def create_api_key(session: Session, api_key_data_raw: dict) -> APIKey:
         encrypted_api_key = encrypt_api_key(api_key_data.api_key)
         api_key = APIKey(
             organization_id=organization.id,
+            project_id=project.id,
             user_id=user.id,
             key=encrypted_api_key,
             is_deleted=api_key_data.is_deleted,
