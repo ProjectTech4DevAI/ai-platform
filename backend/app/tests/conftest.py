@@ -2,7 +2,7 @@ from collections.abc import Generator
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, delete
+from sqlmodel import Session, create_engine, delete
 
 from app.core.config import settings
 from app.core.db import engine, init_db
@@ -16,13 +16,17 @@ from app.models import (
     OpenAI_Thread,
     Credential,
 )
+from app.api.deps import get_db
 from app.tests.utils.user import authentication_token_from_email
 from app.tests.utils.utils import get_superuser_token_headers
 
 
+test_engine = create_engine(str(settings.SQLALCHEMY_TEST_DATABASE_URI))
+
+
 @pytest.fixture(scope="session", autouse=True)
 def db() -> Generator[Session, None, None]:
-    with Session(engine) as session:
+    with Session(test_engine) as session:
         init_db(session)
         yield session
         # Delete data in reverse dependency order
@@ -34,6 +38,17 @@ def db() -> Generator[Session, None, None]:
         session.execute(delete(User))
         session.execute(delete(OpenAI_Thread))
         session.commit()
+
+
+# Override the get_db dependency to use test session
+@pytest.fixture(scope="session", autouse=True)
+def override_get_db(db: Session):
+    def _get_test_db():
+        yield db
+
+    app.dependency_overrides[get_db] = _get_test_db
+    yield
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="module")
