@@ -27,9 +27,7 @@ def create_key(
     """
     Generate a new API key for the user's organization.
     """
-    organization = validate_organization(session, organization_id)
-    if not organization:
-        raise HTTPException(404, "Organization not found")
+    validate_organization(session, organization_id)
 
     existing_api_key = get_api_key_by_user_org(session, organization_id, user_id)
     if existing_api_key:
@@ -50,9 +48,8 @@ def list_keys(
     """
     Retrieve all API keys for the user's organization.
     """
-    organization = validate_organization(session, organization_id)
-    if not organization:
-        raise HTTPException(404, "Organization not found")
+    validate_organization(session, organization_id)
+
     api_keys = get_api_keys_by_organization(session, organization_id)
     return APIResponse.success_response(api_keys)
 
