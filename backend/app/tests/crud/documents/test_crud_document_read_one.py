@@ -5,6 +5,7 @@ from sqlalchemy.exc import NoResultFound
 from app.crud import DocumentCrud
 
 from app.tests.utils.document import DocumentStore
+from app.core.exception_handlers import HTTPException
 
 
 @pytest.fixture
@@ -25,8 +26,12 @@ class TestDatabaseReadOne:
         document = next(store.documents)
 
         crud = DocumentCrud(db, store.owner)
-        with pytest.raises(NoResultFound):
+
+        with pytest.raises(HTTPException) as exc_info:
             crud.read_one(document.id)
+
+        assert exc_info.value.status_code == 404
+        assert "Document not found" in str(exc_info.value.detail)
 
     def test_cannot_read_others_documents(
         self,
@@ -37,5 +42,8 @@ class TestDatabaseReadOne:
         other = DocumentStore(db)
 
         crud = DocumentCrud(db, other.owner)
-        with pytest.raises(NoResultFound):
+        with pytest.raises(HTTPException) as exc_info:
             crud.read_one(document.id)
+
+        assert exc_info.value.status_code == 404
+        assert "Document not found" in str(exc_info.value.detail)

@@ -1,6 +1,7 @@
 from typing import Any, Optional
 from datetime import datetime, timezone
 from sqlmodel import Session, select
+from fastapi import HTTPException
 
 from app.models import Organization, OrganizationCreate
 from app.core.util import now
@@ -36,9 +37,9 @@ def validate_organization(session: Session, org_id: int) -> Organization:
     """
     organization = get_organization_by_id(session, org_id)
     if not organization:
-        raise ValueError("Organization not found")
+        raise HTTPException(404, "Organization not found")
 
     if not organization.is_active:
-        raise ValueError("Organization is not active")
+        raise HTTPException("Organization is not active")
 
     return organization

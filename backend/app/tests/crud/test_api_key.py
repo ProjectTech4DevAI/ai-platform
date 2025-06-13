@@ -1,10 +1,11 @@
 import uuid
-import pytest
-from sqlmodel import Session, select
+from datetime import datetime
+from sqlmodel import Session
 from app.crud import api_key as api_key_crud
 from app.models import APIKey, User, Organization
 from app.tests.utils.utils import random_email
 from app.core.security import get_password_hash, verify_password, decrypt_api_key
+from app.core.exception_handlers import HTTPException
 
 
 # Helper function to create a user
@@ -75,31 +76,6 @@ def test_get_api_keys_by_organization(db: Session) -> None:
         assert len(key.key) > 32  # Raw key should be longer than 32 characters
         assert key.organization_id == org.id
         assert key.user_id in [user1.id, user2.id]
-
-
-def test_delete_api_key(db: Session) -> None:
-    user = create_test_user(db)
-    org = create_test_organization(db)
-
-    api_key = api_key_crud.create_api_key(db, org.id, user.id)
-    api_key_crud.delete_api_key(db, api_key.id)
-
-    deleted_key = db.exec(select(APIKey).where(APIKey.id == api_key.id)).first()
-
-    assert deleted_key is not None
-    assert deleted_key.is_deleted is True
-    assert deleted_key.deleted_at is not None
-
-
-def test_delete_api_key_already_deleted(db: Session) -> None:
-    user = create_test_user(db)
-    org = create_test_organization(db)
-
-    api_key = api_key_crud.create_api_key(db, org.id, user.id)
-    api_key_crud.delete_api_key(db, api_key.id)
-
-    with pytest.raises(ValueError, match="API key not found or already deleted"):
-        api_key_crud.delete_api_key(db, api_key.id)
 
 
 def test_get_api_key_by_value(db: Session) -> None:

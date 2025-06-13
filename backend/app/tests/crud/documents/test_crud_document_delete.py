@@ -6,6 +6,7 @@ from app.crud import DocumentCrud
 from app.models import Document
 
 from app.tests.utils.document import DocumentStore
+from app.core.exception_handlers import HTTPException
 
 
 @pytest.fixture
@@ -36,5 +37,8 @@ class TestDatabaseDelete:
         other_owner_id = store.documents.index.peek()
 
         crud = DocumentCrud(db, other_owner_id)
-        with pytest.raises(NoResultFound):
+        with pytest.raises(HTTPException) as exc_info:
             crud.delete(document.id)
+
+        assert exc_info.value.status_code == 404
+        assert "Document not found" in str(exc_info.value.detail)

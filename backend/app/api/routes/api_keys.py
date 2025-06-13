@@ -12,11 +12,11 @@ from app.crud.api_key import (
 from app.crud.organization import validate_organization
 from app.models import APIKeyPublic, User
 from app.utils import APIResponse
+from app.core.exception_handlers import HTTPException
 
 router = APIRouter(prefix="/apikeys", tags=["API Keys"])
 
 
-# Create API Key
 @router.post("/", response_model=APIResponse[APIKeyPublic])
 def create_key(
     organization_id: int,
@@ -27,28 +27,18 @@ def create_key(
     """
     Generate a new API key for the user's organization.
     """
-    try:
-        # Validate organization
-        validate_organization(session, organization_id)
+    validate_organization(session, organization_id)
 
-        existing_api_key = get_api_key_by_user_org(session, organization_id, user_id)
-        if existing_api_key:
-            raise HTTPException(
-                status_code=400,
-                detail="API Key already exists for this user and organization",
-            )
-
-        # Create and return API key
-        api_key = create_api_key(
-            session, organization_id=organization_id, user_id=user_id
+    existing_api_key = get_api_key_by_user_org(session, organization_id, user_id)
+    if existing_api_key:
+        raise HTTPException(
+            400,
+            "API Key already exists for this user and organization",
         )
-        return APIResponse.success_response(api_key)
-
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    api_key = create_api_key(session, organization_id=organization_id, user_id=user_id)
+    return APIResponse.success_response(api_key)
 
 
-# List API Keys
 @router.get("/", response_model=APIResponse[list[APIKeyPublic]])
 def list_keys(
     organization_id: int,
@@ -58,19 +48,12 @@ def list_keys(
     """
     Retrieve all API keys for the user's organization.
     """
-    try:
-        # Validate organization
-        validate_organization(session, organization_id)
+    validate_organization(session, organization_id)
 
-        # Retrieve API keys
-        api_keys = get_api_keys_by_organization(session, organization_id)
-        return APIResponse.success_response(api_keys)
-
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    api_keys = get_api_keys_by_organization(session, organization_id)
+    return APIResponse.success_response(api_keys)
 
 
-# Get API Key by ID
 @router.get("/{api_key_id}", response_model=APIResponse[APIKeyPublic])
 def get_key(
     api_key_id: int,
@@ -82,12 +65,11 @@ def get_key(
     """
     api_key = get_api_key(session, api_key_id)
     if not api_key:
-        raise HTTPException(status_code=404, detail="API Key does not exist")
+        raise HTTPException(404, "API Key does not exist")
 
     return APIResponse.success_response(api_key)
 
 
-# Revoke API Key (Soft Delete)
 @router.delete("/{api_key_id}", response_model=APIResponse[dict])
 def revoke_key(
     api_key_id: int,
@@ -97,8 +79,11 @@ def revoke_key(
     """
     Soft delete an API key (revoke access).
     """
-    try:
-        delete_api_key(session, api_key_id)
-        return APIResponse.success_response({"message": "API key revoked successfully"})
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    api_key = get_api_key(session, api_key_id)
+
+    if not api_key:
+        raise HTTPException(404, "API key not found or already deleted")
+
+    delete_api_key(session, api_key_id)
+
+    return APIResponse.success_response({"message": "API key revoked successfully"})

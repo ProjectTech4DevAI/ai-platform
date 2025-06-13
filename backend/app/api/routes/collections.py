@@ -317,15 +317,7 @@ def collection_info(
     collection_id: UUID = FastPath(description="Collection to retrieve"),
 ):
     collection_crud = CollectionCrud(session, current_user.id)
-    try:
-        data = collection_crud.read_one(collection_id)
-    except NoResultFound as err:
-        raise HTTPException(status_code=404, detail=str(err))
-    except MultipleResultsFound as err:
-        raise HTTPException(status_code=503, detail=str(err))
-    except Exception as err:
-        raise_from_unknown(err)
-
+    data = collection_crud.read_one(collection_id)
     return APIResponse.success_response(data)
 
 
@@ -339,13 +331,7 @@ def list_collections(
     current_user: CurrentUser,
 ):
     collection_crud = CollectionCrud(session, current_user.id)
-    try:
-        data = collection_crud.read_all()
-    except (ValueError, SQLAlchemyError) as err:
-        raise HTTPException(status_code=403, detail=str(err))
-    except Exception as err:
-        raise_from_unknown(err)
-
+    data = collection_crud.read_all()
     return APIResponse.success_response(data)
 
 
@@ -363,10 +349,6 @@ def collection_documents(
 ):
     collection_crud = CollectionCrud(session, current_user.id)
     document_collection_crud = DocumentCollectionCrud(session)
-    try:
-        collection = collection_crud.read_one(collection_id)
-        data = document_collection_crud.read(collection, skip, limit)
-    except (SQLAlchemyError, ValueError) as err:
-        raise HTTPException(status_code=400, detail=str(err))
-
+    collection = collection_crud.read_one(collection_id)
+    data = document_collection_crud.read(collection, skip, limit)
     return APIResponse.success_response(data)

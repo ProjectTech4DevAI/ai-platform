@@ -129,4 +129,4 @@ async def responses_sync(
             ),
         )
     except openai.OpenAIError as e:
-        return ResponsesAPIResponse.failure_response(error=handle_openai_error(e))
+        return Exception(error=handle_openai_error(e))
