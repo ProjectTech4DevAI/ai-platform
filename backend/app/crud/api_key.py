@@ -106,12 +106,16 @@ def get_api_key_by_value(session: Session, api_key_value: str) -> APIKeyPublic |
     return None
 
 
-def get_api_key_by_project(session: Session, project_id: int) -> APIKeyPublic | None:
+def get_api_key_by_project_user(
+    session: Session, project_id: int, user_id: uuid.UUID
+) -> APIKeyPublic | None:
     """
     Retrieves the single API key associated with a project.
     """
     statement = select(APIKey).where(
-        APIKey.project_id == project_id, APIKey.is_deleted == False
+        APIKey.user_id == user_id,
+        APIKey.project_id == project_id,
+        APIKey.is_deleted == False,
     )
     api_key = session.exec(statement).first()
 
@@ -121,3 +125,21 @@ def get_api_key_by_project(session: Session, project_id: int) -> APIKeyPublic | 
         return APIKeyPublic.model_validate(api_key_dict)
 
     return None
+
+
+def get_api_keys_by_project(session: Session, project_id: int) -> list[APIKeyPublic]:
+    """
+    Retrieves all API keys associated with a project.
+    """
+    statement = select(APIKey).where(
+        APIKey.project_id == project_id, APIKey.is_deleted == False
+    )
+    api_keys = session.exec(statement).all()
+
+    result = []
+    for key in api_keys:
+        key_dict = key.model_dump()
+        key_dict["key"] = decrypt_api_key(key.key)
+        result.append(APIKeyPublic.model_validate(key_dict))
+
+    return result

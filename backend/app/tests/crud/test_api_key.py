@@ -123,15 +123,32 @@ def test_get_api_key_by_value(db: Session) -> None:
     assert len(retrieved_key.key) > 32
 
 
-def test_get_api_key_by_project(db: Session) -> None:
+def test_get_api_key_by_project_user(db: Session) -> None:
     user = create_test_user(db)
     org = create_test_organization(db)
     project = create_test_project(db, org.id)
 
     created_key = api_key_crud.create_api_key(db, org.id, user.id, project.id)
-    retrieved_key = api_key_crud.get_api_key_by_project(db, project.id)
+    retrieved_key = api_key_crud.get_api_key_by_project_user(db, project.id, user.id)
 
     assert retrieved_key is not None
+    assert retrieved_key.id == created_key.id
+    assert retrieved_key.project_id == project.id
+    assert retrieved_key.key.startswith("ApiKey ")
+
+
+def test_get_api_keys_by_project(db: Session) -> None:
+    user = create_test_user(db)
+    org = create_test_organization(db)
+    project = create_test_project(db, org.id)
+
+    created_key = api_key_crud.create_api_key(db, org.id, user.id, project.id)
+    retrieved_keys = api_key_crud.get_api_keys_by_project(db, project.id)
+
+    assert retrieved_keys is not None
+    assert len(retrieved_keys) == 1
+    retrieved_key = retrieved_keys[0]
+
     assert retrieved_key.id == created_key.id
     assert retrieved_key.project_id == project.id
     assert retrieved_key.key.startswith("ApiKey ")

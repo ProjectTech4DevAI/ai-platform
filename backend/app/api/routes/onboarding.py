@@ -10,7 +10,7 @@ from app.crud import (
     create_project,
     create_user,
     create_api_key,
-    get_api_key_by_project,
+    get_api_key_by_project_user,
 )
 from app.models import (
     OrganizationCreate,
@@ -86,7 +86,9 @@ def onboard_user(request: OnboardingRequest, session: SessionDep):
             )
             user = create_user(session=session, user_create=user_create)
 
-        existing_key = get_api_key_by_project(session=session, project_id=project.id)
+        existing_key = get_api_key_by_project_user(
+            session=session, user_id=user.id, project_id=project.id
+        )
 
         if existing_key:
             raise HTTPException(

@@ -6,7 +6,8 @@ from app.crud.api_key import (
     create_api_key,
     get_api_key,
     delete_api_key,
-    get_api_key_by_project,
+    get_api_keys_by_project,
+    get_api_key_by_project_user,
 )
 from app.crud.project import validate_project
 from app.models import APIKeyPublic, User
@@ -30,7 +31,7 @@ def create_key(
         # Validate organization
         project = validate_project(session, project_id)
 
-        existing_api_key = get_api_key_by_project(session, project_id)
+        existing_api_key = get_api_key_by_project_user(session, project_id, user_id)
         if existing_api_key:
             raise HTTPException(
                 status_code=400,
@@ -51,25 +52,31 @@ def create_key(
 
 
 # List API Keys
-@router.get("/", response_model=APIResponse[APIKeyPublic])
+@router.get("/", response_model=APIResponse[list[APIKeyPublic]])
 def list_keys(
     project_id: int,
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_superuser),
 ):
     """
-    Retrieve all API keys for the given project.
+    Retrieve all API keys for the given project. Superusers get all keys;
+    regular users get only their own.
     """
     try:
         # Validate project
         project = validate_project(session=session, project_id=project_id)
 
-        # Retrieve the API key for this project (regardless of user)
-        api_key = get_api_key_by_project(session=session, project_id=project_id)
-        if not api_key:
-            raise HTTPException(status_code=404, detail="API key not found for project")
+        if current_user.is_superuser:
+            # Superuser: fetch all API keys for the project
+            api_keys = get_api_keys_by_project(session=session, project_id=project_id)
+        else:
+            # Regular user: fetch only their own API key
+            user_api_key = get_api_key_by_project_user(
+                session=session, project_id=project_id, user_id=current_user.id
+            )
+            api_keys = [user_api_key] if user_api_key else []
 
-        return APIResponse.success_response(api_key)
+        return APIResponse.success_response(api_keys)
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -90,15 +90,18 @@ def test_list_api_keys(db: Session, superuser_token_headers: dict[str, str]):
 
     response = client.get(
         f"{settings.API_V1_STR}/apikeys",
-        params={"project_id": project.id, "user_id": user.id},
+        params={"project_id": project.id},
         headers=superuser_token_headers,
     )
     assert response.status_code == 200
     data = response.json()
     assert data["success"] is True
+    assert isinstance(data["data"], list)
     assert len(data["data"]) > 0
-    assert data["data"]["organization_id"] == org.id
-    assert data["data"]["user_id"] == str(user.id)
+
+    first_key = data["data"][0]
+    assert first_key["organization_id"] == org.id
+    assert first_key["user_id"] == str(user.id)
 
 
 def test_get_api_key(db: Session, superuser_token_headers: dict[str, str]):
