@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str = ""
     POSTGRES_DB: str = ""
-    POSTGRES_DB_TEST: str = ""
+    POSTGRES_DB_TEST: str | None = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -78,6 +78,11 @@ class Settings(BaseSettings):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def SQLALCHEMY_TEST_DATABASE_URI(self) -> PostgresDsn:
+        if not self.POSTGRES_DB_TEST:
+            raise ValueError(
+                "POSTGRES_DB_TEST is not set but is required for test configuration."
+            )
+
         return MultiHostUrl.build(
             scheme="postgresql+psycopg",
             username=self.POSTGRES_USER,
