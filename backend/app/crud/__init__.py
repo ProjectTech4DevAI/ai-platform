@@ -24,9 +24,9 @@ from .project import (
 from .api_key import (
     create_api_key,
     get_api_key,
-    get_api_key_by_user_org,
     get_api_key_by_value,
-    get_api_keys_by_organization,
+    get_api_keys_by_project,
+    get_api_key_by_project_user,
     delete_api_key,
 )
 

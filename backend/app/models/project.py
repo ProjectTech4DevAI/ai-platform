@@ -37,6 +37,9 @@ class Project(ProjectBase, table=True):
     creds: list["Credential"] = Relationship(
         back_populates="project", sa_relationship_kwargs={"cascade": "all, delete"}
     )
+    api_keys: list["APIKey"] = Relationship(
+        back_populates="project", sa_relationship_kwargs={"cascade": "all, delete"}
+    )
     organization: Optional["Organization"] = Relationship(back_populates="project")
 
 
