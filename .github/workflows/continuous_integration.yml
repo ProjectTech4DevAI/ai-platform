@@ -18,20 +18,11 @@ jobs:
           POSTGRES_DB: ai_platform
         ports:
           - 5432:5432
-        options: --health-cmd "pg_isready -U postgres" --health-interval 10s --health-timeout 5s --health-retries 5
-        # Create test DB after postgres starts
-        command: >
-          bash -c "
-            docker-entrypoint.sh postgres &
-            pid=$$!
-            sleep 5
-            until pg_isready -U postgres; do
-              echo 'Waiting for PostgreSQL to be ready...'
-              sleep 1
-            done
-            psql -U postgres -d ai_platform -c 'CREATE DATABASE ai_platform_test;' || true
-            wait $$pid
-          "
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     strategy:
       matrix:
@@ -58,6 +49,14 @@ jobs:
       - name: Install dependencies
         run: uv sync
         working-directory: backend
+
+      - name: Wait for Postgres and create test DB
+        run: |
+          until pg_isready -h localhost -U postgres; do
+            echo "Waiting for PostgreSQL to be ready..."
+            sleep 1
+          done
+          PGPASSWORD=postgres psql -h localhost -U postgres -d ai_platform -c 'CREATE DATABASE ai_platform_test;' || true
 
       - name: Activate virtual environment and run Alembic migrations
         run: |
