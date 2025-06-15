@@ -19,6 +19,19 @@ jobs:
         ports:
           - 5432:5432
         options: --health-cmd "pg_isready -U postgres" --health-interval 10s --health-timeout 5s --health-retries 5
+        # Create test DB after postgres starts
+        command: >
+          bash -c "
+            docker-entrypoint.sh postgres &
+            pid=$$!
+            sleep 5
+            until pg_isready -U postgres; do
+              echo 'Waiting for PostgreSQL to be ready...'
+              sleep 1
+            done
+            psql -U postgres -d ai_platform -c 'CREATE DATABASE ai_platform_test;' || true
+            wait $$pid
+          "
 
     strategy:
       matrix:
