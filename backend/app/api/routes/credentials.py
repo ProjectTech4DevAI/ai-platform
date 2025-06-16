@@ -11,7 +11,7 @@ from app.crud.credentials import (
     update_creds_for_org,
     remove_provider_credential,
 )
-from app.crud.organization import validate_organization
+from app.crud import validate_organization, validate_project
 from app.models import CredsCreate, CredsPublic, CredsUpdate
 from app.models.organization import Organization
 from app.models.project import Project
@@ -35,9 +35,7 @@ def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
 
     # Validate project if provided
     if creds_in.project_id:
-        project = session.get(Project, creds_in.project_id)
-        if not project:
-            raise HTTPException(status_code=404, detail="Project not found")
+        project = validate_project(creds_in.project_id)
         if project.organization_id != creds_in.organization_id:
             raise HTTPException(
                 status_code=400,
