@@ -1,8 +1,8 @@
-"""Change user_id from uuid to int
+"""user_id from uuid to int
 
-Revision ID: 4da48b01f457
-Revises: 904ed70e7dab
-Create Date: 2025-06-05 13:59:46.816459
+Revision ID: 66abc97f3782
+Revises: 60b6c511a485
+Create Date: 2025-06-16 11:05:36.196795
 
 """
 from alembic import op
@@ -11,8 +11,8 @@ import sqlmodel.sql.sqltypes
 
 
 # revision identifiers, used by Alembic.
-revision = "4da48b01f457"
-down_revision = "904ed70e7dab"
+revision = '66abc97f3782'
+down_revision = '60b6c511a485'
 branch_labels = None
 depends_on = None
 
