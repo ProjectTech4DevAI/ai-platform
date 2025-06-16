@@ -1,8 +1,8 @@
 """create assistant table
 
-Revision ID: 8eefcfedc409
-Revises: 904ed70e7dab
-Create Date: 2025-06-11 11:48:42.340144
+Revision ID: 8757b005d681
+Revises: 8e7dc5eab0b0
+Create Date: 2025-06-16 13:40:10.447538
 
 """
 from alembic import op
@@ -11,8 +11,8 @@ import sqlmodel.sql.sqltypes
 
 
 # revision identifiers, used by Alembic.
-revision = "8eefcfedc409"
-down_revision = "904ed70e7dab"
+revision = "8757b005d681"
+down_revision = "8e7dc5eab0b0"
 branch_labels = None
 depends_on = None
 
