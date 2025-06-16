@@ -1,8 +1,9 @@
 from typing import List, Optional
 from datetime import datetime, timezone
 from sqlmodel import Session, select
+from fastapi import HTTPException
 
-from app.models import Project, ProjectCreate
+from app.models import Project, ProjectCreate, Organization
 from app.core.util import now
 
 
@@ -24,3 +25,17 @@ def get_project_by_id(*, session: Session, project_id: int) -> Optional[Project]
 def get_projects_by_organization(*, session: Session, org_id: int) -> List[Project]:
     statement = select(Project).where(Project.organization_id == org_id)
     return session.exec(statement).all()
+
+
+def validate_project(session: Session, project_id: int) -> Project:
+    """
+    Ensures that an project exists and is active.
+    """
+    project = get_project_by_id(session=session, project_id=project_id)
+    if not project:
+        raise HTTPException(404, "Project not found")
+
+    if not project.is_active:
+        raise HTTPException(404, "Project is not active")
+
+    return project

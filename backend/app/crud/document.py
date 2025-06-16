@@ -5,10 +5,11 @@ from sqlmodel import Session, select, and_
 
 from app.models import Document
 from app.core.util import now
+from app.core.exception_handlers import HTTPException
 
 
 class DocumentCrud:
-    def __init__(self, session: Session, owner_id: UUID):
+    def __init__(self, session: Session, owner_id: int):
         self.session = session
         self.owner_id = owner_id
 
@@ -20,7 +21,11 @@ class DocumentCrud:
             )
         )
 
-        return self.session.exec(statement).one()
+        result = self.session.exec(statement).one_or_none()
+        if result is None:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        return result
 
     def read_many(
         self,

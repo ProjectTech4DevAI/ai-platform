@@ -1,19 +1,14 @@
 import uuid
 import secrets
-from datetime import datetime, timezone
 from sqlmodel import Session, select
 from app.core.security import (
-    verify_password,
     get_password_hash,
     encrypt_api_key,
     decrypt_api_key,
 )
-import base64
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from app.core import settings
 from app.core.util import now
-
+from app.core.exception_handlers import HTTPException
 from app.models.api_key import APIKey, APIKeyPublic
 
 
@@ -25,7 +20,7 @@ def generate_api_key() -> tuple[str, str]:
 
 
 def create_api_key(
-    session: Session, organization_id: uuid.UUID, user_id: uuid.UUID
+    session: Session, organization_id: int, user_id: int, project_id: int
 ) -> APIKeyPublic:
     """
     Generates a new API key for an organization and associates it with a user.
@@ -42,6 +37,7 @@ def create_api_key(
         key=encrypted_key,  # Store the encrypted raw key
         organization_id=organization_id,
         user_id=user_id,
+        project_id=project_id,
     )
 
     session.add(api_key)
@@ -75,40 +71,11 @@ def get_api_key(session: Session, api_key_id: int) -> APIKeyPublic | None:
     return None
 
 
-def get_api_keys_by_organization(
-    session: Session, organization_id: uuid.UUID
-) -> list[APIKeyPublic]:
-    """
-    Retrieves all active API keys associated with an organization.
-    Returns the API keys in their original format.
-    """
-    api_keys = session.exec(
-        select(APIKey).where(
-            APIKey.organization_id == organization_id, APIKey.is_deleted == False
-        )
-    ).all()
-
-    raw_keys = []
-    for api_key in api_keys:
-        api_key_dict = api_key.model_dump()
-
-        decrypted_key = decrypt_api_key(api_key.key)
-
-        api_key_dict["key"] = decrypted_key
-
-        raw_keys.append(APIKeyPublic.model_validate(api_key_dict))
-
-    return raw_keys
-
-
 def delete_api_key(session: Session, api_key_id: int) -> None:
     """
     Soft deletes (revokes) an API key by marking it as deleted.
     """
     api_key = session.get(APIKey, api_key_id)
-
-    if not api_key or api_key.is_deleted:
-        raise ValueError("API key not found or already deleted")
 
     api_key.is_deleted = True
     api_key.deleted_at = now()
@@ -137,23 +104,40 @@ def get_api_key_by_value(session: Session, api_key_value: str) -> APIKeyPublic |
     return None
 
 
-def get_api_key_by_user_org(
-    db: Session, organization_id: int, user_id: int
-) -> APIKey | None:
-    """Get an API key by user and organization ID."""
+def get_api_key_by_project_user(
+    session: Session, project_id: int, user_id: uuid.UUID
+) -> APIKeyPublic | None:
+    """
+    Retrieves the single API key associated with a project.
+    """
     statement = select(APIKey).where(
-        APIKey.organization_id == organization_id,
         APIKey.user_id == user_id,
+        APIKey.project_id == project_id,
         APIKey.is_deleted == False,
     )
-    api_key = db.exec(statement).first()
+    api_key = session.exec(statement).first()
 
     if api_key:
         api_key_dict = api_key.model_dump()
+        api_key_dict["key"] = decrypt_api_key(api_key.key)
+        return APIKeyPublic.model_validate(api_key_dict)
 
-        decrypted_key = decrypt_api_key(api_key.key)
-
-        api_key_dict["key"] = decrypted_key
-
-        return APIKey.model_validate(api_key_dict)
     return None
+
+
+def get_api_keys_by_project(session: Session, project_id: int) -> list[APIKeyPublic]:
+    """
+    Retrieves all API keys associated with a project.
+    """
+    statement = select(APIKey).where(
+        APIKey.project_id == project_id, APIKey.is_deleted == False
+    )
+    api_keys = session.exec(statement).all()
+
+    result = []
+    for key in api_keys:
+        key_dict = key.model_dump()
+        key_dict["key"] = decrypt_api_key(key.key)
+        result.append(APIKeyPublic.model_validate(key_dict))
+
+    return result

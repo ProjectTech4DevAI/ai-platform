@@ -2,17 +2,14 @@ from uuid import UUID, uuid4
 from typing import List
 from pathlib import Path
 
-from fastapi import APIRouter, File, UploadFile, HTTPException, Query
+from fastapi import APIRouter, File, UploadFile, Query
 from fastapi import Path as FastPath
-
-from sqlalchemy.exc import NoResultFound, MultipleResultsFound, SQLAlchemyError
 
 from app.crud import DocumentCrud, CollectionCrud
 from app.models import Document
 from app.utils import APIResponse, load_description
 from app.api.deps import CurrentUser, SessionDep
-from app.core.util import raise_from_unknown
-from app.core.cloud import AmazonCloudStorage, CloudStorageError
+from app.core.cloud import AmazonCloudStorage
 from app.crud.rag import OpenAIAssistantCrud
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -30,13 +27,7 @@ def list_docs(
     limit: int = Query(100, gt=0, le=100),
 ):
     crud = DocumentCrud(session, current_user.id)
-    try:
-        data = crud.read_many(skip, limit)
-    except (ValueError, SQLAlchemyError) as err:
-        raise HTTPException(status_code=403, detail=str(err))
-    except Exception as err:
-        raise_from_unknown(err)
-
+    data = crud.read_many(skip, limit)
     return APIResponse.success_response(data)
 
 
@@ -52,12 +43,7 @@ def upload_doc(
 ):
     storage = AmazonCloudStorage(current_user)
     document_id = uuid4()
-    try:
-        object_store_url = storage.put(src, Path(str(document_id)))
-    except CloudStorageError as err:
-        raise HTTPException(status_code=503, detail=str(err))
-    except Exception as err:
-        raise_from_unknown(err)
+    object_store_url = storage.put(src, Path(str(document_id)))
 
     crud = DocumentCrud(session, current_user.id)
     document = Document(
@@ -65,14 +51,7 @@ def upload_doc(
         fname=src.filename,
         object_store_url=str(object_store_url),
     )
-
-    try:
-        data = crud.update(document)
-    except SQLAlchemyError as err:
-        raise HTTPException(status_code=403, detail=str(err))
-    except Exception as err:
-        raise_from_unknown(err)
-
+    data = crud.update(document)
     return APIResponse.success_response(data)
 
 
@@ -84,20 +63,14 @@ def upload_doc(
 def remove_doc(
     session: SessionDep,
     current_user: CurrentUser,
-    doc_id: UUID = Path(description="Document to delete"),
+    doc_id: UUID = FastPath(description="Document to delete"),
 ):
     a_crud = OpenAIAssistantCrud()
-    (d_crud, c_crud) = (
-        x(session, current_user.id) for x in (DocumentCrud, CollectionCrud)
-    )
-    try:
-        document = d_crud.delete(doc_id)
-        data = c_crud.delete(document, a_crud)
-    except NoResultFound as err:
-        raise HTTPException(status_code=400, detail=str(err))
-    except Exception as err:
-        raise_from_unknown(err)
+    d_crud = DocumentCrud(session, current_user.id)
+    c_crud = CollectionCrud(session, current_user.id)
 
+    document = d_crud.delete(doc_id)
+    data = c_crud.delete(document, a_crud)
     return APIResponse.success_response(data)
 
 
@@ -112,13 +85,5 @@ def doc_info(
     doc_id: UUID = FastPath(description="Document to retrieve"),
 ):
     crud = DocumentCrud(session, current_user.id)
-    try:
-        data = crud.read_one(doc_id)
-    except NoResultFound as err:
-        raise HTTPException(status_code=404, detail=str(err))
-    except MultipleResultsFound as err:
-        raise HTTPException(status_code=503, detail=str(err))
-    except Exception as err:
-        raise_from_unknown(err)
-
+    data = crud.read_one(doc_id)
     return APIResponse.success_response(data)

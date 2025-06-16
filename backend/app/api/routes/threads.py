@@ -2,7 +2,7 @@ import re
 import openai
 import requests
 
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from openai import OpenAI
 from sqlmodel import Session
 from langfuse.decorators import observe, langfuse_context
@@ -234,9 +234,8 @@ async def threads(
         project_id=request.get("project_id"),
     )
     if not credentials or "api_key" not in credentials:
-        return APIResponse.failure_response(
-            error="OpenAI API key not configured for this organization."
-        )
+        raise HTTPException(404, "OpenAI API key not configured for this organization.")
+
     client = OpenAI(api_key=credentials["api_key"])
 
     # Fetch Langfuse credentials (optional)
@@ -246,6 +245,7 @@ async def threads(
         provider="langfuse",
         project_id=request.get("project_id"),
     )
+<<<<<<< enhancement/creds_fetching
 
     # If Langfuse credentials exist, configure Langfuse
     if langfuse_credentials:
@@ -254,16 +254,19 @@ async def threads(
             public_key=langfuse_credentials["public_key"],
             host=langfuse_credentials["host"],
         )
+=======
+    if not langfuse_credentials:
+        raise HTTPException(404, "LANGFUSE keys not configured for this organization.")
+>>>>>>> main
 
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
     if not is_valid:
-        return APIResponse.failure_response(error=error_message)
-
+        raise Exception(error_message)
     # Setup thread
     is_success, error_message = setup_thread(client, request)
     if not is_success:
-        return APIResponse.failure_response(error=error_message)
+        raise Exception(error_message)
 
     # Send immediate response
     initial_response = APIResponse.success_response(
@@ -296,8 +299,8 @@ async def threads_sync(
         project_id=request.get("project_id"),
     )
     if not credentials or "api_key" not in credentials:
-        return APIResponse.failure_response(
-            error="OpenAI API key not configured for this organization."
+        raise HTTPException(
+            404, error="OpenAI API key not configured for this organization."
         )
 
     client = OpenAI(api_key=credentials["api_key"])
@@ -305,12 +308,11 @@ async def threads_sync(
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
     if not is_valid:
-        return APIResponse.failure_response(error=error_message)
-
+        raise Exception(error_message)
     # Setup thread
     is_success, error_message = setup_thread(client, request)
     if not is_success:
-        return APIResponse.failure_response(error=error_message)
+        raise Exception(error_message)
 
     try:
         # Process run
@@ -342,7 +344,7 @@ async def threads_sync(
             )
 
     except openai.OpenAIError as e:
-        return APIResponse.failure_response(error=handle_openai_error(e))
+        raise Exception(error=handle_openai_error(e))
 
 
 @router.post("/threads/start")
@@ -372,7 +374,7 @@ async def start_thread(
     # Setup thread
     is_success, error = setup_thread(client, request)
     if not is_success:
-        return APIResponse.failure_response(error=error)
+        raise Exception(error)
 
     thread_id = request["thread_id"]
     prompt = request["question"]
@@ -414,7 +416,7 @@ async def get_thread(
     result = get_thread_result(db, thread_id)
 
     if not result:
-        return APIResponse.failure_response(error="Thread not found.")
+        raise HTTPException(404, "thread not found")
 
     status = result.status or ("success" if result.response else "processing")
 
