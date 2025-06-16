@@ -29,17 +29,6 @@ def upgrade():
     op.create_foreign_key(
         None, "collection", "user", ["owner_id"], ["id"], ondelete="CASCADE"
     )
-    op.alter_column(
-        "credential", "credential", existing_type=sa.VARCHAR(), nullable=True
-    )
-    op.drop_constraint("credential_project_id_fkey", "credential", type_="foreignkey")
-    op.drop_constraint(
-        "credential_organization_id_fkey", "credential", type_="foreignkey"
-    )
-    op.create_foreign_key(None, "credential", "project", ["project_id"], ["id"])
-    op.create_foreign_key(
-        None, "credential", "organization", ["organization_id"], ["id"]
-    )
     op.alter_column("document", "owner_id", existing_type=sa.INTEGER(), nullable=False)
     op.create_foreign_key(
         None, "document", "user", ["owner_id"], ["id"], ondelete="CASCADE"
@@ -59,27 +48,6 @@ def downgrade():
     op.alter_column("projectuser", "user_id", existing_type=sa.INTEGER(), nullable=True)
     op.drop_constraint(None, "document", type_="foreignkey")
     op.alter_column("document", "owner_id", existing_type=sa.INTEGER(), nullable=True)
-    op.drop_constraint(None, "credential", type_="foreignkey")
-    op.drop_constraint(None, "credential", type_="foreignkey")
-    op.create_foreign_key(
-        "credential_organization_id_fkey",
-        "credential",
-        "organization",
-        ["organization_id"],
-        ["id"],
-        ondelete="CASCADE",
-    )
-    op.create_foreign_key(
-        "credential_project_id_fkey",
-        "credential",
-        "project",
-        ["project_id"],
-        ["id"],
-        ondelete="SET NULL",
-    )
-    op.alter_column(
-        "credential", "credential", existing_type=sa.VARCHAR(), nullable=False
-    )
     op.drop_constraint(None, "collection", type_="foreignkey")
     op.alter_column("collection", "owner_id", existing_type=sa.INTEGER(), nullable=True)
     op.drop_constraint(None, "apikey", type_="foreignkey")
