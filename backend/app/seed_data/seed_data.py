@@ -9,7 +9,7 @@ from sqlmodel import Session, delete, select
 
 from app.core.db import engine
 from app.core.security import encrypt_api_key, get_password_hash
-from app.models import APIKey, Organization, Project, User
+from app.models import APIKey, Organization, Project, User, Credential
 
 
 # Pydantic models for data validation
@@ -41,6 +41,15 @@ class APIKeyData(BaseModel):
     is_deleted: bool
     deleted_at: Optional[str] = None
     created_at: Optional[str] = None
+
+
+class CredentialData(BaseModel):
+    is_active: bool
+    provider: str
+    credential: str
+    organization_name: str
+    project_name: str
+    deleted_at: Optional[str] = None
 
 
 def load_seed_data() -> dict:
@@ -168,6 +177,49 @@ def create_api_key(session: Session, api_key_data_raw: dict) -> APIKey:
         raise
 
 
+def create_credential(session: Session, credential_data_raw: dict) -> Credential:
+    """Create a credential from data."""
+    try:
+        credential_data = CredentialData.model_validate(credential_data_raw)
+        logging.info(f"Creating credential for provider: {credential_data.provider}")
+
+        # Query organization ID by name
+        organization = session.exec(
+            select(Organization).where(
+                Organization.name == credential_data.organization_name
+            )
+        ).first()
+        if not organization:
+            raise ValueError(
+                f"Organization '{credential_data.organization_name}' not found"
+            )
+
+        # Query organization ID by name
+        project = session.exec(
+            select(Project).where(Project.name == credential_data.project_name)
+        ).first()
+        if not project:
+            raise ValueError(f"Project '{credential_data.project_name}' not found")
+
+        # Encrypt the credential data
+        encrypted_credential = encrypt_api_key(credential_data.credential)
+
+        credential = Credential(
+            is_active=credential_data.is_active,
+            provider=credential_data.provider,
+            credential=encrypted_credential,
+            organization_id=organization.id,
+            project_id=project.id,
+            deleted_at=credential_data.deleted_at,
+        )
+        session.add(credential)
+        session.flush()  # Ensure ID is assigned
+        return credential
+    except Exception as e:
+        logging.error(f"Error creating credential: {e}")
+        raise
+
+
 def clear_database(session: Session) -> None:
     """Clear all seeded data from the database."""
     logging.info("Clearing existing data...")
@@ -175,6 +227,7 @@ def clear_database(session: Session) -> None:
     session.exec(delete(Project))
     session.exec(delete(Organization))
     session.exec(delete(User))
+    session.exec(delete(Credential))
     session.commit()
     logging.info("Existing data cleared.")
 
@@ -219,6 +272,15 @@ def seed_database(session: Session) -> None:
             api_key = create_api_key(session, api_key_data)
             api_keys.append(api_key)
             logging.info(f"Created API key (ID: {api_key.id})")
+
+        # Create credentials
+        credentials = []
+        for credential_data in seed_data["credentials"]:
+            credential = create_credential(session, credential_data)
+            credentials.append(credential)
+            logging.info(
+                f"Created credential for provider: {credential.provider} (ID: {credential.id})"
+            )
 
         logging.info("Database seeding completed successfully!")
         session.commit()

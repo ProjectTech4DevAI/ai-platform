@@ -52,5 +52,15 @@
       "is_deleted": false,
       "deleted_at": null
     }
+  ],
+  "credentials": [
+    {
+      "is_active": true,
+      "provider": "openai",
+      "credential": "{\"openai\": {\"api_key\": \"sk-proj-YxK21qI3i5SCxN\"}}",
+      "project_name": "Glific",
+      "organization_name": "Project Tech4dev",
+      "deleted_at": null
+    }
   ]
 }
