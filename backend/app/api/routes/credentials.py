@@ -122,8 +122,6 @@ def update_credential(*, session: SessionDep, org_id: int, creds_in: CredsUpdate
     updated_creds = update_creds_for_org(
         session=session, org_id=org_id, creds_in=creds_in
     )
-    if not updated_creds:
-        raise HTTPException(status_code=404, detail="Failed to update credentials")
 
     return APIResponse.success_response([cred.to_public() for cred in updated_creds])
 
