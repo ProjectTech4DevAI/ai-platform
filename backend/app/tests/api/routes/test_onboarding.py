@@ -77,8 +77,7 @@ def test_create_user_existing_email(
     )
     assert response.status_code == 400
     assert (
-        response.json()["error"]
-        == "API key already exists for this user and organization"
+        response.json()["error"] == "API key already exists for this user and project."
     )
 
 
