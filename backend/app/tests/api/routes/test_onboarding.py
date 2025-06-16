@@ -87,7 +87,7 @@ def test_is_superuser_flag(
 ):
     data = {
         "organization_name": "TestOrg",
-        "project_name": "TestProject",
+        "project_name": "TestProjects",
         "email": random_email(),
         "password": "testpassword123",
         "user_name": "Test User",

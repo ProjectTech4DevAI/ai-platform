@@ -11,6 +11,9 @@ class APIKeyBase(SQLModel):
     organization_id: int = Field(
         foreign_key="organization.id", nullable=False, ondelete="CASCADE"
     )
+    project_id: int = Field(
+        foreign_key="project.id", nullable=False, ondelete="CASCADE"
+    )
     user_id: uuid.UUID = Field(
         foreign_key="user.id", nullable=False, ondelete="CASCADE"
     )
@@ -33,4 +36,5 @@ class APIKey(APIKeyBase, table=True):
 
     # Relationships
     organization: "Organization" = Relationship(back_populates="api_keys")
+    project: "Project" = Relationship(back_populates="api_keys")
     user: "User" = Relationship(back_populates="api_keys")
