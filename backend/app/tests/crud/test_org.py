@@ -2,7 +2,7 @@ from sqlmodel import Session
 
 from app.crud.organization import create_organization, get_organization_by_id
 from app.models import Organization, OrganizationCreate
-from app.tests.utils.utils import random_lower_string
+from app.tests.utils.utils import random_lower_string, get_non_existent_id
 
 
 def test_create_organization(db: Session) -> None:
@@ -30,7 +30,8 @@ def test_get_organization_by_id(db: Session) -> None:
 
 def test_get_non_existent_organization(db: Session) -> None:
     """Test retrieving a non-existent organization should return None."""
+    org_id = get_non_existent_id(db, Organization)
     fetched_org = get_organization_by_id(
-        session=db, org_id=999
+        session=db, org_id=org_id
     )  # Assuming ID 999 does not exist
     assert fetched_org is None

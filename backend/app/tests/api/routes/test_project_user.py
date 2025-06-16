@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 from app.core.config import settings
 from app.models import User, Project, ProjectUser, Organization
 from app.crud.project_user import add_user_to_project
-from app.tests.utils.utils import random_email
+from app.tests.utils.utils import random_email, get_non_existent_id
 from app.tests.utils.user import authentication_token_from_email
 from app.core.security import get_password_hash
 from app.main import app
@@ -63,7 +63,7 @@ def test_add_user_to_project(
 
     assert response.status_code == 200, response.text
     added_user = response.json()["data"]
-    assert added_user["user_id"] == str(user.id)
+    assert added_user["user_id"] == user.id
     assert added_user["project_id"] == project.id
     assert added_user["is_admin"] is True
 
@@ -75,9 +75,10 @@ def test_add_user_not_found(
     Test adding a non-existing user to a project (should return 404).
     """
     organization, project = create_organization_and_project(db)
+    user_id = get_non_existent_id(db, User)
 
     response = client.post(
-        f"{settings.API_V1_STR}/project/users/{uuid.uuid4()}?is_admin=false&project_id={project.id}&organization_id={organization.id}",
+        f"{settings.API_V1_STR}/project/users/{user_id}?is_admin=false&project_id={project.id}&organization_id={organization.id}",
         headers=superuser_token_headers,
     )
 
