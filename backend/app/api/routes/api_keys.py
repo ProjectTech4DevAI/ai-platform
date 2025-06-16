@@ -20,7 +20,7 @@ router = APIRouter(prefix="/apikeys", tags=["API Keys"])
 @router.post("/", response_model=APIResponse[APIKeyPublic])
 def create_key(
     project_id: int,
-    user_id: uuid.UUID,
+    user_id: int,
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_superuser),
 ):

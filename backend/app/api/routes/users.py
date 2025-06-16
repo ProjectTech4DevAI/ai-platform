@@ -135,7 +135,7 @@ def register_user(session: SessionDep, user_in: UserRegister) -> Any:
 
 @router.get("/{user_id}", response_model=UserPublic, include_in_schema=False)
 def read_user_by_id(
-    user_id: uuid.UUID, session: SessionDep, current_user: CurrentUser
+    user_id: int, session: SessionDep, current_user: CurrentUser
 ) -> Any:
     user = session.get(User, user_id)
     if user == current_user:
@@ -159,7 +159,7 @@ def read_user_by_id(
 def update_user_endpoint(
     *,
     session: SessionDep,
-    user_id: uuid.UUID,
+    user_id: int,
     user_in: UserUpdate,
 ) -> Any:
     db_user = session.get(User, user_id)
@@ -185,7 +185,7 @@ def update_user_endpoint(
     include_in_schema=False,
 )
 def delete_user(
-    session: SessionDep, current_user: CurrentUser, user_id: uuid.UUID
+    session: SessionDep, current_user: CurrentUser, user_id: int
 ) -> Message:
     user = session.get(User, user_id)
     if not user:

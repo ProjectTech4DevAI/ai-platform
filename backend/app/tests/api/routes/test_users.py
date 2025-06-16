@@ -8,7 +8,7 @@ from app import crud
 from app.core.config import settings
 from app.core.security import verify_password
 from app.models import User, UserCreate
-from app.tests.utils.utils import random_email, random_lower_string
+from app.tests.utils.utils import random_email, random_lower_string, get_non_existent_id
 
 
 def test_get_users_superuser_me(
@@ -103,10 +103,12 @@ def test_get_existing_user_current_user(client: TestClient, db: Session) -> None
 
 
 def test_get_existing_user_permissions_error(
-    client: TestClient, normal_user_token_headers: dict[str, str]
+    db: Session, client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
+    non_existent_user_id = get_non_existent_id(db, User)
+
     r = client.get(
-        f"{settings.API_V1_STR}/users/{uuid.uuid4()}",
+        f"{settings.API_V1_STR}/users/{non_existent_user_id}",
         headers=normal_user_token_headers,
     )
     assert r.status_code == 403
@@ -345,11 +347,13 @@ def test_update_user(
 
 
 def test_update_user_not_exists(
-    client: TestClient, superuser_token_headers: dict[str, str]
+    db: Session, client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:
+    non_existent_user_id = get_non_existent_id(db, User)
+
     data = {"full_name": "Updated_full_name"}
     r = client.patch(
-        f"{settings.API_V1_STR}/users/{uuid.uuid4()}",
+        f"{settings.API_V1_STR}/users/{non_existent_user_id}",
         headers=superuser_token_headers,
         json=data,
     )
@@ -443,10 +447,12 @@ def test_delete_user_super_user(
 
 
 def test_delete_user_not_found(
-    client: TestClient, superuser_token_headers: dict[str, str]
+    db: Session, client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:
+    non_existent_user_id = get_non_existent_id(db, User)
+
     r = client.delete(
-        f"{settings.API_V1_STR}/users/{uuid.uuid4()}",
+        f"{settings.API_V1_STR}/users/{non_existent_user_id}",
         headers=superuser_token_headers,
     )
     assert r.status_code == 404

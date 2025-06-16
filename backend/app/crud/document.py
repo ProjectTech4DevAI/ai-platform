@@ -9,7 +9,7 @@ from app.core.exception_handlers import HTTPException
 
 
 class DocumentCrud:
-    def __init__(self, session: Session, owner_id: UUID):
+    def __init__(self, session: Session, owner_id: int):
         self.session = session
         self.owner_id = owner_id
 

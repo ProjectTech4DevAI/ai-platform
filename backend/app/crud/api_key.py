@@ -20,7 +20,7 @@ def generate_api_key() -> tuple[str, str]:
 
 
 def create_api_key(
-    session: Session, organization_id: int, user_id: uuid.UUID, project_id: int
+    session: Session, organization_id: int, user_id: int, project_id: int
 ) -> APIKeyPublic:
     """
     Generates a new API key for an organization and associates it with a user.

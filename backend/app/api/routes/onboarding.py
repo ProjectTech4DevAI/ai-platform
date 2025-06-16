@@ -40,7 +40,7 @@ class OnboardingRequest(BaseModel):
 class OnboardingResponse(BaseModel):
     organization_id: int
     project_id: int
-    user_id: uuid.UUID
+    user_id: int
     api_key: str
 
 

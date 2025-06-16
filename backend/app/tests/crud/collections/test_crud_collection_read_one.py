@@ -36,7 +36,7 @@ class TestDatabaseReadOne:
     def test_cannot_select_others_collections(self, db: Session):
         collection = mk_collection(db)
 
-        other = uuid_increment(collection.owner_id)
+        other = collection.owner_id + 1
         crud = CollectionCrud(db, other)
         with pytest.raises(NoResultFound):
             crud.read_one(collection.id)
