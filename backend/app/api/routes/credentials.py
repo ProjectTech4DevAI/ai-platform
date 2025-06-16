@@ -35,7 +35,7 @@ def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
 
     # Validate project if provided
     if creds_in.project_id:
-        project = validate_project(creds_in.project_id)
+        project = validate_project(session, creds_in.project_id)
         if project.organization_id != creds_in.organization_id:
             raise HTTPException(
                 status_code=400,
