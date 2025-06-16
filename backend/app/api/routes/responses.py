@@ -1,4 +1,5 @@
 from typing import Optional, Dict, Any
+import logging
 
 import openai
 from pydantic import BaseModel, Extra
@@ -11,6 +12,8 @@ from app.crud.credentials import get_provider_credential
 from app.crud.assistants import get_assistant_by_id
 from app.models import UserOrganization
 from app.utils import APIResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["responses"])
 
@@ -97,8 +100,13 @@ def get_additional_data(request: dict) -> dict:
     }
 
 
-def process_response(request: ResponsesAPIRequest, client: OpenAI, assistant):
+def process_response(
+    request: ResponsesAPIRequest, client: OpenAI, assistant, organization_id: int
+):
     """Process a response and send callback with results."""
+    logger.info(
+        f"Starting generating response for assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
+    )
     try:
         response = client.responses.create(
             model=assistant.model,
@@ -116,6 +124,9 @@ def process_response(request: ResponsesAPIRequest, client: OpenAI, assistant):
             include=["file_search_call.results"],
         )
         response_chunks = get_file_search_results(response)
+        logger.info(
+            f"Successfully generated response: response_id={response.id}, assistant={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
+        )
 
         # Convert request to dict and include all fields
         request_dict = request.model_dump()
@@ -146,14 +157,22 @@ def process_response(request: ResponsesAPIRequest, client: OpenAI, assistant):
             ),
         )
     except openai.OpenAIError as e:
-        callback_response = ResponsesAPIResponse.failure_response(
-            error=handle_openai_error(e)
+        error_message = handle_openai_error(e)
+        logger.error(
+            f"OpenAI API error during response processing: {error_message}, project_id={request.project_id}, organization_id={organization_id}"
         )
+        callback_response = ResponsesAPIResponse.failure_response(error=error_message)
 
     if request.callback_url:
+        logger.info(
+            f"Sending callback to URL: {request.callback_url}, assistant={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
+        )
         from app.api.routes.threads import send_callback
 
         send_callback(request.callback_url, callback_response.model_dump())
+        logger.info(
+            f"Callback sent successfully, assistant={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
+        )
 
 
 @router.post("/responses", response_model=dict)
@@ -164,9 +183,16 @@ async def responses(
     _current_user: UserOrganization = Depends(get_current_user_org),
 ):
     """Asynchronous endpoint that processes requests in background."""
+    logger.info(
+        f"Processing response request for assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
+    )
+
     # Get assistant details
     assistant = get_assistant_by_id(_session, request.assistant_id)
     if not assistant:
+        logger.error(
+            f"Assistant not found: assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
+        )
         raise HTTPException(
             status_code=404,
             detail="Assistant not found or not active",
@@ -186,6 +212,9 @@ async def responses(
         project_id=request.project_id,
     )
     if not credentials or "api_key" not in credentials:
+        logger.error(
+            f"OpenAI API key not configured for org_id={_current_user.organization_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
+        )
         return {
             "success": False,
             "error": "OpenAI API key not configured for this organization.",
@@ -208,7 +237,12 @@ async def responses(
     }
 
     # Schedule background task
-    background_tasks.add_task(process_response, request, client, assistant)
+    background_tasks.add_task(
+        process_response, request, client, assistant, _current_user.organization_id
+    )
+    logger.info(
+        f"Background task scheduled for response processing: assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
+    )
 
     return initial_response
 
