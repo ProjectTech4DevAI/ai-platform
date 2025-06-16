@@ -1,5 +1,6 @@
 import pytest
 from sqlmodel import Session
+from fastapi import HTTPException
 
 from app.models import Project, ProjectCreate, Organization
 from app.crud.project import (
@@ -110,7 +111,7 @@ def test_validate_project_success(db: Session) -> None:
 
 def test_validate_project_not_found(db: Session) -> None:
     """Test that validation fails when project does not exist."""
-    with pytest.raises(ValueError, match="Project not found"):
+    with pytest.raises(HTTPException, match="Project not found"):
         validate_project(session=db, project_id=9999)
 
 
@@ -131,5 +132,5 @@ def test_validate_project_inactive(db: Session) -> None:
         ),
     )
 
-    with pytest.raises(ValueError, match="Project is not active"):
+    with pytest.raises(HTTPException, match="Project is not active"):
         validate_project(session=db, project_id=inactive_project.id)

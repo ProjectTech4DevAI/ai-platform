@@ -19,6 +19,7 @@ from .project import (
     create_project,
     get_project_by_id,
     get_projects_by_organization,
+    validate_project,
 )
 
 from .api_key import (
