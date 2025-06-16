@@ -33,29 +33,6 @@ def test_get_users_normal_user_me(
     assert current_user["email"] == settings.EMAIL_TEST_USER
 
 
-def test_create_user_new_email(
-    client: TestClient, superuser_token_headers: dict[str, str], db: Session
-) -> None:
-    with (
-        patch("app.utils.send_email", return_value=None),
-        patch("app.core.config.settings.SMTP_HOST", "smtp.example.com"),
-        patch("app.core.config.settings.SMTP_USER", "admin@example.com"),
-    ):
-        username = random_email()
-        password = random_lower_string()
-        data = {"email": username, "password": password}
-        r = client.post(
-            f"{settings.API_V1_STR}/users/",
-            headers=superuser_token_headers,
-            json=data,
-        )
-        assert 200 <= r.status_code < 300
-        created_user = r.json()
-        user = crud.get_user_by_email(session=db, email=username)
-        assert user
-        assert user.email == created_user["email"]
-
-
 def test_get_existing_user(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:

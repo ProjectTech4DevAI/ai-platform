@@ -60,6 +60,9 @@ class Settings(BaseSettings):
             path=self.POSTGRES_DB,
         )
 
+    EMAIL_RESET_TOKEN_EXPIRE_HOURS: int = 48
+    EMAIL_TEST_USER: EmailStr
+
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
 
