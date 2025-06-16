@@ -22,7 +22,7 @@ router = APIRouter(prefix="/project/users", tags=["project_users"])
 )
 def add_user(
     request: Request,
-    user_id: uuid.UUID,
+    user_id: int,
     is_admin: bool = False,
     session: Session = Depends(get_db),
     current_user: UserProjectOrg = Depends(verify_user_project_organization),
@@ -81,7 +81,7 @@ def list_project_users(
 )
 def remove_user(
     request: Request,
-    user_id: uuid.UUID,
+    user_id: int,
     session: Session = Depends(get_db),
     current_user: UserProjectOrg = Depends(verify_user_project_organization),
 ):

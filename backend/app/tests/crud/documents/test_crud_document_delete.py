@@ -33,7 +33,7 @@ class TestDatabaseDelete:
     def test_cannot_delete_others_documents(self, db: Session):
         store = DocumentStore(db)
         document = store.put()
-        other_owner_id = store.documents.index.peek()
+        other_owner_id = store.documents.owner_id + 1
 
         crud = DocumentCrud(db, other_owner_id)
         with pytest.raises(NoResultFound):

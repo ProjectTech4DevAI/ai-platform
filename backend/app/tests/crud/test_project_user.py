@@ -5,7 +5,7 @@ import pytest
 
 from app.crud import project_user as project_user_crud
 from app.models import ProjectUser, ProjectUserPublic, User, Project, Organization
-from app.tests.utils.utils import random_email
+from app.tests.utils.utils import random_email, get_non_existent_id
 from app.core.security import get_password_hash
 
 
@@ -111,7 +111,7 @@ def test_remove_user_from_project_not_member(db: Session) -> None:
     organization, project = create_organization_and_project(db)
 
     project_id = project.id
-    user_id = uuid.uuid4()
+    user_id = get_non_existent_id(db, User)
 
     with pytest.raises(
         ValueError, match="User is not a member of this project or already removed"

@@ -14,9 +14,7 @@ class APIKeyBase(SQLModel):
     project_id: int = Field(
         foreign_key="project.id", nullable=False, ondelete="CASCADE"
     )
-    user_id: uuid.UUID = Field(
-        foreign_key="user.id", nullable=False, ondelete="CASCADE"
-    )
+    user_id: int = Field(foreign_key="user.id", nullable=False, ondelete="CASCADE")
     key: str = Field(
         default_factory=lambda: secrets.token_urlsafe(32), unique=True, index=True
     )
