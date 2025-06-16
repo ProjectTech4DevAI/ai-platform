@@ -44,6 +44,11 @@ def create_key(
             organization_id=project.organization_id,
             user_id=user_id,
             project_id=project_id,
+        )
+        return APIResponse.success_response(api_key)
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/", response_model=APIResponse[list[APIKeyPublic]])
@@ -71,6 +76,9 @@ def list_keys(
             api_keys = [user_api_key] if user_api_key else []
 
         return APIResponse.success_response(api_keys)
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/{api_key_id}", response_model=APIResponse[APIKeyPublic])

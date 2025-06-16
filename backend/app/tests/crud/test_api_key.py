@@ -73,6 +73,7 @@ def test_get_api_key_not_found(db: Session) -> None:
     result = api_key_crud.get_api_key(db, 9999)  # Non-existent ID
     assert result is None
 
+
 def test_delete_api_key(db: Session) -> None:
     user = create_test_user(db)
     org = create_test_organization(db)
