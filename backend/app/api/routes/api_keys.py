@@ -1,4 +1,4 @@
-import uuid
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session
 from app.api.deps import get_db, get_current_active_superuser
@@ -14,6 +14,7 @@ from app.models import APIKeyPublic, User
 from app.utils import APIResponse
 from app.core.exception_handlers import HTTPException
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/apikeys", tags=["API Keys"])
 
 
@@ -24,26 +25,26 @@ def create_key(
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_superuser),
 ):
-    """
-    Generate a new API key for the user's organization.
-    """
-    # Validate organization
+    logger.info(f"[apikey.create] Received create API key request | project_id={project_id}, user_id={user_id}")
+
     project = validate_project(session, project_id)
 
     existing_api_key = get_api_key_by_project_user(session, project_id, user_id)
     if existing_api_key:
+        logger.warning(f"[apikey.create] API key already exists | project_id={project_id}, user_id={user_id}")
         raise HTTPException(
             status_code=400,
             detail="API Key already exists for this user and project.",
         )
 
-    # Create and return API key
     api_key = create_api_key(
         session,
         organization_id=project.organization_id,
         user_id=user_id,
         project_id=project_id,
     )
+
+    logger.info(f"[apikey.create] Created API key | api_key_id={api_key.id}, project_id={project_id}, user_id={user_id}")
     return APIResponse.success_response(api_key)
 
 
@@ -53,30 +54,27 @@ def list_keys(
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_superuser),
 ):
-    """
-    Retrieve all API keys for the given project. Superusers get all keys;
-    regular users get only their own.
-    """
-    # Validate project
+    logger.info(f"[apikey.list] Fetching API keys | project_id={project_id}, requested_by_user_id={current_user.id}")
+
     project = validate_project(session=session, project_id=project_id)
 
     if current_user.is_superuser:
-        # Superuser: fetch all API keys for the project
         api_keys = get_api_keys_by_project(session=session, project_id=project_id)
+        logger.info(f"[apikey.list] Superuser access - {len(api_keys)} key(s) found | project_id={project_id}")
     else:
-        # Regular user: fetch only their own API key
         user_api_key = get_api_key_by_project_user(
             session=session, project_id=project_id, user_id=current_user.id
         )
         api_keys = [user_api_key] if user_api_key else []
 
-    # Raise an exception if no API keys are found for the project
     if not api_keys:
+        logger.warning(f"[apikey.list] No API keys found | project_id={project_id}")
         raise HTTPException(
             status_code=404,
             detail="No API keys found for this project.",
         )
 
+    logger.info(f"[apikey.list] Found API key | project_id={project_id}, requested_by_user_id={current_user.id}")
     return APIResponse.success_response(api_keys)
 
 
@@ -86,13 +84,14 @@ def get_key(
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_superuser),
 ):
-    """
-    Retrieve an API key by ID.
-    """
+    logger.info(f"[apikey.get] Fetching API key | api_key_id={api_key_id}, requested_by_user_id={current_user.id}")
+
     api_key = get_api_key(session, api_key_id)
     if not api_key:
+        logger.warning(f"[apikey.get] API key not found | api_key_id={api_key_id}")
         raise HTTPException(404, "API Key does not exist")
 
+    logger.info(f"[apikey.get] API key fetched successfully | api_key_id={api_key_id}")
     return APIResponse.success_response(api_key)
 
 
@@ -102,14 +101,13 @@ def revoke_key(
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_superuser),
 ):
-    """
-    Soft delete an API key (revoke access).
-    """
-    api_key = get_api_key(session, api_key_id)
+    logger.info(f"[apikey.revoke] Revoking API key | api_key_id={api_key_id}, requested_by_user_id={current_user.id}")
 
+    api_key = get_api_key(session, api_key_id)
     if not api_key:
+        logger.warning(f"[apikey.revoke] API key not found or already deleted | api_key_id={api_key_id}")
         raise HTTPException(404, "API key not found or already deleted")
 
     delete_api_key(session, api_key_id)
-
+    logger.info(f"[apikey.revoke] API key revoked | api_key_id={api_key_id}")
     return APIResponse.success_response({"message": "API key revoked successfully"})
