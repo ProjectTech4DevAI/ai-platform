@@ -25,6 +25,9 @@ def create_key(
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_superuser),
 ):
+    """
+    Generate a new API key for the user's organization.
+    """
     logger.info(f"[apikey.create] Received create API key request | project_id={project_id}, user_id={user_id}")
 
     project = validate_project(session, project_id)
@@ -54,6 +57,10 @@ def list_keys(
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_superuser),
 ):
+    """
+    Retrieve all API keys for the given project. Superusers get all keys;
+    regular users get only their own.
+    """
     logger.info(f"[apikey.list] Fetching API keys | project_id={project_id}, requested_by_user_id={current_user.id}")
 
     project = validate_project(session=session, project_id=project_id)
@@ -84,6 +91,9 @@ def get_key(
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_superuser),
 ):
+    """
+    Retrieve an API key by ID.
+    """
     logger.info(f"[apikey.get] Fetching API key | api_key_id={api_key_id}, requested_by_user_id={current_user.id}")
 
     api_key = get_api_key(session, api_key_id)
@@ -101,6 +111,9 @@ def revoke_key(
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_superuser),
 ):
+    """
+    Soft delete an API key (revoke access).
+    """
     logger.info(f"[apikey.revoke] Revoking API key | api_key_id={api_key_id}, requested_by_user_id={current_user.id}")
 
     api_key = get_api_key(session, api_key_id)

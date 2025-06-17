@@ -50,6 +50,10 @@ class OnboardingResponse(BaseModel):
     response_model=OnboardingResponse,
 )
 def onboard_user(request: OnboardingRequest, session: SessionDep):
+    """
+    Handles quick onboarding of a new user: Accepts Organization name, project name, email, password, and user name, then gives back an API key which
+    will be further used for authentication.
+    """
     logger.info(f"[onboarding.start] Onboarding started for email={request.email}")
 
     # Validate organization
@@ -112,7 +116,7 @@ def onboard_user(request: OnboardingRequest, session: SessionDep):
     )
     logger.info(f"[onboarding.apikey] API key created | key_id={api_key_public.id}, user_id={user.id}, project_id={project.id}")
 
-    # Finalize user update
+    # Set user as non-superuser and save to session
     user.is_superuser = False
     session.add(user)
     session.commit()
