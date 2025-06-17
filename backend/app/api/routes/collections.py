@@ -1,5 +1,6 @@
 import inspect
 import logging
+import asyncio
 import warnings
 from uuid import UUID, uuid4
 from typing import Any, List, Optional
@@ -167,7 +168,8 @@ def _backout(crud: OpenAIAssistantCrud, assistant_id: str):
         )
 
 
-def do_create_collection(
+# Async function to create the collection and perform operations
+async def do_create_collection(
     session: SessionDep,
     current_user: CurrentUser,
     request: CreationRequest,
@@ -188,7 +190,7 @@ def do_create_collection(
         vector_store = vector_store_crud.create()
     except OpenAIError as err:
         callback.fail(str(err))
-        return
+        raise
 
     storage = AmazonCloudStorage(current_user)
     document_crud = DocumentCrud(session, current_user.id)
@@ -234,7 +236,7 @@ def do_create_collection(
     "/create",
     description=load_description("collections/create.md"),
 )
-def create_collection(
+async def create_collection(
     session: SessionDep,
     current_user: CurrentUser,
     request: CreationRequest,
@@ -244,15 +246,24 @@ def create_collection(
     route = router.url_path_for(this.f_code.co_name)
     payload = ResponsePayload("processing", route)
 
-    background_tasks.add_task(
-        do_create_collection,
-        session,
-        current_user,
-        request,
-        payload,
-    )
+    # Start the background task asynchronously
+    # background_tasks.add_task(
+    #    do_create_collection,
+    #    session,
+    #    current_user,
+    #    request,
+    #    payload,
+    # )
 
-    return APIResponse.success_response(data=None, metadata=asdict(payload))
+    timeout_duration = 15
+    try:
+        await asyncio.wait_for(
+            do_create_collection(session, current_user, request, payload),
+            timeout=timeout_duration,
+        )
+        return APIResponse.success_response(data=None, metadata=asdict(payload))
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=408, detail="The task timed out.")
 
 
 def do_delete_collection(
