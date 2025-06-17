@@ -188,7 +188,9 @@ async def responses(
     )
 
     # Get assistant details
-    assistant = get_assistant_by_id(_session, request.assistant_id)
+    assistant = get_assistant_by_id(
+        _session, request.assistant_id, _current_user.organization_id
+    )
     if not assistant:
         logger.error(
             f"Assistant not found: assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
@@ -196,13 +198,6 @@ async def responses(
         raise HTTPException(
             status_code=404,
             detail="Assistant not found or not active",
-        )
-
-    # Verify project access
-    if assistant.project_id != request.project_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Assistant does not belong to the specified project",
         )
 
     credentials = get_provider_credential(
