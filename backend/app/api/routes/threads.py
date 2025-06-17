@@ -337,6 +337,7 @@ async def threads_sync(
     finally:
         langfuse_context.flush()
 
+
 @router.post("/threads/start")
 async def start_thread(
     request: dict,
