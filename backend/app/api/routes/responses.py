@@ -101,7 +101,7 @@ def process_response(
 ):
     """Process a response and send callback with results."""
     logger.info(
-        f"Starting generating response for assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
+        f"[responses.process_response] Starting generating response for assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
     )
     try:
         response = client.responses.create(
@@ -121,7 +121,7 @@ def process_response(
         )
         response_chunks = get_file_search_results(response)
         logger.info(
-            f"Successfully generated response: response_id={response.id}, assistant={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
+            f"[responses.process_response] Successfully generated response: response_id={response.id}, assistant={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
         )
 
         # Convert request to dict and include all fields
@@ -155,18 +155,18 @@ def process_response(
     except openai.OpenAIError as e:
         error_message = handle_openai_error(e)
         logger.error(
-            f"OpenAI API error during response processing: {error_message}, project_id={request.project_id}, organization_id={organization_id}"
+            f"[responses.process_response] OpenAI API error during response processing: {error_message}, project_id={request.project_id}, organization_id={organization_id}"
         )
         callback_response = ResponsesAPIResponse.failure_response(error=error_message)
 
     if request.callback_url:
         logger.info(
-            f"Sending callback to URL: {request.callback_url}, assistant={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
+            f"[responses.process_response] Sending callback to URL: {request.callback_url}, assistant={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
         )
 
         send_callback(request.callback_url, callback_response.model_dump())
         logger.info(
-            f"Callback sent successfully, assistant={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
+            f"[responses.process_response] Callback sent successfully, assistant={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
         )
 
 
@@ -179,7 +179,7 @@ async def responses(
 ):
     """Asynchronous endpoint that processes requests in background."""
     logger.info(
-        f"Processing response request for assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
+        f"[responses.responses] Processing response request for assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
     )
 
     # Get assistant details
@@ -188,7 +188,7 @@ async def responses(
     )
     if not assistant:
         logger.error(
-            f"Assistant not found: assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
+            f"[responses.responses] Assistant not found: assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
         )
         raise HTTPException(
             status_code=404,
@@ -203,7 +203,7 @@ async def responses(
     )
     if not credentials or "api_key" not in credentials:
         logger.error(
-            f"OpenAI API key not configured for org_id={_current_user.organization_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
+            f"[responses.responses] OpenAI API key not configured for org_id={_current_user.organization_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
         )
         return {
             "success": False,
@@ -231,7 +231,7 @@ async def responses(
         process_response, request, client, assistant, _current_user.organization_id
     )
     logger.info(
-        f"Background task scheduled for response processing: assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
+        f"[responses.responses] Background task scheduled for response processing: assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
     )
 
     return initial_response
