@@ -5,9 +5,8 @@ from fastapi.testclient import TestClient
 from sqlmodel import select
 
 from app.api.routes.responses import router
-from app.models import APIKey, Assistant
-from app.crud.assistants import get_assistant_by_id
-from app.crud.credentials import get_provider_credential
+from app.models import Project
+from app.seed_data.seed_data import seed_database
 
 # Wrap the router in a FastAPI app instance
 app = FastAPI()
@@ -15,26 +14,22 @@ app.include_router(router)
 client = TestClient(app)
 
 
+@pytest.fixture(scope="function", autouse=True)
+def load_seed_data(db):
+    """Load seed data before each test."""
+    seed_database(db)
+    yield
+    # Cleanup is handled by the db fixture in conftest.py
+
+
 @patch("app.api.routes.responses.OpenAI")
-@patch("app.api.routes.responses.get_assistant_by_id")
 @patch("app.api.routes.responses.get_provider_credential")
 def test_responses_endpoint_success(
     mock_get_credential,
-    mock_get_assistant,
     mock_openai,
     db,
 ):
     """Test the /responses endpoint for successful response creation."""
-    # Setup mock assistant
-    mock_assistant = MagicMock()
-    mock_assistant.project_id = 1
-    mock_assistant.model = "gpt-4o"
-    mock_assistant.instructions = "Test instructions"
-    mock_assistant.vector_store_id = "vs_123"
-    mock_assistant.max_num_results = 20
-    mock_assistant.temperature = 0.1
-    mock_get_assistant.return_value = mock_assistant
-
     # Setup mock credentials
     mock_get_credential.return_value = {"api_key": "test_api_key"}
 
@@ -42,14 +37,28 @@ def test_responses_endpoint_success(
     mock_client = MagicMock()
     mock_openai.return_value = mock_client
 
-    # Get API key
-    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
-    if not api_key_record:
-        pytest.skip("No API key found in the database for testing")
+    # Setup the mock response object with real values for all used fields
+    mock_response = MagicMock()
+    mock_response.id = "mock_response_id"
+    mock_response.output_text = "Test output"
+    mock_response.model = "gpt-4o"
+    mock_response.usage.input_tokens = 10
+    mock_response.usage.output_tokens = 5
+    mock_response.usage.total_tokens = 15
+    mock_response.output = []
+    mock_client.responses.create.return_value = mock_response
 
-    headers = {"X-API-KEY": api_key_record.key}
+    # Get the Glific project ID (the assistant is created for this project)
+    glific_project = db.exec(select(Project).where(Project.name == "Glific")).first()
+    if not glific_project:
+        pytest.skip("Glific project not found in the database")
+
+    # Use the original API key from seed data (not the encrypted one)
+    original_api_key = "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8"
+
+    headers = {"X-API-KEY": original_api_key}
     request_data = {
-        "project_id": 1,
+        "project_id": glific_project.id,
         "assistant_id": "assistant_123",
         "question": "What is Glific?",
         "callback_url": "http://example.com/callback",
