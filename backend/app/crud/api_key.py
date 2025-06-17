@@ -8,6 +8,7 @@ from app.core.security import (
 )
 from app.core import settings
 from app.core.util import now
+from app.core.exception_handlers import HTTPException
 from app.models.api_key import APIKey, APIKeyPublic
 
 
@@ -75,9 +76,6 @@ def delete_api_key(session: Session, api_key_id: int) -> None:
     Soft deletes (revokes) an API key by marking it as deleted.
     """
     api_key = session.get(APIKey, api_key_id)
-
-    if not api_key or api_key.is_deleted:
-        raise ValueError("API key not found or already deleted")
 
     api_key.is_deleted = True
     api_key.deleted_at = now()

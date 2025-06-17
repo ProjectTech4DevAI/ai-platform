@@ -123,18 +123,6 @@ def get_current_active_superuser_org(current_user: CurrentUserOrg) -> User:
     return current_user
 
 
-async def http_exception_handler(request: Request, exc: HTTPException):
-    """
-    Global handler for HTTPException to return standardized response format.
-    """
-    return JSONResponse(
-        status_code=exc.status_code,
-        content=APIResponse.failure_response(exc.detail).model_dump()
-        # TEMPORARY: Keep "detail" for backward compatibility
-        | {"detail": exc.detail},
-    )
-
-
 def verify_user_project_organization(
     db: SessionDep,
     current_user: CurrentUserOrg,

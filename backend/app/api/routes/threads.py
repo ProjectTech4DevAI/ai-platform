@@ -2,7 +2,7 @@ import re
 import openai
 import requests
 
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from openai import OpenAI
 from sqlmodel import Session
 from langfuse.decorators import observe, langfuse_context
@@ -235,8 +235,6 @@ async def threads(
         provider="openai",
         project_id=request.get("project_id"),
     )
-
-    # Configure OpenAI client
     client, success = configure_openai(credentials)
     if not success:
         return APIResponse.failure_response(
@@ -250,9 +248,7 @@ async def threads(
         project_id=request.get("project_id"),
     )
     if not langfuse_credentials:
-        return APIResponse.failure_response(
-            error="LANGFUSE keys not configured for this organization."
-        )
+        raise HTTPException(404, "LANGFUSE keys not configured for this organization.")
 
     # Configure Langfuse
     _, success = configure_langfuse(langfuse_credentials)
@@ -264,12 +260,11 @@ async def threads(
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
     if not is_valid:
-        return APIResponse.failure_response(error=error_message)
-
+        raise Exception(error_message)
     # Setup thread
     is_success, error_message = setup_thread(client, request)
     if not is_success:
-        return APIResponse.failure_response(error=error_message)
+        raise Exception(error_message)
 
     # Send immediate response
     initial_response = APIResponse.success_response(
@@ -330,19 +325,17 @@ async def threads_sync(
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
     if not is_valid:
-        return APIResponse.failure_response(error=error_message)
-
+        raise Exception(error_message)
     # Setup thread
     is_success, error_message = setup_thread(client, request)
     if not is_success:
-        return APIResponse.failure_response(error=error_message)
+        raise Exception(error_message)
 
     try:
         response, error_message = process_run_core(request, client)
         return response
     finally:
         langfuse_context.flush()
-
 
 @router.post("/threads/start")
 async def start_thread(
@@ -371,7 +364,7 @@ async def start_thread(
 
     is_success, error = setup_thread(client, request)
     if not is_success:
-        return APIResponse.failure_response(error=error)
+        raise Exception(error)
 
     thread_id = request["thread_id"]
 
@@ -410,7 +403,7 @@ async def get_thread(
     result = get_thread_result(db, thread_id)
 
     if not result:
-        return APIResponse.failure_response(error="Thread not found.")
+        raise HTTPException(404, "thread not found")
 
     status = result.status or ("success" if result.response else "processing")
 
