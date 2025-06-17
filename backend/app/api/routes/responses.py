@@ -8,6 +8,7 @@ from openai import OpenAI
 from sqlmodel import Session
 
 from app.api.deps import get_current_user_org, get_db
+from app.api.routes.threads import send_callback
 from app.crud.credentials import get_provider_credential
 from app.crud.assistants import get_assistant_by_id
 from app.models import UserOrganization
@@ -67,11 +68,6 @@ class _APIResponse(BaseModel):
     message: str
     chunks: list[FileResultChunk]
     diagnostics: Optional[Diagnostics] = None
-
-    class Config:
-        extra = (
-            Extra.allow
-        )  # This allows additional fields to be included in the response
 
 
 class ResponsesAPIResponse(APIResponse[_APIResponse]):
@@ -167,7 +163,6 @@ def process_response(
         logger.info(
             f"Sending callback to URL: {request.callback_url}, assistant={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
         )
-        from app.api.routes.threads import send_callback
 
         send_callback(request.callback_url, callback_response.model_dump())
         logger.info(
