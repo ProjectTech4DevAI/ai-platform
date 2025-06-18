@@ -10,6 +10,7 @@ from app.core.db import engine, init_db
 from app.main import app
 from app.models import (
     APIKey,
+    Assistant,
     Organization,
     Project,
     ProjectUser,
@@ -29,6 +30,7 @@ def db() -> Generator[Session, None, None]:
         yield session
         # Delete data in reverse dependency order
         session.execute(delete(ProjectUser))  # Many-to-many relationship
+        session.execute(delete(Assistant))
         session.execute(delete(Credential))
         session.execute(delete(Project))
         session.execute(delete(Organization))
