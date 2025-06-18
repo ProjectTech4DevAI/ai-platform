@@ -33,9 +33,7 @@ class ResponsesAPIRequest(BaseModel):
     response_id: Optional[str] = None
 
     class Config:
-        extra = (
-            Extra.allow
-        )  # This allows additional fields to be included in the request
+        extra = Extra.allow
 
 
 class ResponsesSyncAPIRequest(BaseModel):
