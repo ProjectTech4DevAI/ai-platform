@@ -11,7 +11,6 @@ from app.tests.utils.document import DocumentStore
 from app.tests.utils.utils import openai_credentials
 
 
-# Automatically mock AmazonCloudStorage for all tests
 @pytest.fixture(autouse=True)
 def mock_s3(monkeypatch):
     class FakeStorage:
@@ -26,9 +25,12 @@ def mock_s3(monkeypatch):
             fake_file.name = "fake.txt"
             return fake_file
 
+        def get_file_size_kb(self, url: str) -> float:
+            return 1.0  # Simulate 1KB files
+
     class FakeS3Client:
         def head_object(self, Bucket, Key):
-            return {"ContentLength": 1024}  # Return 1KB dummy size
+            return {"ContentLength": 1024}
 
     monkeypatch.setattr("app.api.routes.collections.AmazonCloudStorage", FakeStorage)
     monkeypatch.setattr("boto3.client", lambda service: FakeS3Client())

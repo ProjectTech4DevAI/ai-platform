@@ -24,20 +24,6 @@ from app.utils import APIResponse, load_description
 
 router = APIRouter(prefix="/collections", tags=["collections"])
 
-import boto3
-from urllib.parse import urlparse
-
-
-def get_file_size_kb(s3_url: str) -> float:
-    parsed = urlparse(s3_url)
-    bucket = parsed.netloc
-    key = parsed.path.lstrip("/")
-
-    s3 = boto3.client("s3")
-    response = s3.head_object(Bucket=bucket, Key=key)
-    size_bytes = response["ContentLength"]
-    return round(size_bytes / 1024, 2)  # Size in KB (rounded to 2 decimal places)
-
 
 @dataclass
 class ResponsePayload:
@@ -217,8 +203,10 @@ async def do_create_collection(
         {doc.fname.split(".")[-1] for doc in flat_docs if "." in doc.fname}
     )
 
+    file_sizes_kb = []
     for doc in flat_docs:
-        size_kb = get_file_size_kb(doc.object_store_url)
+        size_kb = storage.get_file_size_kb(doc.object_store_url)
+        file_sizes_kb.append(size_kb)
 
     kwargs = dict(request.extract_super_type(AssistantOptions))
     try:
@@ -248,7 +236,7 @@ async def do_create_collection(
     elapsed = time.time() - start_time
     logging.info(
         f"Collection created: {collection.id} | "
-        f"Time: {elapsed}s | Files: {doc_count} |Sizes:{size_kb} KB |Types: {file_exts}"
+        f"Time: {elapsed}s | Files: {doc_count} |Sizes:{file_sizes_kb} KB |Types: {file_exts}"
     )
 
     callback.success(collection.model_dump(mode="json"))
