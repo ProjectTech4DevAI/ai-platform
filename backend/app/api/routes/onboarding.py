@@ -62,11 +62,15 @@ def onboard_user(request: OnboardingRequest, session: SessionDep):
     )
     if existing_organization:
         organization = existing_organization
-        logger.info(f"[onboarding.organization] Using existing organization | id={organization.id}, name={organization.name}")
+        logger.info(
+            f"[onboarding.organization] Using existing organization | id={organization.id}, name={organization.name}"
+        )
     else:
         org_create = OrganizationCreate(name=request.organization_name)
         organization = create_organization(session=session, org_create=org_create)
-        logger.info(f"[onboarding.organization] Created new organization | id={organization.id}, name={organization.name}")
+        logger.info(
+            f"[onboarding.organization] Created new organization | id={organization.id}, name={organization.name}"
+        )
 
     # Validate project
     existing_project = (
@@ -74,19 +78,25 @@ def onboard_user(request: OnboardingRequest, session: SessionDep):
     )
     if existing_project:
         project = existing_project
-        logger.info(f"[onboarding.project] Using existing project | id={project.id}, name={project.name}")
+        logger.info(
+            f"[onboarding.project] Using existing project | id={project.id}, name={project.name}"
+        )
     else:
         project_create = ProjectCreate(
             name=request.project_name, organization_id=organization.id
         )
         project = create_project(session=session, project_create=project_create)
-        logger.info(f"[onboarding.project] Created new project | id={project.id}, name={project.name}")
+        logger.info(
+            f"[onboarding.project] Created new project | id={project.id}, name={project.name}"
+        )
 
     # Validate user
     existing_user = session.query(User).filter(User.email == request.email).first()
     if existing_user:
         user = existing_user
-        logger.info(f"[onboarding.user] Using existing user | id={user.id}, email={user.email}")
+        logger.info(
+            f"[onboarding.user] Using existing user | id={user.id}, email={user.email}"
+        )
     else:
         user_create = UserCreate(
             name=request.user_name,
@@ -94,14 +104,18 @@ def onboard_user(request: OnboardingRequest, session: SessionDep):
             password=request.password,
         )
         user = create_user(session=session, user_create=user_create)
-        logger.info(f"[onboarding.user] Created new user | id={user.id}, email={user.email}")
+        logger.info(
+            f"[onboarding.user] Created new user | id={user.id}, email={user.email}"
+        )
 
     # Check if API key already exists
     existing_key = get_api_key_by_project_user(
         session=session, user_id=user.id, project_id=project.id
     )
     if existing_key:
-        logger.warning(f"[onboarding.apikey] API key already exists for user={user.id}, project={project.id}")
+        logger.warning(
+            f"[onboarding.apikey] API key already exists for user={user.id}, project={project.id}"
+        )
         raise HTTPException(
             status_code=400,
             detail="API key already exists for this user and project.",
@@ -114,14 +128,18 @@ def onboard_user(request: OnboardingRequest, session: SessionDep):
         user_id=user.id,
         project_id=project.id,
     )
-    logger.info(f"[onboarding.apikey] API key created | key_id={api_key_public.id}, user_id={user.id}, project_id={project.id}")
+    logger.info(
+        f"[onboarding.apikey] API key created | key_id={api_key_public.id}, user_id={user.id}, project_id={project.id}"
+    )
 
     # Set user as non-superuser and save to session
     user.is_superuser = False
     session.add(user)
     session.commit()
 
-    logger.info(f"[onboarding.success] Onboarding completed | org_id={organization.id}, project_id={project.id}, user_id={user.id}")
+    logger.info(
+        f"[onboarding.success] Onboarding completed | org_id={organization.id}, project_id={project.id}, user_id={user.id}"
+    )
     return OnboardingResponse(
         organization_id=organization.id,
         project_id=project.id,

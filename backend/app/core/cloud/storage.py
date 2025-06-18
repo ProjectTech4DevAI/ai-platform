@@ -113,9 +113,7 @@ class SimpleStorageName:
 
     @classmethod
     def from_url(cls, url: str):
-        logger.info(
-            f"[SimpleStorageName.from_url] Parsing S3 URL | {{'url': '{url}'}}"
-        )
+        logger.info(f"[SimpleStorageName.from_url] Parsing S3 URL | {{'url': '{url}'}}")
         url = urlparse(url)
         path = Path(url.path)
         if path.is_absolute():

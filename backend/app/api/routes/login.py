@@ -42,10 +42,14 @@ def login_access_token(
         session=session, email=form_data.username, password=form_data.password
     )
     if not user:
-        logger.warning(f"[login.access_token] Invalid credentials | email={form_data.username}")
+        logger.warning(
+            f"[login.access_token] Invalid credentials | email={form_data.username}"
+        )
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     elif not user.is_active:
-        logger.warning(f"[login.access_token] Inactive user login attempt | user_id={user.id}")
+        logger.warning(
+            f"[login.access_token] Inactive user login attempt | user_id={user.id}"
+        )
         raise HTTPException(status_code=400, detail="Inactive user")
 
     access_token_expires = timedelta(minutes=token_expiry_minutes)
@@ -137,7 +141,9 @@ def recover_password_html_content(email: str, session: SessionDep) -> Any:
     """
     HTML Content for Password Recovery
     """
-    logger.info(f"[login.recover_password_html] HTML recovery content requested | email={email}")
+    logger.info(
+        f"[login.recover_password_html] HTML recovery content requested | email={email}"
+    )
 
     user = get_user_by_email(session=session, email=email)
     if not user:
@@ -152,7 +158,9 @@ def recover_password_html_content(email: str, session: SessionDep) -> Any:
         email_to=user.email, email=email, token=password_reset_token
     )
 
-    logger.info(f"[login.recover_password_html] HTML content generated | user_id={user.id}")
+    logger.info(
+        f"[login.recover_password_html] HTML content generated | user_id={user.id}"
+    )
     return HTMLResponse(
         content=email_data.html_content, headers={"subject:": email_data.subject}
     )

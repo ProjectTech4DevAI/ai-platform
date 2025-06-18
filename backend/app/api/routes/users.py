@@ -99,13 +99,19 @@ def update_user_me(
 def update_password_me(
     *, session: SessionDep, body: UpdatePassword, current_user: CurrentUser
 ) -> Any:
-    logger.info(f"[user.update_password] Password change requested | user_id={current_user.id}")
+    logger.info(
+        f"[user.update_password] Password change requested | user_id={current_user.id}"
+    )
     if not verify_password(body.current_password, current_user.hashed_password):
-        logger.warning(f"[user.update_password] Incorrect current password | user_id={current_user.id}")
+        logger.warning(
+            f"[user.update_password] Incorrect current password | user_id={current_user.id}"
+        )
         raise HTTPException(status_code=400, detail="Incorrect password")
 
     if body.current_password == body.new_password:
-        logger.warning(f"[user.update_password] New password same as current | user_id={current_user.id}")
+        logger.warning(
+            f"[user.update_password] New password same as current | user_id={current_user.id}"
+        )
         raise HTTPException(
             status_code=400,
             detail="New password cannot be the same as the current one",
@@ -120,7 +126,9 @@ def update_password_me(
 
 @router.get("/me", response_model=UserPublic)
 def read_user_me(current_user: CurrentUser) -> Any:
-    logger.info(f"[user.read_me] Fetching current user info | user_id={current_user.id}")
+    logger.info(
+        f"[user.read_me] Fetching current user info | user_id={current_user.id}"
+    )
     return current_user
 
 
@@ -128,7 +136,9 @@ def read_user_me(current_user: CurrentUser) -> Any:
 def delete_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
     logger.info(f"[user.delete_me] Deletion requested | user_id={current_user.id}")
     if current_user.is_superuser:
-        logger.warning(f"[user.delete_me] Superuser self-deletion denied | user_id={current_user.id}")
+        logger.warning(
+            f"[user.delete_me] Superuser self-deletion denied | user_id={current_user.id}"
+        )
         raise HTTPException(
             status_code=403, detail="Super users are not allowed to delete themselves"
         )
@@ -150,7 +160,9 @@ def register_user(session: SessionDep, user_in: UserRegister) -> Any:
 
     user_create = UserCreate.model_validate(user_in)
     user = create_user(session=session, user_create=user_create)
-    logger.info(f"[user.signup] User registered | user_id={user.id}, email={user.email}")
+    logger.info(
+        f"[user.signup] User registered | user_id={user.id}, email={user.email}"
+    )
     return user
 
 
@@ -165,7 +177,9 @@ def read_user_by_id(
         return user
 
     if not current_user.is_superuser:
-        logger.warning(f"[user.read_by_id] Unauthorized access attempt | requested_id={user_id}, user_id={current_user.id}")
+        logger.warning(
+            f"[user.read_by_id] Unauthorized access attempt | requested_id={user_id}, user_id={current_user.id}"
+        )
         raise HTTPException(
             status_code=403,
             detail="The user doesn't have enough privileges",

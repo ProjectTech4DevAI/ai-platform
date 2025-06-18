@@ -36,5 +36,7 @@ def create_user(user_in: PrivateUserCreate, session: SessionDep) -> Any:
     session.commit()
     session.refresh(user)
 
-    logger.info(f"[private.create_user] User created successfully | user_id={user.id}, email={user.email}")
+    logger.info(
+        f"[private.create_user] User created successfully | user_id={user.id}, email={user.email}"
+    )
     return user
