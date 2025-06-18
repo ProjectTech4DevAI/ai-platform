@@ -1,6 +1,7 @@
 from collections.abc import Generator
 
 import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
 from sqlmodel import Session, delete
 
@@ -18,6 +19,7 @@ from app.models import (
 )
 from app.tests.utils.user import authentication_token_from_email
 from app.tests.utils.utils import get_superuser_token_headers
+from httpx import AsyncClient
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -40,6 +42,12 @@ def db() -> Generator[Session, None, None]:
 def client() -> Generator[TestClient, None, None]:
     with TestClient(app) as c:
         yield c
+
+
+@pytest_asyncio.fixture
+async def async_client():
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        yield client
 
 
 @pytest.fixture(scope="module")

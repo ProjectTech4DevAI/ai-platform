@@ -190,7 +190,7 @@ async def do_create_collection(
         vector_store = vector_store_crud.create()
     except OpenAIError as err:
         callback.fail(str(err))
-        raise
+        return
 
     storage = AmazonCloudStorage(current_user)
     document_crud = DocumentCrud(session, current_user.id)
