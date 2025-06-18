@@ -1,174 +1,289 @@
 import logging
-import functools as ft
-from uuid import UUID
-from typing import Optional
+from typing import Optional, Dict, Any, List
+from sqlmodel import Session, select
+from sqlalchemy.exc import IntegrityError
+from datetime import datetime, timezone
 
-from sqlmodel import Session, func, select, and_
-
-from app.models import Document, Collection, DocumentCollection
+from app.models import Credential, CredsCreate, CredsUpdate
+from app.core.providers import (
+    validate_provider,
+    validate_provider_credentials,
+    get_supported_providers,
+)
+from app.core.security import encrypt_credentials, decrypt_credentials
 from app.core.util import now
-
-from .document_collection import DocumentCollectionCrud
+from app.core.exception_handlers import HTTPException
 
 logger = logging.getLogger(__name__)
 
 
-class CollectionCrud:
-    def __init__(self, session: Session, owner_id: int):
-        self.session = session
-        self.owner_id = owner_id
-        logger.info(
-            f"[CollectionCrud.init] Initialized CollectionCrud | {{'owner_id': {owner_id}}}"
-        )
-
-    def _update(self, collection: Collection):
-        logger.info(
-            f"[CollectionCrud._update] Starting collection update | {{'collection_id': '{collection.id}', 'owner_id': {self.owner_id}}}"
-        )
-        if not collection.owner_id:
-            logger.info(
-                f"[CollectionCrud._update] Assigning owner ID | {{'collection_id': '{collection.id}', 'owner_id': {self.owner_id}}}"
-            )
-            collection.owner_id = self.owner_id
-        elif collection.owner_id != self.owner_id:
-            logger.warning(
-                f"[CollectionCrud._update] Ownership mismatch detected | {{'collection_id': '{collection.id}', 'owner_id': {collection.owner_id}, 'attempted_owner_id': {self.owner_id}}}"
-            )
-            err = "Invalid collection ownership: owner={} attempter={}".format(
-                self.owner_id,
-                collection.owner_id,
-            )
-            logger.error(
-                f"[CollectionCrud._update] Permission error | {{'collection_id': '{collection.id}', 'error': '{err}'}}"
-            )
-            raise PermissionError(err)
-
-        self.session.add(collection)
-        self.session.commit()
-        self.session.refresh(collection)
-        logger.info(
-            f"[CollectionCrud._update] Collection updated successfully | {{'collection_id': '{collection.id}'}}"
-        )
-
-        return collection
-
-    def _exists(self, collection: Collection):
-        logger.info(
-            f"[CollectionCrud._exists] Checking if collection exists | {{'llm_service_id': '{collection.llm_service_id}', 'llm_service_name': '{collection.llm_service_name}'}}"
-        )
-        present = (
-            self.session.query(func.count(Collection.id))
-            .filter(
-                Collection.llm_service_id == collection.llm_service_id,
-                Collection.llm_service_name == collection.llm_service_name,
-            )
-            .scalar()
-        )
-        logger.info(
-            f"[CollectionCrud._exists] Existence check completed | {{'llm_service_id': '{collection.llm_service_id}', 'exists': {bool(present)}}}"
-        )
-
-        return bool(present)
-
-    def create(self, collection: Collection, documents: list[Document]):
-        logger.info(
-            f"[CollectionCrud.create] Starting collection creation | {{'collection_id': '{collection.id}', 'document_count': {len(documents)}}}"
-        )
-        if self._exists(collection):
-            logger.error(
-                f"[CollectionCrud.create] Collection already exists | {{'llm_service_id': '{collection.llm_service_id}', 'llm_service_name': '{collection.llm_service_name}'}}"
-            )
-            raise FileExistsError("Collection already present")
-
-        collection = self._update(collection)
-        dc_crud = DocumentCollectionCrud(self.session)
-        logger.info(
-            f"[CollectionCrud.create] Creating document-collection associations | {{'collection_id': '{collection.id}', 'document_count': {len(documents)}}}"
-        )
-        dc_crud.create(collection, documents)
-        logger.info(
-            f"[CollectionCrud.create] Collection created successfully | {{'collection_id': '{collection.id}'}}"
-        )
-
-        return collection
-
-    def read_one(self, collection_id: UUID):
-        logger.info(
-            f"[CollectionCrud.read_one] Retrieving collection | {{'collection_id': '{collection_id}', 'owner_id': {self.owner_id}}}"
-        )
-        statement = select(Collection).where(
-            and_(
-                Collection.owner_id == self.owner_id,
-                Collection.id == collection_id,
-            )
-        )
-
-        collection = self.session.exec(statement).one()
-        logger.info(
-            f"[CollectionCrud.read_one] Collection retrieved successfully | {{'collection_id': '{collection_id}'}}"
-        )
-        return collection
-
-    def read_all(self):
-        logger.info(
-            f"[CollectionCrud.read_all] Retrieving all collections | {{'owner_id': {self.owner_id}}}"
-        )
-        statement = select(Collection).where(
-            and_(
-                Collection.owner_id == self.owner_id,
-                Collection.deleted_at.is_(None),
-            )
-        )
-
-        collections = self.session.exec(statement).all()
-        logger.info(
-            f"[CollectionCrud.read_all] Collections retrieved successfully | {{'owner_id': {self.owner_id}, 'collection_count': {len(collections)}}}"
-        )
-        return collections
-
-    @ft.singledispatchmethod
-    def delete(self, model, remote):  # remote should be an OpenAICrud
+def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Credential]:
+    """Set credentials for an organization. Creates a separate row for each provider."""
+    logger.info(
+        f"[set_creds_for_org] Starting credential creation | {{'org_id': {creds_add.organization_id}, 'project_id': {creds_add.project_id}, 'provider_count': {len(creds_add.credential)}}}"
+    )
+    if not creds_add.credential:
         logger.error(
-            f"[CollectionCrud.delete] Invalid model type | {{'model_type': '{type(model).__name__}'}}"
+            f"[set_creds_for_org] No credentials provided | {{'org_id': {creds_add.organization_id}}}"
         )
-        raise TypeError(type(model))
+        raise HTTPException(400, "No credentials provided")
 
-    @delete.register
-    def _(self, model: Collection, remote):
+    created_credentials = []
+    for provider, credentials in creds_add.credential.items():
         logger.info(
-            f"[CollectionCrud.delete] Starting collection deletion | {{'collection_id': '{model.id}', 'llm_service_id': '{model.llm_service_id}'}}"
+            f"[set_creds_for_org] Processing credentials for provider | {{'org_id': {creds_add.organization_id}, 'provider': '{provider}'}}"
         )
-        remote.delete(model.llm_service_id)
-        model.deleted_at = now()
-        collection = self._update(model)
-        logger.info(
-            f"[CollectionCrud.delete] Collection deleted successfully | {{'collection_id': '{model.id}'}}"
-        )
-        return collection
+        # Validate provider and credentials
+        validate_provider(provider)
+        validate_provider_credentials(provider, credentials)
 
-    @delete.register
-    def _(self, model: Document, remote):
+        # Encrypt entire credentials object
+        encrypted_credentials = encrypt_credentials(credentials)
         logger.info(
-            f"[CollectionCrud.delete] Starting document deletion from collections | {{'document_id': '{model.id}'}}"
-        )
-        statement = (
-            select(Collection)
-            .join(
-                DocumentCollection,
-                DocumentCollection.collection_id == Collection.id,
-            )
-            .where(DocumentCollection.document_id == model.id)
-            .distinct()
+            f"[set_creds_for_org] Credentials encrypted | {{'org_id': {creds_add.organization_id}, 'provider': '{provider}'}}"
         )
 
-        for c in self.session.execute(statement):
+        # Create a row for each provider
+        credential = Credential(
+            organization_id=creds_add.organization_id,
+            project_id=creds_add.project_id,
+            is_active=creds_add.is_active,
+            provider=provider,
+            credential=encrypted_credentials,
+        )
+        credential.inserted_at = now()
+        try:
+            session.add(credential)
+            session.commit()
+            session.refresh(credential)
+            created_credentials.append(credential)
             logger.info(
-                f"[CollectionCrud.delete] Deleting collection associated with document | {{'document_id': '{model.id}', 'collection_id': '{c.Collection.id}'}}"
+                f"[set_creds_for_org] Credential created successfully | {{'org_id': {creds_add.organization_id}, 'provider': '{provider}', 'credential_id': {credential.id}}}"
             )
-            self.delete(c.Collection, remote)
-        self.session.refresh(model)
+        except IntegrityError as e:
+            session.rollback()
+            logger.error(
+                f"[set_creds_for_org] Integrity error while adding credentials | {{'org_id': {creds_add.organization_id}, 'provider': '{provider}', 'error': '{str(e)}'}}"
+            )
+            raise ValueError(
+                f"Error while adding credentials for provider {provider}: {str(e)}"
+            )
+
+    logger.info(
+        f"[set_creds_for_org] Credentials creation completed | {{'org_id': {creds_add.organization_id}, 'credential_count': {len(created_credentials)}}}"
+    )
+    return created_credentials
+
+
+def get_key_by_org(
+    *,
+    session: Session,
+    org_id: int,
+    provider: str = "openai",
+    project_id: Optional[int] = None,
+) -> Optional[str]:
+    """Fetches the API key from the credentials for the given organization and provider."""
+    logger.info(
+        f"[get_key_by_org] Retrieving API key | {{'org_id': {org_id}, 'provider': '{provider}', 'project_id': {project_id}}}"
+    )
+    statement = select(Credential).where(
+        Credential.organization_id == org_id,
+        Credential.provider == provider,
+        Credential.is_active == True,
+        Credential.project_id == project_id if project_id is not None else True,
+    )
+    creds = session.exec(statement).first()
+
+    if creds and creds.credential and "api_key" in creds.credential:
         logger.info(
-            f"[CollectionCrud.delete] Document deletion from collections completed | {{'document_id': '{model.id}'}}"
+            f"[get_key_by_org] API key retrieved successfully | {{'org_id': {org_id}, 'provider': '{provider}', 'credential_id': {creds.id}}}"
+        )
+        return creds.credential["api_key"]
+
+    logger.warning(
+        f"[get_key_by_org] No API key found | {{'org_id': {org_id}, 'provider': '{provider}', 'project_id': {project_id}}}"
+    )
+    return None
+
+
+def get_creds_by_org(
+    *, session: Session, org_id: int, project_id: Optional[int] = None
+) -> List[Credential]:
+    """Fetches all credentials for an organization."""
+    logger.info(
+        f"[get_creds_by_org] Retrieving all credentials | {{'org_id': {org_id}, 'project_id': {project_id}}}"
+    )
+    statement = select(Credential).where(
+        Credential.organization_id == org_id,
+        Credential.is_active == True,
+        Credential.project_id == project_id if project_id is not None else True,
+    )
+    creds = session.exec(statement).all()
+    logger.info(
+        f"[get_creds_by_org] Credentials retrieved successfully | {{'org_id': {org_id}, 'credential_count': {len(creds)}}}"
+    )
+    return creds
+
+
+def get_provider_credential(
+    *, session: Session, org_id: int, provider: str, project_id: Optional[int] = None
+) -> Optional[Dict[str, Any]]:
+    """Fetches credentials for a specific provider of an organization."""
+    logger.info(
+        f"[get_provider_credential] Retrieving credentials for provider | {{'org_id': {org_id}, 'provider': '{provider}', 'project_id': {project_id}}}"
+    )
+    validate_provider(provider)
+
+    statement = select(Credential).where(
+        Credential.organization_id == org_id,
+        Credential.provider == provider,
+        Credential.is_active == True,
+        Credential.project_id == project_id if project_id is not None else True,
+    )
+    creds = session.exec(statement).first()
+
+    if creds and creds.credential:
+        decrypted_credentials = decrypt_credentials(creds.credential)
+        logger.info(
+            f"[get_provider_credential] Credentials retrieved and decrypted | {{'org_id': {org_id}, 'provider': '{provider}', 'credential_id': {creds.id}}}"
+        )
+        return decrypted_credentials
+    logger.warning(
+        f"[get_provider_credential] No credentials found | {{'org_id': {org_id}, 'provider': '{provider}', 'project_id': {project_id}}}"
+    )
+    return None
+
+
+def get_providers(
+    *, session: Session, org_id: int, project_id: Optional[int] = None
+) -> List[str]:
+    """Returns a list of all active providers for which credentials are stored."""
+    logger.info(
+        f"[get_providers] Retrieving active providers | {{'org_id': {org_id}, 'project_id': {project_id}}}"
+    )
+    creds = get_creds_by_org(session=session, org_id=org_id, project_id=project_id)
+    providers = [cred.provider for cred in creds]
+    logger.info(
+        f"[get_providers] Providers retrieved successfully | {{'org_id': {org_id}, 'provider_count': {len(providers)}}}"
+    )
+    return providers
+
+
+def update_creds_for_org(
+    *, session: Session, org_id: int, creds_in: CredsUpdate
+) -> List[Credential]:
+    """Updates credentials for a specific provider of an organization."""
+    logger.info(
+        f"[update_creds_for_org] Starting credential update | {{'org_id': {org_id}, 'provider': '{creds_in.provider}', 'project_id': {creds_in.project_id}}}"
+    )
+    if not creds_in.provider or not creds_in.credential:
+        logger.error(
+            f"[update_creds_for_org] Missing provider or credential | {{'org_id': {org_id}}}"
+        )
+        raise ValueError("Provider and credential must be provided")
+
+    validate_provider(creds_in.provider)
+    validate_provider_credentials(creds_in.provider, creds_in.credential)
+
+    # Encrypt the entire credentials object
+    encrypted_credentials = encrypt_credentials(creds_in.credential)
+    logger.info(
+        f"[update_creds_for_org] Credentials encrypted | {{'org_id': {org_id}, 'provider': '{creds_in.provider}'}}"
+    )
+
+    statement = select(Credential).where(
+        Credential.organization_id == org_id,
+        Credential.provider == creds_in.provider,
+        Credential.is_active == True,
+        Credential.project_id == creds_in.project_id
+        if creds_in.project_id is not None
+        else True,
+    )
+    creds = session.exec(statement).first()
+    if creds is None:
+        logger.warning(
+            f"[update_creds_for_org] Credentials not found | {{'org_id': {org_id}, 'provider': '{creds_in.provider}', 'project_id': {creds_in.project_id}}}"
+        )
+        logger.error(
+            f"[update_creds_for_org] Update failed: Credentials not found | {{'org_id': {org_id}, 'provider': '{creds_in.provider}'}}"
+        )
+        raise HTTPException(
+            status_code=404, detail="Credentials not found for this provider"
         )
 
-        return model
+    creds.credential = encrypted_credentials
+    creds.updated_at = now()
+    session.add(creds)
+    session.commit()
+    session.refresh(creds)
+    logger.info(
+        f"[update_creds_for_org] Credentials updated successfully | {{'org_id': {org_id}, 'provider': '{creds_in.provider}', 'credential_id': {creds.id}}}"
+    )
+
+    return [creds]
+
+
+def remove_provider_credential(
+    session: Session, org_id: int, provider: str, project_id: Optional[int] = None
+) -> Credential:
+    """Remove credentials for a specific provider."""
+    logger.info(
+        f"[remove_provider_credential] Starting credential removal | {{'org_id': {org_id}, 'provider': '{provider}', 'project_id': {project_id}}}"
+    )
+    validate_provider(provider)
+
+    statement = select(Credential).where(
+        Credential.organization_id == org_id,
+        Credential.provider == provider,
+        Credential.project_id == project_id if project_id is not None else True,
+    )
+    creds = session.exec(statement).first()
+
+    if not creds:
+        logger.warning(
+            f"[remove_provider_credential] Credentials not found | {{'org_id': {org_id}, 'provider': '{provider}', 'project_id': {project_id}}}"
+        )
+        raise HTTPException(
+            status_code=404, detail="Credentials not found for this provider"
+        )
+
+    # Soft delete
+    creds.is_active = False
+    creds.updated_at = now()
+    session.add(creds)
+    session.commit()
+    session.refresh(creds)
+    logger.info(
+        f"[remove_provider_credential] Credentials removed successfully | {{'org_id': {org_id}, 'provider': '{provider}', 'credential_id': {creds.id}}}"
+    )
+
+    return creds
+
+
+def remove_creds_for_org(
+    *, session: Session, org_id: int, project_id: Optional[int] = None
+) -> List[Credential]:
+    """Removes all credentials for an organization."""
+    logger.info(
+        f"[remove_creds_for_org] Starting removal of all credentials | {{'org_id': {org_id}, 'project_id': {project_id}}}"
+    )
+    statement = select(Credential).where(
+        Credential.organization_id == org_id,
+        Credential.is_active == True,
+        Credential.project_id == project_id if project_id is not None else True,
+    )
+    creds = session.exec(statement).all()
+
+    for cred in creds:
+        cred.is_active = False
+        cred.updated_at = now()
+        session.add(cred)
+        logger.info(
+            f"[remove_creds_for_org] Credential deactivated | {{'org_id': {org_id}, 'provider': '{cred.provider}', 'credential_id': {cred.id}}}"
+        )
+
+    session.commit()
+    logger.info(
+        f"[remove_creds_for_org] All credentials removed successfully | {{'org_id': {org_id}, 'credential_count': {len(creds)}}}"
+    )
+    return creds
