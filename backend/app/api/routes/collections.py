@@ -22,6 +22,7 @@ from app.models import Collection, Document
 from app.models.collection import CollectionStatus
 from app.utils import APIResponse, load_description
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/collections", tags=["collections"])
 
 
@@ -56,14 +57,23 @@ class DocumentOptions(BaseModel):
     )
 
     def model_post_init(self, __context: Any):
+        logger.info(
+            f"[DocumentOptions.model_post_init] Deduplicating document IDs | {{'document_count': {len(self.documents)}}}"
+        )
         self.documents = list(set(self.documents))
 
     def __call__(self, crud: DocumentCrud):
+        logger.info(
+            f"[DocumentOptions.call] Starting batch iteration for documents | {{'batch_size': {self.batch_size}, 'total_documents': {len(self.documents)}}}"
+        )
         (start, stop) = (0, self.batch_size)
         while True:
             view = self.documents[start:stop]
             if not view:
                 break
+            logger.info(
+                f"[DocumentOptions.call] Yielding document batch | {{'start': {start}, 'stop': {stop}, 'batch_document_count': {len(view)}}}"
+            )
             yield crud.read_each(view)
             start = stop
             stop += self.batch_size
@@ -108,6 +118,9 @@ class CreationRequest(
     CallbackRequest,
 ):
     def extract_super_type(self, cls: "CreationRequest"):
+        logger.info(
+            f"[CreationRequest.extract_super_type] Extracting fields for {cls.__name__} | {{'field_count': {len(cls.__fields__)}}}"
+        )
         for field_name in cls.__fields__.keys():
             field_value = getattr(self, field_name)
             yield (field_name, field_value)
@@ -130,9 +143,15 @@ class CallbackHandler:
 
 class SilentCallback(CallbackHandler):
     def fail(self, body):
+        logger.info(
+            f"[SilentCallback.fail] Silent callback failure | {{'body': '{body}'}}"
+        )
         return
 
     def success(self, body):
+        logger.info(
+            f"[SilentCallback.success] Silent callback success | {{'body': '{body}'}}"
+        )
         return
 
 
@@ -140,25 +159,42 @@ class WebHookCallback(CallbackHandler):
     def __init__(self, url: HttpUrl, payload: ResponsePayload):
         super().__init__(payload)
         self.url = url
+        logger.info(
+            f"[WebHookCallback.init] Initialized webhook callback | {{'url': '{url}', 'payload_key': '{payload.key}'}}"
+        )
 
     def __call__(self, response: APIResponse, status: str):
         time = ResponsePayload.now()
         payload = replace(self.payload, status=status, time=time)
         response.metadata = asdict(payload)
-
+        logger.info(
+            f"[WebHookCallback.call] Posting callback | {{'url': '{self.url}', 'status': '{status}', 'payload_key': '{payload.key}'}}"
+        )
         post_callback(self.url, response)
 
     def fail(self, body):
+        logger.error(
+            f"[WebHookCallback.fail] Callback failed | {{'body': '{body}'}}"
+        )
         self(APIResponse.failure_response(body), "incomplete")
 
     def success(self, body):
+        logger.info(
+            f"[WebHookCallback.success] Callback succeeded | {{'body': '{body}'}}"
+        )
         self(APIResponse.success_response(body), "complete")
 
 
 def _backout(crud: OpenAIAssistantCrud, assistant_id: str):
     try:
+        logger.info(
+            f"[backout] Attempting to delete assistant | {{'assistant_id': '{assistant_id}'}}"
+        )
         crud.delete(assistant_id)
-    except OpenAIError:
+    except OpenAIError as err:
+        logger.error(
+            f"[backout] Failed to delete assistant | {{'assistant_id': '{assistant_id}', 'error': '{str(err)}'}}"
+        )
         warnings.warn(
             ": ".join(
                 [
@@ -261,6 +297,9 @@ def create_collection(
     this = inspect.currentframe()
     route = router.url_path_for(this.f_code.co_name)
     payload = ResponsePayload("processing", route)
+    logger.info(
+        f"[create_collection] Initiating collection creation | {{'user_id': '{current_user.id}', 'payload_key': '{payload.key}'}}"
+    )
 
     collection = Collection(
         id=UUID(payload.key),
@@ -291,6 +330,9 @@ def do_delete_collection(
     request: DeletionRequest,
     payload: ResponsePayload,
 ):
+    logger.info(
+        f"[do_delete_collection] Starting collection deletion | {{'user_id': '{current_user.id}', 'collection_id': '{request.collection_id}'}}"
+    )
     if request.callback_url is None:
         callback = SilentCallback(payload)
     else:
@@ -298,13 +340,28 @@ def do_delete_collection(
 
     collection_crud = CollectionCrud(session, current_user.id)
     try:
+        logger.info(
+            f"[do_delete_collection] Reading collection | {{'collection_id': '{request.collection_id}'}}"
+        )
         collection = collection_crud.read_one(request.collection_id)
         assistant = OpenAIAssistantCrud()
+        logger.info(
+            f"[do_delete_collection] Deleting collection | {{'collection_id': '{collection.id}'}}"
+        )
         data = collection_crud.delete(collection, assistant)
+        logger.info(
+            f"[do_delete_collection] Collection deleted successfully | {{'collection_id': '{collection.id}'}}"
+        )
         callback.success(data.model_dump(mode="json"))
     except (ValueError, PermissionError, SQLAlchemyError) as err:
+        logger.error(
+            f"[do_delete_collection] Failed to delete collection | {{'collection_id': '{request.collection_id}', 'error': '{str(err)}'}}"
+        )
         callback.fail(str(err))
     except Exception as err:
+        logger.error(
+            f"[do_delete_collection] Unexpected error during deletion | {{'collection_id': '{request.collection_id}', 'error': '{str(err)}', 'error_type': '{type(err).__name__}'}}"
+        )
         warnings.warn(
             'Unexpected exception "{}": {}'.format(type(err).__name__, err),
         )
@@ -324,6 +381,9 @@ def delete_collection(
     this = inspect.currentframe()
     route = router.url_path_for(this.f_code.co_name)
     payload = ResponsePayload("processing", route)
+    logger.info(
+        f"[delete_collection] Initiating collection deletion | {{'user_id': '{current_user.id}', 'collection_id': '{request.collection_id}'}}"
+    )
 
     background_tasks.add_task(
         do_delete_collection,
@@ -346,8 +406,14 @@ def collection_info(
     current_user: CurrentUser,
     collection_id: UUID = FastPath(description="Collection to retrieve"),
 ):
+    logger.info(
+        f"[collection_info] Retrieving collection info | {{'user_id': '{current_user.id}', 'collection_id': '{collection_id}'}}"
+    )
     collection_crud = CollectionCrud(session, current_user.id)
     data = collection_crud.read_one(collection_id)
+    logger.info(
+        f"[collection_info] Collection retrieved successfully | {{'collection_id': '{collection_id}'}}"
+    )
     return APIResponse.success_response(data)
 
 
@@ -360,8 +426,14 @@ def list_collections(
     session: SessionDep,
     current_user: CurrentUser,
 ):
+    logger.info(
+        f"[list_collections] Listing collections | {{'user_id': '{current_user.id}'}}"
+    )
     collection_crud = CollectionCrud(session, current_user.id)
     data = collection_crud.read_all()
+    logger.info(
+        f"[list_collections] Collections retrieved successfully | {{'collection_count': {len(data)}}}"
+    )
     return APIResponse.success_response(data)
 
 
@@ -377,8 +449,14 @@ def collection_documents(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, gt=0, le=100),
 ):
+    logger.info(
+        f"[collection_documents] Retrieving documents for collection | {{'user_id': '{current_user.id}', 'collection_id': '{collection_id}', 'skip': {skip}, 'limit': {limit}}}"
+    )
     collection_crud = CollectionCrud(session, current_user.id)
     document_collection_crud = DocumentCollectionCrud(session)
     collection = collection_crud.read_one(collection_id)
     data = document_collection_crud.read(collection, skip, limit)
+    logger.info(
+        f"[collection_documents] Documents retrieved successfully | {{'collection_id': '{collection_id}', 'document_count': {len(data)}}}"
+    )
     return APIResponse.success_response(data)

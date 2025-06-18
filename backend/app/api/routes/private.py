@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 from fastapi import APIRouter
@@ -5,11 +6,9 @@ from pydantic import BaseModel
 
 from app.api.deps import SessionDep
 from app.core.security import get_password_hash
-from app.models import (
-    User,
-    UserPublic,
-)
+from app.models import User, UserPublic
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["private"], prefix="/private")
 
 
@@ -25,6 +24,7 @@ def create_user(user_in: PrivateUserCreate, session: SessionDep) -> Any:
     """
     Create a new user.
     """
+    logger.info(f"[private.create_user] Creating new user | email={user_in.email}")
 
     user = User(
         email=user_in.email,
@@ -34,5 +34,7 @@ def create_user(user_in: PrivateUserCreate, session: SessionDep) -> Any:
 
     session.add(user)
     session.commit()
+    session.refresh(user)
 
+    logger.info(f"[private.create_user] User created successfully | user_id={user.id}, email={user.email}")
     return user
