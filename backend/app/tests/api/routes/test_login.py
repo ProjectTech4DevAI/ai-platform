@@ -52,7 +52,7 @@ def test_recovery_password(
         patch("app.core.config.settings.SMTP_HOST", "smtp.example.com"),
         patch("app.core.config.settings.SMTP_USER", "admin@example.com"),
     ):
-        email = "test@example.com"
+        email = settings.EMAIL_TEST_USER
         r = client.post(
             f"{settings.API_V1_STR}/password-recovery/{email}",
             headers=normal_user_token_headers,
