@@ -128,11 +128,6 @@ class AmazonCloudStorage(CloudStorage):
     def get_file_size_kb(self, url: str) -> float:
         name = SimpleStorageName.from_url(url)
         kwargs = asdict(name)
-        try:
-            response = self.aws.client.head_object(**kwargs)
-            size_bytes = response["ContentLength"]
-            return round(size_bytes / 1024, 2)
-        except ClientError as err:
-            raise CloudStorageError(
-                f'AWS Error fetching size: "{err}" ({url})'
-            ) from err
+        response = self.aws.client.head_object(**kwargs)
+        size_bytes = response["ContentLength"]
+        return round(size_bytes / 1024, 2)
