@@ -61,7 +61,7 @@ def add_user(
         )
         return APIResponse.success_response(added_user)
     except ValueError as e:
-        logger.error(
+        logger.warning(
             "[project_user.add_user] Failed to add user to project | "
             f"user_id={user_id}, project_id={project_id}, error={str(e)}"
         )
@@ -146,7 +146,7 @@ def remove_user(
             {"message": "User removed from project successfully."}
         )
     except ValueError as e:
-        logger.error(
+        logger.warning(
             "[project_user.remove_user] Failed to remove user | "
             f"user_id={user_id}, project_id={project_id}, error={str(e)}"
         )
