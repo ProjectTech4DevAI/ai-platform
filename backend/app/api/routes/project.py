@@ -54,7 +54,9 @@ def create_new_project(*, session: SessionDep, project_in: ProjectCreate):
 
     project = create_project(session=session, project_create=project_in)
 
-    logger.info(f"[project.create] Project created successfully | project_id={project.id}")
+    logger.info(
+        f"[project.create] Project created successfully | project_id={project.id}"
+    )
     return APIResponse.success_response(project)
 
 
@@ -72,7 +74,9 @@ def read_project(*, session: SessionDep, project_id: int):
         logger.warning(f"[project.read] Project not found | project_id={project_id}")
         raise HTTPException(status_code=404, detail="Project not found")
 
-    logger.info(f"[project.read] Project fetched successfully | project_id={project_id}")
+    logger.info(
+        f"[project.read] Project fetched successfully | project_id={project_id}"
+    )
     return APIResponse.success_response(project)
 
 
@@ -97,7 +101,9 @@ def update_project(*, session: SessionDep, project_id: int, project_in: ProjectU
     session.commit()
     session.flush()
 
-    logger.info(f"[project.update] Project updated successfully | project_id={project.id}")
+    logger.info(
+        f"[project.update] Project updated successfully | project_id={project.id}"
+    )
     return APIResponse.success_response(project)
 
 
@@ -118,5 +124,7 @@ def delete_project(session: SessionDep, project_id: int):
     session.delete(project)
     session.commit()
 
-    logger.info(f"[project.delete] Project deleted successfully | project_id={project_id}")
+    logger.info(
+        f"[project.delete] Project deleted successfully | project_id={project_id}"
+    )
     return APIResponse.success_response(None)

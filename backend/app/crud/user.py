@@ -59,16 +59,12 @@ def get_user_by_email(*, session: Session, email: str) -> User | None:
             f"[get_user_by_email] User retrieved successfully | {{'user_id': '{session_user.id}', 'email': '{email}'}}"
         )
     else:
-        logger.warning(
-            f"[get_user_by_email] User not found | {{'email': '{email}'}}"
-        )
+        logger.warning(f"[get_user_by_email] User not found | {{'email': '{email}'}}")
     return session_user
 
 
 def authenticate(*, session: Session, email: str, password: str) -> User | None:
-    logger.info(
-        f"[authenticate] Starting user authentication | {{'email': '{email}'}}"
-    )
+    logger.info(f"[authenticate] Starting user authentication | {{'email': '{email}'}}")
     db_user = get_user_by_email(session=session, email=email)
     if not db_user:
         logger.warning(

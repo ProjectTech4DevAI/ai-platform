@@ -37,9 +37,7 @@ def add_user(
 
     user = session.get(User, user_id)
     if not user:
-        logger.warning(
-            "[project_user.add_user] User not found | user_id=%s", user_id
-        )
+        logger.warning("[project_user.add_user] User not found | user_id=%s", user_id)
         raise HTTPException(status_code=404, detail="User not found")
 
     if (
@@ -70,7 +68,9 @@ def add_user(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/", response_model=APIResponse[list[ProjectUserPublic]], include_in_schema=False)
+@router.get(
+    "/", response_model=APIResponse[list[ProjectUserPublic]], include_in_schema=False
+)
 def list_project_users(
     session: Session = Depends(get_db),
     current_user: UserProjectOrg = Depends(verify_user_project_organization),
@@ -85,7 +85,9 @@ def list_project_users(
         f"project_id={current_user.project_id}, skip={skip}, limit={limit}"
     )
 
-    users, total_count = get_users_by_project(session, current_user.project_id, skip, limit)
+    users, total_count = get_users_by_project(
+        session, current_user.project_id, skip, limit
+    )
 
     logger.info(
         "[project_user.list] Retrieved project users | "
@@ -95,7 +97,9 @@ def list_project_users(
     return APIResponse.success_response(data=users, metadata=metadata)
 
 
-@router.delete("/{user_id}", response_model=APIResponse[Message], include_in_schema=False)
+@router.delete(
+    "/{user_id}", response_model=APIResponse[Message], include_in_schema=False
+)
 def remove_user(
     request: Request,
     user_id: int,
@@ -147,4 +151,3 @@ def remove_user(
             f"user_id={user_id}, project_id={project_id}, error={str(e)}"
         )
         raise HTTPException(status_code=400, detail=str(e))
- 

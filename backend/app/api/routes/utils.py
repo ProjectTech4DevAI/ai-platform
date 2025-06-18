@@ -27,7 +27,9 @@ def test_email(email_to: EmailStr) -> Message:
         subject=email_data.subject,
         html_content=email_data.html_content,
     )
-    logger.info(f"[utils.test_email] Test email sent successfully | email_to={email_to}")
+    logger.info(
+        f"[utils.test_email] Test email sent successfully | email_to={email_to}"
+    )
     return Message(message="Test email sent")
 
 

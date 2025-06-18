@@ -29,7 +29,9 @@ router = APIRouter(prefix="/organizations", tags=["organizations"])
     response_model=APIResponse[List[OrganizationPublic]],
 )
 def read_organizations(session: SessionDep, skip: int = 0, limit: int = 100):
-    logger.info(f"[organization.list] Listing organizations | skip={skip}, limit={limit}")
+    logger.info(
+        f"[organization.list] Listing organizations | skip={skip}, limit={limit}"
+    )
 
     count_statement = select(func.count()).select_from(Organization)
     count = session.exec(count_statement).one()
@@ -37,7 +39,9 @@ def read_organizations(session: SessionDep, skip: int = 0, limit: int = 100):
     statement = select(Organization).offset(skip).limit(limit)
     organizations = session.exec(statement).all()
 
-    logger.info(f"[organization.list] {len(organizations)} organization(s) retrieved out of {count}")
+    logger.info(
+        f"[organization.list] {len(organizations)} organization(s) retrieved out of {count}"
+    )
     return APIResponse.success_response(organizations)
 
 
@@ -52,7 +56,9 @@ def create_new_organization(*, session: SessionDep, org_in: OrganizationCreate):
 
     new_org = create_organization(session=session, org_create=org_in)
 
-    logger.info(f"[organization.create] Organization created successfully | id={new_org.id}")
+    logger.info(
+        f"[organization.create] Organization created successfully | id={new_org.id}"
+    )
     return APIResponse.success_response(new_org)
 
 
@@ -97,7 +103,9 @@ def update_organization(
     session.commit()
     session.flush()
 
-    logger.info(f"[organization.update] Organization updated successfully | id={org_id}")
+    logger.info(
+        f"[organization.update] Organization updated successfully | id={org_id}"
+    )
     return APIResponse.success_response(org)
 
 
@@ -119,5 +127,7 @@ def delete_organization(session: SessionDep, org_id: int):
     session.delete(org)
     session.commit()
 
-    logger.info(f"[organization.delete] Organization deleted successfully | id={org_id}")
+    logger.info(
+        f"[organization.delete] Organization deleted successfully | id={org_id}"
+    )
     return APIResponse.success_response(None)

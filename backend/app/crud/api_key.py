@@ -17,9 +17,7 @@ logger = logging.getLogger(__name__)
 
 def generate_api_key() -> tuple[str, str]:
     """Generate a new API key and its hash."""
-    logger.info(
-        f"[generate_api_key] Generating new API key | {{'action': 'generate'}}"
-    )
+    logger.info(f"[generate_api_key] Generating new API key | {{'action': 'generate'}}")
     raw_key = "ApiKey " + secrets.token_urlsafe(32)
     hashed_key = get_password_hash(raw_key)
     logger.info(
@@ -40,7 +38,9 @@ def create_api_key(
     )
     # Generate raw key and its hash using the helper function
     raw_key, hashed_key = generate_api_key()
-    encrypted_key = encrypt_api_key(raw_key)  # Encrypt the raw key instead of hashed key
+    encrypted_key = encrypt_api_key(
+        raw_key
+    )  # Encrypt the raw key instead of hashed key
     logger.info(
         f"[create_api_key] API key encrypted | {{'user_id': {user_id}, 'project_id': {project_id}}}"
     )
@@ -75,9 +75,7 @@ def get_api_key(session: Session, api_key_id: int) -> APIKeyPublic | None:
     Retrieves an API key by its ID if it exists and is not deleted.
     Returns the API key in its original format.
     """
-    logger.info(
-        f"[get_api_key] Retrieving API key | {{'api_key_id': {api_key_id}}}"
-    )
+    logger.info(f"[get_api_key] Retrieving API key | {{'api_key_id': {api_key_id}}}")
     api_key = session.exec(
         select(APIKey).where(APIKey.id == api_key_id, APIKey.is_deleted == False)
     ).first()
@@ -92,10 +90,8 @@ def get_api_key(session: Session, api_key_id: int) -> APIKeyPublic | None:
             f"[get_api_key] API key retrieved successfully | {{'api_key_id': {api_key_id}}}"
         )
         return APIKeyPublic.model_validate(api_key_dict)
-    
-    logger.warning(
-        f"[get_api_key] API key not found | {{'api_key_id': {api_key_id}}}"
-    )
+
+    logger.warning(f"[get_api_key] API key not found | {{'api_key_id': {api_key_id}}}")
     return None
 
 
@@ -145,7 +141,7 @@ def get_api_key_by_value(session: Session, api_key_value: str) -> APIKeyPublic |
                 f"[get_api_key_by_value] API key found | {{'api_key_id': {api_key.id}}}"
             )
             return APIKeyPublic.model_validate(api_key_dict)
-    
+
     logger.warning(
         f"[get_api_key_by_value] API key not found | {{'action': 'not_found'}}"
     )
@@ -199,7 +195,7 @@ def get_api_keys_by_project(session: Session, project_id: int) -> list[APIKeyPub
         key_dict = key.model_dump()
         key_dict["key"] = decrypt_api_key(key.key)
         result.append(APIKeyPublic.model_validate(key_dict))
-    
+
     logger.info(
         f"[get_api_keys_by_project] API keys retrieved successfully | {{'project_id': {project_id}, 'key_count': {len(result)}}}"
     )
