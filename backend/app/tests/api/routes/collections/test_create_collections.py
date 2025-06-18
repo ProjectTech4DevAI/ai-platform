@@ -19,16 +19,19 @@ def mock_s3(monkeypatch):
             pass
 
         def upload(self, file_obj, path: str, **kwargs):
-            # Return a dummy path (this is fine)
-            return f"s3://fake-bucket/{path or 'mock-file'}"
+            return f"s3://fake-bucket/{path or 'mock-file.txt'}"
 
         def stream(self, file_obj):
-            # Wrap in a file-like object that has a `.name` attribute
             fake_file = io.BytesIO(b"dummy content")
             fake_file.name = "fake.txt"
             return fake_file
 
+    class FakeS3Client:
+        def head_object(self, Bucket, Key):
+            return {"ContentLength": 1024}  # Return 1KB dummy size
+
     monkeypatch.setattr("app.api.routes.collections.AmazonCloudStorage", FakeStorage)
+    monkeypatch.setattr("boto3.client", lambda service: FakeS3Client())
 
 
 @pytest.mark.usefixtures("openai_credentials")

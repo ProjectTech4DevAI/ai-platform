@@ -284,9 +284,7 @@ async def create_collection(
         )
         return APIResponse.success_response(data=None, metadata=asdict(payload))
     except asyncio.TimeoutError:
-        logging.error(
-            f"Timeout while creating collection for org: {current_user.organization_id}"
-        )
+        logging.error(f"Timeout while creating collection for org: {current_user}")
         raise HTTPException(status_code=408, detail="The task timed out.")
 
 
