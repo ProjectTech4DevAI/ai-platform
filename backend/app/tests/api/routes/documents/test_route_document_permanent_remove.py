@@ -23,6 +23,7 @@ from app.tests.utils.document import (
 def route():
     return Route("remove")
 
+
 @pytest.fixture(scope="class")
 def aws_credentials():
     os.environ["AWS_ACCESS_KEY_ID"] = "testing"
@@ -35,7 +36,6 @@ def aws_credentials():
 @pytest.mark.usefixtures("openai_credentials", "aws_credentials")
 @mock_aws
 class TestDocumentRoutePermanentRemove:
-
     @openai_responses.mock()
     def test_permanently_deletes_document_from_db_and_s3(
         self,
@@ -51,7 +51,9 @@ class TestDocumentRoutePermanentRemove:
         store = DocumentStore(db)
         document = store.put()
         s3_key = Path(urlparse(document.object_store_url).path).relative_to("/")
-        aws.client.put_object(Bucket=settings.AWS_S3_BUCKET, Key=str(s3_key), Body=b"test")
+        aws.client.put_object(
+            Bucket=settings.AWS_S3_BUCKET, Key=str(s3_key), Body=b"test"
+        )
 
         # Delete document
         response = crawler.delete(route.append(document, suffix="permanent"))
