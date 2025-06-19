@@ -75,7 +75,7 @@ def remove_doc(
 
 
 @router.delete(
-    "remove/{doc_id}/permanent",
+    "/remove/{doc_id}/permanent",
     description=load_description("documents/permanent_delete.md"),
     response_model=APIResponse[Document],
 )
