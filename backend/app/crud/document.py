@@ -88,3 +88,9 @@ class DocumentCrud:
         document.updated_at = now()
 
         return self.update(document)
+
+    def hard_delete(self, doc_id: UUID) -> Document:
+        document = self.read_one(doc_id)
+        self.session.delete(document)
+        self.session.commit()
+        return document

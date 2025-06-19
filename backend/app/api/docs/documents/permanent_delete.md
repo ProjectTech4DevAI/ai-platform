@@ -1,0 +1,2 @@
+Permanently deletes a document from the database and its associated file from cloud storage. This action is irreversible.
+If the document is part of collections, those collections will be deleted, including any associated OpenAI Vector Stores and Assistants.
