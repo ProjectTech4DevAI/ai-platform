@@ -79,6 +79,10 @@ class ResponsesAPIResponse(APIResponse[_APIResponse]):
 def get_file_search_results(response):
     results: list[FileResultChunk] = []
 
+    # If response has no output attribute or it's empty, return empty results
+    if not hasattr(response, "output"):
+        return results
+
     for tool_call in response.output:
         if tool_call.type == "file_search_call":
             results.extend(
@@ -106,21 +110,31 @@ def process_response(
         f"Starting generating response for assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
     )
     try:
-        response = client.responses.create(
-            model=assistant.model,
-            previous_response_id=request.response_id,
-            instructions=assistant.instructions,
-            tools=[
-                {
-                    "type": "file_search",
-                    "vector_store_ids": [assistant.vector_store_id],
-                    "max_num_results": assistant.max_num_results,
-                }
-            ],
-            temperature=assistant.temperature,
-            input=[{"role": "user", "content": request.question}],
-            include=["file_search_call.results"],
-        )
+        # Create response with or without tools based on vector_store_id
+        if assistant.vector_store_id:
+            response = client.responses.create(
+                model=assistant.model,
+                previous_response_id=request.response_id,
+                instructions=assistant.instructions,
+                tools=[
+                    {
+                        "type": "file_search",
+                        "vector_store_ids": [assistant.vector_store_id],
+                        "max_num_results": assistant.max_num_results,
+                    }
+                ],
+                temperature=assistant.temperature,
+                input=[{"role": "user", "content": request.question}],
+                include=["file_search_call.results"],
+            )
+        else:
+            response = client.responses.create(
+                model=assistant.model,
+                previous_response_id=request.response_id,
+                instructions=assistant.instructions,
+                temperature=assistant.temperature,
+                input=[{"role": "user", "content": request.question}],
+            )
         response_chunks = get_file_search_results(response)
         logger.info(
             f"Successfully generated response: response_id={response.id}, assistant={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
