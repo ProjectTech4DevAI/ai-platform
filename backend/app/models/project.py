@@ -44,6 +44,9 @@ class Project(ProjectBase, table=True):
         back_populates="project", sa_relationship_kwargs={"cascade": "all, delete"}
     )
     organization: Optional["Organization"] = Relationship(back_populates="project")
+    collections: list["Collection"] = Relationship(
+        back_populates="project", sa_relationship_kwargs={"cascade": "all, delete"}
+    )
 
 
 # Properties to return via API

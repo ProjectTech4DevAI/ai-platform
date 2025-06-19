@@ -11,7 +11,7 @@ from fastapi import Path as FastPath
 from pydantic import BaseModel, Field, HttpUrl
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound, SQLAlchemyError
 
-from app.api.deps import CurrentUser, SessionDep
+from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgproject
 from app.core.cloud import AmazonCloudStorage
 from app.core.config import settings
 from app.core.util import now, raise_from_unknown, post_callback
@@ -169,65 +169,59 @@ def _backout(crud: OpenAIAssistantCrud, assistant_id: str):
 
 def do_create_collection(
     session: SessionDep,
-    current_user: CurrentUser,
+    current_user: CurrentUserOrgproject,
     request: CreationRequest,
     payload: ResponsePayload,
 ):
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
-    if request.callback_url is None:
-        callback = SilentCallback(payload)
-    else:
-        callback = WebHookCallback(request.callback_url, payload)
-
-    #
-    # Create the assistant and vector store
-    #
+    callback = (
+        SilentCallback(payload)
+        if request.callback_url is None
+        else WebHookCallback(request.callback_url, payload)
+    )
 
     vector_store_crud = OpenAIVectorStoreCrud(client)
-    try:
-        vector_store = vector_store_crud.create()
-    except OpenAIError as err:
-        callback.fail(str(err))
-        return
-
+    assistant_crud = OpenAIAssistantCrud(client)
     storage = AmazonCloudStorage(current_user)
     document_crud = DocumentCrud(session, current_user.id)
-    assistant_crud = OpenAIAssistantCrud(client)
+    collection_crud = CollectionCrud(session, current_user.id)
 
-    docs = request(document_crud)
-    kwargs = dict(request.extract_super_type(AssistantOptions))
     try:
+        vector_store = vector_store_crud.create()
+
+        docs = request(document_crud)
         updates = vector_store_crud.update(vector_store.id, storage, docs)
         documents = list(updates)
+
+        kwargs = dict(request.extract_super_type(AssistantOptions))
         assistant = assistant_crud.create(vector_store.id, **kwargs)
-    except Exception as err:  # blanket to handle SQL and OpenAI errors
-        logging.error(f"File Search setup error: {err} ({type(err).__name__})")
-        vector_store_crud.delete(vector_store.id)
+
+        # 3. Read and update collection with assistant info
+        collection = collection_crud.read_one(UUID(payload.key))
+        collection.llm_service_id = assistant.id
+        collection.llm_service_name = request.model
+        collection.status = "successfull"
+        collection.updated_at = now()
+
+        dc_crud = DocumentCollectionCrud(session)
+        dc_crud.create(collection, documents)
+
+        collection_crud._update(collection)
+
+        callback.success({"id": payload.key})
+    except Exception as err:
+        logging.error(f"[CollectionTask] Failed: {err} ({type(err).__name__})")
+
+        # 4. On failure, update collection status only
+        try:
+            collection = collection_crud.read_one(UUID(payload.key))
+            collection.status = "failed"
+            collection.updated_at = now()
+            collection_crud._update(collection)
+        except Exception as suberr:
+            logging.error(f"Failed to update collection status: {suberr}")
+
         callback.fail(str(err))
-        return
-
-    #
-    # Store the results
-    #
-
-    collection_crud = CollectionCrud(session, current_user.id)
-    collection = Collection(
-        id=UUID(payload.key),
-        llm_service_id=assistant.id,
-        llm_service_name=request.model,
-    )
-    try:
-        collection_crud.create(collection, documents)
-    except SQLAlchemyError as err:
-        _backout(assistant_crud, assistant.id)
-        callback.fail(str(err))
-        return
-
-    #
-    # Send back successful response
-    #
-
-    callback.success(collection.model_dump(mode="json"))
 
 
 @router.post(
@@ -236,7 +230,7 @@ def do_create_collection(
 )
 def create_collection(
     session: SessionDep,
-    current_user: CurrentUser,
+    current_user: CurrentUserOrgproject,
     request: CreationRequest,
     background_tasks: BackgroundTasks,
 ):
@@ -244,6 +238,19 @@ def create_collection(
     route = router.url_path_for(this.f_code.co_name)
     payload = ResponsePayload("processing", route)
 
+    # 1. Create initial collection record
+    collection = Collection(
+        id=UUID(payload.key),
+        owner_id=current_user.id,
+        organization_id=current_user.organization_id,
+        project_id=current_user.project_id,
+        status="processing",
+    )
+
+    collection_crud = CollectionCrud(session, current_user.id)
+    collection_crud.create(collection, documents=[])
+
+    # 2. Launch background task
     background_tasks.add_task(
         do_create_collection,
         session,
