@@ -174,11 +174,10 @@ def do_create_collection(
     payload: ResponsePayload,
 ):
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
-    callback = (
-        SilentCallback(payload)
-        if request.callback_url is None
-        else WebHookCallback(request.callback_url, payload)
-    )
+    if request.callback_url is None:
+        callback = SilentCallback(payload)
+    else:
+        callback = WebHookCallback(request.callback_url, payload)
 
     vector_store_crud = OpenAIVectorStoreCrud(client)
     assistant_crud = OpenAIAssistantCrud(client)
