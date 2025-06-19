@@ -79,10 +79,6 @@ class ResponsesAPIResponse(APIResponse[_APIResponse]):
 def get_file_search_results(response):
     results: list[FileResultChunk] = []
 
-    # If response has no output attribute or it's empty, return empty results
-    if not hasattr(response, "output"):
-        return results
-
     for tool_call in response.output:
         if tool_call.type == "file_search_call":
             results.extend(
