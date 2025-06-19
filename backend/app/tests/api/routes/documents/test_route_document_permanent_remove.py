@@ -3,6 +3,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import pytest
+from botocore.exceptions import ClientError
 from moto import mock_aws
 from sqlmodel import Session, select
 
@@ -16,7 +17,9 @@ from app.tests.utils.document import (
     DocumentMaker,
     Route,
     WebCrawler,
+    crawler,
 )
+from app.tests.utils.utils import openai_credentials
 
 
 @pytest.fixture
@@ -65,6 +68,13 @@ class TestDocumentRoutePermanentRemove:
         doc_in_db = db.exec(stmt).first()
         assert doc_in_db is not None
         assert doc_in_db.deleted_at is not None
+
+        with pytest.raises(ClientError) as exc_info:
+            aws.client.head_object(
+                Bucket=settings.AWS_S3_BUCKET,
+                Key=str(s3_key),
+            )
+        assert exc_info.value.response["Error"]["Code"] == "404"
 
     @openai_responses.mock()
     def test_cannot_delete_nonexistent_document(
