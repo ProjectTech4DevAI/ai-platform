@@ -1,5 +1,6 @@
 import inspect
 import logging
+import time
 import warnings
 from uuid import UUID, uuid4
 from typing import Any, List, Optional
@@ -169,58 +170,90 @@ def _backout(crud: OpenAIAssistantCrud, assistant_id: str):
 
 def do_create_collection(
     session: SessionDep,
-    current_user: CurrentUserOrgproject,
+    current_user: CurrentUser,
     request: CreationRequest,
     payload: ResponsePayload,
 ):
+    start_time = time.time()
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
     if request.callback_url is None:
         callback = SilentCallback(payload)
     else:
         callback = WebHookCallback(request.callback_url, payload)
 
-    vector_store_crud = OpenAIVectorStoreCrud(client)
-    assistant_crud = OpenAIAssistantCrud(client)
-    storage = AmazonCloudStorage(current_user)
-    document_crud = DocumentCrud(session, current_user.id)
-    collection_crud = CollectionCrud(session, current_user.id)
+    #
+    # Create the assistant and vector store
+    #
 
+    vector_store_crud = OpenAIVectorStoreCrud(client)
     try:
         vector_store = vector_store_crud.create()
+    except OpenAIError as err:
+        callback.fail(str(err))
+        return
 
-        docs = request(document_crud)
+    storage = AmazonCloudStorage(current_user)
+    document_crud = DocumentCrud(session, current_user.id)
+    assistant_crud = OpenAIAssistantCrud(client)
+
+    docs = request(document_crud)
+    log_doc = list(docs)
+    doc_count = len(log_doc)
+    flat_docs = [doc for sublist in log_doc for doc in sublist]
+    file_exts = list(
+        {doc.fname.split(".")[-1] for doc in flat_docs if "." in doc.fname}
+    )
+
+    file_sizes_kb = []
+    for doc in flat_docs:
+        size_kb = storage.get_file_size_kb(doc.object_store_url)
+        file_sizes_kb.append(size_kb)
+
+    kwargs = dict(request.extract_super_type(AssistantOptions))
+    try:
         updates = vector_store_crud.update(vector_store.id, storage, docs)
         documents = list(updates)
-
-        kwargs = dict(request.extract_super_type(AssistantOptions))
         assistant = assistant_crud.create(vector_store.id, **kwargs)
+    except Exception as err:  # blanket to handle SQL and OpenAI errors
+        logging.error(f"File Search setup error: {err} ({type(err).__name__})")
+        vector_store_crud.delete(vector_store.id)
+        callback.fail(str(err))
+        return
 
-        # 3. Read and update collection with assistant info
+    #
+    # Store the results
+    #
+
+    collection_crud = CollectionCrud(session, current_user.id)
+    try:
+        collection_crud = CollectionCrud(session, current_user.id)
         collection = collection_crud.read_one(UUID(payload.key))
         collection.llm_service_id = assistant.id
         collection.llm_service_name = request.model
-        collection.status = "successfull"
+        collection.status = "Successful"
         collection.updated_at = now()
 
         dc_crud = DocumentCollectionCrud(session)
         dc_crud.create(collection, documents)
 
         collection_crud._update(collection)
-
-        callback.success({"id": payload.key})
-    except Exception as err:
-        logging.error(f"[CollectionTask] Failed: {err} ({type(err).__name__})")
-
-        # 4. On failure, update collection status only
-        try:
-            collection = collection_crud.read_one(UUID(payload.key))
-            collection.status = "failed"
-            collection.updated_at = now()
-            collection_crud._update(collection)
-        except Exception as suberr:
-            logging.error(f"Failed to update collection status: {suberr}")
-
+    except SQLAlchemyError as err:
+        _backout(assistant_crud, assistant.id)
+        logging.error(f"[Error during creating colletion - {err}")
         callback.fail(str(err))
+        return
+
+    elapsed = time.time() - start_time
+    logging.info(
+        f"Collection created: {collection.id} | "
+        f"Time: {elapsed}s | Files: {doc_count} |Sizes:{file_sizes_kb} KB |Types: {file_exts}"
+    )
+
+    #
+    # Send back successful response
+    #
+
+    callback.success(collection.model_dump(mode="json"))
 
 
 @router.post(
