@@ -40,7 +40,7 @@ def aws_credentials():
 @mock_aws
 class TestDocumentRoutePermanentRemove:
     @openai_responses.mock()
-    def test_permanently_deletes_document_from_db_and_s3(
+    def test_permanent_delete_document_from_s3(
         self,
         db: Session,
         route: Route,
