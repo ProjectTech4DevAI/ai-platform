@@ -1,2 +1,5 @@
-Permanently deletes a document from the database and its associated file from cloud storage. This action is irreversible.
-If the document is part of collections, those collections will be deleted, including any associated OpenAI Vector Stores and Assistants.
+This operation performs a soft delete on the document — the document remains in the database but is marked as deleted. However, the associated file in cloud storage is permanently deleted. This file deletion is irreversible.
+If the document is part of an active collection, those collections
+will be deleted using the collections delete interface. Noteably, this
+means all OpenAI Vector Store's and Assistant's to which this document
+belongs will be deleted.

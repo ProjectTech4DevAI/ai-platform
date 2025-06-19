@@ -93,7 +93,7 @@ def permanent_delete_doc(
 
     c_crud.delete(document, a_crud)
     storage.delete(document.object_store_url)
-    d_crud.hard_delete(doc_id)
+    d_crud.delete(doc_id)
 
     return APIResponse.success_response(document)
 
