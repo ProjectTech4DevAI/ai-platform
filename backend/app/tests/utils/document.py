@@ -37,14 +37,14 @@ class DocumentMaker:
 
     def __next__(self):
         doc_id = next(self.index)
-        args = str(doc_id).split("-")
-        fname = Path("/", *args).with_suffix(".xyz")
+        key = f"{self.owner_id}/{doc_id}.xyz"
+        object_store_url = f"s3://{settings.AWS_S3_BUCKET}/{key}"
 
         return Document(
             id=doc_id,
             owner_id=self.owner_id,
-            fname=fname.name,
-            object_store_url=fname.as_uri(),
+            fname=f"{doc_id}.xyz",
+            object_store_url=object_store_url,
         )
 
 
@@ -102,8 +102,11 @@ class Route:
 
         return self._empty._replace(**kwargs)
 
-    def append(self, doc: Document):
-        endpoint = Path(self.endpoint, str(doc.id))
+    def append(self, doc: Document, suffix: str = None):
+        segments = [self.endpoint, str(doc.id)]
+        if suffix:
+            segments.append(suffix)
+        endpoint = Path(*segments)
         return type(self)(endpoint, **self.qs_args)
 
 
@@ -114,6 +117,12 @@ class WebCrawler:
 
     def get(self, route: Route):
         return self.client.get(
+            str(route),
+            headers=self.superuser_token_headers,
+        )
+
+    def delete(self, route: Route):
+        return self.client.delete(
             str(route),
             headers=self.superuser_token_headers,
         )
