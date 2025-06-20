@@ -106,21 +106,27 @@ def process_response(
         f"Starting generating response for assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
     )
     try:
-        response = client.responses.create(
-            model=assistant.model,
-            previous_response_id=request.response_id,
-            instructions=assistant.instructions,
-            tools=[
+        # Create response with or without tools based on vector_store_id
+        params = {
+            "model": assistant.model,
+            "previous_response_id": request.response_id,
+            "instructions": assistant.instructions,
+            "temperature": assistant.temperature,
+            "input": [{"role": "user", "content": request.question}],
+        }
+
+        if assistant.vector_store_id:
+            params["tools"] = [
                 {
                     "type": "file_search",
                     "vector_store_ids": [assistant.vector_store_id],
                     "max_num_results": assistant.max_num_results,
                 }
-            ],
-            temperature=assistant.temperature,
-            input=[{"role": "user", "content": request.question}],
-            include=["file_search_call.results"],
-        )
+            ]
+            params["include"] = ["file_search_call.results"]
+
+        response = client.responses.create(**params)
+
         response_chunks = get_file_search_results(response)
         logger.info(
             f"Successfully generated response: response_id={response.id}, assistant={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
