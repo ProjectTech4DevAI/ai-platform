@@ -74,6 +74,30 @@ def remove_doc(
     return APIResponse.success_response(data)
 
 
+@router.delete(
+    "/remove/{doc_id}/permanent",
+    description=load_description("documents/permanent_delete.md"),
+    response_model=APIResponse[Document],
+)
+def permanent_delete_doc(
+    session: SessionDep,
+    current_user: CurrentUser,
+    doc_id: UUID = FastPath(description="Document to permanently delete"),
+):
+    a_crud = OpenAIAssistantCrud()
+    d_crud = DocumentCrud(session, current_user.id)
+    c_crud = CollectionCrud(session, current_user.id)
+    storage = AmazonCloudStorage(current_user)
+
+    document = d_crud.read_one(doc_id)
+
+    c_crud.delete(document, a_crud)
+    storage.delete(document.object_store_url)
+    d_crud.delete(doc_id)
+
+    return APIResponse.success_response(document)
+
+
 @router.get(
     "/info/{doc_id}",
     description=load_description("documents/info.md"),

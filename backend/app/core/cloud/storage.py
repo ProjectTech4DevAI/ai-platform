@@ -124,3 +124,11 @@ class AmazonCloudStorage(CloudStorage):
             return self.aws.client.get_object(**kwargs).get("Body")
         except ClientError as err:
             raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err
+
+    def delete(self, url: str) -> None:
+        name = SimpleStorageName.from_url(url)
+        kwargs = asdict(name)
+        try:
+            self.aws.client.delete_object(**kwargs)
+        except ClientError as err:
+            raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err
