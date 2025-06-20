@@ -6,6 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from openai import OpenAI
 from pydantic import BaseModel, Field
 from sqlmodel import Session
+from typing import Optional
 from langfuse.decorators import observe, langfuse_context
 
 from app.api.deps import get_current_user_org, get_db
@@ -25,6 +26,9 @@ class StartThreadRequest(BaseModel):
     assistant_id: str = Field(..., description="The ID of the assistant to be used.")
     remove_citation: bool = Field(
         default=False, description="Whether to remove citations from the response."
+    )
+    thread_id: Optional[str] = Field(
+        default=None, description="An optional existing thread ID to continue the conversation."
     )
 
 
