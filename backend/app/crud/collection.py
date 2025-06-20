@@ -46,9 +46,6 @@ class CollectionCrud:
     def create(
         self, collection: Collection, documents: Optional[list[Document]] = None
     ):
-        if self._exists(collection):
-            raise FileExistsError("Collection already present")
-
         # Update or create the collection first
         collection = self._update(collection)
 
