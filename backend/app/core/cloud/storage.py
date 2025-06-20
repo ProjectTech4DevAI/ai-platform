@@ -1,6 +1,5 @@
 import os
 
-# import logging
 import functools as ft
 from pathlib import Path
 from dataclasses import dataclass, asdict
@@ -139,4 +138,3 @@ class AmazonCloudStorage(CloudStorage):
             self.aws.client.delete_object(**kwargs)
         except ClientError as err:
             raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err
-
