@@ -190,27 +190,22 @@ def do_create_collection(
     collection_crud = CollectionCrud(session, current_user.id)
 
     try:
-        # Step 1: Create vector store
         vector_store = vector_store_crud.create()
 
-        # Step 2: Fetch documents
         docs = list(request(document_crud))
         flat_docs = [doc for sublist in docs for doc in sublist]
 
-        # Step 3: Collect file metadata
         file_exts = {doc.fname.split(".")[-1] for doc in flat_docs if "." in doc.fname}
         file_sizes_kb = [
             storage.get_file_size_kb(doc.object_store_url) for doc in flat_docs
         ]
 
-        # Step 4: Upload documents to vector store
         logging.info(
             f"[VectorStore Update] Uploading {len(flat_docs)} documents to vector store {vector_store.id}"
         )
-        vector_store_crud.update(vector_store.id, storage, iter(docs))
+        list(vector_store_crud.update(vector_store.id, storage, docs))
         logging.info(f"[VectorStore Upload] Upload completed")
 
-        # Step 5: Create assistant
         assistant_options = dict(request.extract_super_type(AssistantOptions))
         logging.info(
             f"[Assistant Create] Creating assistant with options: {assistant_options}"
@@ -218,7 +213,6 @@ def do_create_collection(
         assistant = assistant_crud.create(vector_store.id, **assistant_options)
         logging.info(f"[Assistant Create] Assistant created: {assistant.id}")
 
-        # Step 6: Update collection
         collection = collection_crud.read_one(UUID(payload.key))
         collection.llm_service_id = assistant.id
         collection.llm_service_name = request.model
@@ -233,7 +227,6 @@ def do_create_collection(
 
         collection_crud._update(collection)
 
-        # Step 7: Final success callback
         elapsed = time.time() - start_time
         logging.info(
             f"Collection created: {collection.id} | Time: {elapsed:.2f}s | "
