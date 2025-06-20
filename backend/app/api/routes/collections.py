@@ -176,82 +176,74 @@ def do_create_collection(
 ):
     start_time = time.time()
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
-    if request.callback_url is None:
-        callback = SilentCallback(payload)
-    else:
-        callback = WebHookCallback(request.callback_url, payload)
-
-    #
-    # Create the assistant and vector store
-    #
+    callback = (
+        SilentCallback(payload)
+        if request.callback_url is None
+        else WebHookCallback(request.callback_url, payload)
+    )
 
     vector_store_crud = OpenAIVectorStoreCrud(client)
     try:
         vector_store = vector_store_crud.create()
     except OpenAIError as err:
-        callback.fail(str(err))
+        callback.fail(f"Vector store creation failed: {err}")
         return
 
     storage = AmazonCloudStorage(current_user)
     document_crud = DocumentCrud(session, current_user.id)
     assistant_crud = OpenAIAssistantCrud(client)
 
-    docs = request(document_crud)
-    log_doc = list(docs)
-    doc_count = len(log_doc)
-    flat_docs = [doc for sublist in log_doc for doc in sublist]
-    file_exts = list(
-        {doc.fname.split(".")[-1] for doc in flat_docs if "." in doc.fname}
-    )
-
-    file_sizes_kb = []
-    for doc in flat_docs:
-        size_kb = storage.get_file_size_kb(doc.object_store_url)
-        file_sizes_kb.append(size_kb)
-
-    kwargs = dict(request.extract_super_type(AssistantOptions))
     try:
-        updates = vector_store_crud.update(vector_store.id, storage, docs)
-        documents = list(updates)
-        assistant = assistant_crud.create(vector_store.id, **kwargs)
-    except Exception as err:  # blanket to handle SQL and OpenAI errors
-        logging.error(f"File Search setup error: {err} ({type(err).__name__})")
+        docs = list(request(document_crud))
+        flat_docs = [doc for sublist in docs for doc in sublist]
+    except Exception as err:
+        logging.error(f"[Document Fetch Error] {err}")
+        callback.fail(f"Document fetch failed: {err}")
+        return
+
+    # Step 3: Collect file metadata
+    file_exts = {doc.fname.split(".")[-1] for doc in flat_docs if "." in doc.fname}
+    file_sizes_kb = [
+        storage.get_file_size_kb(doc.object_store_url) for doc in flat_docs
+    ]
+
+    try:
+        vector_store_crud.update(vector_store.id, storage, iter(docs))
+        assistant = assistant_crud.create(
+            vector_store.id, **dict(request.extract_super_type(AssistantOptions))
+        )
+    except Exception as err:
+        logging.error(f"[Assistant/Vector Update Error] {err}")
         vector_store_crud.delete(vector_store.id)
         callback.fail(str(err))
         return
 
-    #
-    # Store the results
-    #
-
     collection_crud = CollectionCrud(session, current_user.id)
     try:
-        collection_crud = CollectionCrud(session, current_user.id)
         collection = collection_crud.read_one(UUID(payload.key))
         collection.llm_service_id = assistant.id
         collection.llm_service_name = request.model
         collection.status = "Successful"
         collection.updated_at = now()
 
-        dc_crud = DocumentCollectionCrud(session)
-        dc_crud.create(collection, documents)
+        if flat_docs:
+            logging.info(
+                f"[DocumentCollection] Linking {len(flat_docs)} documents to collection {collection.id}"
+            )
+            DocumentCollectionCrud(session).create(collection, flat_docs)
 
         collection_crud._update(collection)
     except SQLAlchemyError as err:
         _backout(assistant_crud, assistant.id)
-        logging.error(f"[Error during creating colletion - {err}")
+        logging.error(f"[Collection Save Error] {err}")
         callback.fail(str(err))
         return
 
     elapsed = time.time() - start_time
     logging.info(
-        f"Collection created: {collection.id} | "
-        f"Time: {elapsed}s | Files: {doc_count} |Sizes:{file_sizes_kb} KB |Types: {file_exts}"
+        f"Collection created: {collection.id} | Time: {elapsed:.2f}s | "
+        f"Files: {len(flat_docs)} | Sizes: {file_sizes_kb} KB | Types: {list(file_exts)}"
     )
-
-    #
-    # Send back successful response
-    #
 
     callback.success(collection.model_dump(mode="json"))
 
@@ -270,7 +262,6 @@ def create_collection(
     route = router.url_path_for(this.f_code.co_name)
     payload = ResponsePayload("processing", route)
 
-    # 1. Create initial collection record
     collection = Collection(
         id=UUID(payload.key),
         owner_id=current_user.id,
@@ -280,7 +271,7 @@ def create_collection(
     )
 
     collection_crud = CollectionCrud(session, current_user.id)
-    collection_crud.create(collection, documents=[])
+    collection_crud.create(collection)
 
     # 2. Launch background task
     background_tasks.add_task(

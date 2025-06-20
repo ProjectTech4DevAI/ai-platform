@@ -18,7 +18,7 @@ from app.models import (
     Credential,
 )
 from app.tests.utils.user import authentication_token_from_email
-from app.tests.utils.utils import get_superuser_token_headers
+from app.tests.utils.utils import get_superuser_token_headers, get_real_api_key_headers
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -47,6 +47,11 @@ def client() -> Generator[TestClient, None, None]:
 @pytest.fixture(scope="module")
 def superuser_token_headers(client: TestClient) -> dict[str, str]:
     return get_superuser_token_headers(client)
+
+
+@pytest.fixture(scope="function")
+def api_key_headers(db: Session) -> dict[str, str]:
+    return get_real_api_key_headers(db)
 
 
 @pytest.fixture(scope="module")

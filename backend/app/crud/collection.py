@@ -1,7 +1,7 @@
 import functools as ft
 from uuid import UUID
 from typing import Optional
-
+import logging
 from sqlmodel import Session, func, select, and_
 
 from app.models import Document, Collection, DocumentCollection
@@ -43,13 +43,23 @@ class CollectionCrud:
 
         return bool(present)
 
-    def create(self, collection: Collection, documents: list[Document]):
+    def create(
+        self, collection: Collection, documents: Optional[list[Document]] = None
+    ):
         if self._exists(collection):
             raise FileExistsError("Collection already present")
 
+        # Update or create the collection first
         collection = self._update(collection)
-        dc_crud = DocumentCollectionCrud(self.session)
-        dc_crud.create(collection, documents)
+
+        # Only link documents if present
+        if documents:
+            dc_crud = DocumentCollectionCrud(self.session)
+            dc_crud.create(collection, documents)
+        else:
+            logging.warning(
+                f"No documents provided for collection {collection.id}, skipping DocumentCollection creation."
+            )
 
         return collection
 
