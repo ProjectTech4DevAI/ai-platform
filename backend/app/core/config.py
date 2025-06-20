@@ -30,6 +30,7 @@ class Settings(BaseSettings):
         env_ignore_empty=True,
         extra="ignore",
     )
+    COLLECTION_CREATION_TIMEOUT_SECONDS: int = 15
     LANGFUSE_PUBLIC_KEY: str
     LANGFUSE_SECRET_KEY: str
     LANGFUSE_HOST: str  # 🇪🇺 EU region

@@ -1,5 +1,7 @@
 import inspect
 import logging
+import time
+import asyncio
 import warnings
 from uuid import UUID, uuid4
 from typing import Any, List, Optional
@@ -167,26 +169,26 @@ def _backout(crud: OpenAIAssistantCrud, assistant_id: str):
         )
 
 
-def do_create_collection(
+async def do_create_collection(
     session: SessionDep,
     current_user: CurrentUser,
     request: CreationRequest,
     payload: ResponsePayload,
 ):
+    start_time = time.time()
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
-    if request.callback_url is None:
-        callback = SilentCallback(payload)
-    else:
-        callback = WebHookCallback(request.callback_url, payload)
 
-    #
-    # Create the assistant and vector store
-    #
+    callback = (
+        SilentCallback(payload)
+        if request.callback_url is None
+        else WebHookCallback(request.callback_url, payload)
+    )
 
     vector_store_crud = OpenAIVectorStoreCrud(client)
     try:
         vector_store = vector_store_crud.create()
     except OpenAIError as err:
+        logging.error(f"OpenAI vector store creation failed: {err}")
         callback.fail(str(err))
         return
 
@@ -194,21 +196,28 @@ def do_create_collection(
     document_crud = DocumentCrud(session, current_user.id)
     assistant_crud = OpenAIAssistantCrud(client)
 
-    docs = request(document_crud)
+    docs = list(request(document_crud))
+    doc_count = len(docs)
+    flat_docs = [doc for sublist in docs for doc in sublist]
+    file_exts = list(
+        {doc.fname.split(".")[-1] for doc in flat_docs if "." in doc.fname}
+    )
+
+    file_sizes_kb = []
+    for doc in flat_docs:
+        size_kb = storage.get_file_size_kb(doc.object_store_url)
+        file_sizes_kb.append(size_kb)
+
     kwargs = dict(request.extract_super_type(AssistantOptions))
     try:
         updates = vector_store_crud.update(vector_store.id, storage, docs)
         documents = list(updates)
         assistant = assistant_crud.create(vector_store.id, **kwargs)
-    except Exception as err:  # blanket to handle SQL and OpenAI errors
+    except Exception as err:
         logging.error(f"File Search setup error: {err} ({type(err).__name__})")
         vector_store_crud.delete(vector_store.id)
         callback.fail(str(err))
         return
-
-    #
-    # Store the results
-    #
 
     collection_crud = CollectionCrud(session, current_user.id)
     collection = Collection(
@@ -219,13 +228,16 @@ def do_create_collection(
     try:
         collection_crud.create(collection, documents)
     except SQLAlchemyError as err:
+        logging.error(f"DB insert failed for collection: {err}")
         _backout(assistant_crud, assistant.id)
         callback.fail(str(err))
         return
 
-    #
-    # Send back successful response
-    #
+    elapsed = time.time() - start_time
+    logging.info(
+        f"Collection created: {collection.id} | "
+        f"Time: {elapsed}s | Files: {doc_count} |Sizes:{file_sizes_kb} KB |Types: {file_exts}"
+    )
 
     callback.success(collection.model_dump(mode="json"))
 
@@ -234,7 +246,7 @@ def do_create_collection(
     "/create",
     description=load_description("collections/create.md"),
 )
-def create_collection(
+async def create_collection(
     session: SessionDep,
     current_user: CurrentUser,
     request: CreationRequest,
@@ -244,15 +256,24 @@ def create_collection(
     route = router.url_path_for(this.f_code.co_name)
     payload = ResponsePayload("processing", route)
 
-    background_tasks.add_task(
-        do_create_collection,
-        session,
-        current_user,
-        request,
-        payload,
-    )
+    # Start the background task asynchronously
+    # background_tasks.add_task(
+    #    do_create_collection,
+    #    session,
+    #    current_user,
+    #    request,
+    #    payload,
+    # )
 
-    return APIResponse.success_response(data=None, metadata=asdict(payload))
+    try:
+        await asyncio.wait_for(
+            do_create_collection(session, current_user, request, payload),
+            timeout=settings.COLLECTION_CREATION_TIMEOUT_SECONDS,
+        )
+        return APIResponse.success_response(data=None, metadata=asdict(payload))
+    except asyncio.TimeoutError:
+        logging.error(f"Timeout while creating collection for org: {current_user}")
+        raise HTTPException(status_code=408, detail="The task timed out.")
 
 
 def do_delete_collection(
