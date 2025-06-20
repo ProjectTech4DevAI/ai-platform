@@ -37,7 +37,7 @@ class DocumentMaker:
 
     def __next__(self):
         doc_id = next(self.index)
-        key = f"{self.owner_id}/{doc_id}.xyz"
+        key = f"{self.owner_id}/{doc_id}.txt"
         object_store_url = f"s3://{settings.AWS_S3_BUCKET}/{key}"
 
         return Document(
