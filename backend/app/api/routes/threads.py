@@ -28,7 +28,8 @@ class StartThreadRequest(BaseModel):
         default=False, description="Whether to remove citations from the response."
     )
     thread_id: Optional[str] = Field(
-        default=None, description="An optional existing thread ID to continue the conversation."
+        default=None,
+        description="An optional existing thread ID to continue the conversation.",
     )
 
 
