@@ -12,13 +12,14 @@ from fastapi import Path as FastPath
 from pydantic import BaseModel, Field, HttpUrl
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound, SQLAlchemyError
 
-from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgproject
+from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
 from app.core.cloud import AmazonCloudStorage
 from app.core.config import settings
 from app.core.util import now, raise_from_unknown, post_callback
 from app.crud import DocumentCrud, CollectionCrud, DocumentCollectionCrud
 from app.crud.rag import OpenAIVectorStoreCrud, OpenAIAssistantCrud
 from app.models import Collection, Document
+from app.models.collection import CollectionStatus
 from app.utils import APIResponse, load_description
 
 router = APIRouter(prefix="/collections", tags=["collections"])
@@ -182,48 +183,46 @@ def do_create_collection(
         else WebHookCallback(request.callback_url, payload)
     )
 
-    vector_store_crud = OpenAIVectorStoreCrud(client)
-    try:
-        vector_store = vector_store_crud.create()
-    except OpenAIError as err:
-        callback.fail(f"Vector store creation failed: {err}")
-        return
-
     storage = AmazonCloudStorage(current_user)
     document_crud = DocumentCrud(session, current_user.id)
     assistant_crud = OpenAIAssistantCrud(client)
+    vector_store_crud = OpenAIVectorStoreCrud(client)
+    collection_crud = CollectionCrud(session, current_user.id)
 
     try:
+        # Step 1: Create vector store
+        vector_store = vector_store_crud.create()
+
+        # Step 2: Fetch documents
         docs = list(request(document_crud))
         flat_docs = [doc for sublist in docs for doc in sublist]
-    except Exception as err:
-        logging.error(f"[Document Fetch Error] {err}")
-        callback.fail(f"Document fetch failed: {err}")
-        return
 
-    # Step 3: Collect file metadata
-    file_exts = {doc.fname.split(".")[-1] for doc in flat_docs if "." in doc.fname}
-    file_sizes_kb = [
-        storage.get_file_size_kb(doc.object_store_url) for doc in flat_docs
-    ]
+        # Step 3: Collect file metadata
+        file_exts = {doc.fname.split(".")[-1] for doc in flat_docs if "." in doc.fname}
+        file_sizes_kb = [
+            storage.get_file_size_kb(doc.object_store_url) for doc in flat_docs
+        ]
 
-    try:
-        vector_store_crud.update(vector_store.id, storage, iter(docs))
-        assistant = assistant_crud.create(
-            vector_store.id, **dict(request.extract_super_type(AssistantOptions))
+        # Step 4: Upload documents to vector store
+        logging.info(
+            f"[VectorStore Update] Uploading {len(flat_docs)} documents to vector store {vector_store.id}"
         )
-    except Exception as err:
-        logging.error(f"[Assistant/Vector Update Error] {err}")
-        vector_store_crud.delete(vector_store.id)
-        callback.fail(str(err))
-        return
+        vector_store_crud.update(vector_store.id, storage, iter(docs))
+        logging.info(f"[VectorStore Upload] Upload completed")
 
-    collection_crud = CollectionCrud(session, current_user.id)
-    try:
+        # Step 5: Create assistant
+        assistant_options = dict(request.extract_super_type(AssistantOptions))
+        logging.info(
+            f"[Assistant Create] Creating assistant with options: {assistant_options}"
+        )
+        assistant = assistant_crud.create(vector_store.id, **assistant_options)
+        logging.info(f"[Assistant Create] Assistant created: {assistant.id}")
+
+        # Step 6: Update collection
         collection = collection_crud.read_one(UUID(payload.key))
         collection.llm_service_id = assistant.id
         collection.llm_service_name = request.model
-        collection.status = "Successful"
+        collection.status = CollectionStatus.successful
         collection.updated_at = now()
 
         if flat_docs:
@@ -233,19 +232,27 @@ def do_create_collection(
             DocumentCollectionCrud(session).create(collection, flat_docs)
 
         collection_crud._update(collection)
-    except SQLAlchemyError as err:
-        _backout(assistant_crud, assistant.id)
-        logging.error(f"[Collection Save Error] {err}")
+
+        # Step 7: Final success callback
+        elapsed = time.time() - start_time
+        logging.info(
+            f"Collection created: {collection.id} | Time: {elapsed:.2f}s | "
+            f"Files: {len(flat_docs)} | Sizes: {file_sizes_kb} KB | Types: {list(file_exts)}"
+        )
+        callback.success(collection.model_dump(mode="json"))
+
+    except Exception as err:
+        logging.error(f"[Collection Creation Failed] {err} ({type(err).__name__})")
+        if "assistant" in locals():
+            _backout(assistant_crud, assistant.id)
+        try:
+            collection = collection_crud.read_one(UUID(payload.key))
+            collection.status = CollectionStatus.failed
+            collection.updated_at = now()
+            collection_crud._update(collection)
+        except Exception as suberr:
+            logging.warning(f"[Collection Status Update Failed] {suberr}")
         callback.fail(str(err))
-        return
-
-    elapsed = time.time() - start_time
-    logging.info(
-        f"Collection created: {collection.id} | Time: {elapsed:.2f}s | "
-        f"Files: {len(flat_docs)} | Sizes: {file_sizes_kb} KB | Types: {list(file_exts)}"
-    )
-
-    callback.success(collection.model_dump(mode="json"))
 
 
 @router.post(
@@ -254,7 +261,7 @@ def do_create_collection(
 )
 def create_collection(
     session: SessionDep,
-    current_user: CurrentUserOrgproject,
+    current_user: CurrentUserOrgProject,
     request: CreationRequest,
     background_tasks: BackgroundTasks,
 ):
@@ -267,7 +274,7 @@ def create_collection(
         owner_id=current_user.id,
         organization_id=current_user.organization_id,
         project_id=current_user.project_id,
-        status="processing",
+        status=CollectionStatus.processing,
     )
 
     collection_crud = CollectionCrud(session, current_user.id)

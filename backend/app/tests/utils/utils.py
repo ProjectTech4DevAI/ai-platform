@@ -9,7 +9,7 @@ from typing import Type, TypeVar
 
 from app.core.config import settings
 from app.crud.user import get_user_by_email
-from app.models import Organization, Project, APIKey
+from app.models import APIKeyPublic
 from app.crud import create_api_key, get_api_key_by_value
 from uuid import uuid4
 
@@ -47,34 +47,11 @@ def get_user_id_by_email(db: Session) -> int:
     return user.id
 
 
-def get_real_api_key_headers(db: Session) -> dict[str, str]:
-    owner_id = get_user_id_by_email(db)
-
-    # Step 1: Create real organization and project
-    organization = Organization(name=f"Test Org {uuid4()}")
-    db.add(organization)
-    db.commit()
-    db.refresh(organization)
-
-    project = Project(name=f"Test Project {uuid4()}", organization_id=organization.id)
-    db.add(project)
-    db.commit()
-    db.refresh(project)
-
-    # Step 2: Create API key
-    api_key = create_api_key(
-        db,
-        organization_id=organization.id,
-        user_id=owner_id,
-        project_id=project.id,
-    )
-
-    return {"X-API-Key": api_key.key}
-
-
-def get_user_from_api_key(db: Session, api_key_headers: dict[str, str]) -> int:
-    key_value = api_key_headers["X-API-Key"]
+def get_user_from_api_key(db: Session, api_key_headers: dict[str, str]) -> APIKeyPublic:
+    key_value = api_key_headers["X-API-KEY"]
     api_key = get_api_key_by_value(db, api_key_value=key_value)
+    if api_key is None:
+        raise ValueError("Invalid API Key")
     return api_key
 
 

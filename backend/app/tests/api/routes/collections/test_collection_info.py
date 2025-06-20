@@ -8,14 +8,26 @@ from app.models import Collection
 from app.crud.collection import CollectionCrud
 from app.main import app
 from app.tests.utils.utils import get_user_from_api_key
+from app.seed_data.seed_data import seed_database
+from app.models.collection import CollectionStatus
 
 client = TestClient(app)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def load_seed_data(db):
+    """Load seed data before each test."""
+    seed_database(db)
+    yield
+
+
+original_api_key = "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8"
 
 
 def create_collection(
     db,
     user,
-    status: str = "processing",
+    status: CollectionStatus = CollectionStatus.processing,
     with_llm: bool = False,
 ):
     now = datetime.now(timezone.utc)
@@ -28,7 +40,7 @@ def create_collection(
         updated_at=now,
     )
     if with_llm:
-        collection.llm_service_id = f"asst_str(uuid4())"
+        collection.llm_service_id = f"asst_{uuid4()}"
         collection.llm_service_name = "gpt-4o"
 
     db.add(collection)
@@ -37,64 +49,60 @@ def create_collection(
     return collection
 
 
-def test_collection_info_processing(
-    db: Session,
-    api_key_headers: dict[str, str],
-):
-    user = get_user_from_api_key(db, api_key_headers)
-    collection = create_collection(db, user, status="processing")
+def test_collection_info_processing(db: Session):
+    headers = {"X-API-KEY": original_api_key}
+    user = get_user_from_api_key(db, headers)
+    collection = create_collection(db, user, status=CollectionStatus.processing)
 
     response = client.post(
         f"{settings.API_V1_STR}/collections/info/{collection.id}",
-        headers=api_key_headers,
+        headers=headers,
     )
 
     assert response.status_code == 200
     data = response.json()["data"]
 
     assert data["id"] == str(collection.id)
-    assert data["status"] == "processing"
+    assert data["status"] == CollectionStatus.processing.value
     assert data["llm_service_id"] is None
     assert data["llm_service_name"] is None
 
 
-def test_collection_info_successful(
-    db: Session,
-    api_key_headers: dict[str, str],
-):
-    user = get_user_from_api_key(db, api_key_headers)
-    collection = create_collection(db, user, status="Successful", with_llm=True)
+def test_collection_info_successful(db: Session):
+    headers = {"X-API-KEY": original_api_key}
+    user = get_user_from_api_key(db, headers)
+    collection = create_collection(
+        db, user, status=CollectionStatus.successful, with_llm=True
+    )
 
     response = client.post(
         f"{settings.API_V1_STR}/collections/info/{collection.id}",
-        headers=api_key_headers,
+        headers=headers,
     )
 
     assert response.status_code == 200
     data = response.json()["data"]
 
     assert data["id"] == str(collection.id)
-    assert data["status"] == "Successful"
+    assert data["status"] == CollectionStatus.successful.value
     assert data["llm_service_id"] == collection.llm_service_id
     assert data["llm_service_name"] == "gpt-4o"
 
 
-def test_collection_info_failed(
-    db: Session,
-    api_key_headers: dict[str, str],
-):
-    user = get_user_from_api_key(db, api_key_headers)
-    collection = create_collection(db, user, status="Failed")
+def test_collection_info_failed(db: Session):
+    headers = {"X-API-KEY": original_api_key}
+    user = get_user_from_api_key(db, headers)
+    collection = create_collection(db, user, status=CollectionStatus.failed)
 
     response = client.post(
         f"{settings.API_V1_STR}/collections/info/{collection.id}",
-        headers=api_key_headers,
+        headers=headers,
     )
 
     assert response.status_code == 200
     data = response.json()["data"]
 
     assert data["id"] == str(collection.id)
-    assert data["status"] == "Failed"
+    assert data["status"] == CollectionStatus.failed.value
     assert data["llm_service_id"] is None
     assert data["llm_service_name"] is None

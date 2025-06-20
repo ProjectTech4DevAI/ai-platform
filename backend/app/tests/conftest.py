@@ -16,9 +16,10 @@ from app.models import (
     User,
     OpenAI_Thread,
     Credential,
+    Collection,
 )
 from app.tests.utils.user import authentication_token_from_email
-from app.tests.utils.utils import get_superuser_token_headers, get_real_api_key_headers
+from app.tests.utils.utils import get_superuser_token_headers
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -35,6 +36,7 @@ def db() -> Generator[Session, None, None]:
         session.execute(delete(APIKey))
         session.execute(delete(User))
         session.execute(delete(OpenAI_Thread))
+        session.execute(delete(Collection))
         session.commit()
 
 
@@ -47,11 +49,6 @@ def client() -> Generator[TestClient, None, None]:
 @pytest.fixture(scope="module")
 def superuser_token_headers(client: TestClient) -> dict[str, str]:
     return get_superuser_token_headers(client)
-
-
-@pytest.fixture(scope="function")
-def api_key_headers(db: Session) -> dict[str, str]:
-    return get_real_api_key_headers(db)
 
 
 @pytest.fixture(scope="module")

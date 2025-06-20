@@ -6,6 +6,7 @@ from sqlmodel import Session, func, select, and_
 
 from app.models import Document, Collection, DocumentCollection
 from app.core.util import now
+from app.models.collection import CollectionStatus
 
 from .document_collection import DocumentCollectionCrud
 
@@ -44,19 +45,23 @@ class CollectionCrud:
         return bool(present)
 
     def create(
-        self, collection: Collection, documents: Optional[list[Document]] = None
+        self,
+        collection: Collection,
+        documents: Optional[list[Document]] = None,
     ):
-        # Update or create the collection first
-        collection = self._update(collection)
+        try:
+            existing = self.read_one(collection.id)
+            if existing.status == CollectionStatus.failed:
+                self._update(collection)
+            else:
+                raise FileExistsError("Collection already present")
+        except:
+            self.session.add(collection)
+            self.session.commit()
 
-        # Only link documents if present
         if documents:
             dc_crud = DocumentCollectionCrud(self.session)
             dc_crud.create(collection, documents)
-        else:
-            logging.warning(
-                f"No documents provided for collection {collection.id}, skipping DocumentCollection creation."
-            )
 
         return collection
 

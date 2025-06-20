@@ -8,7 +8,14 @@ from app.core.util import now
 from .user import User
 from .organization import Organization
 from .project import Project
+import enum
 from enum import Enum
+
+
+class CollectionStatus(str, enum.Enum):
+    processing = "processing"
+    successful = "successful"
+    failed = "failed"
 
 
 class Collection(SQLModel, table=True):
@@ -29,13 +36,13 @@ class Collection(SQLModel, table=True):
     project_id: int = Field(
         foreign_key="project.id",
         nullable=True,
-        ondelete="SET NULL",
+        ondelete="CASCADE",
     )
 
     llm_service_id: Optional[str] = Field(default=None, nullable=True)
     llm_service_name: Optional[str] = Field(default=None, nullable=True)
 
-    status: Optional[str] = None
+    status: CollectionStatus = Field(default=CollectionStatus.processing)
 
     created_at: datetime = Field(default_factory=now)
     updated_at: datetime = Field(default_factory=now)
