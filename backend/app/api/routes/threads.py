@@ -4,7 +4,9 @@ import requests
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from openai import OpenAI
+from pydantic import BaseModel, Field
 from sqlmodel import Session
+from typing import Optional
 from langfuse.decorators import observe, langfuse_context
 
 from app.api.deps import get_current_user_org, get_db
@@ -17,6 +19,18 @@ from app.core.util import configure_langfuse, configure_openai
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["threads"])
+
+
+class StartThreadRequest(BaseModel):
+    question: str = Field(..., description="The user's input question.")
+    assistant_id: str = Field(..., description="The ID of the assistant to be used.")
+    remove_citation: bool = Field(
+        default=False, description="Whether to remove citations from the response."
+    )
+    thread_id: Optional[str] = Field(
+        default=None,
+        description="An optional existing thread ID to continue the conversation.",
+    )
 
 
 def send_callback(callback_url: str, data: dict):
@@ -340,7 +354,7 @@ async def threads_sync(
 
 @router.post("/threads/start")
 async def start_thread(
-    request: dict,
+    request: StartThreadRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     _current_user: UserOrganization = Depends(get_current_user_org),
@@ -348,6 +362,7 @@ async def start_thread(
     """
     Create a new OpenAI thread for the given question and start polling in the background.
     """
+    request = request.model_dump()
     prompt = request["question"]
     credentials = get_provider_credential(
         session=db,
