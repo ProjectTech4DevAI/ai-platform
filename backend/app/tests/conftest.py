@@ -16,6 +16,7 @@ from app.models import (
     User,
     OpenAI_Thread,
     Credential,
+    Collection,
 )
 from app.tests.utils.user import authentication_token_from_email
 from app.tests.utils.utils import get_superuser_token_headers
@@ -35,6 +36,7 @@ def db() -> Generator[Session, None, None]:
         session.execute(delete(APIKey))
         session.execute(delete(User))
         session.execute(delete(OpenAI_Thread))
+        session.execute(delete(Collection))
         session.commit()
 
 
