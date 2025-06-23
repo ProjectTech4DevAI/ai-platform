@@ -2,7 +2,7 @@ from collections.abc import Generator
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, text
 
 from app.core.config import settings
 from app.core.db import engine, init_db
@@ -15,13 +15,33 @@ from app.tests.utils.utils import get_superuser_token_headers
 test_engine = create_engine(str(settings.SQLALCHEMY_TEST_DATABASE_URI))
 
 
+def recreate_test_db():
+    test_db_name = settings.POSTGRES_DB_TEST
+    if test_db_name is None:
+        raise ValueError(
+            "POSTGRES_DB_TEST is not set but is required for test configuration."
+        )
+    with engine.connect() as conn:
+        conn.execution_options(isolation_level="AUTOCOMMIT")
+        # Disconnect other connections to the test DB
+        conn.execute(
+            text(
+                f"""
+            SELECT pg_terminate_backend(pid)
+            FROM pg_stat_activity
+            WHERE datname = '{test_db_name}' AND pid <> pg_backend_pid()
+        """
+            )
+        )
+        conn.execute(text(f"DROP DATABASE IF EXISTS {test_db_name}"))
+        conn.execute(text(f"CREATE DATABASE {test_db_name}"))
+
+
 @pytest.fixture(scope="session", autouse=True)
 def db() -> Generator[Session, None, None]:
     with Session(test_engine) as session:
-        # Drop all tables and recreate them
-        SQLModel.metadata.drop_all(test_engine)
+        recreate_test_db()
         SQLModel.metadata.create_all(test_engine)
-
         init_db(session)
         yield session
 

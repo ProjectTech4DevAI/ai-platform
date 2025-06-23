@@ -17,20 +17,6 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
       - POSTGRES_USER=${POSTGRES_USER?Variable not set}
       - POSTGRES_DB=${POSTGRES_DB?Variable not set}
-      - POSTGRES_DB_TEST=${POSTGRES_DB_TEST?Variable not set}
-    # Wait for main DB to be ready, then create test DB if it doesn't exist
-    command: >
-      bash -c "
-        docker-entrypoint.sh postgres &
-        pid=$$!
-        sleep 5
-        until psql -U $${POSTGRES_USER} -d $${POSTGRES_DB} -c 'SELECT 1'; do
-          echo 'Waiting for PostgreSQL...'
-          sleep 1
-        done
-        psql -U $${POSTGRES_USER} -d $${POSTGRES_DB} -c 'CREATE DATABASE \"${POSTGRES_DB_TEST}\";' || true
-        wait $$pid
-      "
 
   adminer:
     image: adminer

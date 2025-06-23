@@ -50,14 +50,6 @@ jobs:
         run: uv sync
         working-directory: backend
 
-      - name: Wait for Postgres and create test DB
-        run: |
-          until pg_isready -h localhost -U postgres; do
-            echo "Waiting for PostgreSQL to be ready..."
-            sleep 1
-          done
-          PGPASSWORD=postgres psql -h localhost -U postgres -d ai_platform -c 'CREATE DATABASE ai_platform_test;' || true
-
       - name: Activate virtual environment and run Alembic migrations
         run: |
           source .venv/bin/activate
