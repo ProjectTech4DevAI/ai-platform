@@ -12,9 +12,6 @@ from app.tests.utils.user import authentication_token_from_email
 from app.tests.utils.utils import get_superuser_token_headers
 
 
-test_engine = create_engine(str(settings.SQLALCHEMY_TEST_DATABASE_URI))
-
-
 def recreate_test_db():
     test_db_name = settings.POSTGRES_DB_TEST
     if test_db_name is None:
@@ -37,10 +34,13 @@ def recreate_test_db():
         conn.execute(text(f"CREATE DATABASE {test_db_name}"))
 
 
+recreate_test_db()
+test_engine = create_engine(str(settings.SQLALCHEMY_TEST_DATABASE_URI))
+
+
 @pytest.fixture(scope="session", autouse=True)
 def db() -> Generator[Session, None, None]:
     with Session(test_engine) as session:
-        recreate_test_db()
         SQLModel.metadata.create_all(test_engine)
         init_db(session)
         yield session
