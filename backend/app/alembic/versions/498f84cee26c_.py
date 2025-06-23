@@ -12,7 +12,7 @@ import sqlmodel.sql.sqltypes
 
 # revision identifiers, used by Alembic.
 revision = '498f84cee26c'
-down_revision = ('904ed70e7dab', 'auto_add_prompt_table')
+down_revision = 'auto_add_prompt_table'
 branch_labels = None
 depends_on = None
 

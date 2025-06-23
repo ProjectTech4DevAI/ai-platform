@@ -32,6 +32,9 @@ class PromptGetRequest(BaseModel):
     labels: Optional[List[str]] = None
     tags: Optional[List[str]] = None
 
+class PromptListRequest(BaseModel):
+    project_id: int
+
 class PromptUpdateRequest(BaseModel):
     project_id: int
     name: str
@@ -78,8 +81,8 @@ def create_new_prompt(
         },
     )
     # Add prompt name to Prompt table if not exists using CRUD
-    if not get_prompt_by_name(_session, request.name):
-        add_prompt(_session, request.name)
+    if not get_prompt_by_name(_session, request.name, request.project_id, _current_user.organization_id):
+        add_prompt(_session, request.name, request.project_id, _current_user.organization_id)
     return APIResponse.success_response(
         message="Prompt created successfully",
         data=request.dict(),
@@ -92,7 +95,7 @@ def get_prompt(
     _current_user: UserOrganization = Depends(get_current_user_org)
 ):
     # Fetch prompt name from Prompt table using CRUD
-    prompt_row = get_prompt_by_name(_session, request.name)
+    prompt_row = get_prompt_by_name(_session, request.name, request.project_id, _current_user.organization_id)
     if not prompt_row:
         raise HTTPException(status_code=404, detail="Prompt not found in DB")
     langfuse_client = initialize_langfuse(request.project_id, _session, _current_user)
@@ -109,7 +112,7 @@ def update_prompt(
     _current_user: UserOrganization = Depends(get_current_user_org)
 ):
     # Ensure prompt name exists in Prompt table using CRUD
-    prompt_row = get_prompt_by_name(_session, request.name)
+    prompt_row = get_prompt_by_name(_session, request.name, request.project_id, _current_user.organization_id)
     if not prompt_row:
         raise HTTPException(status_code=404, detail="Prompt not found in DB for update")
     langfuse_client = initialize_langfuse(request.project_id, _session, _current_user)
@@ -120,6 +123,7 @@ def update_prompt(
         request.prompt,
         request.labels,
     )
+    prompt_row = update_prompt(_session, request.name, request.project_id, _current_user.organization_id)
     return APIResponse.success_response(
         message="Prompt updated successfully",
         data=request.dict(),
@@ -127,8 +131,12 @@ def update_prompt(
 
 # Optionally, add a list endpoint for all prompt names
 @router.get("/list")
-def list_prompt_names(_session: Session = Depends(get_db)):
-    prompts = list_prompts(_session)
+def list_prompt_names(
+    request: PromptListRequest,
+    _session: Session = Depends(get_db),
+    _current_user: UserOrganization = Depends(get_current_user_org)
+):
+    prompts = list_prompts(_session, project_id=request.project_id, organization_id=_current_user.organization_id)
     names = [p.name for p in prompts]
     return APIResponse.success_response(
         message="Prompt names fetched successfully",
