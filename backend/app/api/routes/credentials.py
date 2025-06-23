@@ -74,7 +74,7 @@ def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
     # Create credentials
     new_creds = set_creds_for_org(session=session, creds_add=creds_in)
     if not new_creds:
-        logger.error(
+        logger.warning(
             f"[credential.create] Failed to create credentials | org_id={creds_in.organization_id}"
         )
         raise Exception(status_code=500, detail="Failed to create credentials")

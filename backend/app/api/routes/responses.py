@@ -20,9 +20,20 @@ router = APIRouter(tags=["responses"])
 
 def handle_openai_error(e: openai.OpenAIError) -> str:
     """Extract error message from OpenAI error."""
+    logger.info(
+        f"[handle_openai_error] Processing OpenAI error | {{'error_type': '{type(e).__name__}'}}"
+    )
     if isinstance(e.body, dict) and "message" in e.body:
-        return e.body["message"]
-    return str(e)
+        error_message = e.body["message"]
+        logger.info(
+            f"[handle_openai_error] Error message extracted | {{'error_message': '{error_message}'}}"
+        )
+        return error_message
+    error_message = str(e)
+    logger.info(
+        f"[handle_openai_error] Fallback error message | {{'error_message': '{error_message}'}}"
+    )
+    return error_message
 
 
 class ResponsesAPIRequest(BaseModel):
@@ -77,6 +88,9 @@ class ResponsesAPIResponse(APIResponse[_APIResponse]):
 
 
 def get_file_search_results(response):
+    logger.info(
+        f"[get_file_search_results] Extracting file search results | {{'response_id': '{response.id}'}}"
+    )
     results: list[FileResultChunk] = []
 
     for tool_call in response.output:
@@ -85,17 +99,27 @@ def get_file_search_results(response):
                 [FileResultChunk(score=hit.score, text=hit.text) for hit in results]
             )
 
+    logger.info(
+        f"[get_file_search_results] File search results extracted | {{'response_id': '{response.id}', 'chunk_count': {len(results)}}}"
+    )
     return results
 
 
 def get_additional_data(request: dict) -> dict:
     """Extract additional data from request, excluding specific keys."""
-    return {
+    logger.info(
+        f"[get_additional_data] Extracting additional data | {{'request_keys': {list(request.keys())}}}"
+    )
+    additional_data = {
         k: v
         for k, v in request.items()
         if k
         not in {"project_id", "assistant_id", "callback_url", "response_id", "question"}
     }
+    logger.info(
+        f"[get_additional_data] Additional data extracted | {{'additional_keys': {list(additional_data.keys())}}}"
+    )
+    return additional_data
 
 
 def process_response(
@@ -103,7 +127,7 @@ def process_response(
 ):
     """Process a response and send callback with results."""
     logger.info(
-        f"Starting generating response for assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
+        f"[process_response] Starting response generation | {{'assistant_id': '{request.assistant_id}', 'project_id': {request.project_id}, 'org_id': {organization_id}, 'response_id': '{request.response_id}'}}"
     )
     try:
         # Create response with or without tools based on vector_store_id
@@ -126,10 +150,13 @@ def process_response(
             params["include"] = ["file_search_call.results"]
 
         response = client.responses.create(**params)
+        logger.info(
+            f"[process_response] Response created | {{'assistant_id': '{request.assistant_id}', 'project_id': {request.project_id}, 'response_id': '{response.id}'}}"
+        )
 
         response_chunks = get_file_search_results(response)
         logger.info(
-            f"Successfully generated response: response_id={response.id}, assistant={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
+            f"[process_response] Response chunks processed | {{'assistant_id': '{request.assistant_id}', 'project_id': {request.project_id}, 'response_id': '{response.id}', 'chunk_count': {len(response_chunks)}}}"
         )
 
         # Convert request to dict and include all fields
@@ -160,22 +187,25 @@ def process_response(
                 },
             ),
         )
+        logger.info(
+            f"[process_response] Success response prepared | {{'assistant_id': '{request.assistant_id}', 'project_id': {request.project_id}, 'response_id': '{response.id}'}}"
+        )
     except openai.OpenAIError as e:
         error_message = handle_openai_error(e)
         logger.error(
-            f"OpenAI API error during response processing: {error_message}, project_id={request.project_id}, organization_id={organization_id}"
+            f"[process_response] OpenAI API error | {{'assistant_id': '{request.assistant_id}', 'project_id': {request.project_id}, 'org_id': {organization_id}, 'error': '{error_message}'}}"
         )
         callback_response = ResponsesAPIResponse.failure_response(error=error_message)
 
     if request.callback_url:
         logger.info(
-            f"Sending callback to URL: {request.callback_url}, assistant={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
+            f"[process_response] Preparing callback | {{'assistant_id': '{request.assistant_id}', 'project_id': {request.project_id}, 'callback_url': '{request.callback_url}'}}"
         )
         from app.api.routes.threads import send_callback
 
         send_callback(request.callback_url, callback_response.model_dump())
         logger.info(
-            f"Callback sent successfully, assistant={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
+            f"[process_response] Callback sent successfully | {{'assistant_id': '{request.assistant_id}', 'project_id': {request.project_id}, 'callback_url': '{request.callback_url}'}}"
         )
 
 
@@ -188,7 +218,7 @@ async def responses(
 ):
     """Asynchronous endpoint that processes requests in background."""
     logger.info(
-        f"Processing response request for assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
+        f"[responses] Starting async response request | {{'assistant_id': '{request.assistant_id}', 'project_id': {request.project_id}, 'org_id': {_current_user.organization_id}, 'user_id': {_current_user.user_id}}}"
     )
 
     # Get assistant details
@@ -197,12 +227,15 @@ async def responses(
     )
     if not assistant:
         logger.error(
-            f"Assistant not found: assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
+            f"[responses] Failed: Assistant not found | {{'assistant_id': '{request.assistant_id}', 'project_id': {request.project_id}, 'org_id': {_current_user.organization_id}}}"
         )
         raise HTTPException(
             status_code=404,
             detail="Assistant not found or not active",
         )
+    logger.info(
+        f"[responses] Assistant retrieved | {{'assistant_id': '{request.assistant_id}', 'project_id': {request.project_id}, 'org_id': {_current_user.organization_id}}}"
+    )
 
     credentials = get_provider_credential(
         session=_session,
@@ -212,7 +245,7 @@ async def responses(
     )
     if not credentials or "api_key" not in credentials:
         logger.error(
-            f"OpenAI API key not configured for org_id={_current_user.organization_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
+            f"[responses] Failed: OpenAI credentials not configured | {{'org_id': {_current_user.organization_id}, 'project_id': {request.project_id}}}"
         )
         return {
             "success": False,
@@ -220,6 +253,9 @@ async def responses(
             "data": None,
             "metadata": None,
         }
+    logger.info(
+        f"[responses] OpenAI credentials retrieved | {{'org_id': {_current_user.organization_id}, 'project_id': {request.project_id}}}"
+    )
 
     client = OpenAI(api_key=credentials["api_key"])
 
@@ -234,13 +270,16 @@ async def responses(
         "error": None,
         "metadata": None,
     }
+    logger.info(
+        f"[responses] Sending initial response | {{'assistant_id': '{request.assistant_id}', 'project_id': {request.project_id}, 'status': 'processing'}}"
+    )
 
     # Schedule background task
     background_tasks.add_task(
         process_response, request, client, assistant, _current_user.organization_id
     )
     logger.info(
-        f"Background task scheduled for response processing: assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
+        f"[responses] Background task scheduled | {{'assistant_id': '{request.assistant_id}', 'project_id': {request.project_id}, 'org_id': {_current_user.organization_id}}}"
     )
 
     return initial_response
@@ -255,6 +294,9 @@ async def responses_sync(
     """
     Synchronous endpoint for benchmarking OpenAI responses API
     """
+    logger.info(
+        f"[responses_sync] Starting sync response request | {{'project_id': {request.project_id}, 'org_id': {_current_user.organization_id}, 'user_id': {_current_user.user_id}, 'model': '{request.model}'}}"
+    )
     credentials = get_provider_credential(
         session=_session,
         org_id=_current_user.organization_id,
@@ -262,13 +304,22 @@ async def responses_sync(
         project_id=request.project_id,
     )
     if not credentials or "api_key" not in credentials:
+        logger.error(
+            f"[responses_sync] Failed: OpenAI credentials not configured | {{'org_id': {_current_user.organization_id}, 'project_id': {request.project_id}}}"
+        )
         return APIResponse.failure_response(
             error="OpenAI API key not configured for this organization."
         )
+    logger.info(
+        f"[responses_sync] OpenAI credentials retrieved | {{'org_id': {_current_user.organization_id}, 'project_id': {request.project_id}}}"
+    )
 
     client = OpenAI(api_key=credentials["api_key"])
 
     try:
+        logger.info(
+            f"[responses_sync] Creating response | {{'project_id': {request.project_id}, 'model': '{request.model}', 'vector_store_count': {len(request.vector_store_ids)}}}"
+        )
         response = client.responses.create(
             model=request.model,
             previous_response_id=request.response_id,
@@ -284,10 +335,16 @@ async def responses_sync(
             input=[{"role": "user", "content": request.question}],
             include=["file_search_call.results"],
         )
+        logger.info(
+            f"[responses_sync] Response created | {{'project_id': {request.project_id}, 'response_id': '{response.id}'}}"
+        )
 
         response_chunks = get_file_search_results(response)
+        logger.info(
+            f"[responses_sync] Response chunks processed | {{'project_id': {request.project_id}, 'response_id': '{response.id}', 'chunk_count': {len(response_chunks)}}}"
+        )
 
-        return ResponsesAPIResponse.success_response(
+        success_response = ResponsesAPIResponse.success_response(
             data=_APIResponse(
                 status="success",
                 response_id=response.id,
@@ -301,5 +358,13 @@ async def responses_sync(
                 ),
             ),
         )
+        logger.info(
+            f"[responses_sync] Success response prepared | {{'project_id': {request.project_id}, 'response_id': '{response.id}', 'status': 'success'}}"
+        )
+        return success_response
     except openai.OpenAIError as e:
-        return Exception(error=handle_openai_error(e))
+        error_message = handle_openai_error(e)
+        logger.error(
+            f"[responses_sync] OpenAI API error | {{'project_id': {request.project_id}, 'org_id': {_current_user.organization_id}, 'error': '{error_message}'}}"
+        )
+        raise Exception(error=error_message)

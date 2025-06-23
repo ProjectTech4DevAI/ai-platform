@@ -319,6 +319,10 @@ def create_collection(
         payload,
     )
 
+    logger.info(
+        f"[create_collection] Background task for collection creation scheduled | "
+        f"{{'collection_id': '{collection.id}'}}"
+    )
     return APIResponse.success_response(data=None, metadata=asdict(payload))
 
 
@@ -352,16 +356,13 @@ def do_delete_collection(
         )
         callback.success(data.model_dump(mode="json"))
     except (ValueError, PermissionError, SQLAlchemyError) as err:
-        logger.error(
+        logger.warning(
             f"[do_delete_collection] Failed to delete collection | {{'collection_id': '{request.collection_id}', 'error': '{str(err)}'}}"
         )
         callback.fail(str(err))
     except Exception as err:
         logger.error(
             f"[do_delete_collection] Unexpected error during deletion | {{'collection_id': '{request.collection_id}', 'error': '{str(err)}', 'error_type': '{type(err).__name__}'}}"
-        )
-        warnings.warn(
-            'Unexpected exception "{}": {}'.format(type(err).__name__, err),
         )
         callback.fail(str(err))
 
@@ -391,6 +392,10 @@ def delete_collection(
         payload,
     )
 
+    logger.info(
+        f"[delete_collection] Background task for deletion scheduled | "
+        f"{{'collection_id': '{request.collection_id}', 'payload_key': '{payload.key}'}}"
+    )
     return APIResponse.success_response(data=None, metadata=asdict(payload))
 
 

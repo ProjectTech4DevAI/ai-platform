@@ -189,19 +189,44 @@ class AmazonCloudStorage(CloudStorage):
             )
             return body
         except ClientError as err:
+            logger.error(
+                f"[AmazonCloudStorage.stream] AWS stream error | {{'user_id': '{self.user.id}', 'bucket': '{name.Bucket}', 'key': '{name.Key}', 'error': '{str(err)}'}}"
+            )
             raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err
 
     def get_file_size_kb(self, url: str) -> float:
+        logger.info(
+            f"[AmazonCloudStorage.get_file_size_kb] Starting file size retrieval | {{'user_id': '{self.user.id}', 'url': '{url}'}}"
+        )
         name = SimpleStorageName.from_url(url)
         kwargs = asdict(name)
-        response = self.aws.client.head_object(**kwargs)
-        size_bytes = response["ContentLength"]
-        return round(size_bytes / 1024, 2)
+        try:
+            response = self.aws.client.head_object(**kwargs)
+            size_bytes = response["ContentLength"]
+            size_kb = round(size_bytes / 1024, 2)
+            logger.info(
+                f"[AmazonCloudStorage.get_file_size_kb] File size retrieved successfully | {{'user_id': '{self.user.id}', 'bucket': '{name.Bucket}', 'key': '{name.Key}', 'size_kb': {size_kb}}}"
+            )
+            return size_kb
+        except ClientError as err:
+            logger.error(
+                f"[AmazonCloudStorage.get_file_size_kb] AWS head object error | {{'user_id': '{self.user.id}', 'bucket': '{name.Bucket}', 'key': '{name.Key}', 'error': '{str(err)}'}}"
+            )
+            raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err
 
     def delete(self, url: str) -> None:
+        logger.info(
+            f"[AmazonCloudStorage.delete] Starting file deletion | {{'user_id': '{self.user.id}', 'url': '{url}'}}"
+        )
         name = SimpleStorageName.from_url(url)
         kwargs = asdict(name)
         try:
             self.aws.client.delete_object(**kwargs)
+            logger.info(
+                f"[AmazonCloudStorage.delete] File deleted successfully | {{'user_id': '{self.user.id}', 'bucket': '{name.Bucket}', 'key': '{name.Key}'}}"
+            )
         except ClientError as err:
+            logger.error(
+                f"[AmazonCloudStorage.delete] AWS delete error | {{'user_id': '{self.user.id}', 'bucket': '{name.Bucket}', 'key': '{name.Key}', 'error': '{str(err)}'}}"
+            )
             raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err

@@ -116,6 +116,11 @@ def permanent_delete_doc(
     current_user: CurrentUser,
     doc_id: UUID = FastPath(description="Document to permanently delete"),
 ):
+    logger.info(
+        f"[permanent_delete_doc] Initiating permanent deletion | "
+        f"{{'user_id': '{current_user.id}', 'document_id': '{doc_id}'}}"
+    )
+
     a_crud = OpenAIAssistantCrud()
     d_crud = DocumentCrud(session, current_user.id)
     c_crud = CollectionCrud(session, current_user.id)
@@ -123,10 +128,23 @@ def permanent_delete_doc(
 
     document = d_crud.read_one(doc_id)
 
+    logger.info(
+        f"[permanent_delete_doc] Removing document from collection and assistant | "
+        f"{{'document_id': '{doc_id}'}}"
+    )
     c_crud.delete(document, a_crud)
+
+    logger.info(
+        f"[permanent_delete_doc] Deleting document from object storage | "
+        f"{{'object_store_url': '{document.object_store_url}'}}"
+    )
     storage.delete(document.object_store_url)
     d_crud.delete(doc_id)
 
+    logger.info(
+        f"[permanent_delete_doc] Document permanently deleted from Cloud and soft deleted from DB | "
+        f"{{'user_id': '{current_user.id}', 'document_id': '{doc_id}'}}"
+    )
     return APIResponse.success_response(document)
 
 
