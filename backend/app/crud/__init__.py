@@ -19,6 +19,7 @@ from .project import (
     create_project,
     get_project_by_id,
     get_projects_by_organization,
+    validate_project,
 )
 
 from .api_key import (
@@ -39,3 +40,5 @@ from .credentials import (
 )
 
 from .thread_results import upsert_thread_result, get_thread_result
+
+from .assistants import get_assistant_by_id

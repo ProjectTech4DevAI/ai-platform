@@ -1,17 +1,18 @@
 import functools as ft
 from uuid import UUID
 from typing import Optional
-
+import logging
 from sqlmodel import Session, func, select, and_
 
 from app.models import Document, Collection, DocumentCollection
 from app.core.util import now
+from app.models.collection import CollectionStatus
 
 from .document_collection import DocumentCollectionCrud
 
 
 class CollectionCrud:
-    def __init__(self, session: Session, owner_id: UUID):
+    def __init__(self, session: Session, owner_id: int):
         self.session = session
         self.owner_id = owner_id
 
@@ -43,13 +44,24 @@ class CollectionCrud:
 
         return bool(present)
 
-    def create(self, collection: Collection, documents: list[Document]):
-        if self._exists(collection):
-            raise FileExistsError("Collection already present")
+    def create(
+        self,
+        collection: Collection,
+        documents: Optional[list[Document]] = None,
+    ):
+        try:
+            existing = self.read_one(collection.id)
+            if existing.status == CollectionStatus.failed:
+                self._update(collection)
+            else:
+                raise FileExistsError("Collection already present")
+        except:
+            self.session.add(collection)
+            self.session.commit()
 
-        collection = self._update(collection)
-        dc_crud = DocumentCollectionCrud(self.session)
-        dc_crud.create(collection, documents)
+        if documents:
+            dc_crud = DocumentCollectionCrud(self.session)
+            dc_crud.create(collection, documents)
 
         return collection
 

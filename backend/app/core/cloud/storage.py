@@ -1,6 +1,5 @@
 import os
 
-# import logging
 import functools as ft
 from pathlib import Path
 from dataclasses import dataclass, asdict
@@ -122,5 +121,20 @@ class AmazonCloudStorage(CloudStorage):
         kwargs = asdict(name)
         try:
             return self.aws.client.get_object(**kwargs).get("Body")
+        except ClientError as err:
+            raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err
+
+    def get_file_size_kb(self, url: str) -> float:
+        name = SimpleStorageName.from_url(url)
+        kwargs = asdict(name)
+        response = self.aws.client.head_object(**kwargs)
+        size_bytes = response["ContentLength"]
+        return round(size_bytes / 1024, 2)
+
+    def delete(self, url: str) -> None:
+        name = SimpleStorageName.from_url(url)
+        kwargs = asdict(name)
+        try:
+            self.aws.client.delete_object(**kwargs)
         except ClientError as err:
             raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err

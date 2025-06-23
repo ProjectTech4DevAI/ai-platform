@@ -58,7 +58,7 @@ def test_create_api_key(db: Session, superuser_token_headers: dict[str, str]):
     assert "id" in data["data"]
     assert "key" in data["data"]
     assert data["data"]["organization_id"] == org.id
-    assert data["data"]["user_id"] == str(user.id)
+    assert data["data"]["user_id"] == user.id
 
 
 def test_create_duplicate_api_key(db: Session, superuser_token_headers: dict[str, str]):
@@ -77,7 +77,7 @@ def test_create_duplicate_api_key(db: Session, superuser_token_headers: dict[str
         headers=superuser_token_headers,
     )
     assert response.status_code == 400
-    assert "API Key already exists" in response.json()["detail"]
+    assert "API Key already exists" in response.json()["error"]
 
 
 def test_list_api_keys(db: Session, superuser_token_headers: dict[str, str]):
@@ -101,7 +101,7 @@ def test_list_api_keys(db: Session, superuser_token_headers: dict[str, str]):
 
     first_key = data["data"][0]
     assert first_key["organization_id"] == org.id
-    assert first_key["user_id"] == str(user.id)
+    assert first_key["user_id"] == user.id
 
 
 def test_get_api_key(db: Session, superuser_token_headers: dict[str, str]):
@@ -121,7 +121,7 @@ def test_get_api_key(db: Session, superuser_token_headers: dict[str, str]):
     assert data["success"] is True
     assert data["data"]["id"] == api_key.id
     assert data["data"]["organization_id"] == api_key.organization_id
-    assert data["data"]["user_id"] == str(user.id)
+    assert data["data"]["user_id"] == user.id
 
 
 def test_get_nonexistent_api_key(db: Session, superuser_token_headers: dict[str, str]):
@@ -130,7 +130,7 @@ def test_get_nonexistent_api_key(db: Session, superuser_token_headers: dict[str,
         headers=superuser_token_headers,
     )
     assert response.status_code == 404
-    assert "API Key does not exist" in response.json()["detail"]
+    assert "API Key does not exist" in response.json()["error"]
 
 
 def test_revoke_api_key(db: Session, superuser_token_headers: dict[str, str]):
@@ -161,5 +161,5 @@ def test_revoke_nonexistent_api_key(
         f"{settings.API_V1_STR}/apikeys/999999",
         headers=superuser_token_headers,
     )
-    assert response.status_code == 400
-    assert "API key not found or already deleted" in response.json()["detail"]
+    assert response.status_code == 404
+    assert "API key not found or already deleted" in response.json()["error"]

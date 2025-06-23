@@ -11,6 +11,7 @@ from app.core.providers import (
 )
 from app.core.security import encrypt_credentials, decrypt_credentials
 from app.core.util import now
+from app.core.exception_handlers import HTTPException
 
 
 def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Credential]:
@@ -18,7 +19,7 @@ def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Crede
     created_credentials = []
 
     if not creds_add.credential:
-        raise ValueError("No credentials provided")
+        raise HTTPException(400, "No credentials provided")
 
     for provider, credentials in creds_add.credential.items():
         # Validate provider and credentials
@@ -136,9 +137,10 @@ def update_creds_for_org(
         else True,
     )
     creds = session.exec(statement).first()
-
-    if not creds:
-        raise ValueError(f"No credentials found for provider {creds_in.provider}")
+    if creds is None:
+        raise HTTPException(
+            status_code=404, detail="Credentials not found for this provider"
+        )
 
     creds.credential = encrypted_credentials
     creds.updated_at = now()
@@ -162,21 +164,15 @@ def remove_provider_credential(
     )
     creds = session.exec(statement).first()
 
-    if not creds:
-        raise ValueError(f"Credentials not found for provider '{provider}'")
-
-    # Soft delete by setting is_active to False
+    # Soft delete
     creds.is_active = False
     creds.updated_at = now()
 
-    try:
-        session.add(creds)
-        session.commit()
-        session.refresh(creds)
-        return creds
-    except IntegrityError as e:
-        session.rollback()
-        raise ValueError(f"Error while removing provider credentials: {str(e)}")
+    session.add(creds)
+    session.commit()
+    session.refresh(creds)
+
+    return creds
 
 
 def remove_creds_for_org(

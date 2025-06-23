@@ -12,7 +12,7 @@ class Document(SQLModel, table=True):
         default_factory=uuid4,
         primary_key=True,
     )
-    owner_id: UUID = Field(
+    owner_id: int = Field(
         foreign_key="user.id",
         nullable=False,
         ondelete="CASCADE",

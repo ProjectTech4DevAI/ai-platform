@@ -4,10 +4,17 @@ from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session
+from sqlmodel import Session, select
+from typing import Type, TypeVar
 
 from app.core.config import settings
 from app.crud.user import get_user_by_email
+from app.models import APIKeyPublic
+from app.crud import create_api_key, get_api_key_by_value
+from uuid import uuid4
+
+
+T = TypeVar("T")
 
 
 @pytest.fixture(scope="class")
@@ -35,9 +42,22 @@ def get_superuser_token_headers(client: TestClient) -> dict[str, str]:
     return headers
 
 
-def get_user_id_by_email(db: Session):
+def get_user_id_by_email(db: Session) -> int:
     user = get_user_by_email(session=db, email=settings.FIRST_SUPERUSER)
     return user.id
+
+
+def get_user_from_api_key(db: Session, api_key_headers: dict[str, str]) -> APIKeyPublic:
+    key_value = api_key_headers["X-API-KEY"]
+    api_key = get_api_key_by_value(db, api_key_value=key_value)
+    if api_key is None:
+        raise ValueError("Invalid API Key")
+    return api_key
+
+
+def get_non_existent_id(session: Session, model: Type[T]) -> int:
+    result = session.exec(select(model.id).order_by(model.id.desc())).first()
+    return (result or 0) + 1
 
 
 class SequentialUuidGenerator:
@@ -47,10 +67,10 @@ class SequentialUuidGenerator:
     def __iter__(self):
         return self
 
-    def __next__(self):
-        uu_id = self.peek()
+    def __next__(self) -> UUID:
+        uu_id = UUID(int=self.start)
         self.start += 1
         return uu_id
 
-    def peek(self):
+    def peek(self) -> UUID:
         return UUID(int=self.start)

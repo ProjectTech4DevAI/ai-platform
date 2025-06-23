@@ -2,9 +2,11 @@ import re
 import openai
 import requests
 
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from openai import OpenAI
+from pydantic import BaseModel, Field
 from sqlmodel import Session
+from typing import Optional
 from langfuse.decorators import observe, langfuse_context
 
 from app.api.deps import get_current_user_org, get_db
@@ -13,10 +15,22 @@ from app.models import UserOrganization, OpenAIThreadCreate
 from app.crud import upsert_thread_result, get_thread_result
 from app.utils import APIResponse
 from app.crud.credentials import get_provider_credential
-from app.core.security import decrypt_credentials
+from app.core.util import configure_langfuse, configure_openai
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["threads"])
+
+
+class StartThreadRequest(BaseModel):
+    question: str = Field(..., description="The user's input question.")
+    assistant_id: str = Field(..., description="The ID of the assistant to be used.")
+    remove_citation: bool = Field(
+        default=False, description="Whether to remove citations from the response."
+    )
+    thread_id: Optional[str] = Field(
+        default=None,
+        description="An optional existing thread ID to continue the conversation.",
+    )
 
 
 def send_callback(callback_url: str, data: dict):
@@ -59,7 +73,6 @@ def validate_thread(client: OpenAI, thread_id: str) -> tuple[bool, str]:
         return False, f"Invalid thread ID provided {thread_id}"
 
 
-@observe(capture_input=False)
 def setup_thread(client: OpenAI, request: dict) -> tuple[bool, str]:
     """Set up thread and add message, either creating new or using existing."""
     thread_id = request.get("thread_id")
@@ -78,9 +91,6 @@ def setup_thread(client: OpenAI, request: dict) -> tuple[bool, str]:
                 thread_id=thread.id, role="user", content=request["question"]
             )
             request["thread_id"] = thread.id
-            langfuse_context.update_current_trace(
-                session_id=thread.id, name="New Thread ID created", output=thread.id
-            )
             return True, None
         except openai.OpenAIError as e:
             return False, handle_openai_error(e)
@@ -135,8 +145,8 @@ def extract_response_from_thread(
 
 
 @observe(as_type="generation")
-def process_run(request: dict, client: OpenAI):
-    """Process a run and send callback with results."""
+def process_run_core(request: dict, client: OpenAI) -> tuple[dict, str]:
+    """Core function to process a run and return the response and message."""
     try:
         run = client.beta.threads.runs.create_and_poll(
             thread_id=request["thread_id"],
@@ -166,18 +176,29 @@ def process_run(request: dict, client: OpenAI):
             langfuse_context.update_current_trace(
                 output=message, name="Thread Run Completed"
             )
+            diagnostics = {
+                "input_tokens": run.usage.prompt_tokens,
+                "output_tokens": run.usage.completion_tokens,
+                "total_tokens": run.usage.total_tokens,
+                "model": run.model,
+            }
+            request = {**request, **{"diagnostics": diagnostics}}
 
-            callback_response = create_success_response(request, message)
+            return create_success_response(request, message).model_dump(), None
         else:
-            callback_response = APIResponse.failure_response(
-                error=f"Run failed with status: {run.status}"
-            )
-
-        send_callback(request["callback_url"], callback_response.model_dump())
+            error_msg = f"Run failed with status: {run.status}"
+            return APIResponse.failure_response(error=error_msg).model_dump(), error_msg
 
     except openai.OpenAIError as e:
-        callback_response = APIResponse.failure_response(error=handle_openai_error(e))
-        send_callback(request["callback_url"], callback_response.model_dump())
+        error_msg = handle_openai_error(e)
+        return APIResponse.failure_response(error=error_msg).model_dump(), error_msg
+
+
+@observe(as_type="generation")
+def process_run(request: dict, client: OpenAI):
+    """Process a run and send callback with results."""
+    response, _ = process_run_core(request, client)
+    send_callback(request["callback_url"], response)
 
 
 def poll_run_and_prepare_response(request: dict, client: OpenAI, db: Session):
@@ -228,11 +249,11 @@ async def threads(
         provider="openai",
         project_id=request.get("project_id"),
     )
-    if not credentials or "api_key" not in credentials:
+    client, success = configure_openai(credentials)
+    if not success:
         return APIResponse.failure_response(
             error="OpenAI API key not configured for this organization."
         )
-    client = OpenAI(api_key=credentials["api_key"])
 
     langfuse_credentials = get_provider_credential(
         session=_session,
@@ -241,24 +262,23 @@ async def threads(
         project_id=request.get("project_id"),
     )
     if not langfuse_credentials:
+        raise HTTPException(404, "LANGFUSE keys not configured for this organization.")
+
+    # Configure Langfuse
+    _, success = configure_langfuse(langfuse_credentials)
+    if not success:
         return APIResponse.failure_response(
-            error="LANGFUSE keys not configured for this organization."
+            error="Failed to configure Langfuse client."
         )
 
-    langfuse_context.configure(
-        secret_key=langfuse_credentials["secret_key"],
-        public_key=langfuse_credentials["public_key"],
-        host=langfuse_credentials["host"],
-    )
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
     if not is_valid:
-        return APIResponse.failure_response(error=error_message)
-
+        raise Exception(error_message)
     # Setup thread
     is_success, error_message = setup_thread(client, request)
     if not is_success:
-        return APIResponse.failure_response(error=error_message)
+        raise Exception(error_message)
 
     # Send immediate response
     initial_response = APIResponse.success_response(
@@ -283,66 +303,58 @@ async def threads_sync(
     _current_user: UserOrganization = Depends(get_current_user_org),
 ):
     """Synchronous endpoint that processes requests immediately."""
-
     credentials = get_provider_credential(
         session=_session,
         org_id=_current_user.organization_id,
         provider="openai",
         project_id=request.get("project_id"),
     )
-    if not credentials or "api_key" not in credentials:
+
+    # Configure OpenAI client
+    client, success = configure_openai(credentials)
+    if not success:
         return APIResponse.failure_response(
             error="OpenAI API key not configured for this organization."
         )
 
-    client = OpenAI(api_key=credentials["api_key"])
+    # Get Langfuse credentials
+    langfuse_credentials = get_provider_credential(
+        session=_session,
+        org_id=_current_user.organization_id,
+        provider="langfuse",
+        project_id=request.get("project_id"),
+    )
+    if not langfuse_credentials:
+        return APIResponse.failure_response(
+            error="LANGFUSE keys not configured for this organization."
+        )
+
+    # Configure Langfuse
+    _, success = configure_langfuse(langfuse_credentials)
+    if not success:
+        return APIResponse.failure_response(
+            error="Failed to configure Langfuse client."
+        )
 
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
     if not is_valid:
-        return APIResponse.failure_response(error=error_message)
-
+        raise Exception(error_message)
     # Setup thread
     is_success, error_message = setup_thread(client, request)
     if not is_success:
-        return APIResponse.failure_response(error=error_message)
+        raise Exception(error_message)
 
     try:
-        # Process run
-        run = client.beta.threads.runs.create_and_poll(
-            thread_id=request["thread_id"],
-            assistant_id=request["assistant_id"],
-        )
-
-        if run.status == "completed":
-            messages = client.beta.threads.messages.list(thread_id=request["thread_id"])
-            latest_message = messages.data[0]
-            message_content = latest_message.content[0].text.value
-            message = process_message_content(
-                message_content, request.get("remove_citation", False)
-            )
-
-            diagnostics = {
-                "input_tokens": run.usage.prompt_tokens,
-                "output_tokens": run.usage.completion_tokens,
-                "total_tokens": run.usage.total_tokens,
-                "model": run.model,
-            }
-            request = {**request, **{"diagnostics": diagnostics}}
-
-            return create_success_response(request, message)
-        else:
-            return APIResponse.failure_response(
-                error=f"Run failed with status: {run.status}"
-            )
-
-    except openai.OpenAIError as e:
-        return APIResponse.failure_response(error=handle_openai_error(e))
+        response, error_message = process_run_core(request, client)
+        return response
+    finally:
+        langfuse_context.flush()
 
 
 @router.post("/threads/start")
 async def start_thread(
-    request: dict,
+    request: StartThreadRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     _current_user: UserOrganization = Depends(get_current_user_org),
@@ -350,12 +362,25 @@ async def start_thread(
     """
     Create a new OpenAI thread for the given question and start polling in the background.
     """
+    request = request.model_dump()
     prompt = request["question"]
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    credentials = get_provider_credential(
+        session=db,
+        org_id=_current_user.organization_id,
+        provider="openai",
+        project_id=request.get("project_id"),
+    )
+
+    # Configure OpenAI client
+    client, success = configure_openai(credentials)
+    if not success:
+        return APIResponse.failure_response(
+            error="OpenAI API key not configured for this organization."
+        )
 
     is_success, error = setup_thread(client, request)
     if not is_success:
-        return APIResponse.failure_response(error=error)
+        raise Exception(error)
 
     thread_id = request["thread_id"]
 
@@ -394,7 +419,7 @@ async def get_thread(
     result = get_thread_result(db, thread_id)
 
     if not result:
-        return APIResponse.failure_response(error="Thread not found.")
+        raise HTTPException(404, "thread not found")
 
     status = result.status or ("success" if result.response else "processing")
 

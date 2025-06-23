@@ -1,6 +1,7 @@
 from typing import List, Optional
 from datetime import datetime, timezone
 from sqlmodel import Session, select
+from fastapi import HTTPException
 
 from app.models import Project, ProjectCreate, Organization
 from app.core.util import now
@@ -32,9 +33,9 @@ def validate_project(session: Session, project_id: int) -> Project:
     """
     project = get_project_by_id(session=session, project_id=project_id)
     if not project:
-        raise ValueError("Project not found")
+        raise HTTPException(404, "Project not found")
 
     if not project.is_active:
-        raise ValueError("Project is not active")
+        raise HTTPException(404, "Project is not active")
 
     return project

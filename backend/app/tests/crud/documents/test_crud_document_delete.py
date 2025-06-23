@@ -6,6 +6,7 @@ from app.crud import DocumentCrud
 from app.models import Document
 
 from app.tests.utils.document import DocumentStore
+from app.core.exception_handlers import HTTPException
 
 
 @pytest.fixture
@@ -33,8 +34,11 @@ class TestDatabaseDelete:
     def test_cannot_delete_others_documents(self, db: Session):
         store = DocumentStore(db)
         document = store.put()
-        other_owner_id = store.documents.index.peek()
+        other_owner_id = store.documents.owner_id + 1
 
         crud = DocumentCrud(db, other_owner_id)
-        with pytest.raises(NoResultFound):
+        with pytest.raises(HTTPException) as exc_info:
             crud.delete(document.id)
+
+        assert exc_info.value.status_code == 404
+        assert "Document not found" in str(exc_info.value.detail)

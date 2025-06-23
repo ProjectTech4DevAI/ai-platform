@@ -107,6 +107,30 @@ def get_current_user_org(
 CurrentUserOrg = Annotated[UserOrganization, Depends(get_current_user_org)]
 
 
+def get_current_user_org_project(
+    current_user: CurrentUser, session: SessionDep, request: Request
+) -> UserProjectOrg:
+    api_key = request.headers.get("X-API-KEY")
+    organization_id = None
+    project_id = None
+
+    if api_key:
+        api_key_record = get_api_key_by_value(session, api_key)
+        if api_key_record:
+            validate_organization(session, api_key_record.organization_id)
+            organization_id = api_key_record.organization_id
+            project_id = api_key_record.project_id
+
+    return UserProjectOrg(
+        **current_user.model_dump(),
+        organization_id=organization_id,
+        project_id=project_id,
+    )
+
+
+CurrentUserOrgProject = Annotated[UserProjectOrg, Depends(get_current_user_org_project)]
+
+
 def get_current_active_superuser(current_user: CurrentUser) -> User:
     if not current_user.is_superuser:
         raise HTTPException(
@@ -121,18 +145,6 @@ def get_current_active_superuser_org(current_user: CurrentUserOrg) -> User:
             status_code=403, detail="The user doesn't have enough privileges"
         )
     return current_user
-
-
-async def http_exception_handler(request: Request, exc: HTTPException):
-    """
-    Global handler for HTTPException to return standardized response format.
-    """
-    return JSONResponse(
-        status_code=exc.status_code,
-        content=APIResponse.failure_response(exc.detail).model_dump()
-        # TEMPORARY: Keep "detail" for backward compatibility
-        | {"detail": exc.detail},
-    )
 
 
 def verify_user_project_organization(

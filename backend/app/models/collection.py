@@ -1,27 +1,53 @@
 from uuid import UUID, uuid4
 from datetime import datetime
+from typing import Optional
 
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.core.util import now
 from .user import User
+from .organization import Organization
+from .project import Project
+import enum
+from enum import Enum
+
+
+class CollectionStatus(str, enum.Enum):
+    processing = "processing"
+    successful = "successful"
+    failed = "failed"
 
 
 class Collection(SQLModel, table=True):
-    id: UUID = Field(
-        default_factory=uuid4,
-        primary_key=True,
-    )
-    owner_id: UUID = Field(
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+
+    owner_id: int = Field(
         foreign_key="user.id",
         nullable=False,
         ondelete="CASCADE",
     )
-    llm_service_id: str
-    llm_service_name: str
-    created_at: datetime = Field(
-        default_factory=now,
+
+    organization_id: int = Field(
+        foreign_key="organization.id",
+        nullable=False,
+        ondelete="CASCADE",
     )
-    deleted_at: datetime | None
+
+    project_id: int = Field(
+        foreign_key="project.id",
+        nullable=True,
+        ondelete="CASCADE",
+    )
+
+    llm_service_id: Optional[str] = Field(default=None, nullable=True)
+    llm_service_name: Optional[str] = Field(default=None, nullable=True)
+
+    status: CollectionStatus = Field(default=CollectionStatus.processing)
+
+    created_at: datetime = Field(default_factory=now)
+    updated_at: datetime = Field(default_factory=now)
+    deleted_at: Optional[datetime] = None
 
     owner: User = Relationship(back_populates="collections")
+    organization: Organization = Relationship(back_populates="collections")
+    project: Project = Relationship(back_populates="collections")
