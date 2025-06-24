@@ -15,14 +15,8 @@ class DocumentCrud:
     def __init__(self, session: Session, owner_id: int):
         self.session = session
         self.owner_id = owner_id
-        logger.info(
-            f"[DocumentCrud.init] Initialized DocumentCrud | {{'owner_id': {owner_id}}}"
-        )
 
     def read_one(self, doc_id: UUID):
-        logger.info(
-            f"[DocumentCrud.read_one] Retrieving document | {{'doc_id': '{doc_id}', 'owner_id': {self.owner_id}}}"
-        )
         statement = select(Document).where(
             and_(
                 Document.owner_id == self.owner_id,
@@ -37,9 +31,6 @@ class DocumentCrud:
             )
             raise HTTPException(status_code=404, detail="Document not found")
 
-        logger.info(
-            f"[DocumentCrud.read_one] Document retrieved successfully | {{'doc_id': '{doc_id}', 'owner_id': {self.owner_id}}}"
-        )
         return result
 
     def read_many(
@@ -47,9 +38,6 @@ class DocumentCrud:
         skip: Optional[int] = None,
         limit: Optional[int] = None,
     ):
-        logger.info(
-            f"[DocumentCrud.read_many] Retrieving documents | {{'owner_id': {self.owner_id}, 'skip': {skip}, 'limit': {limit}}}"
-        )
         statement = select(Document).where(
             and_(
                 Document.owner_id == self.owner_id,
@@ -63,9 +51,6 @@ class DocumentCrud:
                 )
                 raise ValueError(f"Negative skip: {skip}")
             statement = statement.offset(skip)
-            logger.info(
-                f"[DocumentCrud.read_many] Applied skip offset | {{'owner_id': {self.owner_id}, 'skip': {skip}}}"
-            )
         if limit is not None:
             if limit < 0:
                 logger.error(
@@ -73,20 +58,11 @@ class DocumentCrud:
                 )
                 raise ValueError(f"Negative limit: {limit}")
             statement = statement.limit(limit)
-            logger.info(
-                f"[DocumentCrud.read_many] Applied limit | {{'owner_id': {self.owner_id}, 'limit': {limit}}}"
-            )
 
         documents = self.session.exec(statement).all()
-        logger.info(
-            f"[DocumentCrud.read_many] Documents retrieved successfully | {{'owner_id': {self.owner_id}, 'document_count': {len(documents)}}}"
-        )
         return documents
 
     def read_each(self, doc_ids: List[UUID]):
-        logger.info(
-            f"[DocumentCrud.read_each] Retrieving multiple documents | {{'owner_id': {self.owner_id}, 'doc_count': {len(doc_ids)}}}"
-        )
         statement = select(Document).where(
             and_(
                 Document.owner_id == self.owner_id,
@@ -102,27 +78,15 @@ class DocumentCrud:
             )
             raise ValueError(f"Requested {n} retrieved {m}")
 
-        logger.info(
-            f"[DocumentCrud.read_each] Documents retrieved successfully | {{'owner_id': {self.owner_id}, 'document_count': {m}}}"
-        )
         return results
 
     def update(self, document: Document):
-        logger.info(
-            f"[DocumentCrud.update] Starting document update | {{'doc_id': '{document.id}', 'owner_id': {self.owner_id}}}"
-        )
         if not document.owner_id:
-            logger.info(
-                f"[DocumentCrud.update] Assigning owner ID | {{'doc_id': '{document.id}', 'owner_id': {self.owner_id}}}"
-            )
             document.owner_id = self.owner_id
         elif document.owner_id != self.owner_id:
             error = "Invalid document ownership: owner={} attempter={}".format(
                 self.owner_id,
                 document.owner_id,
-            )
-            logger.warning(
-                f"[DocumentCrud.update] Ownership mismatch detected | {{'doc_id': '{document.id}', 'owner_id': {document.owner_id}, 'attempted_owner_id': {self.owner_id}}}"
             )
             logger.error(
                 f"[DocumentCrud.update] Permission error | {{'doc_id': '{document.id}', 'error': '{error}'}}"
@@ -141,9 +105,6 @@ class DocumentCrud:
         return document
 
     def delete(self, doc_id: UUID):
-        logger.info(
-            f"[DocumentCrud.delete] Starting document deletion | {{'doc_id': '{doc_id}', 'owner_id': {self.owner_id}}}"
-        )
         document = self.read_one(doc_id)
         document.deleted_at = now()
         document.updated_at = now()

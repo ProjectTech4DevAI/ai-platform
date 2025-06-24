@@ -18,23 +18,11 @@ class CollectionCrud:
     def __init__(self, session: Session, owner_id: int):
         self.session = session
         self.owner_id = owner_id
-        logger.info(
-            f"[CollectionCrud.init] Initialized CollectionCrud | {{'owner_id': {owner_id}}}"
-        )
 
     def _update(self, collection: Collection):
-        logger.info(
-            f"[CollectionCrud._update] Starting collection update | {{'collection_id': '{collection.id}', 'owner_id': {self.owner_id}}}"
-        )
         if not collection.owner_id:
-            logger.info(
-                f"[CollectionCrud._update] Assigning owner ID | {{'collection_id': '{collection.id}', 'owner_id': {self.owner_id}}}"
-            )
             collection.owner_id = self.owner_id
         elif collection.owner_id != self.owner_id:
-            logger.warning(
-                f"[CollectionCrud._update] Ownership mismatch detected | {{'collection_id': '{collection.id}', 'owner_id': {collection.owner_id}, 'attempted_owner_id': {self.owner_id}}}"
-            )
             err = "Invalid collection ownership: owner={} attempter={}".format(
                 self.owner_id,
                 collection.owner_id,
@@ -54,9 +42,6 @@ class CollectionCrud:
         return collection
 
     def _exists(self, collection: Collection):
-        logger.info(
-            f"[CollectionCrud._exists] Checking if collection exists | {{'llm_service_id': '{collection.llm_service_id}', 'llm_service_name': '{collection.llm_service_name}'}}"
-        )
         present = (
             self.session.query(func.count(Collection.id))
             .filter(
@@ -93,9 +78,6 @@ class CollectionCrud:
         return collection
 
     def read_one(self, collection_id: UUID):
-        logger.info(
-            f"[CollectionCrud.read_one] Retrieving collection | {{'collection_id': '{collection_id}', 'owner_id': {self.owner_id}}}"
-        )
         statement = select(Collection).where(
             and_(
                 Collection.owner_id == self.owner_id,
@@ -104,15 +86,9 @@ class CollectionCrud:
         )
 
         collection = self.session.exec(statement).one()
-        logger.info(
-            f"[CollectionCrud.read_one] Collection retrieved successfully | {{'collection_id': '{collection_id}'}}"
-        )
         return collection
 
     def read_all(self):
-        logger.info(
-            f"[CollectionCrud.read_all] Retrieving all collections | {{'owner_id': {self.owner_id}}}"
-        )
         statement = select(Collection).where(
             and_(
                 Collection.owner_id == self.owner_id,
@@ -121,9 +97,6 @@ class CollectionCrud:
         )
 
         collections = self.session.exec(statement).all()
-        logger.info(
-            f"[CollectionCrud.read_all] Collections retrieved successfully | {{'owner_id': {self.owner_id}, 'collection_count': {len(collections)}}}"
-        )
         return collections
 
     @ft.singledispatchmethod
@@ -135,9 +108,6 @@ class CollectionCrud:
 
     @delete.register
     def _(self, model: Collection, remote):
-        logger.info(
-            f"[CollectionCrud.delete] Starting collection deletion | {{'collection_id': '{model.id}', 'llm_service_id': '{model.llm_service_id}'}}"
-        )
         remote.delete(model.llm_service_id)
         model.deleted_at = now()
         collection = self._update(model)
@@ -162,9 +132,6 @@ class CollectionCrud:
         )
 
         for c in self.session.execute(statement):
-            logger.info(
-                f"[CollectionCrud.delete] Deleting collection associated with document | {{'document_id': '{model.id}', 'collection_id': '{c.Collection.id}'}}"
-            )
             self.delete(c.Collection, remote)
         self.session.refresh(model)
         logger.info(

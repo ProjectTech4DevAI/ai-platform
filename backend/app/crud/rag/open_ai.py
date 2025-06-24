@@ -15,17 +15,11 @@ logger = logging.getLogger(__name__)
 
 
 def vs_ls(client: OpenAI, vector_store_id: str):
-    logger.info(
-        f"[vs_ls] Listing files in vector store | {{'vector_store_id': '{vector_store_id}'}}"
-    )
     kwargs = {}
     while True:
         page = client.vector_stores.files.list(
             vector_store_id=vector_store_id,
             **kwargs,
-        )
-        logger.info(
-            f"[vs_ls] Retrieved page of files | {{'vector_store_id': '{vector_store_id}', 'has_more': {page.has_more}}}"
         )
         yield from page
         if not page.has_more:
@@ -40,18 +34,12 @@ class BaseModelEncoder(json.JSONEncoder):
 
     @default.register
     def _(self, o: BaseModel):
-        logger.info(
-            f"[BaseModelEncoder.default] Encoding BaseModel object | {{'model_type': '{type(o).__name__}'}}"
-        )
         return o.model_dump()
 
 
 class ResourceCleaner:
     def __init__(self, client):
         self.client = client
-        logger.info(
-            f"[ResourceCleaner.init] Initialized cleaner | {{'cleaner_type': '{type(self).__name__}'}}"
-        )
 
     def __str__(self):
         return type(self).__name__
@@ -95,9 +83,6 @@ class VectorStoreCleaner(ResourceCleaner):
             f"[VectorStoreCleaner.clean] Starting vector store cleanup | {{'vector_store_id': '{resource}'}}"
         )
         for i in vs_ls(self.client, resource):
-            logger.info(
-                f"[VectorStoreCleaner.clean] Deleting file | {{'vector_store_id': '{resource}', 'file_id': '{i.id}'}}"
-            )
             self.client.files.delete(i.id)
         logger.info(
             f"[VectorStoreCleaner.clean] Deleting vector store | {{'vector_store_id': '{resource}'}}"
@@ -108,9 +93,6 @@ class VectorStoreCleaner(ResourceCleaner):
 class OpenAICrud:
     def __init__(self, client=None):
         self.client = client or OpenAI(api_key=settings.OPENAI_API_KEY)
-        logger.info(
-            f"[OpenAICrud.init] Initialized OpenAI CRUD | {{'has_client': {client is not None}}}"
-        )
 
 
 class OpenAIVectorStoreCrud(OpenAICrud):
@@ -136,15 +118,9 @@ class OpenAIVectorStoreCrud(OpenAICrud):
         storage: CloudStorage,
         documents: Iterable[Document],
     ):
-        logger.info(
-            f"[OpenAIVectorStoreCrud.update] Starting vector store update | {{'vector_store_id': '{vector_store_id}'}}"
-        )
         files = []
         for docs in documents:
             for d in docs:
-                logger.info(
-                    f"[OpenAIVectorStoreCrud.update] Streaming document | {{'vector_store_id': '{vector_store_id}', 'document_id': '{d.id}', 'filename': '{d.fname}'}}"
-                )
                 f_obj = storage.stream(d.object_store_url)
 
                 # monkey patch botocore.response.StreamingBody to make
@@ -189,9 +165,6 @@ class OpenAIVectorStoreCrud(OpenAICrud):
             yield from docs
 
     def delete(self, vector_store_id: str, retries: int = 3):
-        logger.info(
-            f"[OpenAIVectorStoreCrud.delete] Starting vector store deletion | {{'vector_store_id': '{vector_store_id}', 'retries': {retries}}}"
-        )
         if retries < 1:
             logger.error(
                 f"[OpenAIVectorStoreCrud.delete] Invalid retries value | {{'vector_store_id': '{vector_store_id}', 'retries': {retries}}}"
@@ -251,15 +224,9 @@ class OpenAIAssistantCrud(OpenAICrud):
                 )
                 raise ValueError("No vector stores found")
 
-        logger.info(
-            f"[OpenAIAssistantCrud.delete] Deleting vector store | {{'assistant_id': '{assistant_id}', 'vector_store_id': '{vector_store_id}'}}"
-        )
         v_crud = OpenAIVectorStoreCrud(self.client)
         v_crud.delete(vector_store_id)
 
-        logger.info(
-            f"[OpenAIAssistantCrud.delete] Deleting assistant | {{'assistant_id': '{assistant_id}'}}"
-        )
         cleaner = AssistantCleaner(self.client)
         cleaner(assistant_id)
         logger.info(

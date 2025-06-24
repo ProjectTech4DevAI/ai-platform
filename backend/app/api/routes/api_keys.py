@@ -28,16 +28,12 @@ def create_key(
     """
     Generate a new API key for the user's organization.
     """
-    logger.info(
-        f"[apikey.create] Received create API key request | project_id={project_id}, user_id={user_id}"
-    )
-
     project = validate_project(session, project_id)
 
     existing_api_key = get_api_key_by_project_user(session, project_id, user_id)
     if existing_api_key:
         logger.warning(
-            f"[apikey.create] API key already exists | project_id={project_id}, user_id={user_id}"
+            f"[create_key] API key already exists | project_id={project_id}, user_id={user_id}"
         )
         raise HTTPException(
             status_code=400,
@@ -49,10 +45,6 @@ def create_key(
         organization_id=project.organization_id,
         user_id=user_id,
         project_id=project_id,
-    )
-
-    logger.info(
-        f"[apikey.create] Created API key | api_key_id={api_key.id}, project_id={project_id}, user_id={user_id}"
     )
     return APIResponse.success_response(api_key)
 
@@ -67,17 +59,10 @@ def list_keys(
     Retrieve all API keys for the given project. Superusers get all keys;
     regular users get only their own.
     """
-    logger.info(
-        f"[apikey.list] Fetching API keys | project_id={project_id}, requested_by_user_id={current_user.id}"
-    )
-
     project = validate_project(session=session, project_id=project_id)
 
     if current_user.is_superuser:
         api_keys = get_api_keys_by_project(session=session, project_id=project_id)
-        logger.info(
-            f"[apikey.list] Superuser access - {len(api_keys)} key(s) found | project_id={project_id}"
-        )
     else:
         user_api_key = get_api_key_by_project_user(
             session=session, project_id=project_id, user_id=current_user.id
@@ -85,15 +70,12 @@ def list_keys(
         api_keys = [user_api_key] if user_api_key else []
 
     if not api_keys:
-        logger.warning(f"[apikey.list] No API keys found | project_id={project_id}")
+        logger.warning(f"[list_keys] No API keys found | project_id={project_id}")
         raise HTTPException(
             status_code=404,
             detail="No API keys found for this project.",
         )
 
-    logger.info(
-        f"[apikey.list] Found API key | project_id={project_id}, requested_by_user_id={current_user.id}"
-    )
     return APIResponse.success_response(api_keys)
 
 
@@ -106,16 +88,11 @@ def get_key(
     """
     Retrieve an API key by ID.
     """
-    logger.info(
-        f"[apikey.get] Fetching API key | api_key_id={api_key_id}, requested_by_user_id={current_user.id}"
-    )
-
     api_key = get_api_key(session, api_key_id)
     if not api_key:
-        logger.warning(f"[apikey.get] API key not found | api_key_id={api_key_id}")
+        logger.warning(f"[get_key] API key not found | api_key_id={api_key_id}")
         raise HTTPException(404, "API Key does not exist")
 
-    logger.info(f"[apikey.get] API key fetched successfully | api_key_id={api_key_id}")
     return APIResponse.success_response(api_key)
 
 
@@ -128,10 +105,6 @@ def revoke_key(
     """
     Soft delete an API key (revoke access).
     """
-    logger.info(
-        f"[apikey.revoke] Revoking API key | api_key_id={api_key_id}, requested_by_user_id={current_user.id}"
-    )
-
     api_key = get_api_key(session, api_key_id)
     if not api_key:
         logger.warning(
@@ -140,5 +113,5 @@ def revoke_key(
         raise HTTPException(404, "API key not found or already deleted")
 
     delete_api_key(session, api_key_id)
-    logger.info(f"[apikey.revoke] API key revoked | api_key_id={api_key_id}")
+    logger.info(f"[revoke_key] API key revoked | api_key_id={api_key_id}")
     return APIResponse.success_response({"message": "API key revoked successfully"})

@@ -94,9 +94,6 @@ class SimpleStorageName:
         return urlunparse(self.to_url())
 
     def to_url(self):
-        logger.info(
-            f"[SimpleStorageName.to_url] Generating S3 URL | {{'bucket': '{self.Bucket}', 'key': '{self.Key}'}}"
-        )
         kwargs = {
             "scheme": "s3",
             "netloc": self.Bucket,
@@ -106,32 +103,22 @@ class SimpleStorageName:
             kwargs.setdefault(k)
 
         url = ParseResult(**kwargs)
-        logger.info(
-            f"[SimpleStorageName.to_url] S3 URL generated | {{'url': '{urlunparse(url)}'}}"
-        )
         return url
 
     @classmethod
     def from_url(cls, url: str):
-        logger.info(f"[SimpleStorageName.from_url] Parsing S3 URL | {{'url': '{url}'}}")
         url = urlparse(url)
         path = Path(url.path)
         if path.is_absolute():
             path = path.relative_to(path.root)
 
         instance = cls(Bucket=url.netloc, Key=str(path))
-        logger.info(
-            f"[SimpleStorageName.from_url] URL parsed successfully | {{'bucket': '{instance.Bucket}', 'key': '{instance.Key}'}}"
-        )
         return instance
 
 
 class CloudStorage:
     def __init__(self, user: CurrentUser):
         self.user = user
-        logger.info(
-            f"[CloudStorage.init] Initialized CloudStorage | {{'user_id': '{user.id}'}}"
-        )
 
     def put(self, source: UploadFile, basename: str):
         raise NotImplementedError()
@@ -144,9 +131,6 @@ class AmazonCloudStorage(CloudStorage):
     def __init__(self, user: CurrentUser):
         super().__init__(user)
         self.aws = AmazonCloudStorageClient()
-        logger.info(
-            f"[AmazonCloudStorage.init] Initialized AmazonCloudStorage | {{'user_id': '{user.id}'}}"
-        )
 
     def put(self, source: UploadFile, basename: Path) -> SimpleStorageName:
         logger.info(

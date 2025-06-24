@@ -17,12 +17,8 @@ logger = logging.getLogger(__name__)
 
 def generate_api_key() -> tuple[str, str]:
     """Generate a new API key and its hash."""
-    logger.info(f"[generate_api_key] Generating new API key | {{'action': 'generate'}}")
     raw_key = "ApiKey " + secrets.token_urlsafe(32)
     hashed_key = get_password_hash(raw_key)
-    logger.info(
-        f"[generate_api_key] API key generated successfully | {{'action': 'generated'}}"
-    )
     return raw_key, hashed_key
 
 
@@ -33,17 +29,11 @@ def create_api_key(
     Generates a new API key for an organization and associates it with a user.
     Returns the API key details with the raw key (shown only once).
     """
-    logger.info(
-        f"[create_api_key] Starting API key creation | {{'organization_id': {organization_id}, 'user_id': {user_id}, 'project_id': {project_id}}}"
-    )
     # Generate raw key and its hash using the helper function
     raw_key, hashed_key = generate_api_key()
     encrypted_key = encrypt_api_key(
         raw_key
     )  # Encrypt the raw key instead of hashed key
-    logger.info(
-        f"[create_api_key] API key encrypted | {{'user_id': {user_id}, 'project_id': {project_id}}}"
-    )
 
     # Create API key record with encrypted raw key
     api_key = APIKey(
@@ -56,9 +46,6 @@ def create_api_key(
     session.add(api_key)
     session.commit()
     session.refresh(api_key)
-    logger.info(
-        f"[create_api_key] API key created and stored | {{'api_key_id': {api_key.id}, 'user_id': {user_id}, 'project_id': {project_id}}}"
-    )
 
     # Set the raw key in the response (shown only once)
     api_key_dict = api_key.model_dump()
@@ -75,7 +62,6 @@ def get_api_key(session: Session, api_key_id: int) -> APIKeyPublic | None:
     Retrieves an API key by its ID if it exists and is not deleted.
     Returns the API key in its original format.
     """
-    logger.info(f"[get_api_key] Retrieving API key | {{'api_key_id': {api_key_id}}}")
     api_key = session.exec(
         select(APIKey).where(APIKey.id == api_key_id, APIKey.is_deleted == False)
     ).first()
@@ -86,9 +72,6 @@ def get_api_key(session: Session, api_key_id: int) -> APIKeyPublic | None:
         # Decrypt the key
         decrypted_key = decrypt_api_key(api_key.key)
         api_key_dict["key"] = decrypted_key
-        logger.info(
-            f"[get_api_key] API key retrieved successfully | {{'api_key_id': {api_key_id}}}"
-        )
         return APIKeyPublic.model_validate(api_key_dict)
 
     logger.warning(f"[get_api_key] API key not found | {{'api_key_id': {api_key_id}}}")
@@ -99,13 +82,10 @@ def delete_api_key(session: Session, api_key_id: int) -> None:
     """
     Soft deletes (revokes) an API key by marking it as deleted.
     """
-    logger.info(
-        f"[delete_api_key] Starting API key deletion | {{'api_key_id': {api_key_id}}}"
-    )
     api_key = session.get(APIKey, api_key_id)
 
     if not api_key:
-        logger.error(
+        logger.warning(
             f"[delete_api_key] API key not found | {{'api_key_id': {api_key_id}}}"
         )
         return
@@ -126,9 +106,6 @@ def get_api_key_by_value(session: Session, api_key_value: str) -> APIKeyPublic |
     Retrieve an API Key record by verifying the provided key against stored hashes.
     Returns the API key in its original format.
     """
-    logger.info(
-        f"[get_api_key_by_value] Retrieving API key by value | {{'action': 'lookup'}}"
-    )
     # Get all active API keys
     api_keys = session.exec(select(APIKey).where(APIKey.is_deleted == False)).all()
 
@@ -137,9 +114,6 @@ def get_api_key_by_value(session: Session, api_key_value: str) -> APIKeyPublic |
         if api_key_value == decrypted_key:
             api_key_dict = api_key.model_dump()
             api_key_dict["key"] = decrypted_key
-            logger.info(
-                f"[get_api_key_by_value] API key found | {{'api_key_id': {api_key.id}}}"
-            )
             return APIKeyPublic.model_validate(api_key_dict)
 
     logger.warning(
@@ -154,9 +128,6 @@ def get_api_key_by_project_user(
     """
     Retrieves the single API key associated with a project.
     """
-    logger.info(
-        f"[get_api_key_by_project_user] Retrieving API key | {{'project_id': {project_id}, 'user_id': '{user_id}'}}"
-    )
     statement = select(APIKey).where(
         APIKey.user_id == user_id,
         APIKey.project_id == project_id,
@@ -167,9 +138,6 @@ def get_api_key_by_project_user(
     if api_key:
         api_key_dict = api_key.model_dump()
         api_key_dict["key"] = decrypt_api_key(api_key.key)
-        logger.info(
-            f"[get_api_key_by_project_user] API key retrieved successfully | {{'api_key_id': {api_key.id}, 'project_id': {project_id}, 'user_id': '{user_id}'}}"
-        )
         return APIKeyPublic.model_validate(api_key_dict)
 
     logger.warning(
@@ -182,9 +150,6 @@ def get_api_keys_by_project(session: Session, project_id: int) -> list[APIKeyPub
     """
     Retrieves all API keys associated with a project.
     """
-    logger.info(
-        f"[get_api_keys_by_project] Retrieving API keys for project | {{'project_id': {project_id}}}"
-    )
     statement = select(APIKey).where(
         APIKey.project_id == project_id, APIKey.is_deleted == False
     )
@@ -196,7 +161,4 @@ def get_api_keys_by_project(session: Session, project_id: int) -> list[APIKeyPub
         key_dict["key"] = decrypt_api_key(key.key)
         result.append(APIKeyPublic.model_validate(key_dict))
 
-    logger.info(
-        f"[get_api_keys_by_project] API keys retrieved successfully | {{'project_id': {project_id}, 'key_count': {len(result)}}}"
-    )
     return result
