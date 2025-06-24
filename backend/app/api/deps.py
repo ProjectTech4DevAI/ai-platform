@@ -107,6 +107,30 @@ def get_current_user_org(
 CurrentUserOrg = Annotated[UserOrganization, Depends(get_current_user_org)]
 
 
+def get_current_user_org_project(
+    current_user: CurrentUser, session: SessionDep, request: Request
+) -> UserProjectOrg:
+    api_key = request.headers.get("X-API-KEY")
+    organization_id = None
+    project_id = None
+
+    if api_key:
+        api_key_record = get_api_key_by_value(session, api_key)
+        if api_key_record:
+            validate_organization(session, api_key_record.organization_id)
+            organization_id = api_key_record.organization_id
+            project_id = api_key_record.project_id
+
+    return UserProjectOrg(
+        **current_user.model_dump(),
+        organization_id=organization_id,
+        project_id=project_id,
+    )
+
+
+CurrentUserOrgProject = Annotated[UserProjectOrg, Depends(get_current_user_org_project)]
+
+
 def get_current_active_superuser(current_user: CurrentUser) -> User:
     if not current_user.is_superuser:
         raise HTTPException(

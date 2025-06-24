@@ -9,6 +9,8 @@ if TYPE_CHECKING:
     from .credentials import Credential
     from .project import Project
     from .api_key import APIKey
+    from .assistants import Assistant
+    from .collection import Collection
 
 
 # Shared properties for an Organization
@@ -42,6 +44,12 @@ class Organization(OrganizationBase, table=True):
         back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete"}
     )
     project: list["Project"] = Relationship(
+        back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete"}
+    )
+    assistants: list["Assistant"] = Relationship(
+        back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete"}
+    )
+    collections: list["Collection"] = Relationship(
         back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete"}
     )
 

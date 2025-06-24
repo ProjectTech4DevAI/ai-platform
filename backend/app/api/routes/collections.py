@@ -1,5 +1,6 @@
 import inspect
 import logging
+import time
 import warnings
 from uuid import UUID, uuid4
 from typing import Any, List, Optional
@@ -11,13 +12,14 @@ from fastapi import Path as FastPath
 from pydantic import BaseModel, Field, HttpUrl
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound, SQLAlchemyError
 
-from app.api.deps import CurrentUser, SessionDep
+from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
 from app.core.cloud import AmazonCloudStorage
 from app.core.config import settings
 from app.core.util import now, raise_from_unknown, post_callback
 from app.crud import DocumentCrud, CollectionCrud, DocumentCollectionCrud
 from app.crud.rag import OpenAIVectorStoreCrud, OpenAIAssistantCrud
 from app.models import Collection, Document
+from app.models.collection import CollectionStatus
 from app.utils import APIResponse, load_description
 
 router = APIRouter(prefix="/collections", tags=["collections"])
@@ -173,61 +175,77 @@ def do_create_collection(
     request: CreationRequest,
     payload: ResponsePayload,
 ):
+    start_time = time.time()
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
-    if request.callback_url is None:
-        callback = SilentCallback(payload)
-    else:
-        callback = WebHookCallback(request.callback_url, payload)
-
-    #
-    # Create the assistant and vector store
-    #
-
-    vector_store_crud = OpenAIVectorStoreCrud(client)
-    try:
-        vector_store = vector_store_crud.create()
-    except OpenAIError as err:
-        callback.fail(str(err))
-        return
+    callback = (
+        SilentCallback(payload)
+        if request.callback_url is None
+        else WebHookCallback(request.callback_url, payload)
+    )
 
     storage = AmazonCloudStorage(current_user)
     document_crud = DocumentCrud(session, current_user.id)
     assistant_crud = OpenAIAssistantCrud(client)
-
-    docs = request(document_crud)
-    kwargs = dict(request.extract_super_type(AssistantOptions))
-    try:
-        updates = vector_store_crud.update(vector_store.id, storage, docs)
-        documents = list(updates)
-        assistant = assistant_crud.create(vector_store.id, **kwargs)
-    except Exception as err:  # blanket to handle SQL and OpenAI errors
-        logging.error(f"File Search setup error: {err} ({type(err).__name__})")
-        vector_store_crud.delete(vector_store.id)
-        callback.fail(str(err))
-        return
-
-    #
-    # Store the results
-    #
-
+    vector_store_crud = OpenAIVectorStoreCrud(client)
     collection_crud = CollectionCrud(session, current_user.id)
-    collection = Collection(
-        id=UUID(payload.key),
-        llm_service_id=assistant.id,
-        llm_service_name=request.model,
-    )
+
     try:
-        collection_crud.create(collection, documents)
-    except SQLAlchemyError as err:
-        _backout(assistant_crud, assistant.id)
+        vector_store = vector_store_crud.create()
+
+        docs = list(request(document_crud))
+        flat_docs = [doc for sublist in docs for doc in sublist]
+
+        file_exts = {doc.fname.split(".")[-1] for doc in flat_docs if "." in doc.fname}
+        file_sizes_kb = [
+            storage.get_file_size_kb(doc.object_store_url) for doc in flat_docs
+        ]
+
+        logging.info(
+            f"[VectorStore Update] Uploading {len(flat_docs)} documents to vector store {vector_store.id}"
+        )
+        list(vector_store_crud.update(vector_store.id, storage, docs))
+        logging.info(f"[VectorStore Upload] Upload completed")
+
+        assistant_options = dict(request.extract_super_type(AssistantOptions))
+        logging.info(
+            f"[Assistant Create] Creating assistant with options: {assistant_options}"
+        )
+        assistant = assistant_crud.create(vector_store.id, **assistant_options)
+        logging.info(f"[Assistant Create] Assistant created: {assistant.id}")
+
+        collection = collection_crud.read_one(UUID(payload.key))
+        collection.llm_service_id = assistant.id
+        collection.llm_service_name = request.model
+        collection.status = CollectionStatus.successful
+        collection.updated_at = now()
+
+        if flat_docs:
+            logging.info(
+                f"[DocumentCollection] Linking {len(flat_docs)} documents to collection {collection.id}"
+            )
+            DocumentCollectionCrud(session).create(collection, flat_docs)
+
+        collection_crud._update(collection)
+
+        elapsed = time.time() - start_time
+        logging.info(
+            f"Collection created: {collection.id} | Time: {elapsed:.2f}s | "
+            f"Files: {len(flat_docs)} | Sizes: {file_sizes_kb} KB | Types: {list(file_exts)}"
+        )
+        callback.success(collection.model_dump(mode="json"))
+
+    except Exception as err:
+        logging.error(f"[Collection Creation Failed] {err} ({type(err).__name__})")
+        if "assistant" in locals():
+            _backout(assistant_crud, assistant.id)
+        try:
+            collection = collection_crud.read_one(UUID(payload.key))
+            collection.status = CollectionStatus.failed
+            collection.updated_at = now()
+            collection_crud._update(collection)
+        except Exception as suberr:
+            logging.warning(f"[Collection Status Update Failed] {suberr}")
         callback.fail(str(err))
-        return
-
-    #
-    # Send back successful response
-    #
-
-    callback.success(collection.model_dump(mode="json"))
 
 
 @router.post(
@@ -236,7 +254,7 @@ def do_create_collection(
 )
 def create_collection(
     session: SessionDep,
-    current_user: CurrentUser,
+    current_user: CurrentUserOrgProject,
     request: CreationRequest,
     background_tasks: BackgroundTasks,
 ):
@@ -244,6 +262,18 @@ def create_collection(
     route = router.url_path_for(this.f_code.co_name)
     payload = ResponsePayload("processing", route)
 
+    collection = Collection(
+        id=UUID(payload.key),
+        owner_id=current_user.id,
+        organization_id=current_user.organization_id,
+        project_id=current_user.project_id,
+        status=CollectionStatus.processing,
+    )
+
+    collection_crud = CollectionCrud(session, current_user.id)
+    collection_crud.create(collection)
+
+    # 2. Launch background task
     background_tasks.add_task(
         do_create_collection,
         session,
