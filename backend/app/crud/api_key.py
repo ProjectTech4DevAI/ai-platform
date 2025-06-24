@@ -1,5 +1,6 @@
 import uuid
 import secrets
+import logging
 from sqlmodel import Session, select
 from app.core.security import (
     get_password_hash,
@@ -10,6 +11,8 @@ from app.core import settings
 from app.core.util import now
 from app.core.exception_handlers import HTTPException
 from app.models.api_key import APIKey, APIKeyPublic
+
+logger = logging.getLogger(__name__)
 
 
 def generate_api_key() -> tuple[str, str]:
@@ -48,6 +51,9 @@ def create_api_key(
     api_key_dict = api_key.model_dump()
     api_key_dict["key"] = raw_key  # Return the raw key to the user
 
+    logger.info(
+        f"[create_api_key] API key creation completed | {{'api_key_id': {api_key.id}, 'user_id': {user_id}, 'project_id': {project_id}}}"
+    )
     return APIKeyPublic.model_validate(api_key_dict)
 
 
@@ -66,8 +72,9 @@ def get_api_key(session: Session, api_key_id: int) -> APIKeyPublic | None:
         # Decrypt the key
         decrypted_key = decrypt_api_key(api_key.key)
         api_key_dict["key"] = decrypted_key
-
         return APIKeyPublic.model_validate(api_key_dict)
+
+    logger.warning(f"[get_api_key] API key not found | {{'api_key_id': {api_key_id}}}")
     return None
 
 
@@ -77,12 +84,21 @@ def delete_api_key(session: Session, api_key_id: int) -> None:
     """
     api_key = session.get(APIKey, api_key_id)
 
+    if not api_key:
+        logger.warning(
+            f"[delete_api_key] API key not found | {{'api_key_id': {api_key_id}}}"
+        )
+        return
+
     api_key.is_deleted = True
     api_key.deleted_at = now()
     api_key.updated_at = now()
 
     session.add(api_key)
     session.commit()
+    logger.info(
+        f"[delete_api_key] API key soft deleted successfully | {{'api_key_id': {api_key_id}}}"
+    )
 
 
 def get_api_key_by_value(session: Session, api_key_value: str) -> APIKeyPublic | None:
@@ -97,10 +113,12 @@ def get_api_key_by_value(session: Session, api_key_value: str) -> APIKeyPublic |
         decrypted_key = decrypt_api_key(api_key.key)
         if api_key_value == decrypted_key:
             api_key_dict = api_key.model_dump()
-
             api_key_dict["key"] = decrypted_key
-
             return APIKeyPublic.model_validate(api_key_dict)
+
+    logger.warning(
+        f"[get_api_key_by_value] API key not found | {{'action': 'not_found'}}"
+    )
     return None
 
 
@@ -122,6 +140,9 @@ def get_api_key_by_project_user(
         api_key_dict["key"] = decrypt_api_key(api_key.key)
         return APIKeyPublic.model_validate(api_key_dict)
 
+    logger.warning(
+        f"[get_api_key_by_project_user] API key not found | {{'project_id': {project_id}, 'user_id': '{user_id}'}}"
+    )
     return None
 
 

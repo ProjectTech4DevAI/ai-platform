@@ -1,3 +1,4 @@
+import logging
 import functools as ft
 from uuid import UUID
 from typing import Optional
@@ -9,6 +10,8 @@ from app.core.util import now
 from app.models.collection import CollectionStatus
 
 from .document_collection import DocumentCollectionCrud
+
+logger = logging.getLogger(__name__)
 
 
 class CollectionCrud:
@@ -24,11 +27,17 @@ class CollectionCrud:
                 self.owner_id,
                 collection.owner_id,
             )
+            logger.error(
+                f"[CollectionCrud._update] Permission error | {{'collection_id': '{collection.id}', 'error': '{err}'}}"
+            )
             raise PermissionError(err)
 
         self.session.add(collection)
         self.session.commit()
         self.session.refresh(collection)
+        logger.info(
+            f"[CollectionCrud._update] Collection updated successfully | {{'collection_id': '{collection.id}'}}"
+        )
 
         return collection
 
@@ -40,6 +49,9 @@ class CollectionCrud:
                 Collection.llm_service_name == collection.llm_service_name,
             )
             .scalar()
+        )
+        logger.info(
+            f"[CollectionCrud._exists] Existence check completed | {{'llm_service_id': '{collection.llm_service_id}', 'exists': {bool(present)}}}"
         )
 
         return bool(present)
@@ -73,7 +85,8 @@ class CollectionCrud:
             )
         )
 
-        return self.session.exec(statement).one()
+        collection = self.session.exec(statement).one()
+        return collection
 
     def read_all(self):
         statement = select(Collection).where(
@@ -83,20 +96,31 @@ class CollectionCrud:
             )
         )
 
-        return self.session.exec(statement).all()
+        collections = self.session.exec(statement).all()
+        return collections
 
     @ft.singledispatchmethod
     def delete(self, model, remote):  # remote should be an OpenAICrud
+        logger.error(
+            f"[CollectionCrud.delete] Invalid model type | {{'model_type': '{type(model).__name__}'}}"
+        )
         raise TypeError(type(model))
 
     @delete.register
     def _(self, model: Collection, remote):
         remote.delete(model.llm_service_id)
         model.deleted_at = now()
-        return self._update(model)
+        collection = self._update(model)
+        logger.info(
+            f"[CollectionCrud.delete] Collection deleted successfully | {{'collection_id': '{model.id}'}}"
+        )
+        return collection
 
     @delete.register
     def _(self, model: Document, remote):
+        logger.info(
+            f"[CollectionCrud.delete] Starting document deletion from collections | {{'document_id': '{model.id}'}}"
+        )
         statement = (
             select(Collection)
             .join(
@@ -110,5 +134,8 @@ class CollectionCrud:
         for c in self.session.execute(statement):
             self.delete(c.Collection, remote)
         self.session.refresh(model)
+        logger.info(
+            f"[CollectionCrud.delete] Document deletion from collections completed | {{'document_id': '{model.id}'}}"
+        )
 
         return model

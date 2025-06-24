@@ -1,11 +1,13 @@
 import sentry_sdk
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.routing import APIRoute
 
 from app.api.main import api_router
 from app.core.config import settings
+import app.core.logger
 from app.core.exception_handlers import register_exception_handlers
+from app.core.middleware import http_request_logger
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -20,6 +22,8 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     generate_unique_id_function=custom_generate_unique_id,
 )
+
+app.middleware("http")(http_request_logger)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 

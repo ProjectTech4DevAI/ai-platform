@@ -1,4 +1,4 @@
-import uuid
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session
 from app.api.deps import get_db, get_current_active_superuser
@@ -14,6 +14,7 @@ from app.models import APIKeyPublic, User
 from app.utils import APIResponse
 from app.core.exception_handlers import HTTPException
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/apikeys", tags=["API Keys"])
 
 
@@ -27,17 +28,18 @@ def create_key(
     """
     Generate a new API key for the user's organization.
     """
-    # Validate organization
     project = validate_project(session, project_id)
 
     existing_api_key = get_api_key_by_project_user(session, project_id, user_id)
     if existing_api_key:
+        logger.warning(
+            f"[create_key] API key already exists | project_id={project_id}, user_id={user_id}"
+        )
         raise HTTPException(
             status_code=400,
             detail="API Key already exists for this user and project.",
         )
 
-    # Create and return API key
     api_key = create_api_key(
         session,
         organization_id=project.organization_id,
@@ -57,21 +59,18 @@ def list_keys(
     Retrieve all API keys for the given project. Superusers get all keys;
     regular users get only their own.
     """
-    # Validate project
     project = validate_project(session=session, project_id=project_id)
 
     if current_user.is_superuser:
-        # Superuser: fetch all API keys for the project
         api_keys = get_api_keys_by_project(session=session, project_id=project_id)
     else:
-        # Regular user: fetch only their own API key
         user_api_key = get_api_key_by_project_user(
             session=session, project_id=project_id, user_id=current_user.id
         )
         api_keys = [user_api_key] if user_api_key else []
 
-    # Raise an exception if no API keys are found for the project
     if not api_keys:
+        logger.warning(f"[list_keys] No API keys found | project_id={project_id}")
         raise HTTPException(
             status_code=404,
             detail="No API keys found for this project.",
@@ -91,6 +90,7 @@ def get_key(
     """
     api_key = get_api_key(session, api_key_id)
     if not api_key:
+        logger.warning(f"[get_key] API key not found | api_key_id={api_key_id}")
         raise HTTPException(404, "API Key does not exist")
 
     return APIResponse.success_response(api_key)
@@ -106,10 +106,12 @@ def revoke_key(
     Soft delete an API key (revoke access).
     """
     api_key = get_api_key(session, api_key_id)
-
     if not api_key:
+        logger.warning(
+            f"[apikey.revoke] API key not found or already deleted | api_key_id={api_key_id}"
+        )
         raise HTTPException(404, "API key not found or already deleted")
 
     delete_api_key(session, api_key_id)
-
+    logger.info(f"[revoke_key] API key revoked | api_key_id={api_key_id}")
     return APIResponse.success_response({"message": "API key revoked successfully"})
