@@ -168,9 +168,7 @@ class WebHookCallback(CallbackHandler):
         self(APIResponse.failure_response(body), "incomplete")
 
     def success(self, body):
-        logger.info(
-            f"[WebHookCallback.success] Callback succeeded"
-        )
+        logger.info(f"[WebHookCallback.success] Callback succeeded")
         self(APIResponse.success_response(body), "complete")
 
 
