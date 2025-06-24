@@ -256,11 +256,13 @@ async def threads(
     )
     client, success = configure_openai(credentials)
     if not success:
+        logging.error(
+            f"Failed to configure OpenAI API for organization { _current_user.organization_id }"
+        )
         return APIResponse.failure_response(
             error="OpenAI API key not configured for this organization."
         )
 
-    # Fetch Langfuse credentials (optional)
     langfuse_credentials = get_provider_credential(
         session=_session,
         org_id=_current_user.organization_id,
@@ -268,14 +270,30 @@ async def threads(
         project_id=request.get("project_id"),
     )
 
-    # If Langfuse credentials exist, configure Langfuse
+    # If Langfuse credentials exists, configure Langfuse
     if langfuse_credentials:
-        langfuse_context.configure(
-            secret_key=langfuse_credentials["secret_key"],
-            public_key=langfuse_credentials["public_key"],
-            host=langfuse_credentials["host"],
+        LANGFUSE_TRACING_ENABLED = True
+        logging.info(
+            f"Langfuse tracing enabled for organization { _current_user.organization_id }"
         )
-        
+    else:
+        LANGFUSE_TRACING_ENABLED = False
+        logging.info(
+            f"Langfuse credentials not found for organization { _current_user.organization_id }. Tracing disabled."
+        )
+
+    # Configure Langfuse
+    langfuse_context.configure(
+        secret_key=langfuse_credentials.get("secret_key")
+        if langfuse_credentials
+        else None,
+        public_key=langfuse_credentials.get("public_key")
+        if langfuse_credentials
+        else None,
+        host=langfuse_credentials.get("host") if langfuse_credentials else None,
+        enabled=LANGFUSE_TRACING_ENABLED,
+    )
+
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
     if not is_valid:
@@ -383,16 +401,12 @@ async def start_thread(
             error="OpenAI API key not configured for this organization."
         )
 
-    client = OpenAI(api_key=openai_credentials["api_key"])
-    # Setup thread
     is_success, error = setup_thread(client, request)
     if not is_success:
         raise Exception(error)
 
     thread_id = request["thread_id"]
-    prompt = request["question"]
 
-    # Insert thread data into the database
     upsert_thread_result(
         db,
         OpenAIThreadCreate(
@@ -404,7 +418,6 @@ async def start_thread(
         ),
     )
 
-    # Schedule background task
     background_tasks.add_task(poll_run_and_prepare_response, request, client, db)
 
     return APIResponse.success_response(
