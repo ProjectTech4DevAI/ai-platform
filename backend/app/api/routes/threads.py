@@ -270,29 +270,16 @@ async def threads(
         project_id=request.get("project_id"),
     )
 
-    # If Langfuse credentials exists, configure Langfuse
     if langfuse_credentials:
-        LANGFUSE_TRACING_ENABLED = True
         logging.info(
-            f"Langfuse tracing enabled for organization { _current_user.organization_id }"
+            f"Langfuse credentials found for organization {_current_user.organization_id}. Enabling tracing."
         )
+        _, success = configure_langfuse(langfuse_credentials, enabled=True)
     else:
-        LANGFUSE_TRACING_ENABLED = False
         logging.info(
-            f"Langfuse credentials not found for organization { _current_user.organization_id }. Tracing disabled."
+            f"Langfuse credentials not found for organization {_current_user.organization_id}. Disabling tracing."
         )
-
-    # Configure Langfuse
-    langfuse_context.configure(
-        secret_key=langfuse_credentials.get("secret_key")
-        if langfuse_credentials
-        else None,
-        public_key=langfuse_credentials.get("public_key")
-        if langfuse_credentials
-        else None,
-        host=langfuse_credentials.get("host") if langfuse_credentials else None,
-        enabled=LANGFUSE_TRACING_ENABLED,
-    )
+        _, success = configure_langfuse({}, enabled=False)
 
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))

@@ -37,37 +37,84 @@ def post_callback(url: HttpUrl, payload: BaseModel):
     return not errno
 
 
-def configure_langfuse(credentials: dict) -> tuple[Langfuse, bool]:
+# def configure_langfuse(credentials: dict) -> tuple[Langfuse, bool]:
+#    """
+#    Configure Langfuse client and context with the provided credentials.
+#
+#    Args:
+#        credentials: Dictionary containing Langfuse credentials (public_key, secret_key, host)
+#
+#    Returns:
+#        Tuple of (Langfuse client instance, success boolean)
+#    """
+#    if not credentials:
+#        return None, False
+#
+#    try:
+#        # Configure Langfuse client
+#        langfuse = Langfuse(
+#            public_key=credentials["public_key"],
+#            secret_key=credentials["secret_key"],
+#            host=credentials.get("host", "https://cloud.langfuse.com"),
+#        )
+#
+#        # Configure Langfuse context
+#        langfuse_context.configure(
+#            secret_key=credentials["secret_key"],
+#            public_key=credentials["public_key"],
+#            host=credentials.get("host", "https://cloud.langfuse.com"),
+#        )
+#
+#        return langfuse, True
+#    except Exception as e:
+#        warnings.warn(f"Failed to configure Langfuse: {str(e)}")
+#        return None, False
+
+
+def configure_langfuse(credentials: dict, enabled: bool) -> tuple[Langfuse, bool]:
     """
-    Configure Langfuse client and context with the provided credentials.
+    Configure Langfuse client and context with the provided credentials and tracing status.
 
     Args:
         credentials: Dictionary containing Langfuse credentials (public_key, secret_key, host)
+        enabled: Boolean to enable/disable Langfuse tracing.
 
     Returns:
         Tuple of (Langfuse client instance, success boolean)
     """
-    if not credentials:
-        return None, False
-
     try:
-        # Configure Langfuse client
-        langfuse = Langfuse(
-            public_key=credentials["public_key"],
-            secret_key=credentials["secret_key"],
-            host=credentials.get("host", "https://cloud.langfuse.com"),
-        )
+        if credentials:
+            # If credentials exist, configure Langfuse client and enable tracing
+            # Configure Langfuse client
+            langfuse = Langfuse(
+                public_key=credentials["public_key"],
+                secret_key=credentials["secret_key"],
+                host=credentials.get("host", "https://cloud.langfuse.com"),
+            )
 
-        # Configure Langfuse context
-        langfuse_context.configure(
-            secret_key=credentials["secret_key"],
-            public_key=credentials["public_key"],
-            host=credentials.get("host", "https://cloud.langfuse.com"),
-        )
+            # Configure Langfuse context with tracing status
+            langfuse_context.configure(
+                secret_key=credentials["secret_key"],
+                public_key=credentials["public_key"],
+                host=credentials.get("host", "https://cloud.langfuse.com"),
+                enabled=enabled,
+            )
 
-        return langfuse, True
+            return langfuse, True
+
+        else:
+            # If no credentials, disable tracing
+            # Disable Langfuse context if no credentials are provided
+            langfuse_context.configure(
+                secret_key=None,
+                public_key=None,
+                host=None,
+                enabled=False,
+            )
+
+            return None, False
+
     except Exception as e:
-        warnings.warn(f"Failed to configure Langfuse: {str(e)}")
         return None, False
 
 
