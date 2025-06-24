@@ -37,7 +37,7 @@ class StartThreadRequest(BaseModel):
 
 
 def send_callback(callback_url: str, data: dict):
-    """Send results to the callback URL (synchron ously)."""
+    """Send results to the callback URL (synchronously)."""
     try:
         session = requests.Session()
         # uncomment this to run locally without SSL
