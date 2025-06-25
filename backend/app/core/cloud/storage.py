@@ -37,15 +37,9 @@ class AmazonCloudStorageClient:
         return client
 
     def create(self):
-        logger.info(
-            f"[AmazonCloudStorageClient.create] Checking/creating S3 bucket | {{'bucket': '{settings.AWS_S3_BUCKET}'}}"
-        )
         try:
             # does the bucket exist...
             self.client.head_bucket(Bucket=settings.AWS_S3_BUCKET)
-            logger.info(
-                f"[AmazonCloudStorageClient.create] Bucket exists | {{'bucket': '{settings.AWS_S3_BUCKET}'}}"
-            )
         except ValueError as err:
             logger.error(
                 f"[AmazonCloudStorageClient.create] Invalid bucket configuration | {{'bucket': '{settings.AWS_S3_BUCKET}', 'error': '{str(err)}'}}"
@@ -127,9 +121,6 @@ class AmazonCloudStorage(CloudStorage):
         self.aws = AmazonCloudStorageClient()
 
     def put(self, source: UploadFile, basename: Path) -> SimpleStorageName:
-        logger.info(
-            f"[AmazonCloudStorage.put] Starting file upload | {{'user_id': '{self.user.id}', 'filename': '{source.filename}', 'basename': '{basename}'}}"
-        )
         key = Path(str(self.user.id), basename)
         destination = SimpleStorageName(str(key))
 
@@ -155,9 +146,6 @@ class AmazonCloudStorage(CloudStorage):
         return destination
 
     def stream(self, url: str) -> StreamingBody:
-        logger.info(
-            f"[AmazonCloudStorage.stream] Starting file stream | {{'user_id': '{self.user.id}', 'url': '{url}'}}"
-        )
         name = SimpleStorageName.from_url(url)
         kwargs = asdict(name)
         try:
@@ -190,9 +178,6 @@ class AmazonCloudStorage(CloudStorage):
             raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err
 
     def delete(self, url: str) -> None:
-        logger.info(
-            f"[AmazonCloudStorage.delete] Starting file deletion | {{'user_id': '{self.user.id}', 'url': '{url}'}}"
-        )
         name = SimpleStorageName.from_url(url)
         kwargs = asdict(name)
         try:
