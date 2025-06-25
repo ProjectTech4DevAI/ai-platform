@@ -118,9 +118,6 @@ class CollectionCrud:
 
     @delete.register
     def _(self, model: Document, remote):
-        logger.info(
-            f"[CollectionCrud.delete] Starting document deletion from collections | {{'document_id': '{model.id}'}}"
-        )
         statement = (
             select(Collection)
             .join(

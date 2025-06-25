@@ -23,9 +23,6 @@ class CloudStorageError(Exception):
 class AmazonCloudStorageClient:
     @ft.cached_property
     def client(self):
-        logger.info(
-            f"[AmazonCloudStorageClient.client] Initializing S3 client | {{'region': '{settings.AWS_DEFAULT_REGION}'}}"
-        )
         kwargs = {}
         cred_params = (
             ("aws_access_key_id", "AWS_ACCESS_KEY_ID"),
@@ -37,9 +34,6 @@ class AmazonCloudStorageClient:
             kwargs[i] = os.environ.get(j, getattr(settings, j))
 
         client = boto3.client("s3", **kwargs)
-        logger.info(
-            f"[AmazonCloudStorageClient.client] S3 client initialized | {{'region': '{settings.AWS_DEFAULT_REGION}'}}"
-        )
         return client
 
     def create(self):
@@ -179,9 +173,6 @@ class AmazonCloudStorage(CloudStorage):
             raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err
 
     def get_file_size_kb(self, url: str) -> float:
-        logger.info(
-            f"[AmazonCloudStorage.get_file_size_kb] Starting file size retrieval | {{'user_id': '{self.user.id}', 'url': '{url}'}}"
-        )
         name = SimpleStorageName.from_url(url)
         kwargs = asdict(name)
         try:
