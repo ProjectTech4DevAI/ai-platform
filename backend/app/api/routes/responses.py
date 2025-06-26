@@ -103,6 +103,7 @@ def process_response(
     assistant,
     organization_id: int,
     langfuse: Langfuse,
+    session_id: Optional[str] = None,
 ):
     """Process a response and send callback with results, with Langfuse tracing."""
     logger.info(
@@ -114,14 +115,9 @@ def process_response(
         name="response_processing",
         input={"question": request.question, "assistant_id": request.assistant_id},
         metadata={
-            "project_id": request.project_id,
-            "organization_id": organization_id,
             "callback_url": request.callback_url,
         },
-        tags=[
-            f"project:{request.project_id}",
-            f"org:{organization_id}",
-        ],
+        session_id=session_id,
     )
 
     try:
@@ -166,7 +162,6 @@ def process_response(
             output={
                 "response_id": response.id,
                 "message": response.output_text,
-                "chunks": [chunk.model_dump() for chunk in response_chunks],
             },
             usage={
                 "input": response.usage.input_tokens,
@@ -178,8 +173,8 @@ def process_response(
         )
 
         trace.update(
-            session_id=response.id,
-            output={"status": "success","error": None}
+            tags=[response.id],
+            output={"status": "success","message": response.output_text,"error": None}
         )
 
         request_dict = request.model_dump()
@@ -207,10 +202,12 @@ def process_response(
         generation.end(output={"error": error_message})
 
         trace.update(
-            session_id=response.id,
+            tags=[response.id],
             output={"status": "failure", "error": error_message}
         )
         callback_response = ResponsesAPIResponse.failure_response(error=error_message)
+
+    langfuse.flush()
 
     if request.callback_url:
         logger.info(
@@ -221,9 +218,6 @@ def process_response(
         logger.info(
             f"Callback sent successfully, assistant={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
         )
-
-    # Flush Langfuse to ensure all events are sent
-    langfuse.flush()
 
 
 @router.post("/responses", response_model=dict)
@@ -298,6 +292,14 @@ async def responses(
         host=langfuse_credentials["host"],
     )
 
+    session_id = str(uuid.uuid4())
+    if request.response_id:
+        traces = langfuse.fetch_traces(
+            tags=request.response_id,
+        )
+        traces = traces.data
+        if traces and len(traces) > 0:
+            session_id = traces[0].session_id
 
     # Send immediate response
     initial_response = {
@@ -319,6 +321,7 @@ async def responses(
         assistant,
         _current_user.organization_id,
         langfuse,
+        session_id=session_id,
     )
     logger.info(
         f"Background task scheduled for response processing: assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
@@ -372,19 +375,23 @@ async def responses_sync(
     )
 
 
+    session_id = str(uuid.uuid4())
+    if request.response_id:
+        traces = langfuse.fetch_traces(
+            tags=request.response_id,
+        )
+        traces = traces.data
+        if traces and len(traces) > 0:
+            session_id = traces[0].session_id
+
     # Create a Langfuse trace
     trace = langfuse.trace(
         name="response_processing",
         input={"question": request.question, "assistant_id": request.assistant_id},
         metadata={
-            "project_id": request.project_id,
-            "organization_id": _current_user.organization_id,
             "callback_url": request.callback_url,
         },
-        tags=[
-            f"project:{request.project_id}",
-            f"org:{_current_user.organization_id}",
-        ],
+        session_id=session_id,
     )
 
     client = OpenAI(api_key=credentials["api_key"])
@@ -398,7 +405,6 @@ async def responses_sync(
             metadata={
                 "model": request.model,
                 "temperature": request.temperature,
-                "vector_store_ids": request.vector_store_ids,
             },
         )
 
@@ -437,8 +443,8 @@ async def responses_sync(
         )
 
         trace.update(
-            session_id=response.id,
-            output={"status": "success","error": None}
+            tags=[response.id],
+            output={"status": "success","message": response.output_text,"error": None}
         )
 
         # Flush Langfuse to ensure all events are sent
@@ -463,7 +469,7 @@ async def responses_sync(
         # Log error to Langfuse
         generation.end(output={"error": error_message})
         trace.update(
-            session_id=response.id,
+            tags=[response.id],
             output={"status": "failure", "error": error_message}
         )
         langfuse.flush()
