@@ -319,7 +319,7 @@ def do_delete_collection(
         )
         callback.success(data.model_dump(mode="json"))
     except (ValueError, PermissionError, SQLAlchemyError) as err:
-        logger.warning(
+        logger.error(
             f"[do_delete_collection] Failed to delete collection | {{'collection_id': '{request.collection_id}', 'error': '{str(err)}'}}"
         )
         callback.fail(str(err))
