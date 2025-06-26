@@ -12,6 +12,7 @@ from botocore.response import StreamingBody
 
 from app.api.deps import CurrentUser
 from app.core.config import settings
+from app.utils import mask_string
 
 logger = logging.getLogger(__name__)
 
@@ -38,23 +39,24 @@ class AmazonCloudStorageClient:
 
     def create(self):
         try:
-            # does the bucket exist...
             self.client.head_bucket(Bucket=settings.AWS_S3_BUCKET)
         except ValueError as err:
             logger.error(
-                f"[AmazonCloudStorageClient.create] Invalid bucket configuration | {{'bucket': '{settings.AWS_S3_BUCKET}', 'error': '{str(err)}'}}"
+                f"[AmazonCloudStorageClient.create] Invalid bucket configuration | "
+                f"{{'bucket': '{mask_string(settings.AWS_S3_BUCKET)}', 'error': '{str(err)}'}}"
             )
             raise CloudStorageError(err) from err
         except ClientError as err:
             response = int(err.response["Error"]["Code"])
             if response != 404:
                 logger.error(
-                    f"[AmazonCloudStorageClient.create] Unexpected AWS error | {{'bucket': '{settings.AWS_S3_BUCKET}', 'error': '{str(err)}', 'code': {response}}}"
+                    f"[AmazonCloudStorageClient.create] Unexpected AWS error | "
+                    f"{{'bucket': '{mask_string(settings.AWS_S3_BUCKET)}', 'error': '{str(err)}', 'code': {response}}}"
                 )
                 raise CloudStorageError(err) from err
-            # ... if not create it
             logger.warning(
-                f"[AmazonCloudStorageClient.create] Bucket not found, creating | {{'bucket': '{settings.AWS_S3_BUCKET}'}}"
+                f"[AmazonCloudStorageClient.create] Bucket not found, creating | "
+                f"{{'bucket': '{mask_string(settings.AWS_S3_BUCKET)}'}}"
             )
             try:
                 self.client.create_bucket(
@@ -64,11 +66,13 @@ class AmazonCloudStorageClient:
                     },
                 )
                 logger.info(
-                    f"[AmazonCloudStorageClient.create] Bucket created successfully | {{'bucket': '{settings.AWS_S3_BUCKET}'}}"
+                    f"[AmazonCloudStorageClient.create] Bucket created successfully | "
+                    f"{{'bucket': '{mask_string(settings.AWS_S3_BUCKET)}'}}"
                 )
             except ClientError as create_err:
                 logger.error(
-                    f"[AmazonCloudStorageClient.create] Failed to create bucket | {{'bucket': '{settings.AWS_S3_BUCKET}', 'error': '{str(create_err)}'}}"
+                    f"[AmazonCloudStorageClient.create] Failed to create bucket | "
+                    f"{{'bucket': '{mask_string(settings.AWS_S3_BUCKET)}', 'error': '{str(create_err)}'}}"
                 )
                 raise CloudStorageError(create_err) from create_err
 
@@ -89,9 +93,7 @@ class SimpleStorageName:
         }
         for k in ParseResult._fields:
             kwargs.setdefault(k)
-
-        url = ParseResult(**kwargs)
-        return url
+        return ParseResult(**kwargs)
 
     @classmethod
     def from_url(cls, url: str):
@@ -99,9 +101,7 @@ class SimpleStorageName:
         path = Path(url.path)
         if path.is_absolute():
             path = path.relative_to(path.root)
-
-        instance = cls(Bucket=url.netloc, Key=str(path))
-        return instance
+        return cls(Bucket=url.netloc, Key=str(path))
 
 
 class CloudStorage:
@@ -123,23 +123,24 @@ class AmazonCloudStorage(CloudStorage):
     def put(self, source: UploadFile, basename: Path) -> SimpleStorageName:
         key = Path(str(self.user.id), basename)
         destination = SimpleStorageName(str(key))
-
         kwargs = asdict(destination)
+
         try:
             self.aws.client.upload_fileobj(
                 source.file,
                 ExtraArgs={
-                    # 'Metadata': self.user.model_dump(),
                     "ContentType": source.content_type,
                 },
                 **kwargs,
             )
             logger.info(
-                f"[AmazonCloudStorage.put] File uploaded successfully | {{'user_id': '{self.user.id}', 'bucket': '{destination.Bucket}', 'key': '{destination.Key}'}}"
+                f"[AmazonCloudStorage.put] File uploaded successfully | "
+                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(destination.Bucket)}', 'key': '{mask_string(destination.Key)}'}}"
             )
         except ClientError as err:
             logger.error(
-                f"[AmazonCloudStorage.put] AWS upload error | {{'user_id': '{self.user.id}', 'bucket': '{destination.Bucket}', 'key': '{destination.Key}', 'error': '{str(err)}'}}"
+                f"[AmazonCloudStorage.put] AWS upload error | "
+                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(destination.Bucket)}', 'key': '{mask_string(destination.Key)}', 'error': '{str(err)}'}}"
             )
             raise CloudStorageError(f'AWS Error: "{err}"') from err
 
@@ -151,12 +152,14 @@ class AmazonCloudStorage(CloudStorage):
         try:
             body = self.aws.client.get_object(**kwargs).get("Body")
             logger.info(
-                f"[AmazonCloudStorage.stream] File streamed successfully | {{'user_id': '{self.user.id}', 'bucket': '{name.Bucket}', 'key': '{name.Key}'}}"
+                f"[AmazonCloudStorage.stream] File streamed successfully | "
+                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}'}}"
             )
             return body
         except ClientError as err:
             logger.error(
-                f"[AmazonCloudStorage.stream] AWS stream error | {{'user_id': '{self.user.id}', 'bucket': '{name.Bucket}', 'key': '{name.Key}', 'error': '{str(err)}'}}"
+                f"[AmazonCloudStorage.stream] AWS stream error | "
+                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}', 'error': '{str(err)}'}}"
             )
             raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err
 
@@ -168,12 +171,14 @@ class AmazonCloudStorage(CloudStorage):
             size_bytes = response["ContentLength"]
             size_kb = round(size_bytes / 1024, 2)
             logger.info(
-                f"[AmazonCloudStorage.get_file_size_kb] File size retrieved successfully | {{'user_id': '{self.user.id}', 'bucket': '{name.Bucket}', 'key': '{name.Key}', 'size_kb': {size_kb}}}"
+                f"[AmazonCloudStorage.get_file_size_kb] File size retrieved successfully | "
+                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}', 'size_kb': {size_kb}}}"
             )
             return size_kb
         except ClientError as err:
             logger.error(
-                f"[AmazonCloudStorage.get_file_size_kb] AWS head object error | {{'user_id': '{self.user.id}', 'bucket': '{name.Bucket}', 'key': '{name.Key}', 'error': '{str(err)}'}}"
+                f"[AmazonCloudStorage.get_file_size_kb] AWS head object error | "
+                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}', 'error': '{str(err)}'}}"
             )
             raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err
 
@@ -183,10 +188,12 @@ class AmazonCloudStorage(CloudStorage):
         try:
             self.aws.client.delete_object(**kwargs)
             logger.info(
-                f"[AmazonCloudStorage.delete] File deleted successfully | {{'user_id': '{self.user.id}', 'bucket': '{name.Bucket}', 'key': '{name.Key}'}}"
+                f"[AmazonCloudStorage.delete] File deleted successfully | "
+                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}'}}"
             )
         except ClientError as err:
             logger.error(
-                f"[AmazonCloudStorage.delete] AWS delete error | {{'user_id': '{self.user.id}', 'bucket': '{name.Bucket}', 'key': '{name.Key}', 'error': '{str(err)}'}}"
+                f"[AmazonCloudStorage.delete] AWS delete error | "
+                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}', 'error': '{str(err)}'}}"
             )
             raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err

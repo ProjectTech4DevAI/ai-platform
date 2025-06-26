@@ -135,13 +135,13 @@ class CallbackHandler:
 class SilentCallback(CallbackHandler):
     def fail(self, body):
         logger.info(
-            f"[SilentCallback.fail] Silent callback failure | {{'body': '{body}'}}"
+            f"[SilentCallback.fail] Silent callback failure"
         )
         return
 
     def success(self, body):
         logger.info(
-            f"[SilentCallback.success] Silent callback success | {{'body': '{body}'}}"
+            f"[SilentCallback.success] Silent callback success"
         )
         return
 
@@ -309,6 +309,8 @@ def do_delete_collection(
     payload: ResponsePayload,
 ):
     if request.callback_url is None:
+        print("Using silent callback")
+        print(f"Payload: {payload}")
         callback = SilentCallback(payload)
     else:
         callback = WebHookCallback(request.callback_url, payload)
