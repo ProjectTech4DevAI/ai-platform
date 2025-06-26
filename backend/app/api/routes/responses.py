@@ -156,7 +156,6 @@ def process_response(
             f"Successfully generated response: response_id={response.id}, assistant={request.assistant_id}, project_id={request.project_id}, organization_id={organization_id}"
         )
 
-
         # Update generation with output and usage
         generation.end(
             output={
@@ -174,7 +173,11 @@ def process_response(
 
         trace.update(
             tags=[response.id],
-            output={"status": "success","message": response.output_text,"error": None}
+            output={
+                "status": "success",
+                "message": response.output_text,
+                "error": None,
+            },
         )
 
         request_dict = request.model_dump()
@@ -202,8 +205,7 @@ def process_response(
         generation.end(output={"error": error_message})
 
         trace.update(
-            tags=[response.id],
-            output={"status": "failure", "error": error_message}
+            tags=[response.id], output={"status": "failure", "error": error_message}
         )
         callback_response = ResponsesAPIResponse.failure_response(error=error_message)
 
@@ -374,7 +376,6 @@ async def responses_sync(
         host=langfuse_credentials["host"],
     )
 
-
     session_id = str(uuid.uuid4())
     if request.response_id:
         traces = langfuse.fetch_traces(
@@ -444,7 +445,11 @@ async def responses_sync(
 
         trace.update(
             tags=[response.id],
-            output={"status": "success","message": response.output_text,"error": None}
+            output={
+                "status": "success",
+                "message": response.output_text,
+                "error": None,
+            },
         )
 
         # Flush Langfuse to ensure all events are sent
@@ -469,8 +474,7 @@ async def responses_sync(
         # Log error to Langfuse
         generation.end(output={"error": error_message})
         trace.update(
-            tags=[response.id],
-            output={"status": "failure", "error": error_message}
+            tags=[response.id], output={"status": "failure", "error": error_message}
         )
         langfuse.flush()
         return ResponsesAPIResponse.failure_response(error=error_message)
