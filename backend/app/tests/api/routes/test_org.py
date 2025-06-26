@@ -33,7 +33,6 @@ def other_organization(db: Session, superuser_token_headers: dict[str, str]):
     return organization
 
 
-# Test retrieving organizations (Superuser - sees all organizations)
 def test_read_organizations_as_superuser(
     db: Session,
     superuser_token_headers: dict[str, str],
@@ -46,12 +45,9 @@ def test_read_organizations_as_superuser(
     response_data = response.json()
     assert "data" in response_data
     assert isinstance(response_data["data"], list)
-    assert (
-        len(response_data["data"]) > 0
-    )  # Ensure that multiple organizations are returned
+    assert len(response_data["data"]) > 0
 
 
-# Test creating an organization (Superuser)
 def test_create_organization_as_superuser(
     db: Session, superuser_token_headers: dict[str, str]
 ):
@@ -94,7 +90,6 @@ def test_update_organization_as_superuser(
     assert updated_org["is_active"] == update_data["is_active"]
 
 
-# Test updating an organization (Regular user - should only update their own)
 def test_update_organization_as_regular_user(
     db: Session,
     test_organization: Organization,
@@ -103,18 +98,14 @@ def test_update_organization_as_regular_user(
     unique_name = f"UpdatedOrg-{random_lower_string()}"
     update_data = {"name": unique_name, "is_active": False}
 
-    # Regular user should only be allowed to update their own organization
     response = client.patch(
         f"{settings.API_V1_STR}/organizations/{test_organization.id}",
         json=update_data,
         headers=normal_user_token_headers,
     )
-    assert (
-        response.status_code == 403
-    )  # Forbidden if trying to update someone else's organization
+    assert response.status_code == 403
 
 
-# Test deleting an organization (Superuser)
 def test_delete_organization_as_superuser(
     db: Session,
     test_organization: Organization,
@@ -133,7 +124,6 @@ def test_delete_organization_as_superuser(
     assert response.status_code == 404
 
 
-# Test deleting an organization (Regular user - should only delete their own)
 def test_delete_organization_as_regular_user(
     db: Session,
     test_organization: Organization,
@@ -143,18 +133,14 @@ def test_delete_organization_as_regular_user(
         f"{settings.API_V1_STR}/organizations/{test_organization.id}",
         headers=normal_user_token_headers,
     )
-    assert (
-        response.status_code == 403
-    )  # Forbidden for regular user to delete someone else's org
+    assert response.status_code == 403
 
 
-# Test regular user accessing another organization (should be forbidden)
 def test_read_organization_as_regular_user_without_access(
     db: Session,
     normal_user_token_headers: dict[str, str],
     other_organization: Organization,
 ):
-    # Simulate a regular user with no access to another organization
     response = client.get(
         f"{settings.API_V1_STR}/organizations/{other_organization.id}",
         headers=normal_user_token_headers,

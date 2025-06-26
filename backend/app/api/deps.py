@@ -23,6 +23,7 @@ from app.models import (
     ProjectUser,
     Project,
     Organization,
+    APIKey,
 )
 
 reusable_oauth2 = OAuth2PasswordBearer(
@@ -97,6 +98,13 @@ def get_current_user_org(
         api_key_record = get_api_key_by_value(session, api_key)
         if api_key_record:
             validate_organization(session, api_key_record.organization_id)
+            organization_id = api_key_record.organization_id
+
+    if not api_key:
+        api_key_record = (
+            session.query(APIKey).filter(APIKey.user_id == current_user.id).first()
+        )
+        if api_key_record:
             organization_id = api_key_record.organization_id
 
     return UserOrganization(
