@@ -55,9 +55,6 @@ def upload_doc(
         object_store_url=str(object_store_url),
     )
     data = crud.update(document)
-    logger.info(
-        f"[upload_doc] Document uploaded successfully | {{'user_id': '{current_user.id}', 'document_id': '{document_id}'}}"
-    )
     return APIResponse.success_response(data)
 
 
@@ -77,9 +74,6 @@ def remove_doc(
 
     document = d_crud.delete(doc_id)
     data = c_crud.delete(document, a_crud)
-    logger.info(
-        f"[remove_doc] Document deleted successfully | {{'user_id': '{current_user.id}', 'document_id': '{doc_id}'}}"
-    )
     return APIResponse.success_response(data)
 
 
@@ -105,10 +99,6 @@ def permanent_delete_doc(
     storage.delete(document.object_store_url)
     d_crud.delete(doc_id)
 
-    logger.info(
-        f"[permanent_delete_doc] Document permanently deleted from Cloud and soft deleted from DB | "
-        f"{{'user_id': '{current_user.id}', 'document_id': '{doc_id}'}}"
-    )
     return APIResponse.success_response(document)
 
 

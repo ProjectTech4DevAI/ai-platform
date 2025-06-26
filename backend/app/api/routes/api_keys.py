@@ -113,5 +113,4 @@ def revoke_key(
         raise HTTPException(404, "API key not found or already deleted")
 
     delete_api_key(session, api_key_id)
-    logger.info(f"[revoke_key] API key revoked | api_key_id={api_key_id}")
     return APIResponse.success_response({"message": "API key revoked successfully"})
