@@ -122,7 +122,7 @@ def test_process_run_variants(mock_openai, remove_citation, expected_message):
     tracer = LangfuseTracer()
     # Patch send_callback and invoke process_run.
     with patch("app.api.routes.threads.send_callback") as mock_send_callback:
-        process_run(request, mock_client,tracer)
+        process_run(request, mock_client, tracer)
         mock_send_callback.assert_called_once()
         callback_url, payload = mock_send_callback.call_args[0]
         assert callback_url == request["callback_url"]
