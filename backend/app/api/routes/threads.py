@@ -15,7 +15,8 @@ from app.models import UserOrganization, OpenAIThreadCreate
 from app.crud import upsert_thread_result, get_thread_result
 from app.utils import APIResponse
 from app.crud.credentials import get_provider_credential
-from app.core.util import configure_langfuse, configure_openai
+from app.core.util import configure_openai
+from app.core.langfuse.langfuse import LangfuseTracer
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["threads"])
@@ -144,37 +145,42 @@ def extract_response_from_thread(
     return process_message_content(message_content, remove_citation)
 
 
-@observe(as_type="generation")
-def process_run_core(request: dict, client: OpenAI) -> tuple[dict, str]:
-    """Core function to process a run and return the response and message."""
+def process_run_core(
+    request: dict, client: OpenAI, tracer: LangfuseTracer
+) -> tuple[dict, str]:
+    """Core function to process a run and return the response and message with Langfuse tracing."""
+    tracer.start_generation(
+        name="openai_thread_run",
+        input={"question": request["question"]},
+        metadata={"assistant_id": request["assistant_id"]},
+    )
+
     try:
         run = client.beta.threads.runs.create_and_poll(
             thread_id=request["thread_id"],
             assistant_id=request["assistant_id"],
         )
-        langfuse_context.update_current_trace(
-            session_id=request["thread_id"],
-            input=request["question"],
-            name="Thread Run Started",
-        )
 
         if run.status == "completed":
-            langfuse_context.update_current_observation(
-                model=run.model,
-                usage_details={
-                    "prompt_tokens": run.usage.prompt_tokens,
-                    "completion_tokens": run.usage.completion_tokens,
-                    "total_tokens": run.usage.total_tokens,
+            message = extract_response_from_thread(
+                client, request["thread_id"], request.get("remove_citation", False)
+            )
+            tracer.end_generation(
+                output={
+                    "thread_id": request["thread_id"],
+                    "message": message,
                 },
+                usage={
+                    "input": run.usage.prompt_tokens,
+                    "output": run.usage.completion_tokens,
+                    "total": run.usage.total_tokens,
+                    "unit": "TOKENS",
+                },
+                model=run.model,
             )
-            messages = client.beta.threads.messages.list(thread_id=request["thread_id"])
-            latest_message = messages.data[0]
-            message_content = latest_message.content[0].text.value
-            message = process_message_content(
-                message_content, request.get("remove_citation", False)
-            )
-            langfuse_context.update_current_trace(
-                output=message, name="Thread Run Completed"
+            tracer.update_trace(
+                tags=[request["thread_id"]],
+                output={"status": "success", "message": message, "error": None},
             )
             diagnostics = {
                 "input_tokens": run.usage.prompt_tokens,
@@ -183,21 +189,23 @@ def process_run_core(request: dict, client: OpenAI) -> tuple[dict, str]:
                 "model": run.model,
             }
             request = {**request, **{"diagnostics": diagnostics}}
-
             return create_success_response(request, message).model_dump(), None
         else:
             error_msg = f"Run failed with status: {run.status}"
+            tracer.log_error(error_msg)
             return APIResponse.failure_response(error=error_msg).model_dump(), error_msg
 
     except openai.OpenAIError as e:
         error_msg = handle_openai_error(e)
+        tracer.log_error(error_msg)
         return APIResponse.failure_response(error=error_msg).model_dump(), error_msg
+    finally:
+        tracer.flush()
 
 
-@observe(as_type="generation")
-def process_run(request: dict, client: OpenAI):
-    """Process a run and send callback with results."""
-    response, _ = process_run_core(request, client)
+def process_run(request: dict, client: OpenAI, tracer: LangfuseTracer):
+    """Process a run and send callback with results with Langfuse tracing."""
+    response, _ = process_run_core(request, client, tracer)
     send_callback(request["callback_url"], response)
 
 
@@ -261,15 +269,6 @@ async def threads(
         provider="langfuse",
         project_id=request.get("project_id"),
     )
-    if not langfuse_credentials:
-        raise HTTPException(404, "LANGFUSE keys not configured for this organization.")
-
-    # Configure Langfuse
-    _, success = configure_langfuse(langfuse_credentials)
-    if not success:
-        return APIResponse.failure_response(
-            error="Failed to configure Langfuse client."
-        )
 
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
@@ -290,8 +289,21 @@ async def threads(
         }
     )
 
+    tracer = LangfuseTracer(
+        credentials=langfuse_credentials,
+        session_id=request.get("thread_id"),
+    )
+
+    tracer.start_trace(
+        name="threads_async_endpoint",
+        input={
+            "question": request["question"],
+            "assistant_id": request["assistant_id"],
+        },
+        metadata={"thread_id": request["thread_id"]},
+    )
     # Schedule background task
-    background_tasks.add_task(process_run, request, client)
+    background_tasks.add_task(process_run, request, client, tracer)
 
     return initial_response
 
@@ -324,17 +336,6 @@ async def threads_sync(
         provider="langfuse",
         project_id=request.get("project_id"),
     )
-    if not langfuse_credentials:
-        return APIResponse.failure_response(
-            error="LANGFUSE keys not configured for this organization."
-        )
-
-    # Configure Langfuse
-    _, success = configure_langfuse(langfuse_credentials)
-    if not success:
-        return APIResponse.failure_response(
-            error="Failed to configure Langfuse client."
-        )
 
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
@@ -345,11 +346,25 @@ async def threads_sync(
     if not is_success:
         raise Exception(error_message)
 
+    tracer = LangfuseTracer(
+        credentials=langfuse_credentials,
+        session_id=request.get("thread_id"),
+    )
+
+    tracer.start_trace(
+        name="threads_sync_endpoint",
+        input={
+            "question": request.get("question"),
+            "assistant_id": request.get("assistant_id"),
+        },
+        metadata={"thread_id": request.get("thread_id")},
+    )
+
     try:
-        response, error_message = process_run_core(request, client)
+        response, error_message = process_run_core(request, client, tracer)
         return response
     finally:
-        langfuse_context.flush()
+        tracer.flush()
 
 
 @router.post("/threads/start")
