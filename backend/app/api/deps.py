@@ -25,6 +25,9 @@ from app.models import (
     Organization,
     APIKey,
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/login/access-token", auto_error=False
@@ -156,18 +159,35 @@ def get_current_active_superuser_org(current_user: CurrentUserOrg) -> User:
 
 
 def check_org_access(_current_user: CurrentUserOrg, org_id: int = None):
+    """Helper function to check organization access and creation permissions."""
+
+    # If the user is a superuser, allow all access
     if _current_user.is_superuser:
         return
 
+    # Check if the user is trying to access a different organization
     if org_id is not None and _current_user.organization_id != org_id:
+        logger.warning(
+            f"[check_org_access] Access violation | user_id={_current_user.id}, attempted_org_id={org_id}, "
+            f"current_org_id={_current_user.organization_id}"
+        )
         raise HTTPException(
             status_code=403, detail="Access to this organization is forbidden"
         )
 
     if _current_user.organization_id is not None:
+        logger.warning(
+            f"[check_org_access] Organization creation violation | user_id={_current_user.id}, "
+            f"attempted_create_org={org_id}, current_org_id={_current_user.organization_id}"
+        )
         raise HTTPException(
             status_code=403, detail="Not allowed to create another organization"
         )
+
+    logger.error(
+        f"[check_org_access] Missing organization assignment | user_id={_current_user.id}, "
+        "attempted_operation_requires_organization"
+    )
 
 
 def verify_user_project_organization(
