@@ -28,7 +28,8 @@ class CollectionCrud:
                 collection.owner_id,
             )
             logger.error(
-                f"[CollectionCrud._update] Permission error | {{'collection_id': '{collection.id}', 'error': '{err}'}}"
+                f"[CollectionCrud._update] Permission error | {{'collection_id': '{collection.id}', 'error': '{err}'}}",
+                exc_info=True,
             )
             raise PermissionError(err)
 
@@ -102,7 +103,8 @@ class CollectionCrud:
     @ft.singledispatchmethod
     def delete(self, model, remote):  # remote should be an OpenAICrud
         logger.error(
-            f"[CollectionCrud.delete] Invalid model type | {{'model_type': '{type(model).__name__}'}}"
+            f"[CollectionCrud.delete] Invalid model type | {{'model_type': '{type(model).__name__}'}}",
+            exc_info=True,
         )
         raise TypeError(type(model))
 

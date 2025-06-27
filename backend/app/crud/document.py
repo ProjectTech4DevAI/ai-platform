@@ -47,14 +47,16 @@ class DocumentCrud:
         if skip is not None:
             if skip < 0:
                 logger.error(
-                    f"[DocumentCrud.read_many] Invalid skip value | {{'owner_id': {self.owner_id}, 'skip': {skip}, 'error': 'Negative skip'}}"
+                    f"[DocumentCrud.read_many] Invalid skip value | {{'owner_id': {self.owner_id}, 'skip': {skip}, 'error': 'Negative skip'}}",
+                    exc_info=True,
                 )
                 raise ValueError(f"Negative skip: {skip}")
             statement = statement.offset(skip)
         if limit is not None:
             if limit < 0:
                 logger.error(
-                    f"[DocumentCrud.read_many] Invalid limit value | {{'owner_id': {self.owner_id}, 'limit': {limit}, 'error': 'Negative limit'}}"
+                    f"[DocumentCrud.read_many] Invalid limit value | {{'owner_id': {self.owner_id}, 'limit': {limit}, 'error': 'Negative limit'}}",
+                    exc_info=True,
                 )
                 raise ValueError(f"Negative limit: {limit}")
             statement = statement.limit(limit)
@@ -74,7 +76,8 @@ class DocumentCrud:
         (m, n) = map(len, (results, doc_ids))
         if m != n:
             logger.error(
-                f"[DocumentCrud.read_each] Mismatch in retrieved documents | {{'owner_id': {self.owner_id}, 'requested_count': {n}, 'retrieved_count': {m}}}"
+                f"[DocumentCrud.read_each] Mismatch in retrieved documents | {{'owner_id': {self.owner_id}, 'requested_count': {n}, 'retrieved_count': {m}}}",
+                exc_info=True,
             )
             raise ValueError(f"Requested {n} retrieved {m}")
 
@@ -89,7 +92,8 @@ class DocumentCrud:
                 document.owner_id,
             )
             logger.error(
-                f"[DocumentCrud.update] Permission error | {{'doc_id': '{document.id}', 'error': '{error}'}}"
+                f"[DocumentCrud.update] Permission error | {{'doc_id': '{document.id}', 'error': '{error}'}}",
+                exc_info=True,
             )
             raise PermissionError(error)
 

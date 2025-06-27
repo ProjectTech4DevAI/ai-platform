@@ -43,7 +43,8 @@ class AmazonCloudStorageClient:
         except ValueError as err:
             logger.error(
                 f"[AmazonCloudStorageClient.create] Invalid bucket configuration | "
-                f"{{'bucket': '{mask_string(settings.AWS_S3_BUCKET)}', 'error': '{str(err)}'}}"
+                f"{{'bucket': '{mask_string(settings.AWS_S3_BUCKET)}', 'error': '{str(err)}'}}",
+                exc_info=True,
             )
             raise CloudStorageError(err) from err
         except ClientError as err:
@@ -51,7 +52,8 @@ class AmazonCloudStorageClient:
             if response != 404:
                 logger.error(
                     f"[AmazonCloudStorageClient.create] Unexpected AWS error | "
-                    f"{{'bucket': '{mask_string(settings.AWS_S3_BUCKET)}', 'error': '{str(err)}', 'code': {response}}}"
+                    f"{{'bucket': '{mask_string(settings.AWS_S3_BUCKET)}', 'error': '{str(err)}', 'code': {response}}}",
+                    exc_info=True,
                 )
                 raise CloudStorageError(err) from err
             logger.warning(
@@ -72,7 +74,8 @@ class AmazonCloudStorageClient:
             except ClientError as create_err:
                 logger.error(
                     f"[AmazonCloudStorageClient.create] Failed to create bucket | "
-                    f"{{'bucket': '{mask_string(settings.AWS_S3_BUCKET)}', 'error': '{str(create_err)}'}}"
+                    f"{{'bucket': '{mask_string(settings.AWS_S3_BUCKET)}', 'error': '{str(create_err)}'}}",
+                    exc_info=True,
                 )
                 raise CloudStorageError(create_err) from create_err
 
@@ -140,7 +143,8 @@ class AmazonCloudStorage(CloudStorage):
         except ClientError as err:
             logger.error(
                 f"[AmazonCloudStorage.put] AWS upload error | "
-                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(destination.Bucket)}', 'key': '{mask_string(destination.Key)}', 'error': '{str(err)}'}}"
+                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(destination.Bucket)}', 'key': '{mask_string(destination.Key)}', 'error': '{str(err)}'}}",
+                exc_info=True,
             )
             raise CloudStorageError(f'AWS Error: "{err}"') from err
 
@@ -159,7 +163,8 @@ class AmazonCloudStorage(CloudStorage):
         except ClientError as err:
             logger.error(
                 f"[AmazonCloudStorage.stream] AWS stream error | "
-                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}', 'error': '{str(err)}'}}"
+                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}', 'error': '{str(err)}'}}",
+                exc_info=True,
             )
             raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err
 
@@ -178,7 +183,8 @@ class AmazonCloudStorage(CloudStorage):
         except ClientError as err:
             logger.error(
                 f"[AmazonCloudStorage.get_file_size_kb] AWS head object error | "
-                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}', 'error': '{str(err)}'}}"
+                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}', 'error': '{str(err)}'}}",
+                exc_info=True,
             )
             raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err
 
@@ -194,6 +200,7 @@ class AmazonCloudStorage(CloudStorage):
         except ClientError as err:
             logger.error(
                 f"[AmazonCloudStorage.delete] AWS delete error | "
-                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}', 'error': '{str(err)}'}}"
+                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}', 'error': '{str(err)}'}}",
+                exc_info=True,
             )
             raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err

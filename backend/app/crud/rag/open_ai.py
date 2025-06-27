@@ -57,7 +57,8 @@ class ResourceCleaner:
                 return
             except OpenAIError as err:
                 logger.error(
-                    f"[ResourceCleaner.call] OpenAI error during cleanup | {{'cleaner_type': '{self}', 'resource': '{resource}', 'error': '{str(err)}'}}"
+                    f"[ResourceCleaner.call] OpenAI error during cleanup | {{'cleaner_type': '{self}', 'resource': '{resource}', 'error': '{str(err)}'}}",
+                    exc_info=True,
                 )
 
         logger.warning(
@@ -151,7 +152,8 @@ class OpenAIVectorStoreCrud(OpenAICrud):
                     "documents": list(view.values()),
                 }
                 logger.error(
-                    f"[OpenAIVectorStoreCrud.update] Document processing error | {{'vector_store_id': '{vector_store_id}', 'error': '{error['error']}', 'failed_documents': {len(error['documents'])}}}"
+                    f"[OpenAIVectorStoreCrud.update] Document processing error | {{'vector_store_id': '{vector_store_id}', 'error': '{error['error']}', 'failed_documents': {len(error['documents'])}}}",
+                    exc_info=True,
                 )
                 raise InterruptedError(json.dumps(error, cls=BaseModelEncoder))
 
@@ -167,7 +169,8 @@ class OpenAIVectorStoreCrud(OpenAICrud):
     def delete(self, vector_store_id: str, retries: int = 3):
         if retries < 1:
             logger.error(
-                f"[OpenAIVectorStoreCrud.delete] Invalid retries value | {{'vector_store_id': '{vector_store_id}', 'retries': {retries}}}"
+                f"[OpenAIVectorStoreCrud.delete] Invalid retries value | {{'vector_store_id': '{vector_store_id}', 'retries': {retries}}}",
+                exc_info=True,
             )
             raise ValueError("Retries must be greater-than 1")
 
@@ -215,12 +218,14 @@ class OpenAIAssistantCrud(OpenAICrud):
             if vector_stores:
                 names = ", ".join(vector_stores)
                 logger.error(
-                    f"[OpenAIAssistantCrud.delete] Too many vector stores attached | {{'assistant_id': '{assistant_id}', 'vector_stores': '{names}'}}"
+                    f"[OpenAIAssistantCrud.delete] Too many vector stores attached | {{'assistant_id': '{assistant_id}', 'vector_stores': '{names}'}}",
+                    exc_info=True,
                 )
                 raise ValueError(f"Too many attached vector stores: {names}")
             else:
                 logger.error(
-                    f"[OpenAIAssistantCrud.delete] No vector stores found | {{'assistant_id': '{assistant_id}'}}"
+                    f"[OpenAIAssistantCrud.delete] No vector stores found | {{'assistant_id': '{assistant_id}'}}",
+                    exc_info=True,
                 )
                 raise ValueError("No vector stores found")
 

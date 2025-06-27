@@ -160,7 +160,10 @@ class WebHookCallback(CallbackHandler):
         post_callback(self.url, response)
 
     def fail(self, body):
-        logger.error(f"[WebHookCallback.fail] Callback failed | {{'body': '{body}'}}")
+        logger.error(
+            f"[WebHookCallback.fail] Callback failed | {{'body': '{body}'}}",
+            exc_info=True,
+        )
         self(APIResponse.failure_response(body), "incomplete")
 
     def success(self, body):
@@ -173,15 +176,8 @@ def _backout(crud: OpenAIAssistantCrud, assistant_id: str):
         crud.delete(assistant_id)
     except OpenAIError as err:
         logger.error(
-            f"[backout] Failed to delete assistant | {{'assistant_id': '{assistant_id}', 'error': '{str(err)}'}}"
-        )
-        warnings.warn(
-            ": ".join(
-                [
-                    f"Unable to remove assistant {assistant_id}",
-                    "platform DB may be out of sync with OpenAI",
-                ]
-            )
+            f"[backout] Failed to delete assistant | {{'assistant_id': '{assistant_id}', 'error': '{str(err)}'}}",
+            exc_info=True,
         )
 
 
@@ -241,7 +237,8 @@ def do_create_collection(
 
     except Exception as err:
         logger.error(
-            f"[do_create_collection] Collection Creation Failed | {{'collection_id': '{payload.key}', 'error': '{str(err)}'}}"
+            f"[do_create_collection] Collection Creation Failed | {{'collection_id': '{payload.key}', 'error': '{str(err)}'}}",
+            exc_info=True,
         )
         if "assistant" in locals():
             _backout(assistant_crud, assistant.id)
@@ -320,12 +317,14 @@ def do_delete_collection(
         callback.success(data.model_dump(mode="json"))
     except (ValueError, PermissionError, SQLAlchemyError) as err:
         logger.error(
-            f"[do_delete_collection] Failed to delete collection | {{'collection_id': '{request.collection_id}', 'error': '{str(err)}'}}"
+            f"[do_delete_collection] Failed to delete collection | {{'collection_id': '{request.collection_id}', 'error': '{str(err)}'}}",
+            exc_info=True,
         )
         callback.fail(str(err))
     except Exception as err:
         logger.error(
-            f"[do_delete_collection] Unexpected error during deletion | {{'collection_id': '{request.collection_id}', 'error': '{str(err)}', 'error_type': '{type(err).__name__}'}}"
+            f"[do_delete_collection] Unexpected error during deletion | {{'collection_id': '{request.collection_id}', 'error': '{str(err)}', 'error_type': '{type(err).__name__}'}}",
+            exc_info=True,
         )
         callback.fail(str(err))
 
