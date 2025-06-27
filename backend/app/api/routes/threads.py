@@ -43,7 +43,7 @@ def send_callback(callback_url: str, data: dict):
         response.raise_for_status()
         return True
     except requests.RequestException as e:
-        logger.error(f"Callback failed: {str(e)}")
+        logger.error(f"Callback failed: {str(e)}", exc_info=True)
         return False
 
 
