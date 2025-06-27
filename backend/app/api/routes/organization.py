@@ -9,12 +9,7 @@ from app.models import (
     OrganizationUpdate,
     OrganizationPublic,
 )
-from app.api.deps import (
-    CurrentUserOrg,
-    SessionDep,
-    has_org_access,
-    check_org_creation_allowed,
-)
+from app.api.deps import CurrentUserOrg, SessionDep, check_org_access
 from app.crud.organization import create_organization, validate_organization
 from app.utils import APIResponse
 
@@ -27,6 +22,7 @@ router = APIRouter(prefix="/organizations", tags=["organizations"])
 def read_organizations(
     session: SessionDep, _current_user: CurrentUserOrg, skip: int = 0, limit: int = 100
 ):
+    """Get a list of organizations for the current user."""
     if _current_user.is_superuser:
         statement = select(Organization).offset(skip).limit(limit)
     else:
@@ -44,7 +40,8 @@ def read_organizations(
 def create_new_organization(
     *, session: SessionDep, _current_user: CurrentUserOrg, org_in: OrganizationCreate
 ):
-    check_org_creation_allowed(_current_user)
+    """Create a new organization if allowed."""
+    check_org_access(_current_user)
     new_org = create_organization(session=session, org_create=org_in)
     return APIResponse.success_response(new_org)
 
@@ -53,9 +50,9 @@ def create_new_organization(
 def read_organization(
     *, session: SessionDep, _current_user: CurrentUserOrg, org_id: int
 ):
+    """Read a specific organization by ID."""
     org = validate_organization(session=session, org_id=org_id)
-    has_org_access(_current_user, org_id)
-
+    check_org_access(_current_user, org_id)  # Check access to the organization
     return APIResponse.success_response(org)
 
 
@@ -67,8 +64,9 @@ def update_organization(
     org_id: int,
     org_in: OrganizationUpdate,
 ):
+    """Update an existing organization."""
     org = validate_organization(session=session, org_id=org_id)
-    has_org_access(_current_user, org_id)
+    check_org_access(_current_user, org_id)  # Check access to the organization
 
     org_data = org_in.model_dump(exclude_unset=True)
     org = org.model_copy(update=org_data)
@@ -84,8 +82,9 @@ def update_organization(
 def delete_organization(
     session: SessionDep, _current_user: CurrentUserOrg, org_id: int
 ):
+    """Delete an organization."""
     org = validate_organization(session=session, org_id=org_id)
-    has_org_access(_current_user, org_id)
+    check_org_access(_current_user, org_id)  # Check access to the organization
 
     session.delete(org)
     session.commit()

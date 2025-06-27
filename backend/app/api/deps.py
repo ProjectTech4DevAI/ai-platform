@@ -155,18 +155,15 @@ def get_current_active_superuser_org(current_user: CurrentUserOrg) -> User:
     return current_user
 
 
-def has_org_access(_current_user: CurrentUserOrg, org_id: int):
+def check_org_access(_current_user: CurrentUserOrg, org_id: int = None):
     if _current_user.is_superuser:
         return
-    if _current_user.organization_id != org_id:
+
+    if org_id is not None and _current_user.organization_id != org_id:
         raise HTTPException(
             status_code=403, detail="Access to this organization is forbidden"
         )
 
-
-def check_org_creation_allowed(_current_user: CurrentUserOrg):
-    if _current_user.is_superuser:
-        return
     if _current_user.organization_id is not None:
         raise HTTPException(
             status_code=403, detail="Not allowed to create another organization"
