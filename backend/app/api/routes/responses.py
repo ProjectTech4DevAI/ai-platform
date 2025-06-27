@@ -197,9 +197,8 @@ async def responses(
         _session, request.assistant_id, _current_user.organization_id
     )
     if not assistant:
-        logger.error(
+        logger.warning(
             f"Assistant not found: assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}",
-            exc_info=True,
         )
         raise HTTPException(
             status_code=404,
@@ -213,9 +212,8 @@ async def responses(
         project_id=request.project_id,
     )
     if not credentials or "api_key" not in credentials:
-        logger.error(
-            f"OpenAI API key not configured for org_id={_current_user.organization_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}",
-            exc_info=True,
+        logger.warning(
+            f"OpenAI API key not configured for org_id={_current_user.organization_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
         )
         return {
             "success": False,

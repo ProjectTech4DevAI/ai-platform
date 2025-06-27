@@ -160,10 +160,7 @@ class WebHookCallback(CallbackHandler):
         post_callback(self.url, response)
 
     def fail(self, body):
-        logger.error(
-            f"[WebHookCallback.fail] Callback failed | {{'body': '{body}'}}",
-            exc_info=True,
-        )
+        logger.warning(f"[WebHookCallback.fail] Callback failed | {{'body': '{body}'}}")
         self(APIResponse.failure_response(body), "incomplete")
 
     def success(self, body):

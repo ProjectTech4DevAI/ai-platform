@@ -151,11 +151,14 @@ class OpenAIVectorStoreCrud(OpenAICrud):
                     "error": "OpenAI document processing error",
                     "documents": list(view.values()),
                 }
-                logger.error(
-                    f"[OpenAIVectorStoreCrud.update] Document processing error | {{'vector_store_id': '{vector_store_id}', 'error': '{error['error']}', 'failed_documents': {len(error['documents'])}}}",
-                    exc_info=True,
-                )
-                raise InterruptedError(json.dumps(error, cls=BaseModelEncoder))
+                try:
+                    raise InterruptedError(json.dumps(error, cls=BaseModelEncoder))
+                except InterruptedError as err:
+                    logger.error(
+                        f"[OpenAIVectorStoreCrud.update] Document processing error | {{'vector_store_id': '{vector_store_id}', 'error': '{error['error']}', 'failed_documents': {len(error['documents'])}}}",
+                        exc_info=True,
+                    )
+                    raise
 
             while files:
                 f_obj = files.pop()
@@ -168,11 +171,14 @@ class OpenAIVectorStoreCrud(OpenAICrud):
 
     def delete(self, vector_store_id: str, retries: int = 3):
         if retries < 1:
-            logger.error(
-                f"[OpenAIVectorStoreCrud.delete] Invalid retries value | {{'vector_store_id': '{vector_store_id}', 'retries': {retries}}}",
-                exc_info=True,
-            )
-            raise ValueError("Retries must be greater-than 1")
+            try:
+                raise ValueError("Retries must be greater-than 1")
+            except ValueError as err:
+                logger.error(
+                    f"[OpenAIVectorStoreCrud.delete] Invalid retries value | {{'vector_store_id': '{vector_store_id}', 'retries': {retries}}}",
+                    exc_info=True,
+                )
+                raise
 
         cleaner = VectorStoreCleaner(self.client)
         cleaner(vector_store_id)
@@ -212,22 +218,21 @@ class OpenAIAssistantCrud(OpenAICrud):
         )
         assistant = self.client.beta.assistants.retrieve(assistant_id)
         vector_stores = assistant.tool_resources.file_search.vector_store_ids
+
         try:
             (vector_store_id,) = vector_stores
-        except ValueError as err:
+        except ValueError:
             if vector_stores:
                 names = ", ".join(vector_stores)
-                logger.error(
-                    f"[OpenAIAssistantCrud.delete] Too many vector stores attached | {{'assistant_id': '{assistant_id}', 'vector_stores': '{names}'}}",
-                    exc_info=True,
-                )
-                raise ValueError(f"Too many attached vector stores: {names}")
+                err = ValueError(f"Too many attached vector stores: {names}")
             else:
-                logger.error(
-                    f"[OpenAIAssistantCrud.delete] No vector stores found | {{'assistant_id': '{assistant_id}'}}",
-                    exc_info=True,
-                )
-                raise ValueError("No vector stores found")
+                err = ValueError("No vector stores found")
+
+            logger.error(
+                f"[OpenAIAssistantCrud.delete] Invalid vector store state | {{'assistant_id': '{assistant_id}', 'vector_stores': '{vector_stores}'}}",
+                exc_info=True,
+            )
+            raise err
 
         v_crud = OpenAIVectorStoreCrud(self.client)
         v_crud.delete(vector_store_id)

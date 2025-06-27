@@ -44,22 +44,29 @@ class DocumentCrud:
                 Document.deleted_at.is_(None),
             )
         )
+
         if skip is not None:
             if skip < 0:
-                logger.error(
-                    f"[DocumentCrud.read_many] Invalid skip value | {{'owner_id': {self.owner_id}, 'skip': {skip}, 'error': 'Negative skip'}}",
-                    exc_info=True,
-                )
-                raise ValueError(f"Negative skip: {skip}")
+                try:
+                    raise ValueError(f"Negative skip: {skip}")
+                except ValueError as err:
+                    logger.error(
+                        f"[DocumentCrud.read_many] Invalid skip value | {{'owner_id': {self.owner_id}, 'skip': {skip}, 'error': '{str(err)}'}}",
+                        exc_info=True,
+                    )
+                    raise
             statement = statement.offset(skip)
+
         if limit is not None:
             if limit < 0:
-                logger.error(
-                    f"[DocumentCrud.read_many] Invalid limit value | {{'owner_id': {self.owner_id}, 'limit': {limit}, 'error': 'Negative limit'}}",
-                    exc_info=True,
-                )
-                raise ValueError(f"Negative limit: {limit}")
-            statement = statement.limit(limit)
+                try:
+                    raise ValueError(f"Negative limit: {limit}")
+                except ValueError as err:
+                    logger.error(
+                        f"[DocumentCrud.read_many] Invalid limit value | {{'owner_id': {self.owner_id}, 'limit': {limit}, 'error': '{str(err)}'}}",
+                        exc_info=True,
+                    )
+                    raise
 
         documents = self.session.exec(statement).all()
         return documents
@@ -75,11 +82,14 @@ class DocumentCrud:
 
         (m, n) = map(len, (results, doc_ids))
         if m != n:
-            logger.error(
-                f"[DocumentCrud.read_each] Mismatch in retrieved documents | {{'owner_id': {self.owner_id}, 'requested_count': {n}, 'retrieved_count': {m}}}",
-                exc_info=True,
-            )
-            raise ValueError(f"Requested {n} retrieved {m}")
+            try:
+                raise ValueError(f"Requested {n} retrieved {m}")
+            except ValueError as err:
+                logger.error(
+                    f"[DocumentCrud.read_each] Mismatch in retrieved documents | {{'owner_id': {self.owner_id}, 'requested_count': {n}, 'retrieved_count': {m}}}",
+                    exc_info=True,
+                )
+                raise
 
         return results
 
@@ -91,12 +101,14 @@ class DocumentCrud:
                 self.owner_id,
                 document.owner_id,
             )
-            logger.error(
-                f"[DocumentCrud.update] Permission error | {{'doc_id': '{document.id}', 'error': '{error}'}}",
-                exc_info=True,
-            )
-            raise PermissionError(error)
-
+            try:
+                raise PermissionError(error)
+            except PermissionError as err:
+                logger.error(
+                    f"[DocumentCrud.update] Permission error | {{'doc_id': '{document.id}', 'error': '{str(err)}'}}",
+                    exc_info=True,
+                )
+                raise
         document.updated_at = now()
 
         self.session.add(document)
