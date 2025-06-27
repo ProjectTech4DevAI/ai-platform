@@ -67,6 +67,7 @@ class DocumentCrud:
                         exc_info=True,
                     )
                     raise
+            statement = statement.limit(limit)
 
         documents = self.session.exec(statement).all()
         return documents
