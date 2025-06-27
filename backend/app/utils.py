@@ -151,6 +151,18 @@ def verify_password_reset_token(token: str) -> str | None:
         return None
 
 
+def mask_string(value: str, mask_char: str = "*") -> str:
+    if not value:
+        return ""
+
+    length = len(value)
+    num_mask = length // 2
+    start = (length - num_mask) // 2
+    end = start + num_mask
+
+    return value[:start] + (mask_char * num_mask) + value[end:]
+
+
 @ft.singledispatch
 def load_description(filename: Path) -> str:
     if not filename.exists():
