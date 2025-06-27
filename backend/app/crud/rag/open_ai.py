@@ -1,6 +1,5 @@
 import json
 import logging
-import warnings
 import functools as ft
 from typing import Iterable
 
@@ -64,7 +63,6 @@ class ResourceCleaner:
         logger.warning(
             f"[ResourceCleaner.call] Cleanup failure after retries | {{'cleaner_type': '{self}', 'resource': '{resource}'}}"
         )
-        warnings.warn(f"[{self} {resource}] Cleanup failure")
 
     def clean(self, resource):
         raise NotImplementedError()
