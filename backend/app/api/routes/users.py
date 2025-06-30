@@ -161,6 +161,7 @@ def read_user_by_id(
     "/{user_id}",
     dependencies=[Depends(get_current_active_superuser)],
     response_model=UserPublic,
+    include_in_schema=False,
 )
 def update_user_endpoint(
     *,
