@@ -107,7 +107,7 @@ def get_current_user_org(
     if not api_key:
         api_key_record = (
             session.query(APIKey)
-            .filter(APIKey.user_id == current_user.id, APIKey.is_deleted.is_(True))
+            .filter(APIKey.user_id == current_user.id, APIKey.is_deleted.is_(False))
             .first()
         )
         if api_key_record:
