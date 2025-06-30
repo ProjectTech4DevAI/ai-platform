@@ -20,7 +20,6 @@ from app.models import (
     User,
     UserProjectOrg,
     UserOrganization,
-    UserOrganizations,
     ProjectUser,
     Project,
     Organization,
