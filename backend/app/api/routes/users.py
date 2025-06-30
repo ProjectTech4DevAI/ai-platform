@@ -129,7 +129,6 @@ def delete_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
 def register_user(session: SessionDep, user_in: UserRegister) -> Any:
     """
     This endpoint allows the registration of a new user and is accessible only by a superuser.
-    To create a user with superuser privileges, set "is_superuser": true in the request payload.
     """
     if get_user_by_email(session=session, email=user_in.email):
         raise HTTPException(
