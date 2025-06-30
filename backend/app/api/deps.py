@@ -104,15 +104,6 @@ def get_current_user_org(
             validate_organization(session, api_key_record.organization_id)
             organization_id = api_key_record.organization_id
 
-    if not api_key:
-        api_key_record = (
-            session.query(APIKey)
-            .filter(APIKey.user_id == current_user.id, APIKey.is_deleted.is_(False))
-            .first()
-        )
-        if api_key_record:
-            organization_id = api_key_record.organization_id
-
     return UserOrganization(
         **current_user.model_dump(), organization_id=organization_id
     )
