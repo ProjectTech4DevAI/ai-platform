@@ -93,11 +93,7 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 def get_current_user_org(
     current_user: CurrentUser, session: SessionDep, request: Request
 ) -> UserOrganization:
-    print("🔍 Current user inside dependency:", current_user)
     """Extend `User` with organization_id if available, otherwise return UserOrganization without it."""
-
-    if current_user.is_superuser:
-        return UserOrganization(**current_user.model_dump(), organization_id=None)
 
     organization_id = None
     api_key = request.headers.get("X-API-KEY")
