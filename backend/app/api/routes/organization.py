@@ -32,10 +32,7 @@ router = APIRouter(prefix="/organizations", tags=["organizations"])
     response_model=APIResponse[List[OrganizationPublic]],
 )
 def read_organizations(
-    session: SessionDep,
-    skip: int = 0,
-    limit: int = 100,
-    current_user=CurrentUserOrg,
+    session: SessionDep, current_user: CurrentUserOrg, skip: int = 0, limit: int = 100
 ):
     """
     Return all organizations for superuser,
@@ -43,7 +40,7 @@ def read_organizations(
     """
 
     if current_user.is_superuser:
-        statement = select(Organization).where(Organization.is_deleted == False)
+        statement = select(Organization).where(Organization.is_active == True)
     else:
         if not current_user.organization_id:
             return APIResponse.success_response([])
