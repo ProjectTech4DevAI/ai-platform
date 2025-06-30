@@ -2,6 +2,7 @@ from collections.abc import Generator
 from typing import Annotated, Optional
 
 import jwt
+import logging
 from fastapi import Depends, HTTPException, status, Request, Path, Query
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer, APIKeyHeader
@@ -25,7 +26,7 @@ from app.models import (
     Organization,
     APIKey,
 )
-import logging
+
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +106,9 @@ def get_current_user_org(
 
     if not api_key:
         api_key_record = (
-            session.query(APIKey).filter(APIKey.user_id == current_user.id).first()
+            session.query(APIKey)
+            .filter(APIKey.user_id == current_user.id, APIKey.is_deleted.is_(True))
+            .first()
         )
         if api_key_record:
             organization_id = api_key_record.organization_id
