@@ -2,7 +2,7 @@ from collections.abc import Generator
 from typing import Annotated, Optional
 
 import jwt
-from fastapi import Depends, HTTPException, status, Request, Header, Security
+from fastapi import Depends, HTTPException, status, Request, Path, Query
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer, APIKeyHeader
 from jwt.exceptions import InvalidTokenError
@@ -14,12 +14,13 @@ from app.core.config import settings
 from app.core.db import engine
 from app.utils import APIResponse
 from app.crud.organization import validate_organization
-from app.crud.api_key import get_api_key_by_value
+from app.crud.api_key import get_api_key_by_value, get_api_key_by_user
 from app.models import (
     TokenPayload,
     User,
     UserProjectOrg,
     UserOrganization,
+    UserOrganizations,
     ProjectUser,
     Project,
     Organization,
@@ -95,6 +96,9 @@ def get_current_user_org(
 ) -> UserOrganization:
     """Extend `User` with organization_id if available, otherwise return UserOrganization without it."""
 
+    if current_user.is_superuser:
+        return UserOrganization(**current_user.model_dump(), organization_id=None)
+
     organization_id = None
     api_key = request.headers.get("X-API-KEY")
     if api_key:
@@ -158,15 +162,9 @@ def get_current_active_superuser_org(current_user: CurrentUserOrg) -> User:
     return current_user
 
 
-def check_org_access(_current_user: CurrentUserOrg, org_id: int = None):
-    """Helper function to check organization access and creation permissions."""
-
-    # If the user is a superuser, allow all access
-    if _current_user.is_superuser:
-        return
-
-    # Check if the user is trying to access a different organization
-    if org_id is not None and _current_user.organization_id != org_id:
+def check_org_access(_current_user: CurrentUserOrg, org_id: int = Path):
+    """Helper function to check organization access."""
+    if not _current_user.is_superuser and org_id != _current_user.organization_id:
         logger.warning(
             f"[check_org_access] Access violation | user_id={_current_user.id}, attempted_org_id={org_id}, "
             f"current_org_id={_current_user.organization_id}"
@@ -174,20 +172,6 @@ def check_org_access(_current_user: CurrentUserOrg, org_id: int = None):
         raise HTTPException(
             status_code=403, detail="Access to this organization is forbidden"
         )
-
-    if _current_user.organization_id is not None:
-        logger.warning(
-            f"[check_org_access] Organization creation violation | user_id={_current_user.id}, "
-            f"attempted_create_org={org_id}, current_org_id={_current_user.organization_id}"
-        )
-        raise HTTPException(
-            status_code=403, detail="Not allowed to create another organization"
-        )
-
-    logger.error(
-        f"[check_org_access] Missing organization assignment | user_id={_current_user.id}, "
-        "attempted_operation_requires_organization"
-    )
 
 
 def verify_user_project_organization(
