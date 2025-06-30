@@ -14,7 +14,7 @@ from app.core.config import settings
 from app.core.db import engine
 from app.utils import APIResponse
 from app.crud.organization import validate_organization
-from app.crud.api_key import get_api_key_by_value, get_api_key_by_user
+from app.crud.api_key import get_api_key_by_value
 from app.models import (
     TokenPayload,
     User,
