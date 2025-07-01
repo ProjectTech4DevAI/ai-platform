@@ -28,16 +28,4 @@ def get_mock_openai_client():
     mock_assistant.instructions = "Mock instructions"
     mock_client.beta.assistants.create.return_value = mock_assistant
 
-    # Thread
-    mock_thread = MagicMock()
-    mock_thread.id = "mock_thread_id"
-    mock_client.beta.threads.create.return_value = mock_thread
-
-    # Run
-    mock_run = MagicMock()
-    mock_run.id = "mock_run_id"
-    mock_run.status = "completed"
-    mock_client.beta.threads.runs.create.return_value = mock_run
-    mock_client.beta.threads.runs.retrieve.return_value = mock_run
-
     return mock_client

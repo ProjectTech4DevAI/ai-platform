@@ -51,7 +51,6 @@ def mock_s3(monkeypatch):
     monkeypatch.setattr("boto3.client", lambda service: FakeS3Client())
 
 
-# @pytest.mark.usefixtures("openai_credentials")
 @patch("app.api.routes.collections.configure_openai")
 @patch("app.api.routes.collections.get_provider_credential")
 class TestCollectionRouteCreate:
@@ -79,7 +78,6 @@ class TestCollectionRouteCreate:
         original_api_key = "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8"
         headers = {"X-API-KEY": original_api_key}
 
-        # Mock API key credentials
         mock_get_credential.return_value = {"api_key": "test_api_key"}
 
         mock_openai_client = get_mock_openai_client()
