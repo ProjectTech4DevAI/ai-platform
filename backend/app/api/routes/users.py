@@ -121,8 +121,15 @@ def delete_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
     return Message(message="User deleted successfully")
 
 
-@router.post("/signup", response_model=UserPublic)
+@router.post(
+    "/signup",
+    dependencies=[Depends(get_current_active_superuser)],
+    response_model=UserPublic,
+)
 def register_user(session: SessionDep, user_in: UserRegister) -> Any:
+    """
+    This endpoint allows the registration of a new user and is accessible only by a superuser.
+    """
     if get_user_by_email(session=session, email=user_in.email):
         raise HTTPException(
             status_code=400,

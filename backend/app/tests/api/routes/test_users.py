@@ -259,13 +259,16 @@ def test_update_password_me_same_password_error(
     assert updated_user["error"] == "New password cannot be the same as the current one"
 
 
-def test_register_user(client: TestClient, db: Session) -> None:
+def test_register_user(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
     username = random_email()
     password = random_lower_string()
     full_name = random_lower_string()
     data = {"email": username, "password": password, "full_name": full_name}
     r = client.post(
         f"{settings.API_V1_STR}/users/signup",
+        headers=superuser_token_headers,
         json=data,
     )
     assert r.status_code == 200
@@ -281,7 +284,9 @@ def test_register_user(client: TestClient, db: Session) -> None:
     assert verify_password(password, user_db.hashed_password)
 
 
-def test_register_user_already_exists_error(client: TestClient) -> None:
+def test_register_user_already_exists_error(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
     password = random_lower_string()
     full_name = random_lower_string()
     data = {
@@ -291,6 +296,7 @@ def test_register_user_already_exists_error(client: TestClient) -> None:
     }
     r = client.post(
         f"{settings.API_V1_STR}/users/signup",
+        headers=superuser_token_headers,
         json=data,
     )
     assert r.status_code == 400
