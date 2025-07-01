@@ -18,7 +18,7 @@ def create_collections(db: Session, n: int):
 
     openai_mock = OpenAIMock()
     with openai_mock.router:
-        client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        client = OpenAI(api_key="test_api_key")
         for _ in range(n):
             collection = get_collection(db, client)
             if crud is None:

@@ -17,7 +17,7 @@ def mk_collection(db: Session):
 
     openai_mock = OpenAIMock()
     with openai_mock.router:
-        client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        client = OpenAI(api_key="Test_api_key")
         collection = get_collection(db, client)
         crud = CollectionCrud(db, collection.owner_id)
         return crud.create(collection, documents)
