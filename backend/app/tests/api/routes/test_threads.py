@@ -16,6 +16,7 @@ from app.api.routes.threads import (
 )
 from app.models import APIKey, OpenAI_Thread
 from app.crud import get_thread_result
+from app.core.langfuse.langfuse import LangfuseTracer
 import openai
 from openai import OpenAIError
 
@@ -118,9 +119,10 @@ def test_process_run_variants(mock_openai, remove_citation, expected_message):
     dummy_message.content = [MagicMock(text=MagicMock(value=citation_message))]
     mock_client.beta.threads.messages.list.return_value.data = [dummy_message]
 
+    tracer = LangfuseTracer()
     # Patch send_callback and invoke process_run.
     with patch("app.api.routes.threads.send_callback") as mock_send_callback:
-        process_run(request, mock_client)
+        process_run(request, mock_client, tracer)
         mock_send_callback.assert_called_once()
         callback_url, payload = mock_send_callback.call_args[0]
         assert callback_url == request["callback_url"]
