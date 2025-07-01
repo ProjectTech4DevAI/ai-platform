@@ -37,6 +37,7 @@ from .credentials import (
     get_key_by_org,
     update_creds_for_org,
     remove_creds_for_org,
+    get_provider_credential,
 )
 
 from .thread_results import upsert_thread_result, get_thread_result

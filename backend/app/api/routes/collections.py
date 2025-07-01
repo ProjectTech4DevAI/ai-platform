@@ -15,8 +15,13 @@ from sqlalchemy.exc import NoResultFound, MultipleResultsFound, SQLAlchemyError
 from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
 from app.core.cloud import AmazonCloudStorage
 from app.core.config import settings
-from app.core.util import now, raise_from_unknown, post_callback
-from app.crud import DocumentCrud, CollectionCrud, DocumentCollectionCrud
+from app.core.util import now, raise_from_unknown, post_callback, configure_openai
+from app.crud import (
+    DocumentCrud,
+    CollectionCrud,
+    DocumentCollectionCrud,
+    get_provider_credential,
+)
 from app.crud.rag import OpenAIVectorStoreCrud, OpenAIAssistantCrud
 from app.models import Collection, Document
 from app.models.collection import CollectionStatus
@@ -180,12 +185,24 @@ def _backout(crud: OpenAIAssistantCrud, assistant_id: str):
 
 def do_create_collection(
     session: SessionDep,
-    current_user: CurrentUser,
+    current_user: CurrentUserOrgProject,
     request: CreationRequest,
     payload: ResponsePayload,
 ):
     start_time = time.time()
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+    credentials = get_provider_credential(
+        session=session,
+        org_id=current_user.organization_id,
+        provider="openai",
+        project_id=current_user.project_id,
+    )
+    client, success = configure_openai(credentials)
+    if not success:
+        return APIResponse.failure_response(
+            error="OpenAI API key not configured for this organization."
+        )
+
     callback = (
         SilentCallback(payload)
         if request.callback_url is None
@@ -226,7 +243,7 @@ def do_create_collection(
         collection_crud._update(collection)
 
         elapsed = time.time() - start_time
-        logging.info(
+        logger.info(
             f"[do_create_collection] Collection created: {collection.id} | Time: {elapsed:.2f}s | "
             f"Files: {len(flat_docs)} | Sizes: {file_sizes_kb} KB | Types: {list(file_exts)}"
         )

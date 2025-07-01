@@ -91,7 +91,7 @@ class VectorStoreCleaner(ResourceCleaner):
 
 class OpenAICrud:
     def __init__(self, client=None):
-        self.client = client or OpenAI(api_key=settings.OPENAI_API_KEY)
+        self.client = client
 
 
 class OpenAIVectorStoreCrud(OpenAICrud):
