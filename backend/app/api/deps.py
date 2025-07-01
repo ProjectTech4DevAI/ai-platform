@@ -2,7 +2,8 @@ from collections.abc import Generator
 from typing import Annotated, Optional
 
 import jwt
-from fastapi import Depends, HTTPException, status, Request, Header, Security
+import logging
+from fastapi import Depends, HTTPException, status, Request, Path, Query
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer, APIKeyHeader
 from jwt.exceptions import InvalidTokenError
@@ -23,7 +24,11 @@ from app.models import (
     ProjectUser,
     Project,
     Organization,
+    APIKey,
 )
+
+
+logger = logging.getLogger(__name__)
 
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/login/access-token", auto_error=False
@@ -145,6 +150,18 @@ def get_current_active_superuser_org(current_user: CurrentUserOrg) -> User:
             status_code=403, detail="The user doesn't have enough privileges"
         )
     return current_user
+
+
+def check_org_access(_current_user: CurrentUserOrg, org_id: int = Path):
+    """Helper function to check organization access."""
+    if not _current_user.is_superuser and org_id != _current_user.organization_id:
+        logger.warning(
+            f"[check_org_access] Access violation | user_id={_current_user.id}, attempted_org_id={org_id}, "
+            f"current_org_id={_current_user.organization_id}"
+        )
+        raise HTTPException(
+            status_code=403, detail="Access to this organization is forbidden"
+        )
 
 
 def verify_user_project_organization(
