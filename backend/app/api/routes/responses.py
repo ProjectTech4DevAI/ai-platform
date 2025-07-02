@@ -13,7 +13,7 @@ from app.api.routes.threads import send_callback
 from app.crud.assistants import get_assistant_by_id
 from app.crud.credentials import get_provider_credential
 from app.models import UserOrganization
-from app.utils import APIResponse
+from app.utils import APIResponse, mask_string
 from app.core.langfuse.langfuse import LangfuseTracer
 
 logger = logging.getLogger(__name__)
@@ -104,7 +104,7 @@ def process_response(
 ):
     """Process a response and send callback with results, with Langfuse tracing."""
     logger.info(
-        f"Starting generating response for assistant_id={request.assistant_id}, project_id={request.project_id}"
+        f"Starting generating response for assistant_id={mask_string(request.assistant_id)}, project_id={request.project_id}"
     )
 
     tracer.start_trace(
@@ -143,7 +143,7 @@ def process_response(
         response_chunks = get_file_search_results(response)
 
         logger.info(
-            f"Successfully generated response: response_id={response.id}, assistant={request.assistant_id}, project_id={request.project_id}"
+            f"Successfully generated response: response_id={response.id}, assistant={mask_string(request.assistant_id)}, project_id={request.project_id}"
         )
 
         tracer.end_generation(
@@ -197,11 +197,11 @@ def process_response(
 
     if request.callback_url:
         logger.info(
-            f"Sending callback to URL: {request.callback_url}, assistant={request.assistant_id}, project_id={request.project_id}"
+            f"Sending callback to URL: {request.callback_url}, assistant={mask_string(request.assistant_id)}, project_id={request.project_id}"
         )
         send_callback(request.callback_url, callback_response.model_dump())
         logger.info(
-            f"Callback sent successfully, assistant={request.assistant_id}, project_id={request.project_id}"
+            f"Callback sent successfully, assistant={mask_string(request.assistant_id)}, project_id={request.project_id}"
         )
 
 
@@ -214,7 +214,7 @@ async def responses(
 ):
     """Asynchronous endpoint that processes requests in background with Langfuse tracing."""
     logger.info(
-        f"Processing response request for assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
+        f"Processing response request for assistant_id={mask_string(request.assistant_id)}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
     )
 
     assistant = get_assistant_by_id(
@@ -222,7 +222,7 @@ async def responses(
     )
     if not assistant:
         logger.warning(
-            f"Assistant not found: assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}",
+            f"Assistant not found: assistant_id={mask_string(request.assistant_id)}, project_id={request.project_id}, organization_id={_current_user.organization_id}",
         )
         raise HTTPException(status_code=404, detail="Assistant not found or not active")
 
@@ -265,7 +265,7 @@ async def responses(
     )
 
     logger.info(
-        f"Background task scheduled for response processing: assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
+        f"Background task scheduled for response processing: assistant_id={mask_string(request.assistant_id)}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
     )
 
     return {
