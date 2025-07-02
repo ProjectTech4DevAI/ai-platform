@@ -48,6 +48,7 @@ def aws_credentials():
 
 
 @pytest.mark.usefixtures("openai_credentials")
+@mock_aws
 class TestDocumentRouteRemove:
     @openai_responses.mock()
     @patch("app.api.routes.documents.get_provider_credential")
