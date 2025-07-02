@@ -15,7 +15,7 @@ from app.core.config import settings
 from app.models import Document
 from app.utils import APIResponse
 
-from .utils import SequentialUuidGenerator, get_user_id_by_email
+from .utils import SequentialUuidGenerator, get_user_id_by_email, get_user_from_api_key
 
 
 @ft.cache
@@ -23,13 +23,18 @@ def _get_user_id_by_email(db: Session):
     return get_user_id_by_email(db)
 
 
+def _get_user_from_api_key(db: Session, api_key_headers: dict[str, str]):
+    return get_user_from_api_key(db, api_key_headers)
+
+
 def httpx_to_standard(response: Response):
     return APIResponse(**response.json())
 
 
 class DocumentMaker:
-    def __init__(self, db: Session):
-        self.owner_id = _get_user_id_by_email(db)
+    def __init__(self, db: Session, api_key_headers: dict[str, str]):
+        user = _get_user_from_api_key(db, api_key_headers)
+        self.owner_id = user.user_id
         self.index = SequentialUuidGenerator()
 
     def __iter__(self):
@@ -58,9 +63,9 @@ class DocumentStore:
     def owner(self):
         return self.documents.owner_id
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, api_key_headers: dict[str, str]):
         self.db = db
-        self.documents = DocumentMaker(self.db)
+        self.documents = DocumentMaker(db, api_key_headers)
         self.clear(self.db)
 
     def put(self):
@@ -113,18 +118,18 @@ class Route:
 @dataclass
 class WebCrawler:
     client: TestClient
-    superuser_token_headers: dict[str, str]
+    api_key_headers: dict[str, str]
 
     def get(self, route: Route):
         return self.client.get(
             str(route),
-            headers=self.superuser_token_headers,
+            headers=self.api_key_headers,
         )
 
     def delete(self, route: Route):
         return self.client.delete(
             str(route),
-            headers=self.superuser_token_headers,
+            headers=self.api_key_headers,
         )
 
 
@@ -158,5 +163,5 @@ class DocumentComparator:
 
 
 @pytest.fixture
-def crawler(client: TestClient, superuser_token_headers: dict[str, str]):
-    return WebCrawler(client, superuser_token_headers)
+def crawler(client: TestClient, api_key_headers: dict[str, str]):
+    return WebCrawler(client, api_key_headers)

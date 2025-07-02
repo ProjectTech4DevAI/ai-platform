@@ -9,6 +9,14 @@ from app.crud.rag import OpenAIAssistantCrud
 from app.tests.utils.document import DocumentStore
 from app.tests.utils.collection import get_collection, uuid_increment
 from app.tests.utils.utils import openai_credentials
+from app.seed_data.seed_data import seed_database
+
+
+@pytest.fixture(scope="function", autouse=True)
+def load_seed_data(db):
+    """Load seed data before each test."""
+    seed_database(db)
+    yield
 
 
 @pytest.mark.usefixtures("openai_credentials")
@@ -52,8 +60,10 @@ class TestCollectionDelete:
             crud.delete(collection, assistant)
 
     @openai_responses.mock()
-    def test_delete_document_deletes_collections(self, db: Session):
-        store = DocumentStore(db)
+    def test_delete_document_deletes_collections(
+        self, db: Session, api_key_headers: dict[str, str]
+    ):
+        store = DocumentStore(db, api_key_headers)
         documents = store.fill(1)
 
         client = OpenAI(api_key="test_api_key")

@@ -3,11 +3,14 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import pytest
+from unittest.mock import patch
 from botocore.exceptions import ClientError
 from moto import mock_aws
 from sqlmodel import Session, select
 
+from openai import OpenAI
 import openai_responses
+from openai_responses import OpenAIMock
 
 from app.core.cloud import AmazonCloudStorageClient
 from app.core.config import settings
@@ -20,11 +23,19 @@ from app.tests.utils.document import (
     crawler,
 )
 from app.tests.utils.utils import openai_credentials
+from app.seed_data.seed_data import seed_database
 
 
 @pytest.fixture
 def route():
     return Route("remove")
+
+
+@pytest.fixture(scope="function", autouse=True)
+def load_seed_data(db):
+    """Load seed data before each test."""
+    seed_database(db)
+    yield
 
 
 @pytest.fixture(scope="class")
@@ -36,22 +47,32 @@ def aws_credentials():
     os.environ["AWS_DEFAULT_REGION"] = settings.AWS_DEFAULT_REGION
 
 
-@pytest.mark.usefixtures("openai_credentials", "aws_credentials")
-@mock_aws
-class TestDocumentRoutePermanentRemove:
+@pytest.mark.usefixtures("openai_credentials")
+class TestDocumentRouteRemove:
     @openai_responses.mock()
-    def test_permanent_delete_document_from_s3(
+    @patch("app.api.routes.documents.get_provider_credential")
+    @patch("app.api.routes.documents.configure_openai")
+    def test_item_is_soft_removed(
         self,
+        mock_configure_openai,
+        mock_get_credential,
         db: Session,
         route: Route,
         crawler: WebCrawler,
+        api_key_headers: dict[str, str],
     ):
+        openai_mock = OpenAIMock()
+        with openai_mock.router:
+            client = OpenAI(api_key="test_key")
+            mock_get_credential.return_value = {"api_key": "sk-test-key"}
+            mock_configure_openai.return_value = (client, True)
+
         # Setup AWS
         aws = AmazonCloudStorageClient()
         aws.create()
 
         # Setup document in DB and S3
-        store = DocumentStore(db)
+        store = DocumentStore(db, api_key_headers)
         document = store.put()
         s3_key = Path(urlparse(document.object_store_url).path).relative_to("/")
         aws.client.put_object(
@@ -60,6 +81,7 @@ class TestDocumentRoutePermanentRemove:
 
         # Delete document
         response = crawler.delete(route.append(document, suffix="permanent"))
+        print(response)
         assert response.is_success
 
         db.refresh(document)
@@ -82,10 +104,11 @@ class TestDocumentRoutePermanentRemove:
         db: Session,
         route: Route,
         crawler: WebCrawler,
+        api_key_headers: dict[str, str],
     ):
         DocumentStore.clear(db)
 
-        maker = DocumentMaker(db)
+        maker = DocumentMaker(db, api_key_headers)
         response = crawler.delete(route.append(next(maker), suffix="permanent"))
 
         assert response.is_error

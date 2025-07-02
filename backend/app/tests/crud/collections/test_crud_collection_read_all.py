@@ -9,11 +9,19 @@ from app.models import Collection
 from app.tests.utils.document import DocumentStore
 from app.tests.utils.collection import get_collection
 from app.tests.utils.utils import openai_credentials
+from app.seed_data.seed_data import seed_database
 
 
-def create_collections(db: Session, n: int):
+@pytest.fixture(scope="function", autouse=True)
+def load_seed_data(db):
+    """Load seed data before each test."""
+    seed_database(db)
+    yield
+
+
+def create_collections(db: Session, n: int, api_key_headers: dict[str, str]):
     crud = None
-    store = DocumentStore(db)
+    store = DocumentStore(db, api_key_headers)
     documents = store.fill(1)
 
     openai_mock = OpenAIMock()
@@ -39,18 +47,19 @@ class TestCollectionReadAll:
     _ncollections = 5
 
     def test_number_read_is_expected(
-        self,
-        db: Session,
+        self, db: Session, api_key_headers: dict[str, str]
     ):
         db.query(Collection).delete()
 
-        owner = create_collections(db, self._ncollections)
+        owner = create_collections(db, self._ncollections, api_key_headers)
         crud = CollectionCrud(db, owner)
         docs = crud.read_all()
 
         assert len(docs) == self._ncollections
 
-    def test_deleted_docs_are_excluded(self, db: Session):
-        owner = create_collections(db, self._ncollections)
+    def test_deleted_docs_are_excluded(
+        self, db: Session, api_key_headers: dict[str, str]
+    ):
+        owner = create_collections(db, self._ncollections, api_key_headers)
         crud = CollectionCrud(db, owner)
         assert all(x.deleted_at is None for x in crud.read_all())
