@@ -62,9 +62,10 @@ class TestCollectionRouteCreate:
         mock_configure_openai,
         client: TestClient,
         db: Session,
+        api_key_headers: dict[str, str],
     ):
         # Setup test documents
-        store = DocumentStore(db)
+        store = DocumentStore(db, api_key_headers)
         documents = store.fill(self._n_documents)
         doc_ids = [str(doc.id) for doc in documents]
 

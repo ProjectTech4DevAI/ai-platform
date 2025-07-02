@@ -183,6 +183,18 @@ def _backout(crud: OpenAIAssistantCrud, assistant_id: str):
         )
 
 
+def mark_collection_failed(session, user_id, collection_id, reason: str):
+    try:
+        collection = CollectionCrud(session, user_id).read_one(collection_id)
+        collection.status = CollectionStatus.failed
+        collection.updated_at = now()
+        CollectionCrud(session, user_id)._update(collection)
+    except Exception as suberr:
+        logger.warning(
+            f"[do_create_collection] Failed to mark collection failed | {{'collection_id': '{collection_id}', 'reason': '{str(suberr)}'}}"
+        )
+
+
 def do_create_collection(
     session: SessionDep,
     current_user: CurrentUserOrgProject,
@@ -199,8 +211,15 @@ def do_create_collection(
     )
     client, success = configure_openai(credentials)
     if not success:
-        return APIResponse.failure_response(
-            error="OpenAI API key not configured for this organization."
+        logger.error(
+            f"OpenAI API key not configured for org_id={current_user.organization_id}, project_id={current_user.project_id}"
+        )
+
+        mark_collection_failed(
+            session=session,
+            user_id=current_user.id,
+            collection_id=UUID(payload.key),
+            reason="OpenAI config failed",
         )
 
     callback = (

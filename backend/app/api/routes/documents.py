@@ -3,13 +3,14 @@ from uuid import UUID, uuid4
 from typing import List
 from pathlib import Path
 
-from fastapi import APIRouter, File, UploadFile, Query
+from fastapi import APIRouter, File, UploadFile, Query, HTTPException
 from fastapi import Path as FastPath
 
-from app.crud import DocumentCrud, CollectionCrud
+from app.crud import DocumentCrud, CollectionCrud, get_provider_credential
 from app.models import Document
+from app.core.util import configure_openai
 from app.utils import APIResponse, load_description
-from app.api.deps import CurrentUser, SessionDep
+from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
 from app.core.cloud import AmazonCloudStorage
 from app.crud.rag import OpenAIAssistantCrud
 
@@ -65,10 +66,20 @@ def upload_doc(
 )
 def remove_doc(
     session: SessionDep,
-    current_user: CurrentUser,
+    current_user: CurrentUserOrgProject,
     doc_id: UUID = FastPath(description="Document to delete"),
 ):
-    a_crud = OpenAIAssistantCrud()
+    credentials = get_provider_credential(
+        session=session,
+        org_id=current_user.organization_id,
+        provider="openai",
+        project_id=current_user.project_id,
+    )
+    client, success = configure_openai(credentials)
+    if not success:
+        raise HTTPException(status_code=400, detail="OpenAI is not configured")
+
+    a_crud = OpenAIAssistantCrud(client)
     d_crud = DocumentCrud(session, current_user.id)
     c_crud = CollectionCrud(session, current_user.id)
 
@@ -84,10 +95,20 @@ def remove_doc(
 )
 def permanent_delete_doc(
     session: SessionDep,
-    current_user: CurrentUser,
+    current_user: CurrentUserOrgProject,
     doc_id: UUID = FastPath(description="Document to permanently delete"),
 ):
-    a_crud = OpenAIAssistantCrud()
+    credentials = get_provider_credential(
+        session=session,
+        org_id=current_user.organization_id,
+        provider="openai",
+        project_id=current_user.project_id,
+    )
+    client, success = configure_openai(credentials)
+    if not success:
+        raise HTTPException(status_code=400, detail="OpenAI is not configured")
+
+    a_crud = OpenAIAssistantCrud(client)
     d_crud = DocumentCrud(session, current_user.id)
     c_crud = CollectionCrud(session, current_user.id)
     storage = AmazonCloudStorage(current_user)

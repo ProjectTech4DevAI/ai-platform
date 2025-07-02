@@ -23,8 +23,9 @@ class TestDocumentRouteInfo:
         db: Session,
         route: Route,
         crawler: WebCrawler,
+        api_key_headers: dict[str, str],
     ):
-        store = DocumentStore(db)
+        store = DocumentStore(db, api_key_headers)
         response = crawler.get(route.append(store.put()))
 
         assert response.is_success
@@ -34,8 +35,9 @@ class TestDocumentRouteInfo:
         db: Session,
         route: Route,
         crawler: WebCrawler,
+        api_key_headers: dict[str, str],
     ):
-        store = DocumentStore(db)
+        store = DocumentStore(db, api_key_headers)
         document = store.put()
         source = DocumentComparator(document)
 
@@ -44,13 +46,10 @@ class TestDocumentRouteInfo:
         assert source == target.data
 
     def test_cannot_info_unknown_document(
-        self,
-        db: Session,
-        route: Route,
-        crawler: Route,
+        self, db: Session, route: Route, crawler: Route, api_key_headers: dict[str, str]
     ):
         DocumentStore.clear(db)
-        maker = DocumentMaker(db)
+        maker = DocumentMaker(db, api_key_headers)
         response = crawler.get(route.append(next(maker)))
 
         assert response.is_error
