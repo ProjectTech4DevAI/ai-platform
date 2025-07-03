@@ -57,16 +57,16 @@ class Credential(CredsBase, table=True):
         index=True, description="Provider name like 'openai', 'gemini'"
     )
     credential: str = Field(
-        sa_column=sa.Column(sa.String),
+        sa_column=sa.Column(sa.String, nullable=False),
         description="Encrypted provider-specific credentials",
     )
     inserted_at: datetime = Field(
         default_factory=now,
-        sa_column=sa.Column(sa.DateTime, default=datetime.utcnow),
+        sa_column=sa.Column(sa.DateTime, default=datetime.utcnow, nullable=False),
     )
     updated_at: datetime = Field(
         default_factory=now,
-        sa_column=sa.Column(sa.DateTime, onupdate=datetime.utcnow),
+        sa_column=sa.Column(sa.DateTime, onupdate=datetime.utcnow, nullable=False),
     )
     deleted_at: Optional[datetime] = Field(
         default=None, sa_column=sa.Column(sa.DateTime, nullable=True)
