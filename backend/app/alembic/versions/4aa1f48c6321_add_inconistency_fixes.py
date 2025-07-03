@@ -70,8 +70,5 @@ def downgrade():
         "credential", "inserted_at", existing_type=postgresql.TIMESTAMP(), nullable=True
     )
     op.alter_column(
-        "credential", "project_id", existing_type=sa.INTEGER(), nullable=True
-    )
-    op.alter_column(
         "collection", "project_id", existing_type=sa.INTEGER(), nullable=True
     )
