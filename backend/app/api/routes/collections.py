@@ -200,27 +200,9 @@ def do_create_collection(
     current_user: CurrentUserOrgProject,
     request: CreationRequest,
     payload: ResponsePayload,
+    client,
 ):
     start_time = time.time()
-
-    credentials = get_provider_credential(
-        session=session,
-        org_id=current_user.organization_id,
-        provider="openai",
-        project_id=current_user.project_id,
-    )
-    client, success = configure_openai(credentials)
-    if not success:
-        logger.error(
-            f"OpenAI API key not configured for org_id={current_user.organization_id}, project_id={current_user.project_id}"
-        )
-
-        mark_collection_failed(
-            session=session,
-            user_id=current_user.id,
-            collection_id=UUID(payload.key),
-            reason="OpenAI config failed",
-        )
 
     callback = (
         SilentCallback(payload)
@@ -297,6 +279,19 @@ def create_collection(
     request: CreationRequest,
     background_tasks: BackgroundTasks,
 ):
+    credentials = get_provider_credential(
+        session=session,
+        org_id=current_user.organization_id,
+        provider="openai",
+        project_id=current_user.project_id,
+    )
+    client, success = configure_openai(credentials)
+    if not success:
+        logger.error(
+            f"[create_collection] OpenAI API key not configured for org_id={current_user.organization_id}, project_id={current_user.project_id}"
+        )
+        raise HTTPException(status_code=400, detail="OpenAI is not configured")
+
     this = inspect.currentframe()
     route = router.url_path_for(this.f_code.co_name)
     payload = ResponsePayload("processing", route)
@@ -314,11 +309,7 @@ def create_collection(
 
     # 2. Launch background task
     background_tasks.add_task(
-        do_create_collection,
-        session,
-        current_user,
-        request,
-        payload,
+        do_create_collection, session, current_user, request, payload, client
     )
 
     logger.info(

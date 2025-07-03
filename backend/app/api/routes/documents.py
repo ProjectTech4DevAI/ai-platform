@@ -77,6 +77,9 @@ def remove_doc(
     )
     client, success = configure_openai(credentials)
     if not success:
+        logger.error(
+            f"[remove_doc] OpenAI API key not configured for org_id={current_user.organization_id}, project_id={current_user.project_id}"
+        )
         raise HTTPException(status_code=400, detail="OpenAI is not configured")
 
     a_crud = OpenAIAssistantCrud(client)
@@ -106,6 +109,9 @@ def permanent_delete_doc(
     )
     client, success = configure_openai(credentials)
     if not success:
+        logger.error(
+            f"[permanent_delete_doc] OpenAI API key not configured for org_id={current_user.organization_id}, project_id={current_user.project_id}"
+        )
         raise HTTPException(status_code=400, detail="OpenAI is not configured")
 
     a_crud = OpenAIAssistantCrud(client)
