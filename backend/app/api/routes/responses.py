@@ -1,6 +1,5 @@
 import logging
-import uuid
-from typing import Any, Dict, Optional
+from typing import Optional
 
 import openai
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -8,11 +7,11 @@ from openai import OpenAI
 from pydantic import BaseModel, Extra
 from sqlmodel import Session
 
-from app.api.deps import get_current_user_org, get_db
+from app.api.deps import get_db, get_current_user_org_project
 from app.api.routes.threads import send_callback
 from app.crud.assistants import get_assistant_by_id
 from app.crud.credentials import get_provider_credential
-from app.models import UserOrganization
+from app.models import UserProjectOrg
 from app.utils import APIResponse
 from app.core.langfuse.langfuse import LangfuseTracer
 
@@ -28,7 +27,6 @@ def handle_openai_error(e: openai.OpenAIError) -> str:
 
 
 class ResponsesAPIRequest(BaseModel):
-    project_id: int
     assistant_id: str
     question: str
     callback_url: Optional[str] = None
@@ -39,7 +37,6 @@ class ResponsesAPIRequest(BaseModel):
 
 
 class ResponsesSyncAPIRequest(BaseModel):
-    project_id: int
     model: str
     instructions: str
     vector_store_ids: list[str]
@@ -91,8 +88,7 @@ def get_additional_data(request: dict) -> dict:
     return {
         k: v
         for k, v in request.items()
-        if k
-        not in {"project_id", "assistant_id", "callback_url", "response_id", "question"}
+        if k not in {"assistant_id", "callback_url", "response_id", "question"}
     }
 
 
@@ -101,10 +97,11 @@ def process_response(
     client: OpenAI,
     assistant,
     tracer: LangfuseTracer,
+    project_id: int,
 ):
     """Process a response and send callback with results, with Langfuse tracing."""
     logger.info(
-        f"Starting generating response for assistant_id={request.assistant_id}, project_id={request.project_id}"
+        f"Starting generating response for assistant_id={request.assistant_id}, project_id={project_id}"
     )
 
     tracer.start_trace(
@@ -143,7 +140,7 @@ def process_response(
         response_chunks = get_file_search_results(response)
 
         logger.info(
-            f"Successfully generated response: response_id={response.id}, assistant={request.assistant_id}, project_id={request.project_id}"
+            f"Successfully generated response: response_id={response.id}, assistant={request.assistant_id}, project_id={project_id}"
         )
 
         tracer.end_generation(
@@ -188,7 +185,7 @@ def process_response(
     except openai.OpenAIError as e:
         error_message = handle_openai_error(e)
         logger.error(
-            f"OpenAI API error during response processing: {error_message}, project_id={request.project_id}"
+            f"OpenAI API error during response processing: {error_message}, project_id={project_id}"
         )
         tracer.log_error(error_message, response_id=request.response_id)
         callback_response = ResponsesAPIResponse.failure_response(error=error_message)
@@ -197,11 +194,11 @@ def process_response(
 
     if request.callback_url:
         logger.info(
-            f"Sending callback to URL: {request.callback_url}, assistant={request.assistant_id}, project_id={request.project_id}"
+            f"Sending callback to URL: {request.callback_url}, assistant={request.assistant_id}, project_id={project_id}"
         )
         send_callback(request.callback_url, callback_response.model_dump())
         logger.info(
-            f"Callback sent successfully, assistant={request.assistant_id}, project_id={request.project_id}"
+            f"Callback sent successfully, assistant={request.assistant_id}, project_id={project_id}"
         )
 
 
@@ -210,32 +207,26 @@ async def responses(
     request: ResponsesAPIRequest,
     background_tasks: BackgroundTasks,
     _session: Session = Depends(get_db),
-    _current_user: UserOrganization = Depends(get_current_user_org),
+    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
-    """Asynchronous endpoint that processes requests in background with Langfuse tracing."""
+    project_id = _current_user.project_id
+    organization_id = _current_user.organization_id
+
     logger.info(
-        f"Processing response request for assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
+        f"Processing response request for assistant_id={request.assistant_id}, project_id={project_id}"
     )
 
-    assistant = get_assistant_by_id(
-        _session, request.assistant_id, _current_user.organization_id
-    )
+    assistant = get_assistant_by_id(_session, request.assistant_id, organization_id)
     if not assistant:
-        logger.warning(
-            f"Assistant not found: assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}",
-        )
         raise HTTPException(status_code=404, detail="Assistant not found or not active")
 
     credentials = get_provider_credential(
         session=_session,
-        org_id=_current_user.organization_id,
+        org_id=organization_id,
         provider="openai",
-        project_id=request.project_id,
+        project_id=project_id,
     )
     if not credentials or "api_key" not in credentials:
-        logger.error(
-            f"OpenAI API key not configured for org_id={_current_user.organization_id}, project_id={request.project_id}"
-        )
         return {
             "success": False,
             "error": "OpenAI API key not configured for this organization.",
@@ -247,9 +238,9 @@ async def responses(
 
     langfuse_credentials = get_provider_credential(
         session=_session,
-        org_id=_current_user.organization_id,
+        org_id=organization_id,
         provider="langfuse",
-        project_id=request.project_id,
+        project_id=project_id,
     )
     tracer = LangfuseTracer(
         credentials=langfuse_credentials,
@@ -262,10 +253,11 @@ async def responses(
         client,
         assistant,
         tracer,
+        project_id,
     )
 
     logger.info(
-        f"Background task scheduled for response processing: assistant_id={request.assistant_id}, project_id={request.project_id}, organization_id={_current_user.organization_id}"
+        f"Background task scheduled for response processing: assistant_id={request.assistant_id}, project_id={project_id}"
     )
 
     return {
@@ -284,14 +276,17 @@ async def responses(
 async def responses_sync(
     request: ResponsesSyncAPIRequest,
     _session: Session = Depends(get_db),
-    _current_user: UserOrganization = Depends(get_current_user_org),
+    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
     """Synchronous endpoint for benchmarking OpenAI responses API with Langfuse tracing."""
+    project_id = _current_user.project_id
+    organization_id = _current_user.organization_id
+
     credentials = get_provider_credential(
         session=_session,
-        org_id=_current_user.organization_id,
+        org_id=organization_id,
         provider="openai",
-        project_id=request.project_id,
+        project_id=project_id,
     )
     if not credentials or "api_key" not in credentials:
         return APIResponse.failure_response(
@@ -302,9 +297,9 @@ async def responses_sync(
 
     langfuse_credentials = get_provider_credential(
         session=_session,
-        org_id=_current_user.organization_id,
+        org_id=organization_id,
         provider="langfuse",
-        project_id=request.project_id,
+        project_id=project_id,
     )
     tracer = LangfuseTracer(
         credentials=langfuse_credentials,
@@ -312,8 +307,7 @@ async def responses_sync(
     )
 
     tracer.start_trace(
-        name="generate_response_sync",
-        input={"question": request.question},
+        name="generate_response_sync", input={"question": request.question}
     )
     tracer.start_generation(
         name="openai_response",
