@@ -7,8 +7,12 @@ from app.core.util import now
 
 
 class CredsBase(SQLModel):
-    organization_id: int = Field(foreign_key="organization.id")
-    project_id: Optional[int] = Field(default=None, foreign_key="project.id")
+    organization_id: int = Field(
+        foreign_key="organization.id", nullable=False, ondelete="CASCADE"
+    )
+    project_id: Optional[int] = Field(
+        default=None, foreign_key="project.id", nullable=False, ondelete="CASCADE"
+    )
     is_active: bool = True
 
 

@@ -35,7 +35,7 @@ class Collection(SQLModel, table=True):
 
     project_id: int = Field(
         foreign_key="project.id",
-        nullable=True,
+        nullable=False,
         ondelete="CASCADE",
     )
 

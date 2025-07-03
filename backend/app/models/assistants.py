@@ -13,8 +13,12 @@ class AssistantBase(SQLModel):
     vector_store_id: str
     temperature: float = 0.1
     max_num_results: int = 20
-    project_id: int = Field(foreign_key="project.id")
-    organization_id: int = Field(foreign_key="organization.id")
+    project_id: int = Field(
+        foreign_key="project.id", nullable=False, ondelete="CASCADE"
+    )
+    organization_id: int = Field(
+        foreign_key="organization.id", nullable=False, ondelete="CASCADE"
+    )
 
 
 class Assistant(AssistantBase, table=True):
