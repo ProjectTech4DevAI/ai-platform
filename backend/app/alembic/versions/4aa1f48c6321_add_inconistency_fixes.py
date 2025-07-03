@@ -22,9 +22,6 @@ def upgrade():
         "collection", "project_id", existing_type=sa.INTEGER(), nullable=False
     )
     op.alter_column(
-        "credential", "project_id", existing_type=sa.INTEGER(), nullable=False
-    )
-    op.alter_column(
         "credential",
         "inserted_at",
         existing_type=postgresql.TIMESTAMP(),
@@ -32,10 +29,6 @@ def upgrade():
     )
     op.alter_column(
         "credential", "updated_at", existing_type=postgresql.TIMESTAMP(), nullable=False
-    )
-    op.drop_constraint("credential_project_id_fkey", "credential", type_="foreignkey")
-    op.create_foreign_key(
-        None, "credential", "project", ["project_id"], ["id"], ondelete="CASCADE"
     )
     op.create_index(
         op.f("ix_openai_assistant_assistant_id"),

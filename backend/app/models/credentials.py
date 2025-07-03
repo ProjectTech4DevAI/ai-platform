@@ -11,7 +11,7 @@ class CredsBase(SQLModel):
         foreign_key="organization.id", nullable=False, ondelete="CASCADE"
     )
     project_id: Optional[int] = Field(
-        default=None, foreign_key="project.id", nullable=False, ondelete="CASCADE"
+        default=None, foreign_key="project.id", ondelete="CASCADE"
     )
     is_active: bool = True
 
