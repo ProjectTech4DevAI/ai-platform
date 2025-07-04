@@ -9,9 +9,9 @@ from sqlmodel import Session
 from typing import Optional
 from langfuse.decorators import observe, langfuse_context
 
-from app.api.deps import get_current_user_org, get_db
+from app.api.deps import get_current_user_org, get_db, get_current_user_org_project
 from app.core import logging, settings
-from app.models import UserOrganization, OpenAIThreadCreate
+from app.models import UserOrganization, OpenAIThreadCreate, UserProjectOrg
 from app.crud import upsert_thread_result, get_thread_result
 from app.utils import APIResponse
 from app.crud.credentials import get_provider_credential
@@ -372,7 +372,7 @@ async def start_thread(
     request: StartThreadRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    _current_user: UserOrganization = Depends(get_current_user_org),
+    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
     """
     Create a new OpenAI thread for the given question and start polling in the background.
@@ -383,7 +383,7 @@ async def start_thread(
         session=db,
         org_id=_current_user.organization_id,
         provider="openai",
-        project_id=request.get("project_id"),
+        project_id=_current_user.project_id,
     )
 
     # Configure OpenAI client
