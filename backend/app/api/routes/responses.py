@@ -209,8 +209,7 @@ async def responses(
     _session: Session = Depends(get_db),
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
-    project_id = _current_user.project_id
-    organization_id = _current_user.organization_id
+    project_id, organization_id = _current_user.project_id, _current_user.organization_id
 
     logger.info(
         f"Processing response request for assistant_id={request.assistant_id}, project_id={project_id}"
@@ -279,8 +278,7 @@ async def responses_sync(
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
     """Synchronous endpoint for benchmarking OpenAI responses API with Langfuse tracing."""
-    project_id = _current_user.project_id
-    organization_id = _current_user.organization_id
+    project_id, organization_id = _current_user.project_id, _current_user.organization_id
 
     credentials = get_provider_credential(
         session=_session,
