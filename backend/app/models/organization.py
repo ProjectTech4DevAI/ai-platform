@@ -38,19 +38,19 @@ class Organization(OrganizationBase, table=True):
 
     # Relationship back to Creds
     api_keys: list["APIKey"] = Relationship(
-        back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete"}
+        back_populates="organization", cascade_delete=True
     )
     creds: list["Credential"] = Relationship(
-        back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete"}
+        back_populates="organization", cascade_delete=True
     )
     project: list["Project"] = Relationship(
-        back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete"}
+        back_populates="organization", cascade_delete=True
     )
     assistants: list["Assistant"] = Relationship(
-        back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete"}
+        back_populates="organization", cascade_delete=True
     )
     collections: list["Collection"] = Relationship(
-        back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete"}
+        back_populates="organization", cascade_delete=True
     )
 
 
