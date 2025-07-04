@@ -3,13 +3,12 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 import random
 import string
+import uuid
 
 from app.main import app
-from app.api.deps import get_db
 from app.crud.credentials import set_creds_for_org
-from app.models import CredsCreate, Organization, OrganizationCreate, Project
+from app.models import CredsCreate, Organization, Project
 from app.core.config import settings
-from app.core.security import encrypt_api_key
 from app.core.providers import Provider
 from app.models.credentials import Credential
 from app.core.security import decrypt_credentials
@@ -23,16 +22,27 @@ def generate_random_string(length=10):
 
 
 @pytest.fixture
-def create_organization_and_creds(db: Session):
-    unique_org_name = "Test Organization " + generate_random_string(5)
-    org = Organization(name=unique_org_name, is_active=True)
+def create_org_and_project_creds(db: Session):
+    """Helper function to create an organization and a project."""
+    org = Organization(name=f"Test Organization {uuid.uuid4()}", is_active=True)
     db.add(org)
     db.commit()
     db.refresh(org)
 
+    project = Project(
+        name=f"Test Project {uuid.uuid4()}",
+        description="A test project",
+        organization_id=org.id,
+        is_active=True,
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+
     api_key = "sk-" + generate_random_string(10)
     creds_data = CredsCreate(
         organization_id=org.id,
+        project_id=project.id,
         is_active=True,
         credential={
             Provider.OPENAI.value: {
@@ -42,31 +52,17 @@ def create_organization_and_creds(db: Session):
             }
         },
     )
-    return org, creds_data
+    return org, project, creds_data
 
 
-def test_set_creds_for_org(db: Session, superuser_token_headers: dict[str, str]):
-    org = Organization(name="Org for Set Creds", is_active=True)
-    db.add(org)
-    db.commit()
-    db.refresh(org)
-
-    api_key = "sk-" + generate_random_string(10)
-    creds_data = {
-        "organization_id": org.id,
-        "is_active": True,
-        "credential": {
-            Provider.OPENAI.value: {
-                "api_key": api_key,
-                "model": "gpt-4",
-                "temperature": 0.7,
-            }
-        },
-    }
+def test_set_creds_for_org(
+    db: Session, superuser_token_headers: dict[str, str], create_org_and_project_creds
+):
+    org, project, creds_data = create_org_and_project_creds
 
     response = client.post(
         f"{settings.API_V1_STR}/credentials/",
-        json=creds_data,
+        json=creds_data.dict(),
         headers=superuser_token_headers,
     )
 
@@ -75,6 +71,7 @@ def test_set_creds_for_org(db: Session, superuser_token_headers: dict[str, str])
     assert isinstance(data, list)
     assert len(data) == 1
     assert data[0]["organization_id"] == org.id
+    assert data[0]["project_id"] == project.id
     assert data[0]["provider"] == Provider.OPENAI.value
     assert data[0]["credential"]["model"] == "gpt-4"
 
@@ -94,11 +91,10 @@ def test_set_creds_for_invalid_project_org_relationship(
     db.add(project2)
     db.commit()
 
-    # Invalid case: Organization mismatch (org1's creds for project2 of org2)
     creds_data_invalid = {
         "organization_id": org1.id,
         "is_active": True,
-        "project_id": project2.id,  # Invalid project for org1
+        "project_id": project2.id,
         "credential": {Provider.OPENAI.value: {"api_key": "sk-123", "model": "gpt-4"}},
     }
 
@@ -116,13 +112,10 @@ def test_set_creds_for_invalid_project_org_relationship(
 
 
 def test_set_creds_for_project_not_found(
-    db: Session, superuser_token_headers: dict[str, str]
+    db: Session, superuser_token_headers: dict[str, str], create_org_and_project_creds
 ):
     # Setup: Create an organization but no project
-    org = Organization(name="Org for Project Not Found", is_active=True)
-    db.add(org)
-    db.commit()
-    db.refresh(org)
+    org, __, _ = create_org_and_project_creds
 
     creds_data_invalid_project = {
         "organization_id": org.id,
@@ -142,9 +135,9 @@ def test_set_creds_for_project_not_found(
 
 
 def test_read_credentials_with_creds(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    db: Session, superuser_token_headers: dict[str, str], create_org_and_project_creds
 ):
-    org, creds_data = create_organization_and_creds
+    org, project, creds_data = create_org_and_project_creds
     set_creds_for_org(session=db, creds_add=creds_data)
 
     response = client.get(
@@ -157,6 +150,7 @@ def test_read_credentials_with_creds(
     assert isinstance(data, list)
     assert len(data) == 1
     assert data[0]["organization_id"] == org.id
+    assert data[0]["project_id"] == project.id
     assert data[0]["provider"] == Provider.OPENAI.value
     assert data[0]["credential"]["model"] == "gpt-4"
 
@@ -173,9 +167,9 @@ def test_read_credentials_not_found(
 
 
 def test_read_provider_credential(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    db: Session, superuser_token_headers: dict[str, str], create_org_and_project_creds
 ):
-    org, creds_data = create_organization_and_creds
+    org, project, creds_data = create_org_and_project_creds
     set_creds_for_org(session=db, creds_add=creds_data)
 
     response = client.get(
@@ -190,9 +184,9 @@ def test_read_provider_credential(
 
 
 def test_read_provider_credential_not_found(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    db: Session, superuser_token_headers: dict[str, str], create_org_and_project_creds
 ):
-    org, _ = create_organization_and_creds
+    org, _, _ = create_org_and_project_creds
 
     response = client.get(
         f"{settings.API_V1_STR}/credentials/{org.id}/{Provider.OPENAI.value}",
@@ -204,9 +198,9 @@ def test_read_provider_credential_not_found(
 
 
 def test_update_credentials(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    db: Session, superuser_token_headers: dict[str, str], create_org_and_project_creds
 ):
-    org, creds_data = create_organization_and_creds
+    org, _, creds_data = create_org_and_project_creds
     set_creds_for_org(session=db, creds_add=creds_data)
 
     update_data = {
@@ -234,9 +228,9 @@ def test_update_credentials(
 
 
 def test_update_credentials_failed_update(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    db: Session, superuser_token_headers: dict[str, str], create_org_and_project_creds
 ):
-    org, creds_data = create_organization_and_creds
+    org, _, creds_data = create_org_and_project_creds
 
     set_creds_for_org(session=db, creds_add=creds_data)
 
@@ -299,9 +293,9 @@ def test_update_credentials_not_found(
 
 
 def test_delete_provider_credential(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    db: Session, superuser_token_headers: dict[str, str], create_org_and_project_creds
 ):
-    org, creds_data = create_organization_and_creds
+    org, project, creds_data = create_org_and_project_creds
     set_creds_for_org(session=db, creds_add=creds_data)
 
     response = client.delete(
@@ -315,9 +309,9 @@ def test_delete_provider_credential(
 
 
 def test_delete_provider_credential_not_found(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    db: Session, superuser_token_headers: dict[str, str], create_org_and_project_creds
 ):
-    org, _ = create_organization_and_creds
+    org, _, _ = create_org_and_project_creds
 
     response = client.delete(
         f"{settings.API_V1_STR}/credentials/{org.id}/{Provider.OPENAI.value}",
@@ -330,9 +324,9 @@ def test_delete_provider_credential_not_found(
 
 
 def test_delete_all_credentials(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    db: Session, superuser_token_headers: dict[str, str], create_org_and_project_creds
 ):
-    org, creds_data = create_organization_and_creds
+    org, _, creds_data = create_org_and_project_creds
     set_creds_for_org(session=db, creds_add=creds_data)
 
     response = client.delete(
@@ -366,9 +360,9 @@ def test_delete_all_credentials_not_found(
 
 
 def test_duplicate_credential_creation(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    db: Session, superuser_token_headers: dict[str, str], create_org_and_project_creds
 ):
-    org, creds_data = create_organization_and_creds
+    org, _, creds_data = create_org_and_project_creds
     # First create credentials
     response = client.post(
         f"{settings.API_V1_STR}/credentials/",
@@ -388,13 +382,14 @@ def test_duplicate_credential_creation(
 
 
 def test_multiple_provider_credentials(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    db: Session, superuser_token_headers: dict[str, str], create_org_and_project_creds
 ):
-    org, _ = create_organization_and_creds
+    org, project, _ = create_org_and_project_creds
 
     # Create OpenAI credentials
     openai_creds = {
         "organization_id": org.id,
+        "project_id": project.id,
         "is_active": True,
         "credential": {
             Provider.OPENAI.value: {
@@ -408,6 +403,7 @@ def test_multiple_provider_credentials(
     # Create Langfuse credentials
     langfuse_creds = {
         "organization_id": org.id,
+        "project_id": project.id,
         "is_active": True,
         "credential": {
             Provider.LANGFUSE.value: {
@@ -447,9 +443,9 @@ def test_multiple_provider_credentials(
 
 
 def test_credential_encryption(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    db: Session, superuser_token_headers: dict[str, str], create_org_and_project_creds
 ):
-    org, creds_data = create_organization_and_creds
+    org, _, creds_data = create_org_and_project_creds
     original_api_key = creds_data.credential[Provider.OPENAI.value]["api_key"]
 
     # Create credentials
@@ -479,9 +475,9 @@ def test_credential_encryption(
 
 
 def test_credential_encryption_consistency(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    db: Session, superuser_token_headers: dict[str, str], create_org_and_project_creds
 ):
-    org, creds_data = create_organization_and_creds
+    org, _, creds_data = create_org_and_project_creds
     original_api_key = creds_data.credential[Provider.OPENAI.value]["api_key"]
 
     # Create credentials

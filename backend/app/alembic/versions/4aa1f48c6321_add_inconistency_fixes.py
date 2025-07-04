@@ -1,4 +1,4 @@
-"""add anything
+"""add inconsistency fixes
 
 Revision ID: 4aa1f48c6321
 Revises: 3389c67fdcb4
@@ -30,6 +30,9 @@ def upgrade():
     op.alter_column(
         "credential", "updated_at", existing_type=postgresql.TIMESTAMP(), nullable=False
     )
+    op.alter_column(
+        "credential", "project_id", existing_type=sa.INTEGER(), nullable=False
+    )
     op.create_index(
         op.f("ix_openai_assistant_assistant_id"),
         "openai_assistant",
@@ -39,6 +42,10 @@ def upgrade():
     op.drop_constraint("project_organization_id_fkey", "project", type_="foreignkey")
     op.create_foreign_key(
         None, "project", "organization", ["organization_id"], ["id"], ondelete="CASCADE"
+    )
+    op.drop_constraint("credential_project_id_fkey", "credential", type_="foreignkey")
+    op.create_foreign_key(
+        None, "credential", "project", ["project_id"], ["id"], ondelete="CASCADE"
     )
 
 
@@ -63,6 +70,15 @@ def downgrade():
         ["id"],
         ondelete="SET NULL",
     )
+    op.drop_constraint(None, "credential", type_="foreignkey")
+    op.create_foreign_key(
+        "credential_project_id_fkey",
+        "credential",
+        "project",
+        ["project_id"],
+        ["id"],
+        ondelete="SET NULL",
+    )
     op.alter_column(
         "credential", "updated_at", existing_type=postgresql.TIMESTAMP(), nullable=True
     )
@@ -71,4 +87,7 @@ def downgrade():
     )
     op.alter_column(
         "collection", "project_id", existing_type=sa.INTEGER(), nullable=True
+    )
+    op.alter_column(
+        "credential", "project_id", existing_type=sa.INTEGER(), nullable=True
     )
