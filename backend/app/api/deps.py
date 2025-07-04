@@ -121,8 +121,8 @@ def get_current_user_org_project(
             organization_id = api_key_record.organization_id
             project_id = api_key_record.project_id
 
-    if not api_key:
-        raise HTTPException(status_code=401, detail="API Key is required")
+    else:
+        raise HTTPException(status_code=401, detail="Invalid API Key")
 
     return UserProjectOrg(
         **current_user.model_dump(),
