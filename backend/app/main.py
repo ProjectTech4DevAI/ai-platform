@@ -1,8 +1,7 @@
 import sentry_sdk
-
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
-
+from asgi_correlation_id.middleware import CorrelationIdMiddleware
 from app.api.main import api_router
 from app.core.config import settings
 import app.core.logger
@@ -24,6 +23,7 @@ app = FastAPI(
 )
 
 app.middleware("http")(http_request_logger)
+app.add_middleware(CorrelationIdMiddleware)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
