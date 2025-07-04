@@ -6,11 +6,19 @@ from app.crud import DocumentCrud
 
 from app.tests.utils.document import DocumentStore
 from app.core.exception_handlers import HTTPException
+from app.seed_data.seed_data import seed_database
+
+
+@pytest.fixture(scope="function", autouse=True)
+def load_seed_data(db):
+    """Load seed data before each test."""
+    seed_database(db)
+    yield
 
 
 @pytest.fixture
-def store(db: Session):
-    return DocumentStore(db)
+def store(db: Session, api_key_headers: dict[str, str]):
+    return DocumentStore(db, api_key_headers)
 
 
 class TestDatabaseReadOne:
@@ -34,12 +42,10 @@ class TestDatabaseReadOne:
         assert "Document not found" in str(exc_info.value.detail)
 
     def test_cannot_read_others_documents(
-        self,
-        db: Session,
-        store: DocumentStore,
+        self, db: Session, store: DocumentStore, api_key_headers: dict[str, str]
     ):
         document = store.put()
-        other = DocumentStore(db)
+        other = DocumentStore(db, api_key_headers)
 
         crud = DocumentCrud(db, other.owner)
         with pytest.raises(HTTPException) as exc_info:

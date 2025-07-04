@@ -7,11 +7,19 @@ from app.models import Document
 
 from app.tests.utils.document import DocumentStore
 from app.core.exception_handlers import HTTPException
+from app.seed_data.seed_data import seed_database
+
+
+@pytest.fixture(scope="function", autouse=True)
+def load_seed_data(db):
+    """Load seed data before each test."""
+    seed_database(db)
+    yield
 
 
 @pytest.fixture
-def document(db: Session):
-    store = DocumentStore(db)
+def document(db: Session, api_key_headers: dict[str, str]):
+    store = DocumentStore(db, api_key_headers)
     document = store.put()
 
     crud = DocumentCrud(db, document.owner_id)
@@ -31,8 +39,10 @@ class TestDatabaseDelete:
     def test_delete_follows_insert(self, document: Document):
         assert document.inserted_at <= document.deleted_at
 
-    def test_cannot_delete_others_documents(self, db: Session):
-        store = DocumentStore(db)
+    def test_cannot_delete_others_documents(
+        self, db: Session, api_key_headers: dict[str, str]
+    ):
+        store = DocumentStore(db, api_key_headers)
         document = store.put()
         other_owner_id = store.documents.owner_id + 1
 

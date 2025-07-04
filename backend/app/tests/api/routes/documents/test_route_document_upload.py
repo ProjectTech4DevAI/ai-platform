@@ -25,7 +25,7 @@ class WebUploader(WebCrawler):
         with scratch.open("rb") as fp:
             return self.client.post(
                 str(route),
-                headers=self.superuser_token_headers,
+                headers=self.api_key_headers,
                 files={
                     "src": (str(scratch), fp, mtype),
                 },
@@ -45,8 +45,8 @@ def route():
 
 
 @pytest.fixture
-def uploader(client: TestClient, superuser_token_headers: dict[str, str]):
-    return WebUploader(client, superuser_token_headers)
+def uploader(client: TestClient, api_key_headers: dict[str, str]):
+    return WebUploader(client, api_key_headers)
 
 
 @pytest.fixture(scope="class")
