@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID, uuid4
 from typing import List
 from pathlib import Path
@@ -12,6 +13,7 @@ from app.api.deps import CurrentUser, SessionDep
 from app.core.cloud import AmazonCloudStorage
 from app.crud.rag import OpenAIAssistantCrud
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
@@ -43,6 +45,7 @@ def upload_doc(
 ):
     storage = AmazonCloudStorage(current_user)
     document_id = uuid4()
+
     object_store_url = storage.put(src, Path(str(document_id)))
 
     crud = DocumentCrud(session, current_user.id)
@@ -92,6 +95,7 @@ def permanent_delete_doc(
     document = d_crud.read_one(doc_id)
 
     c_crud.delete(document, a_crud)
+
     storage.delete(document.object_store_url)
     d_crud.delete(doc_id)
 

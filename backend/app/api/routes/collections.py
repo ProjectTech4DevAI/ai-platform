@@ -22,6 +22,7 @@ from app.models import Collection, Document
 from app.models.collection import CollectionStatus
 from app.utils import APIResponse, load_description
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/collections", tags=["collections"])
 
 
@@ -59,6 +60,9 @@ class DocumentOptions(BaseModel):
         self.documents = list(set(self.documents))
 
     def __call__(self, crud: DocumentCrud):
+        logger.info(
+            f"[DocumentOptions.call] Starting batch iteration for documents | {{'batch_size': {self.batch_size}, 'total_documents': {len(self.documents)}}}"
+        )
         (start, stop) = (0, self.batch_size)
         while True:
             view = self.documents[start:stop]
@@ -130,9 +134,11 @@ class CallbackHandler:
 
 class SilentCallback(CallbackHandler):
     def fail(self, body):
+        logger.info(f"[SilentCallback.fail] Silent callback failure")
         return
 
     def success(self, body):
+        logger.info(f"[SilentCallback.success] Silent callback success")
         return
 
 
@@ -140,32 +146,35 @@ class WebHookCallback(CallbackHandler):
     def __init__(self, url: HttpUrl, payload: ResponsePayload):
         super().__init__(payload)
         self.url = url
+        logger.info(
+            f"[WebHookCallback.init] Initialized webhook callback | {{'url': '{url}'}}"
+        )
 
     def __call__(self, response: APIResponse, status: str):
         time = ResponsePayload.now()
         payload = replace(self.payload, status=status, time=time)
         response.metadata = asdict(payload)
-
+        logger.info(
+            f"[WebHookCallback.call] Posting callback | {{'url': '{self.url}', 'status': '{status}'}}"
+        )
         post_callback(self.url, response)
 
     def fail(self, body):
+        logger.warning(f"[WebHookCallback.fail] Callback failed | {{'body': '{body}'}}")
         self(APIResponse.failure_response(body), "incomplete")
 
     def success(self, body):
+        logger.info(f"[WebHookCallback.success] Callback succeeded")
         self(APIResponse.success_response(body), "complete")
 
 
 def _backout(crud: OpenAIAssistantCrud, assistant_id: str):
     try:
         crud.delete(assistant_id)
-    except OpenAIError:
-        warnings.warn(
-            ": ".join(
-                [
-                    f"Unable to remove assistant {assistant_id}",
-                    "platform DB may be out of sync with OpenAI",
-                ]
-            )
+    except OpenAIError as err:
+        logger.error(
+            f"[backout] Failed to delete assistant | {{'assistant_id': '{assistant_id}', 'error': '{str(err)}'}}",
+            exc_info=True,
         )
 
 
@@ -200,18 +209,10 @@ def do_create_collection(
             storage.get_file_size_kb(doc.object_store_url) for doc in flat_docs
         ]
 
-        logging.info(
-            f"[VectorStore Update] Uploading {len(flat_docs)} documents to vector store {vector_store.id}"
-        )
         list(vector_store_crud.update(vector_store.id, storage, docs))
-        logging.info(f"[VectorStore Upload] Upload completed")
 
         assistant_options = dict(request.extract_super_type(AssistantOptions))
-        logging.info(
-            f"[Assistant Create] Creating assistant with options: {assistant_options}"
-        )
         assistant = assistant_crud.create(vector_store.id, **assistant_options)
-        logging.info(f"[Assistant Create] Assistant created: {assistant.id}")
 
         collection = collection_crud.read_one(UUID(payload.key))
         collection.llm_service_id = assistant.id
@@ -220,22 +221,22 @@ def do_create_collection(
         collection.updated_at = now()
 
         if flat_docs:
-            logging.info(
-                f"[DocumentCollection] Linking {len(flat_docs)} documents to collection {collection.id}"
-            )
             DocumentCollectionCrud(session).create(collection, flat_docs)
 
         collection_crud._update(collection)
 
         elapsed = time.time() - start_time
         logging.info(
-            f"Collection created: {collection.id} | Time: {elapsed:.2f}s | "
+            f"[do_create_collection] Collection created: {collection.id} | Time: {elapsed:.2f}s | "
             f"Files: {len(flat_docs)} | Sizes: {file_sizes_kb} KB | Types: {list(file_exts)}"
         )
         callback.success(collection.model_dump(mode="json"))
 
     except Exception as err:
-        logging.error(f"[Collection Creation Failed] {err} ({type(err).__name__})")
+        logger.error(
+            f"[do_create_collection] Collection Creation Failed | {{'collection_id': '{payload.key}', 'error': '{str(err)}'}}",
+            exc_info=True,
+        )
         if "assistant" in locals():
             _backout(assistant_crud, assistant.id)
         try:
@@ -244,7 +245,9 @@ def do_create_collection(
             collection.updated_at = now()
             collection_crud._update(collection)
         except Exception as suberr:
-            logging.warning(f"[Collection Status Update Failed] {suberr}")
+            logger.warning(
+                f"[do_create_collection] Failed to update collection status | {{'collection_id': '{payload.key}', 'reason': '{str(suberr)}'}}"
+            )
         callback.fail(str(err))
 
 
@@ -282,6 +285,10 @@ def create_collection(
         payload,
     )
 
+    logger.info(
+        f"[create_collection] Background task for collection creation scheduled | "
+        f"{{'collection_id': '{collection.id}'}}"
+    )
     return APIResponse.success_response(data=None, metadata=asdict(payload))
 
 
@@ -301,12 +308,20 @@ def do_delete_collection(
         collection = collection_crud.read_one(request.collection_id)
         assistant = OpenAIAssistantCrud()
         data = collection_crud.delete(collection, assistant)
+        logger.info(
+            f"[do_delete_collection] Collection deleted successfully | {{'collection_id': '{collection.id}'}}"
+        )
         callback.success(data.model_dump(mode="json"))
     except (ValueError, PermissionError, SQLAlchemyError) as err:
+        logger.error(
+            f"[do_delete_collection] Failed to delete collection | {{'collection_id': '{request.collection_id}', 'error': '{str(err)}'}}",
+            exc_info=True,
+        )
         callback.fail(str(err))
     except Exception as err:
-        warnings.warn(
-            'Unexpected exception "{}": {}'.format(type(err).__name__, err),
+        logger.error(
+            f"[do_delete_collection] Unexpected error during deletion | {{'collection_id': '{request.collection_id}', 'error': '{str(err)}', 'error_type': '{type(err).__name__}'}}",
+            exc_info=True,
         )
         callback.fail(str(err))
 
@@ -333,6 +348,10 @@ def delete_collection(
         payload,
     )
 
+    logger.info(
+        f"[delete_collection] Background task for deletion scheduled | "
+        f"{{'collection_id': '{request.collection_id}'}}"
+    )
     return APIResponse.success_response(data=None, metadata=asdict(payload))
 
 
