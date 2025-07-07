@@ -3,18 +3,18 @@ from uuid import UUID
 import io
 
 import openai_responses
-from sqlmodel import Session, select
+from sqlmodel import Session
 from fastapi.testclient import TestClient
-from openai import OpenAIError
+from unittest.mock import MagicMock, patch
 
 from app.core.config import settings
 from app.tests.utils.document import DocumentStore
-from app.tests.utils.utils import openai_credentials, get_user_from_api_key
+from app.tests.utils.utils import get_user_from_api_key
 from app.main import app
 from app.crud.collection import CollectionCrud
-from app.api.routes.collections import CreationRequest, ResponsePayload
 from app.seed_data.seed_data import seed_database
 from app.models.collection import CollectionStatus
+from app.tests.utils.collections_openai_mock import get_mock_openai_client
 
 client = TestClient(app)
 
@@ -51,17 +51,21 @@ def mock_s3(monkeypatch):
     monkeypatch.setattr("boto3.client", lambda service: FakeS3Client())
 
 
-@pytest.mark.usefixtures("openai_credentials")
+@patch("app.api.routes.collections.configure_openai")
+@patch("app.api.routes.collections.get_provider_credential")
 class TestCollectionRouteCreate:
     _n_documents = 5
 
-    @openai_responses.mock()
     def test_create_collection_success(
         self,
+        mock_get_credential,
+        mock_configure_openai,
         client: TestClient,
         db: Session,
+        api_key_headers: dict[str, str],
     ):
-        store = DocumentStore(db)
+        # Setup test documents
+        store = DocumentStore(db, api_key_headers)
         documents = store.fill(self._n_documents)
         doc_ids = [str(doc.id) for doc in documents]
 
@@ -73,8 +77,12 @@ class TestCollectionRouteCreate:
             "temperature": 0.1,
         }
         original_api_key = "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8"
-
         headers = {"X-API-KEY": original_api_key}
+
+        mock_get_credential.return_value = {"api_key": "test_api_key"}
+
+        mock_openai_client = get_mock_openai_client()
+        mock_configure_openai.return_value = (mock_openai_client, True)
 
         response = client.post(
             f"{settings.API_V1_STR}/collections/create",
@@ -89,8 +97,8 @@ class TestCollectionRouteCreate:
         assert metadata["status"] == CollectionStatus.processing.value
         assert UUID(metadata["key"])
 
+        # Confirm collection metadata in DB
         collection_id = UUID(metadata["key"])
-
         user = get_user_from_api_key(db, headers)
         collection = CollectionCrud(db, user.user_id).read_one(collection_id)
 
