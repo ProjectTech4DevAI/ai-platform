@@ -209,7 +209,10 @@ async def responses(
     _session: Session = Depends(get_db),
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
-    project_id, organization_id = _current_user.project_id, _current_user.organization_id
+    project_id, organization_id = (
+        _current_user.project_id,
+        _current_user.organization_id,
+    )
 
     logger.info(
         f"Processing response request for assistant_id={mask_string(request.assistant_id)}, project_id={project_id}, organization_id={organization_id}"
@@ -229,6 +232,9 @@ async def responses(
         project_id=project_id,
     )
     if not credentials or "api_key" not in credentials:
+        logger.error(
+            f"OpenAI API key not configured for org_id={organization_id}, project_id={project_id}"
+        )
         return {
             "success": False,
             "error": "OpenAI API key not configured for this organization.",
@@ -281,7 +287,10 @@ async def responses_sync(
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
     """Synchronous endpoint for benchmarking OpenAI responses API with Langfuse tracing."""
-    project_id, organization_id = _current_user.project_id, _current_user.organization_id
+    project_id, organization_id = (
+        _current_user.project_id,
+        _current_user.organization_id,
+    )
 
     credentials = get_provider_credential(
         session=_session,
