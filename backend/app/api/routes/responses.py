@@ -209,6 +209,8 @@ async def responses(
     _session: Session = Depends(get_db),
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
+    """Asynchronous endpoint that processes requests in background with Langfuse tracing."""
+
     project_id, organization_id = (
         _current_user.project_id,
         _current_user.organization_id,
