@@ -49,7 +49,6 @@ def test_responses_endpoint_success(
 
     headers = {"X-API-KEY": original_api_key}
     request_data = {
-        "project_id": glific_project.id,
         "assistant_id": "assistant_123",
         "question": "What is Glific?",
         "callback_url": "http://example.com/callback",
@@ -109,7 +108,6 @@ def test_responses_endpoint_without_vector_store(
 
     headers = {"X-API-KEY": original_api_key}
     request_data = {
-        "project_id": glific_project.id,
         "assistant_id": "assistant_123",
         "question": "What is Glific?",
         "callback_url": "http://example.com/callback",
