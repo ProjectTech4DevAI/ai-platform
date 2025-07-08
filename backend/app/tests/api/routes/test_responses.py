@@ -6,20 +6,11 @@ from sqlmodel import select
 
 from app.api.routes.responses import router
 from app.models import Project
-from app.seed_data.seed_data import seed_database
 
 # Wrap the router in a FastAPI app instance
 app = FastAPI()
 app.include_router(router)
 client = TestClient(app)
-
-
-@pytest.fixture(scope="function", autouse=True)
-def load_seed_data(db):
-    """Load seed data before each test."""
-    seed_database(db)
-    yield
-    # Cleanup is handled by the db fixture in conftest.py
 
 
 @patch("app.api.routes.responses.OpenAI")
