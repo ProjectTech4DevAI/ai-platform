@@ -20,6 +20,7 @@ from app.models import (
 )
 from app.tests.utils.user import authentication_token_from_email
 from app.tests.utils.utils import get_superuser_token_headers
+from app.seed_data.seed_data import seed_database
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -56,3 +57,9 @@ def normal_user_token_headers(client: TestClient, db: Session) -> dict[str, str]
     return authentication_token_from_email(
         client=client, email=settings.EMAIL_TEST_USER, db=db
     )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def load_seed_data(db):
+    seed_database(db)
+    yield
