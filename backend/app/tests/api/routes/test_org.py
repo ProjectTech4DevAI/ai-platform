@@ -1,44 +1,25 @@
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, select
+from sqlmodel import Session
 
-from app import crud
 from app.core.config import settings
-from app.core.security import verify_password
-from app.models import User, UserCreate
-from app.tests.utils.utils import random_email, random_lower_string
-from app.models import Organization, OrganizationCreate, OrganizationUpdate
-from app.api.deps import get_db
+from app.models import Organization
 from app.main import app
 from app.crud.organization import create_organization, get_organization_by_id
+from app.tests.utils.test_data import create_test_organization
 
 client = TestClient(app)
 
 
 @pytest.fixture
 def test_organization(db: Session, superuser_token_headers: dict[str, str]):
-    unique_name = f"TestOrg-{random_lower_string()}"
-    org_data = OrganizationCreate(name=unique_name, is_active=True)
-    organization = create_organization(session=db, org_create=org_data)
-    db.commit()
-    return organization
-
-
-# Test retrieving organizations
-def test_read_organizations(db: Session, superuser_token_headers: dict[str, str]):
-    response = client.get(
-        f"{settings.API_V1_STR}/organizations/", headers=superuser_token_headers
-    )
-    assert response.status_code == 200
-    response_data = response.json()
-    assert "data" in response_data
-    assert isinstance(response_data["data"], list)
+    return create_test_organization(db)
 
 
 # Test creating an organization
 def test_create_organization(db: Session, superuser_token_headers: dict[str, str]):
-    unique_name = f"Org-{random_lower_string()}"
-    org_data = {"name": unique_name, "is_active": True}
+    org_name = "Test-Org"
+    org_data = {"name": org_name, "is_active": True}
     response = client.post(
         f"{settings.API_V1_STR}/organizations/",
         json=org_data,
@@ -55,13 +36,25 @@ def test_create_organization(db: Session, superuser_token_headers: dict[str, str
     assert org.is_active == created_org_data["is_active"]
 
 
+# Test retrieving organizations
+def test_read_organizations(db: Session, superuser_token_headers: dict[str, str]):
+    response = client.get(
+        f"{settings.API_V1_STR}/organizations/", headers=superuser_token_headers
+    )
+    assert response.status_code == 200
+    response_data = response.json()
+    assert "data" in response_data
+    assert isinstance(response_data["data"], list)
+
+
+# Updating an organization
 def test_update_organization(
     db: Session,
     test_organization: Organization,
     superuser_token_headers: dict[str, str],
 ):
-    unique_name = f"UpdatedOrg-{random_lower_string()}"  # Ensure a unique name
-    update_data = {"name": unique_name, "is_active": False}
+    updated_name = "UpdatedOrg"
+    update_data = {"name": updated_name, "is_active": False}
 
     response = client.patch(
         f"{settings.API_V1_STR}/organizations/{test_organization.id}",
