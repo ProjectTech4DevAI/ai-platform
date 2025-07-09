@@ -1,26 +1,61 @@
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
+from app.core.security import decrypt_api_key, verify_password
 
 from app.main import app
 from app.core.config import settings
-from app.models import Project, ProjectCreate
-from app.tests.utils.test_data import create_test_organization, create_test_project
-
+from app.models import Project, ProjectCreate, ProjectUpdate
+from app.models import Organization, OrganizationCreate, ProjectUpdate
+from app.api.deps import get_db
+from app.tests.utils.utils import random_lower_string, random_email
+from app.crud.project import create_project, get_project_by_id
+from app.crud.organization import create_organization
+from app.crud import api_key as api_key_crud
 
 client = TestClient(app)
 
 
 @pytest.fixture
-def test_project(db: Session) -> Project:
-    return create_test_project(db)
+def test_project(db: Session, superuser_token_headers: dict[str, str]):
+    unique_org_name = f"TestOrg-{random_lower_string()}"
+    org_data = OrganizationCreate(name=unique_org_name, is_active=True)
+    organization = create_organization(session=db, org_create=org_data)
+    db.commit()
+
+    unique_project_name = f"TestProject-{random_lower_string()}"
+    project_description = "This is a test project description."
+    project_data = ProjectCreate(
+        name=unique_project_name,
+        description=project_description,
+        is_active=True,
+        organization_id=organization.id,
+    )
+    project = create_project(session=db, project_create=project_data)
+    db.commit()
+
+    return project
+
+
+# Test retrieving projects
+def test_read_projects(db: Session, superuser_token_headers: dict[str, str]):
+    response = client.get(
+        f"{settings.API_V1_STR}/projects/", headers=superuser_token_headers
+    )
+    assert response.status_code == 200
+    response_data = response.json()
+    assert "data" in response_data
+    assert isinstance(response_data["data"], list)
 
 
 # Test creating a project
 def test_create_new_project(db: Session, superuser_token_headers: dict[str, str]):
-    organization = create_test_organization(db)
+    unique_org_name = f"TestOrg-{random_lower_string()}"
+    org_data = OrganizationCreate(name=unique_org_name, is_active=True)
+    organization = create_organization(session=db, org_create=org_data)
+    db.commit()
 
-    unique_project_name = "TestProject"
+    unique_project_name = f"TestProject-{random_lower_string()}"
     project_description = "This is a test project description."
     project_data = ProjectCreate(
         name=unique_project_name,
@@ -45,17 +80,6 @@ def test_create_new_project(db: Session, superuser_token_headers: dict[str, str]
     )  # Now checking 'name' inside 'data'
     assert created_project["data"]["description"] == project_description
     assert created_project["data"]["organization_id"] == organization.id
-
-
-# Test retrieving projects
-def test_read_projects(db: Session, superuser_token_headers: dict[str, str]):
-    response = client.get(
-        f"{settings.API_V1_STR}/projects/", headers=superuser_token_headers
-    )
-    assert response.status_code == 200
-    response_data = response.json()
-    assert "data" in response_data
-    assert isinstance(response_data["data"], list)
 
 
 # Test updating a project

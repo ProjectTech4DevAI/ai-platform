@@ -7,7 +7,6 @@ from sqlmodel import Session
 from app.core.config import settings
 from app.models import Collection, Organization, Project
 from app.tests.utils.utils import get_user_id_by_email
-from app.tests.utils.test_data import create_test_project
 from app.crud import create_api_key
 
 
@@ -25,14 +24,19 @@ def get_collection(db: Session, client=None):
     owner_id = get_user_id_by_email(db)
 
     # Step 1: Create real organization and project entries
-    project = create_test_project(db)
+    organization = Organization(name=f"Test Org {uuid4()}")
+    db.add(organization)
+    db.commit()
+    db.refresh(organization)
+
+    project = Project(name="Test Project {uuid4()}", organization_id=organization.id)
+    db.add(project)
+    db.commit()
+    db.refresh(project)
 
     # Step 2: Create API key for user with valid foreign keys
     create_api_key(
-        db,
-        organization_id=project.organization_id,
-        user_id=owner_id,
-        project_id=project.id,
+        db, organization_id=organization.id, user_id=owner_id, project_id=project.id
     )
 
     if client is None:
@@ -47,7 +51,7 @@ def get_collection(db: Session, client=None):
 
     return Collection(
         owner_id=owner_id,
-        organization_id=project.organization_id,
+        organization_id=organization.id,
         project_id=project.id,
         llm_service_id=assistant.id,
         llm_service_name=constants.llm_service_name,
