@@ -13,8 +13,7 @@ class AssistantBase(SQLModel):
     instructions: str
     model: str
     vector_store_ids: List[str] = Field(
-        default_factory=list,
-        sa_column=Column(ARRAY(String))
+        default_factory=list, sa_column=Column(ARRAY(String))
     )
     temperature: float = 0.1
     max_num_results: int = 20

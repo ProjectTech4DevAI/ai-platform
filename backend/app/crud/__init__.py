@@ -5,6 +5,9 @@ from .user import (
     update_user,
 )
 from .collection import CollectionCrud
+
+from .credentials import get_provider_credential
+
 from .document import DocumentCrud
 from .document_collection import DocumentCollectionCrud
 
