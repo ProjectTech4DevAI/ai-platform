@@ -38,7 +38,7 @@ def create_collection(
     return collection
 
 
-def test_collection_info_processing(db: Session):
+def test_collection_info_processing(db: Session, client: TestClient):
     headers = {"X-API-KEY": original_api_key}
     user = get_user_from_api_key(db, headers)
     collection = create_collection(db, user, status=CollectionStatus.processing)
@@ -57,7 +57,7 @@ def test_collection_info_processing(db: Session):
     assert data["llm_service_name"] is None
 
 
-def test_collection_info_successful(db: Session):
+def test_collection_info_successful(db: Session, client: TestClient):
     headers = {"X-API-KEY": original_api_key}
     user = get_user_from_api_key(db, headers)
     collection = create_collection(
@@ -78,7 +78,7 @@ def test_collection_info_successful(db: Session):
     assert data["llm_service_name"] == "gpt-4o"
 
 
-def test_collection_info_failed(db: Session):
+def test_collection_info_failed(db: Session, client: TestClient):
     headers = {"X-API-KEY": original_api_key}
     user = get_user_from_api_key(db, headers)
     collection = create_collection(db, user, status=CollectionStatus.failed)
