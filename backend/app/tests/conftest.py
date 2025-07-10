@@ -1,97 +1,61 @@
-from uuid import uuid4
-from datetime import datetime, timezone
+from collections.abc import Generator
+
+import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
+from sqlalchemy import event
+
 from app.core.config import settings
-from app.models import Collection
+from app.core.db import engine
+from app.api.deps import get_db
 from app.main import app
-from app.tests.utils.utils import get_user_from_api_key
-from app.models.collection import CollectionStatus
-
-client = TestClient(app)
-
-original_api_key = "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8"
+from app.tests.utils.user import authentication_token_from_email
+from app.tests.utils.utils import get_superuser_token_headers
+from app.seed_data.seed_data import seed_database
 
 
-def create_collection(
-    db,
-    user,
-    status: CollectionStatus = CollectionStatus.processing,
-    with_llm: bool = False,
-):
-    now = datetime.now(timezone.utc)
-    collection = Collection(
-        id=uuid4(),
-        owner_id=user.user_id,
-        organization_id=user.organization_id,
-        project_id=user.project_id,
-        status=status,
-        updated_at=now,
+@pytest.fixture(scope="function")
+def db() -> Generator[Session, None, None]:
+    connection = engine.connect()
+    transaction = connection.begin()
+    session = Session(bind=connection)
+
+    nested = session.begin_nested()
+
+    @event.listens_for(session, "after_transaction_end")
+    def restart_savepoint(sess, trans):
+        if trans.nested and not trans._parent.nested:
+            sess.begin_nested()
+
+    try:
+        yield session
+    finally:
+        session.close()
+        transaction.rollback()
+        connection.close()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def seed_baseline():
+    with Session(engine) as session:
+        seed_database(session)  # deterministic baseline
+        yield
+
+
+@pytest.fixture(scope="function")
+def client(db: Session):
+    app.dependency_overrides[get_db] = lambda: db
+    with TestClient(app) as c:
+        yield c
+
+
+@pytest.fixture(scope="function")
+def superuser_token_headers(client: TestClient) -> dict[str, str]:
+    return get_superuser_token_headers(client)
+
+
+@pytest.fixture(scope="function")
+def normal_user_token_headers(client: TestClient, db: Session) -> dict[str, str]:
+    return authentication_token_from_email(
+        client=client, email=settings.EMAIL_TEST_USER, db=db
     )
-    if with_llm:
-        collection.llm_service_id = f"asst_{uuid4()}"
-        collection.llm_service_name = "gpt-4o"
-
-    db.add(collection)
-    db.commit()
-    db.refresh(collection)
-    return collection
-
-
-def test_collection_info_processing(db: Session, client: TestClient):
-    headers = {"X-API-KEY": original_api_key}
-    user = get_user_from_api_key(db, headers)
-    collection = create_collection(db, user, status=CollectionStatus.processing)
-
-    response = client.post(
-        f"{settings.API_V1_STR}/collections/info/{collection.id}",
-        headers=headers,
-    )
-
-    assert response.status_code == 200
-    data = response.json()["data"]
-
-    assert data["id"] == str(collection.id)
-    assert data["status"] == CollectionStatus.processing.value
-    assert data["llm_service_id"] is None
-    assert data["llm_service_name"] is None
-
-
-def test_collection_info_successful(db: Session, client: TestClient):
-    headers = {"X-API-KEY": original_api_key}
-    user = get_user_from_api_key(db, headers)
-    collection = create_collection(
-        db, user, status=CollectionStatus.successful, with_llm=True
-    )
-
-    response = client.post(
-        f"{settings.API_V1_STR}/collections/info/{collection.id}",
-        headers=headers,
-    )
-
-    assert response.status_code == 200
-    data = response.json()["data"]
-
-    assert data["id"] == str(collection.id)
-    assert data["status"] == CollectionStatus.successful.value
-    assert data["llm_service_id"] == collection.llm_service_id
-    assert data["llm_service_name"] == "gpt-4o"
-
-
-def test_collection_info_failed(db: Session, client: TestClient):
-    headers = {"X-API-KEY": original_api_key}
-    user = get_user_from_api_key(db, headers)
-    collection = create_collection(db, user, status=CollectionStatus.failed)
-
-    response = client.post(
-        f"{settings.API_V1_STR}/collections/info/{collection.id}",
-        headers=headers,
-    )
-
-    assert response.status_code == 200
-    data = response.json()["data"]
-
-    assert data["id"] == str(collection.id)
-    assert data["status"] == CollectionStatus.failed.value
-    assert data["llm_service_id"] is None
-    assert data["llm_service_name"] is None
