@@ -22,27 +22,28 @@ def handle_openai_error(e: openai.OpenAIError) -> str:
     return str(e)
 
 
-@router.post("/{assistant_id}/ingest", response_model=APIResponse[Assistant], status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{assistant_id}/ingest",
+    response_model=APIResponse[Assistant],
+    status_code=status.HTTP_201_CREATED,
+)
 def ingest_assistant(
     assistant_id: Annotated[str, Path(description="The ID of the assistant to ingest")],
     session: Session = Depends(get_db),
     current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
     """
-    Ingest a assistant from OpenAI and store it in the database.
+    Ingest a assistant from OpenAI and store it in the platform.
     """
 
-    existing_assistant = get_assistant_by_id(session, assistant_id, current_user.organization_id)
+    existing_assistant = get_assistant_by_id(
+        session, assistant_id, current_user.organization_id
+    )
     if existing_assistant:
         logger.info(f"Assistant with ID {assistant_id} already exists in the database.")
         metadata = {"message": f"Assistant with ID {assistant_id} already exists."}
-        return APIResponse(
-            success=True,
-            metadata= metadata,
-            data=existing_assistant
-        )
-    
-    
+        return APIResponse(success=True, metadata=metadata, data=existing_assistant)
+
     credentials = get_provider_credential(
         session=session,
         org_id=current_user.organization_id,
@@ -65,7 +66,9 @@ def ingest_assistant(
         assistant = client.beta.assistants.retrieve(assistant_id=assistant_id)
     except openai.OpenAIError as e:
         error_msg = handle_openai_error(e)
-        logger.error(f"OpenAI API error while retrieving assistant {mask_string(assistant_id)}: {error_msg}")
+        logger.error(
+            f"OpenAI API error while retrieving assistant {mask_string(assistant_id)}: {error_msg}"
+        )
         raise HTTPException(status_code=400, detail=f"OpenAI API error: {error_msg}")
 
     vector_store_ids = []
@@ -81,13 +84,13 @@ def ingest_assistant(
             if file_search and hasattr(file_search, "max_num_results"):
                 max_num_results = file_search.max_num_results
             break
-    
+
     if not assistant.instructions:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Assistant has no instruction.",
         )
-    
+
     db_assistant = Assistant(
         assistant_id=assistant.id,
         name=assistant.name or assistant.id,
@@ -104,10 +107,9 @@ def ingest_assistant(
     session.commit()
     session.refresh(db_assistant)
 
-    logger.info(f"Successfully ingested assistant with ID {assistant_id}.")
+    logger.info(f"Successfully ingested assistant with ID {mask_string(assistant_id)}.")
     return APIResponse(
         success=True,
         message=f"Assistant with ID {assistant_id} ingested successfully.",
-        data=db_assistant
+        data=db_assistant,
     )
-    
