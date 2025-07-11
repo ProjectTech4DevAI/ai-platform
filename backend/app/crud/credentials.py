@@ -115,7 +115,6 @@ def get_full_provider_credential(
 
     statement = select(Credential).where(
         Credential.organization_id == org_id,
-        Credential.project_id == project_id,
         Credential.provider == provider,
         Credential.is_active == True,
         Credential.project_id == project_id if project_id is not None else True,
