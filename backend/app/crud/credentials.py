@@ -109,7 +109,7 @@ def get_provider_credential(
 
 def get_full_provider_credential(
     *, session: Session, org_id: int, provider: str, project_id: Optional[int] = None
-) -> Optional[Dict[str, Any]]:
+) -> Optional[Credential]:
     """Fetches credentials for a specific provider of an organization."""
     validate_provider(provider)
 
