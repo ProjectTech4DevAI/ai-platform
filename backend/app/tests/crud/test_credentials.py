@@ -191,7 +191,9 @@ def test_invalid_provider(db: Session) -> None:
     credentials_data = {"gemini": {"api_key": "test-key"}}
 
     credentials_create = CredsCreate(
-        organization_id=project.organization_id, credential=credentials_data
+        organization_id=project.organization_id,
+        project_id=project.id,
+        credential=credentials_data,
     )
 
     with pytest.raises(ValueError, match="Unsupported provider"):
@@ -206,7 +208,9 @@ def test_duplicate_provider_credentials(db: Session) -> None:
     credentials_data = {"openai": {"api_key": "test-key"}}
 
     credentials_create = CredsCreate(
-        organization_id=project.organization_id, credential=credentials_data
+        organization_id=project.organization_id,
+        project_id=project.id,
+        credential=credentials_data,
     )
     set_creds_for_org(session=db, creds_add=credentials_create)
 
@@ -233,7 +237,9 @@ def test_langfuse_credential_validation(db: Session) -> None:
     }
 
     credentials_create = CredsCreate(
-        organization_id=project.organization_id, credential=invalid_credentials
+        organization_id=project.organization_id,
+        project_id=project.id,
+        credential=invalid_credentials,
     )
 
     with pytest.raises(ValueError):
@@ -249,7 +255,9 @@ def test_langfuse_credential_validation(db: Session) -> None:
     }
 
     credentials_create = CredsCreate(
-        organization_id=project.organization_id, credential=valid_credentials
+        organization_id=project.organization_id,
+        project_id=project.id,
+        credential=valid_credentials,
     )
 
     created_credentials = set_creds_for_org(session=db, creds_add=credentials_create)
