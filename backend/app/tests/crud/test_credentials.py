@@ -18,7 +18,7 @@ from app.tests.utils.test_data import (
 )
 
 
-def test_set_creds_for_org(db: Session) -> None:
+def test_set_credentials_for_org(db: Session) -> None:
     """Test setting credentials for an organization."""
     project = create_test_project(db)
 

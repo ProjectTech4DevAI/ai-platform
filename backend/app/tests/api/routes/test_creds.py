@@ -25,7 +25,7 @@ def create_test_credentials(db: Session):
     return create_test_credential(db)
 
 
-def test_set_creds(db: Session, superuser_token_headers: dict[str, str]):
+def test_set_credential(db: Session, superuser_token_headers: dict[str, str]):
     project = create_test_project(db)
 
     api_key = "sk-" + generate_random_string(10)
@@ -57,7 +57,7 @@ def test_set_creds(db: Session, superuser_token_headers: dict[str, str]):
     assert data[0]["credential"]["model"] == "gpt-4"
 
 
-def test_set_creds_for_invalid_project_org_relationship(
+def test_set_credentials_for_invalid_project_org_relationship(
     db: Session, superuser_token_headers: dict[str, str]
 ):
     org1 = create_test_organization(db)
@@ -83,7 +83,7 @@ def test_set_creds_for_invalid_project_org_relationship(
     )
 
 
-def test_set_creds_for_project_not_found(
+def test_set_credentials_for_project_not_found(
     db: Session, superuser_token_headers: dict[str, str]
 ):
     # Setup: Create an organization but no project
@@ -142,7 +142,6 @@ def test_read_provider_credential(
     db: Session, superuser_token_headers: dict[str, str], create_test_credentials
 ):
     creds = create_test_credentials[0]
-    print(creds)
 
     response = client.get(
         f"{settings.API_V1_STR}/credentials/{creds.organization_id}/{Provider.OPENAI.value}",
@@ -331,7 +330,6 @@ def test_duplicate_credential_creation(
         json=creds.dict(),
         headers=superuser_token_headers,
     )
-    print(response)
     assert response.status_code == 200
 
     # Try to create the same credentials again
