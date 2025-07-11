@@ -107,6 +107,26 @@ def get_provider_credential(
     return None
 
 
+def get_full_provider_credential(
+    *, session: Session, org_id: int, provider: str, project_id: Optional[int] = None
+) -> Optional[Dict[str, Any]]:
+    """Fetches credentials for a specific provider of an organization."""
+    validate_provider(provider)
+
+    statement = select(Credential).where(
+        Credential.organization_id == org_id,
+        Credential.provider == provider,
+        Credential.is_active == True,
+        Credential.project_id == project_id if project_id is not None else True,
+    )
+    creds = session.exec(statement).first()
+
+    if creds and creds.credential:
+        # Decrypt entire credentials object
+        return creds
+    return None
+
+
 def get_providers(
     *, session: Session, org_id: int, project_id: Optional[int] = None
 ) -> List[str]:

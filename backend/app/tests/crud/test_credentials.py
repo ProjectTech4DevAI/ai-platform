@@ -8,6 +8,7 @@ from app.crud import (
     update_creds_for_org,
     remove_provider_credential,
     remove_creds_for_org,
+    get_full_provider_credential,
 )
 from app.models import CredsCreate, CredsUpdate
 from app.core.providers import Provider
@@ -99,35 +100,44 @@ def test_get_provider_credential(db: Session) -> None:
 
 def test_update_creds_for_org(db: Session) -> None:
     """Test updating credentials for a provider."""
-    creds_list = create_test_credential(db)
+    _, project = create_test_credential(db)
 
-    creds = get_credential_by_provider(creds_list, "openai")
-
+    credential = get_full_provider_credential(
+        session=db,
+        org_id=project.organization_id,
+        provider="openai",
+        project_id=project.id,
+    )
     # Update credentials
     updated_creds = {"api_key": "updated-key"}
     creds_update = CredsUpdate(provider="openai", credential=updated_creds)
 
     updated = update_creds_for_org(
-        session=db, org_id=creds.organization_id, creds_in=creds_update
+        session=db, org_id=credential.organization_id, creds_in=creds_update
     )
 
     assert len(updated) == 1
     assert updated[0].provider == "openai"
     retrieved_cred = get_provider_credential(
-        session=db, org_id=creds.organization_id, provider="openai"
+        session=db, org_id=credential.organization_id, provider="openai"
     )
     assert retrieved_cred["api_key"] == "updated-key"
 
 
 def test_remove_provider_credential(db: Session) -> None:
     """Test removing credentials for a specific provider."""
-    creds_list = create_test_credential(db)
+    _, project = create_test_credential(db)
 
-    creds = get_credential_by_provider(creds_list, "openai")
+    credential = get_full_provider_credential(
+        session=db,
+        org_id=project.organization_id,
+        provider="openai",
+        project_id=project.id,
+    )
 
     # Remove one provider's credentials
     removed = remove_provider_credential(
-        session=db, org_id=creds.organization_id, provider="openai"
+        session=db, org_id=credential.organization_id, provider="openai"
     )
 
     assert removed.is_active is False
@@ -135,7 +145,7 @@ def test_remove_provider_credential(db: Session) -> None:
 
     # Verify the credentials are no longer retrievable
     retrieved_cred = get_provider_credential(
-        session=db, org_id=creds.organization_id, provider="openai"
+        session=db, org_id=credential.organization_id, provider="openai"
     )
     assert retrieved_cred is None
 

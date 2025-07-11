@@ -113,4 +113,4 @@ def create_test_credential(db: Session) -> List[Credential]:
             }
         },
     )
-    return set_creds_for_org(session=db, creds_add=creds_data)
+    return set_creds_for_org(session=db, creds_add=creds_data), project
