@@ -1,4 +1,7 @@
+from typing import List
+
 from sqlmodel import Session
+
 from app.models import (
     Organization,
     Project,
@@ -6,7 +9,6 @@ from app.models import (
     Credential,
     OrganizationCreate,
     ProjectCreate,
-    APIKeyPublic,
     CredsCreate,
 )
 from app.crud import (
@@ -90,7 +92,7 @@ def test_credential_data(db: Session) -> CredsCreate:
     return creds_data
 
 
-def create_test_credential(db: Session) -> Credential:
+def create_test_credential(db: Session) -> List[Credential]:
     """
     Creates and returns a test credential for a test project.
 

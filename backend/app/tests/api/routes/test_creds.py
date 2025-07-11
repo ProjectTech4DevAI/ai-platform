@@ -80,7 +80,6 @@ def test_set_credentials_for_invalid_project_org_relationship(
         headers=superuser_token_headers,
     )
     assert response_invalid.status_code == 400
-    print(response_invalid.json())
     assert (
         response_invalid.json()["error"]
         == "Project does not belong to the specified organization"
@@ -293,7 +292,6 @@ def test_delete_provider_credential_not_found(
     )
 
     assert response.status_code == 404
-    print(response.json())
     assert response.json()["error"] == f"Provider credentials not found"
 
 

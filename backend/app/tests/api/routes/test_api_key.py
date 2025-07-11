@@ -6,11 +6,7 @@ from app.models import APIKey
 from app.core.config import settings
 from app.tests.utils.utils import get_non_existent_id
 from app.tests.utils.user import create_random_user
-from app.tests.utils.test_data import (
-    create_test_api_key,
-    create_test_project,
-    create_test_organization,
-)
+from app.tests.utils.test_data import create_test_api_key, create_test_project
 
 client = TestClient(app)
 
@@ -87,7 +83,6 @@ def test_get_api_key(db: Session, superuser_token_headers: dict[str, str]):
 
 def test_get_nonexistent_api_key(db: Session, superuser_token_headers: dict[str, str]):
     api_key_id = get_non_existent_id(db, APIKey)
-    print(api_key_id)
     response = client.get(
         f"{settings.API_V1_STR}/apikeys/{api_key_id}",
         headers=superuser_token_headers,

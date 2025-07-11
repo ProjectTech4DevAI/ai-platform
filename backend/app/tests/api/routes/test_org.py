@@ -5,14 +5,14 @@ from sqlmodel import Session
 from app.core.config import settings
 from app.models import Organization
 from app.main import app
-from app.crud.organization import create_organization, get_organization_by_id
+from app.crud.organization import get_organization_by_id
 from app.tests.utils.test_data import create_test_organization
 
 client = TestClient(app)
 
 
 @pytest.fixture
-def test_organization(db: Session, superuser_token_headers: dict[str, str]):
+def test_organization(db: Session):
     return create_test_organization(db)
 
 
