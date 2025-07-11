@@ -1,4 +1,4 @@
-from typing import List
+from typing import list
 
 from sqlmodel import Session
 

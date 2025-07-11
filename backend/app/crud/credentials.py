@@ -122,7 +122,7 @@ def get_full_provider_credential(
     creds = session.exec(statement).first()
 
     if creds and creds.credential:
-        # Decrypt entire credentials object
+        # Return the full Credential object
         return creds
     return None
 
