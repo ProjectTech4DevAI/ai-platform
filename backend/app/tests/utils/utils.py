@@ -1,6 +1,7 @@
 import random
 import string
 from uuid import UUID
+from typing import List
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,7 +10,7 @@ from typing import Type, TypeVar
 
 from app.core.config import settings
 from app.crud.user import get_user_by_email
-from app.models import APIKeyPublic
+from app.models import APIKeyPublic, Credential
 from app.crud import create_api_key, get_api_key_by_value
 from uuid import uuid4
 
@@ -57,6 +58,17 @@ def get_user_from_api_key(db: Session, api_key_headers: dict[str, str]) -> APIKe
     if api_key is None:
         raise ValueError("Invalid API Key")
     return api_key
+
+
+def get_credential_by_provider(creds: List[Credential], provider: str) -> Credential:
+    """
+    From a list of credentials, return the one matching the given provider.
+    Raises ValueError if not found.
+    """
+    for c in creds:
+        if c.provider == provider:
+            return c
+    raise ValueError(f"No credential found for provider: {provider}")
 
 
 def get_non_existent_id(session: Session, model: Type[T]) -> int:

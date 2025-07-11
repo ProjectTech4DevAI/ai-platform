@@ -11,6 +11,7 @@ from app.crud import (
 )
 from app.models import CredsCreate, CredsUpdate
 from app.core.providers import Provider
+from app.tests.utils.utils import get_credential_by_provider
 from app.tests.utils.test_data import (
     create_test_project,
     create_test_credential,
@@ -98,7 +99,9 @@ def test_get_provider_credential(db: Session) -> None:
 
 def test_update_creds_for_org(db: Session) -> None:
     """Test updating credentials for a provider."""
-    creds = create_test_credential(db)[0]
+    creds_list = create_test_credential(db)
+
+    creds = get_credential_by_provider(creds_list, "openai")
 
     # Update credentials
     updated_creds = {"api_key": "updated-key"}
@@ -118,7 +121,9 @@ def test_update_creds_for_org(db: Session) -> None:
 
 def test_remove_provider_credential(db: Session) -> None:
     """Test removing credentials for a specific provider."""
-    creds = create_test_credential(db)[0]
+    creds_list = create_test_credential(db)
+
+    creds = get_credential_by_provider(creds_list, "openai")
 
     # Remove one provider's credentials
     removed = remove_provider_credential(

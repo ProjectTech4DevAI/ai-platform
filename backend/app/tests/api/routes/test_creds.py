@@ -8,7 +8,11 @@ from app.core.config import settings
 from app.core.providers import Provider
 from app.models.credentials import Credential
 from app.core.security import decrypt_credentials
-from app.tests.utils.utils import generate_random_string, get_non_existent_id
+from app.tests.utils.utils import (
+    generate_random_string,
+    get_non_existent_id,
+    get_credential_by_provider,
+)
 from app.tests.utils.test_data import (
     create_test_credential,
     create_test_organization,
@@ -110,8 +114,10 @@ def test_set_credentials_for_project_not_found(
 def test_read_credentials_with_creds(
     db: Session, superuser_token_headers: dict[str, str], create_test_credentials
 ):
-    creds = create_test_credentials[0]
-    print(creds)
+    creds_list = create_test_credentials
+
+    creds = get_credential_by_provider(creds_list, "openai")
+
     response = client.get(
         f"{settings.API_V1_STR}/credentials/{creds.organization_id}",
         headers=superuser_token_headers,
@@ -141,7 +147,8 @@ def test_read_credentials_not_found(
 def test_read_provider_credential(
     db: Session, superuser_token_headers: dict[str, str], create_test_credentials
 ):
-    creds = create_test_credentials[0]
+    creds_list = create_test_credentials
+    creds = get_credential_by_provider(creds_list, "openai")
 
     response = client.get(
         f"{settings.API_V1_STR}/credentials/{creds.organization_id}/{Provider.OPENAI.value}",
@@ -171,7 +178,9 @@ def test_read_provider_credential_not_found(
 def test_update_credentials(
     db: Session, superuser_token_headers: dict[str, str], create_test_credentials
 ):
-    creds = create_test_credentials[0]
+    creds_list = create_test_credentials
+
+    creds = get_credential_by_provider(creds_list, "openai")
 
     update_data = {
         "provider": Provider.OPENAI.value,
@@ -200,7 +209,9 @@ def test_update_credentials(
 def test_update_credentials_failed_update(
     db: Session, superuser_token_headers: dict[str, str], create_test_credentials
 ):
-    creds = create_test_credentials[0]
+    creds_list = create_test_credentials
+
+    creds = get_credential_by_provider(creds_list, "openai")
 
     org_without_creds = create_test_organization(db)
 
@@ -257,7 +268,9 @@ def test_update_credentials_not_found(
 def test_delete_provider_credential(
     db: Session, superuser_token_headers: dict[str, str], create_test_credentials
 ):
-    creds = create_test_credentials[0]
+    creds_list = create_test_credentials
+
+    creds = get_credential_by_provider(creds_list, "openai")
 
     response = client.delete(
         f"{settings.API_V1_STR}/credentials/{creds.organization_id}/{Provider.OPENAI.value}",
@@ -287,7 +300,9 @@ def test_delete_provider_credential_not_found(
 def test_delete_all_credentials(
     db: Session, superuser_token_headers: dict[str, str], create_test_credentials
 ):
-    creds = create_test_credentials[0]
+    creds_list = create_test_credentials
+
+    creds = get_credential_by_provider(creds_list, "openai")
 
     response = client.delete(
         f"{settings.API_V1_STR}/credentials/{creds.organization_id}",
