@@ -92,7 +92,7 @@ def test_credential_data(db: Session) -> CredsCreate:
     return creds_data
 
 
-def create_test_credential(db: Session) -> List[Credential]:
+def create_test_credential(db: Session) -> tuple[list[Credential], Project]:
     """
     Creates and returns a test credential for a test project.
 
