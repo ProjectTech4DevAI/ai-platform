@@ -10,25 +10,25 @@ def test_create_organization(db: Session) -> None:
     """Test creating an organization."""
     name = random_lower_string()
     org_in = OrganizationCreate(name=name)
-    org = create_organization(session=db, org_create=org_in)
+    organization = create_organization(session=db, org_create=org_in)
 
-    assert org.name == name
-    assert org.id is not None
-    assert org.is_active is True
+    assert organization.name == name
+    assert organization.id is not None
+    assert organization.is_active is True
 
 
 def test_get_organization_by_id(db: Session) -> None:
     """Test retrieving an organization by ID."""
-    org = create_test_organization(db)
+    organization = create_test_organization(db)
 
-    fetched_org = get_organization_by_id(session=db, org_id=org.id)
+    fetched_org = get_organization_by_id(session=db, org_id=organization.id)
     assert fetched_org
-    assert fetched_org.id == org.id
-    assert fetched_org.name == org.name
+    assert fetched_org.id == organization.id
+    assert fetched_org.name == organization.name
 
 
 def test_get_non_existent_organization(db: Session) -> None:
     """Test retrieving a non-existent organization should return None."""
-    org_id = get_non_existent_id(db, Organization)
-    fetched_org = get_organization_by_id(session=db, org_id=org_id)
+    organization_id = get_non_existent_id(db, Organization)
+    fetched_org = get_organization_by_id(session=db, org_id=organization_id)
     assert fetched_org is None

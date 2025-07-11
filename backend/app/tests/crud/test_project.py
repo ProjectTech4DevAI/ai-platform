@@ -15,14 +15,14 @@ from app.tests.utils.test_data import create_test_project, create_test_organizat
 
 def test_create_project(db: Session) -> None:
     """Test creating a project linked to an organization."""
-    org = create_test_organization(db)
+    organization = create_test_organization(db)
 
     project_name = random_lower_string()
     project_data = ProjectCreate(
         name=project_name,
         description="Test description",
         is_active=True,
-        organization_id=org.id,
+        organization_id=organization.id,
     )
 
     project = create_project(session=db, project_create=project_data)
@@ -30,7 +30,7 @@ def test_create_project(db: Session) -> None:
     assert project.id is not None
     assert project.name == project_name
     assert project.description == "Test description"
-    assert project.organization_id == org.id
+    assert project.organization_id == organization.id
 
 
 def test_get_project_by_id(db: Session) -> None:
@@ -45,7 +45,7 @@ def test_get_project_by_id(db: Session) -> None:
 
 def test_get_projects_by_organization(db: Session) -> None:
     """Test retrieving all projects for an organization."""
-    org = create_test_organization(db)
+    organization = create_test_organization(db)
 
     project_1 = create_project(
         session=db,
@@ -53,7 +53,7 @@ def test_get_projects_by_organization(db: Session) -> None:
             name="Project 1",
             description="Test project 1",
             is_active=True,
-            organization_id=org.id,
+            organization_id=organization.id,
         ),
     )
 
@@ -63,11 +63,11 @@ def test_get_projects_by_organization(db: Session) -> None:
             name="Project 2",
             description="Test project 2",
             is_active=True,
-            organization_id=org.id,
+            organization_id=organization.id,
         ),
     )
 
-    projects = get_projects_by_organization(session=db, org_id=org.id)
+    projects = get_projects_by_organization(session=db, org_id=organization.id)
 
     assert project_1 in projects
     assert project_2 in projects
@@ -96,7 +96,7 @@ def test_validate_project_not_found(db: Session) -> None:
 
 def test_validate_project_inactive(db: Session) -> None:
     """Test that validation fails when project is inactive."""
-    org = create_test_organization(db)
+    organization = create_test_organization(db)
 
     inactive_project = create_project(
         session=db,
@@ -104,7 +104,7 @@ def test_validate_project_inactive(db: Session) -> None:
             name=random_lower_string(),
             description="Inactive project",
             is_active=False,
-            organization_id=org.id,
+            organization_id=organization.id,
         ),
     )
 

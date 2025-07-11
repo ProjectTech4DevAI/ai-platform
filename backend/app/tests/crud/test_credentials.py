@@ -25,7 +25,7 @@ def test_set_credentials_for_org(db: Session) -> None:
     project = create_test_project(db)
 
     # Test credentials for supported providers
-    creds_data = {
+    credentials_data = {
         "openai": {"api_key": "test-openai-key"},
         "langfuse": {
             "public_key": "test-public-key",
@@ -34,21 +34,21 @@ def test_set_credentials_for_org(db: Session) -> None:
         },
     }
 
-    creds_create = CredsCreate(
+    credentials_create = CredsCreate(
         organization_id=project.organization_id,
         project_id=project.id,
-        credential=creds_data,
+        credential=credentials_data,
     )
 
-    created_creds = set_creds_for_org(session=db, creds_add=creds_create)
+    created_credentials = set_creds_for_org(session=db, creds_add=credentials_create)
 
-    assert len(created_creds) == 2
+    assert len(created_credentials) == 2
     assert all(
-        cred.organization_id == project.organization_id for cred in created_creds
+        cred.organization_id == project.organization_id for cred in created_credentials
     )
-    assert all(cred.project_id == project.id for cred in created_creds)
-    assert all(cred.is_active for cred in created_creds)
-    assert {cred.provider for cred in created_creds} == {"openai", "langfuse"}
+    assert all(cred.project_id == project.id for cred in created_credentials)
+    assert all(cred.is_active for cred in created_credentials)
+    assert {cred.provider for cred in created_credentials} == {"openai", "langfuse"}
 
 
 def test_get_creds_by_org(db: Session) -> None:
@@ -56,7 +56,7 @@ def test_get_creds_by_org(db: Session) -> None:
     project = create_test_project(db)
 
     # Set up test credentials
-    creds_data = {
+    credentials_data = {
         "openai": {"api_key": "test-openai-key"},
         "langfuse": {
             "public_key": "test-public-key",
@@ -65,12 +65,12 @@ def test_get_creds_by_org(db: Session) -> None:
         },
     }
 
-    creds_create = CredsCreate(
+    credentials_create = CredsCreate(
         organization_id=project.organization_id,
         project_id=project.id,
-        credential=creds_data,
+        credential=credentials_data,
     )
-    set_creds_for_org(session=db, creds_add=creds_create)
+    set_creds_for_org(session=db, creds_add=credentials_create)
 
     # Test retrieving credentials
     retrieved_creds = get_creds_by_org(session=db, org_id=project.organization_id)
@@ -84,13 +84,13 @@ def test_get_creds_by_org(db: Session) -> None:
 
 def test_get_provider_credential(db: Session) -> None:
     """Test retrieving credentials for a specific provider."""
-    creds_create = test_credential_data(db)
-    original_api_key = creds_create.credential[Provider.OPENAI.value]["api_key"]
+    credentials_create = test_credential_data(db)
+    original_api_key = credentials_create.credential[Provider.OPENAI.value]["api_key"]
 
-    set_creds_for_org(session=db, creds_add=creds_create)
+    set_creds_for_org(session=db, creds_add=credentials_create)
     # Test retrieving specific provider credentials
     retrieved_cred = get_provider_credential(
-        session=db, org_id=creds_create.organization_id, provider="openai"
+        session=db, org_id=credentials_create.organization_id, provider="openai"
     )
 
     assert retrieved_cred is not None
@@ -155,7 +155,7 @@ def test_remove_creds_for_org(db: Session) -> None:
     project = create_test_project(db)
 
     # Set up test credentials
-    creds_data = {
+    credentials_data = {
         "openai": {"api_key": "test-openai-key"},
         "langfuse": {
             "public_key": "test-public-key",
@@ -167,7 +167,7 @@ def test_remove_creds_for_org(db: Session) -> None:
     creds_create = CredsCreate(
         organization_id=project.organization_id,
         project_id=project.id,
-        credential=creds_data,
+        credential=credentials_data,
     )
     set_creds_for_org(session=db, creds_add=creds_create)
 
@@ -179,8 +179,8 @@ def test_remove_creds_for_org(db: Session) -> None:
     assert all(cred.updated_at is not None for cred in removed)
 
     # Verify no credentials are retrievable
-    retrieved_creds = get_creds_by_org(session=db, org_id=project.organization_id)
-    assert len(retrieved_creds) == 0
+    retrieved_credentials = get_creds_by_org(session=db, org_id=project.organization_id)
+    assert len(retrieved_credentials) == 0
 
 
 def test_invalid_provider(db: Session) -> None:
@@ -188,14 +188,14 @@ def test_invalid_provider(db: Session) -> None:
     project = create_test_project(db)
 
     # Test with unsupported provider
-    creds_data = {"gemini": {"api_key": "test-key"}}
+    credentials_data = {"gemini": {"api_key": "test-key"}}
 
-    creds_create = CredsCreate(
-        organization_id=project.organization_id, credential=creds_data
+    credentials_create = CredsCreate(
+        organization_id=project.organization_id, credential=credentials_data
     )
 
     with pytest.raises(ValueError, match="Unsupported provider"):
-        set_creds_for_org(session=db, creds_add=creds_create)
+        set_creds_for_org(session=db, creds_add=credentials_create)
 
 
 def test_duplicate_provider_credentials(db: Session) -> None:
@@ -203,12 +203,12 @@ def test_duplicate_provider_credentials(db: Session) -> None:
     project = create_test_project(db)
 
     # Set up initial credentials
-    creds_data = {"openai": {"api_key": "test-key"}}
+    credentials_data = {"openai": {"api_key": "test-key"}}
 
-    creds_create = CredsCreate(
-        organization_id=project.organization_id, credential=creds_data
+    credentials_create = CredsCreate(
+        organization_id=project.organization_id, credential=credentials_data
     )
-    set_creds_for_org(session=db, creds_add=creds_create)
+    set_creds_for_org(session=db, creds_add=credentials_create)
 
     # Verify credentials exist and are active
     existing_creds = get_provider_credential(
@@ -224,7 +224,7 @@ def test_langfuse_credential_validation(db: Session) -> None:
     project = create_test_project(db)
 
     # Test with missing required fields
-    invalid_creds = {
+    invalid_credentials = {
         "langfuse": {
             "public_key": "test-public-key",
             "secret_key": "test-secret-key"
@@ -232,15 +232,15 @@ def test_langfuse_credential_validation(db: Session) -> None:
         }
     }
 
-    creds_create = CredsCreate(
-        organization_id=project.organization_id, credential=invalid_creds
+    credentials_create = CredsCreate(
+        organization_id=project.organization_id, credential=invalid_credentials
     )
 
     with pytest.raises(ValueError):
-        set_creds_for_org(session=db, creds_add=creds_create)
+        set_creds_for_org(session=db, creds_add=credentials_create)
 
     # Test with valid Langfuse credentials
-    valid_creds = {
+    valid_credentials = {
         "langfuse": {
             "public_key": "test-public-key",
             "secret_key": "test-secret-key",
@@ -248,10 +248,10 @@ def test_langfuse_credential_validation(db: Session) -> None:
         }
     }
 
-    creds_create = CredsCreate(
-        organization_id=project.organization_id, credential=valid_creds
+    credentials_create = CredsCreate(
+        organization_id=project.organization_id, credential=valid_credentials
     )
 
-    created_creds = set_creds_for_org(session=db, creds_add=creds_create)
-    assert len(created_creds) == 1
-    assert created_creds[0].provider == "langfuse"
+    created_credentials = set_creds_for_org(session=db, creds_add=credentials_create)
+    assert len(created_credentials) == 1
+    assert created_credentials[0].provider == "langfuse"
