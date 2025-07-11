@@ -1,5 +1,3 @@
-from typing import list
-
 from sqlmodel import Session
 
 from app.models import (
