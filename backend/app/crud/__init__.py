@@ -5,6 +5,9 @@ from .user import (
     update_user,
 )
 from .collection import CollectionCrud
+
+from .credentials import get_provider_credential
+
 from .document import DocumentCrud
 from .document_collection import DocumentCollectionCrud
 
@@ -41,4 +44,8 @@ from .credentials import (
 
 from .thread_results import upsert_thread_result, get_thread_result
 
-from .assistants import get_assistant_by_id
+from .assistants import (
+    get_assistant_by_id,
+    fetch_assistant_from_openai,
+    insert_assistant,
+)

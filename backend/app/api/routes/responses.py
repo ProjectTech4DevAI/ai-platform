@@ -125,11 +125,11 @@ def process_response(
             "input": [{"role": "user", "content": request.question}],
         }
 
-        if assistant.vector_store_id:
+        if assistant.vector_store_ids:
             params["tools"] = [
                 {
                     "type": "file_search",
-                    "vector_store_ids": [assistant.vector_store_id],
+                    "vector_store_ids": assistant.vector_store_ids,
                     "max_num_results": assistant.max_num_results,
                 }
             ]

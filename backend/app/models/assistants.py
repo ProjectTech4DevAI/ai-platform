@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import Optional, List
 from sqlmodel import Field, Relationship, SQLModel
+from sqlalchemy import Column, String
+from sqlalchemy.dialects.postgresql import ARRAY
 
 from app.core.util import now
 
@@ -10,7 +12,9 @@ class AssistantBase(SQLModel):
     name: str
     instructions: str
     model: str
-    vector_store_id: str
+    vector_store_ids: List[str] = Field(
+        default_factory=list, sa_column=Column(ARRAY(String))
+    )
     temperature: float = 0.1
     max_num_results: int = 20
     project_id: int = Field(foreign_key="project.id")
