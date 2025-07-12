@@ -1,6 +1,7 @@
 import uuid
 import logging
 from typing import Any, Dict, Optional
+from asgi_correlation_id import correlation_id
 
 from langfuse import Langfuse
 from langfuse.client import StatefulGenerationClient, StatefulTraceClient
@@ -55,10 +56,13 @@ class LangfuseTracer:
         input: Dict[str, Any],
         metadata: Optional[Dict[str, Any]] = None,
     ):
+        metadata = metadata or {}
+        metadata["request_id"] = correlation_id.get() or "N/A"
+
         self.trace = self.langfuse.trace(
             name=name,
             input=input,
-            metadata=metadata or {},
+            metadata=metadata,
             session_id=self.session_id,
         )
 

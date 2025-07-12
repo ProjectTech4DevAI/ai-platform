@@ -28,6 +28,7 @@ dependencies = [
     "pre-commit>=3.8.0",
     "openai_responses",
     "langfuse>=2.60.3",
+    "asgi-correlation-id>=4.3.4",
 ]
 
 [tool.uv]
