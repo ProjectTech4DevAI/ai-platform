@@ -143,3 +143,30 @@ def test_delete_conversation_by_id(client: TestClient, db: Session):
     data = response.json()
     assert data["success"] is True
     assert "deleted successfully" in data["data"]["message"]
+
+
+def test_list_conversations(client: TestClient, db: Session):
+    """Test listing all conversations."""
+    # Create multiple conversations
+    conversation_data1 = OpenAIConversationCreate(
+        response_id="resp_1", ancestor_response_id="ancestor_1"
+    )
+    conversation_data2 = OpenAIConversationCreate(
+        response_id="resp_2", ancestor_response_id="ancestor_2"
+    )
+    conversation1 = create_openai_conversation(db, conversation_data1)
+    conversation2 = create_openai_conversation(db, conversation_data2)
+    headers = {"X-API-KEY": original_api_key}
+    response = client.get(
+        "/api/v1/openai-conversation/list",
+        headers=headers,
+        params={"skip": 0, "limit": 100},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    # Should contain at least the two conversations we just created
+    response_ids = [conv["response_id"] for conv in data["data"]]
+    assert conversation1.response_id in response_ids
+    assert conversation2.response_id in response_ids

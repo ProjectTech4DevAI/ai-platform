@@ -48,6 +48,27 @@ async def create_conversation(
 
 
 @router.get(
+    "/list",
+    response_model=APIResponse[List[OpenAIConversationPublic]],
+    summary="List all conversations",
+    description="Retrieve all conversations with pagination support",
+)
+async def list_conversations(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(
+        100, gt=0, le=1000, description="Maximum number of records to return"
+    ),
+    db: Session = Depends(get_db),
+    _current_user: UserOrganization = Depends(get_current_user_org),
+):
+    """Get all conversations with pagination."""
+    conversations = get_all_openai_conversations(db, skip=skip, limit=limit)
+    return APIResponse.success_response(
+        data=[OpenAIConversationPublic.model_validate(conv) for conv in conversations]
+    )
+
+
+@router.get(
     "/{conversation_id}",
     response_model=APIResponse[OpenAIConversationPublic],
     summary="Get conversation by ID",
@@ -102,27 +123,6 @@ async def get_conversations_by_ancestor(
 ):
     """Get all conversations by ancestor_response_id."""
     conversations = get_openai_conversations_by_ancestor(db, ancestor_response_id)
-    return APIResponse.success_response(
-        data=[OpenAIConversationPublic.model_validate(conv) for conv in conversations]
-    )
-
-
-@router.get(
-    "/list",
-    response_model=APIResponse[List[OpenAIConversationPublic]],
-    summary="List all conversations",
-    description="Retrieve all conversations with pagination support",
-)
-async def list_conversations(
-    skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(
-        100, gt=0, le=1000, description="Maximum number of records to return"
-    ),
-    db: Session = Depends(get_db),
-    _current_user: UserOrganization = Depends(get_current_user_org),
-):
-    """Get all conversations with pagination."""
-    conversations = get_all_openai_conversations(db, skip=skip, limit=limit)
     return APIResponse.success_response(
         data=[OpenAIConversationPublic.model_validate(conv) for conv in conversations]
     )
