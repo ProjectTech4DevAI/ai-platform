@@ -1,7 +1,7 @@
 from typing import Dict, Any, Optional
 import sqlalchemy as sa
 from sqlmodel import Field, Relationship, SQLModel
-from datetime import datetime
+from datetime import datetime, UTC
 
 from app.core.util import now
 
@@ -58,11 +58,11 @@ class Credential(CredsBase, table=True):
     )
     inserted_at: datetime = Field(
         default_factory=now,
-        sa_column=sa.Column(sa.DateTime, default=datetime.utcnow),
+        sa_column=sa.Column(sa.DateTime, default=lambda: datetime.now(UTC)),
     )
     updated_at: datetime = Field(
         default_factory=now,
-        sa_column=sa.Column(sa.DateTime, onupdate=datetime.utcnow),
+        sa_column=sa.Column(sa.DateTime, onupdate=lambda: datetime.now(UTC)),
     )
     deleted_at: Optional[datetime] = Field(
         default=None, sa_column=sa.Column(sa.DateTime, nullable=True)

@@ -15,6 +15,7 @@ from app.models import (
     ProjectUser,
     User,
     OpenAI_Thread,
+    OpenAI_Conversation,
     Credential,
     Collection,
 )
@@ -31,6 +32,7 @@ def db() -> Generator[Session, None, None]:
         # Delete data in reverse dependency order
         session.execute(delete(ProjectUser))  # Many-to-many relationship
         session.execute(delete(Assistant))
+        session.execute(delete(OpenAI_Conversation))
         session.execute(delete(Credential))
         session.execute(delete(Project))
         session.execute(delete(Organization))
