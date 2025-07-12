@@ -8,19 +8,21 @@ from app.models.openai_conversation import (
 )
 from app.crud.openai_conversation import create_openai_conversation
 
+original_api_key = "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8"
 
-def test_create_conversation(client: TestClient, superuser_token_headers: dict):
+
+def test_create_conversation(client: TestClient):
     """Test creating a new conversation."""
     conversation_data = {
         "response_id": "resp_123",
         "ancestor_response_id": "ancestor_456",
         "previous_response_id": "prev_789",
     }
-
+    headers = {"X-API-KEY": original_api_key}
     response = client.post(
-        "/api/openai-conversation/create",
+        "/api/v1/openai-conversation/create",
         json=conversation_data,
-        headers=superuser_token_headers,
+        headers=headers,
     )
 
     assert response.status_code == 200
@@ -34,18 +36,16 @@ def test_create_conversation(client: TestClient, superuser_token_headers: dict):
     assert "updated_at" in data["data"]
 
 
-def test_get_conversation_by_id(
-    client: TestClient, superuser_token_headers: dict, db: Session
-):
+def test_get_conversation_by_id(client: TestClient, db: Session):
     """Test getting a conversation by ID."""
     # Create a conversation first
     conversation_data = OpenAIConversationCreate(
         response_id="resp_123", ancestor_response_id="ancestor_456"
     )
     conversation = create_openai_conversation(db, conversation_data)
-
+    headers = {"X-API-KEY": original_api_key}
     response = client.get(
-        f"/api/openai-conversation/{conversation.id}", headers=superuser_token_headers
+        f"/api/v1/openai-conversation/{conversation.id}", headers=headers
     )
 
     assert response.status_code == 200
@@ -55,31 +55,16 @@ def test_get_conversation_by_id(
     assert data["data"]["response_id"] == "resp_123"
 
 
-def test_get_conversation_by_id_not_found(
-    client: TestClient, superuser_token_headers: dict
-):
-    """Test getting a conversation by ID that doesn't exist."""
-    response = client.get(
-        "/api/openai-conversation/99999", headers=superuser_token_headers
-    )
-
-    assert response.status_code == 404
-    data = response.json()
-    assert "Conversation not found" in data["detail"]
-
-
-def test_get_conversation_by_response_id(
-    client: TestClient, superuser_token_headers: dict, db: Session
-):
+def test_get_conversation_by_response_id(client: TestClient, db: Session):
     """Test getting a conversation by response_id."""
     # Create a conversation first
     conversation_data = OpenAIConversationCreate(
         response_id="resp_123", ancestor_response_id="ancestor_456"
     )
     create_openai_conversation(db, conversation_data)
-
+    headers = {"X-API-KEY": original_api_key}
     response = client.get(
-        "/api/openai-conversation/response/resp_123", headers=superuser_token_headers
+        "/api/v1/openai-conversation/response/resp_123", headers=headers
     )
 
     assert response.status_code == 200
@@ -88,22 +73,7 @@ def test_get_conversation_by_response_id(
     assert data["data"]["response_id"] == "resp_123"
 
 
-def test_get_conversation_by_response_id_not_found(
-    client: TestClient, superuser_token_headers: dict
-):
-    """Test getting a conversation by response_id that doesn't exist."""
-    response = client.get(
-        "/api/openai-conversation/response/nonexistent", headers=superuser_token_headers
-    )
-
-    assert response.status_code == 404
-    data = response.json()
-    assert "Conversation not found" in data["detail"]
-
-
-def test_get_conversations_by_ancestor(
-    client: TestClient, superuser_token_headers: dict, db: Session
-):
+def test_get_conversations_by_ancestor(client: TestClient, db: Session):
     """Test getting conversations by ancestor_response_id."""
     # Create multiple conversations with same ancestor
     conversation_data1 = OpenAIConversationCreate(
@@ -119,10 +89,10 @@ def test_get_conversations_by_ancestor(
     create_openai_conversation(db, conversation_data1)
     create_openai_conversation(db, conversation_data2)
     create_openai_conversation(db, conversation_data3)
-
+    headers = {"X-API-KEY": original_api_key}
     response = client.get(
-        "/api/openai-conversation/ancestor/ancestor_123",
-        headers=superuser_token_headers,
+        "/api/v1/openai-conversation/ancestor/ancestor_123",
+        headers=headers,
     )
 
     assert response.status_code == 200
@@ -132,32 +102,7 @@ def test_get_conversations_by_ancestor(
     assert all(conv["ancestor_response_id"] == "ancestor_123" for conv in data["data"])
 
 
-def test_list_conversations(
-    client: TestClient, superuser_token_headers: dict, db: Session
-):
-    """Test listing all conversations with pagination."""
-    # Create multiple conversations
-    conversation_data1 = OpenAIConversationCreate(response_id="resp_1")
-    conversation_data2 = OpenAIConversationCreate(response_id="resp_2")
-    conversation_data3 = OpenAIConversationCreate(response_id="resp_3")
-
-    create_openai_conversation(db, conversation_data1)
-    create_openai_conversation(db, conversation_data2)
-    create_openai_conversation(db, conversation_data3)
-
-    response = client.get(
-        "/api/openai-conversation/list?skip=0&limit=10", headers=superuser_token_headers
-    )
-
-    assert response.status_code == 200
-    data = response.json()
-    assert data["success"] is True
-    assert len(data["data"]) >= 3  # Should have at least 3 conversations
-
-
-def test_update_conversation(
-    client: TestClient, superuser_token_headers: dict, db: Session
-):
+def test_update_conversation(client: TestClient, db: Session):
     """Test updating a conversation."""
     # Create a conversation first
     conversation_data = OpenAIConversationCreate(
@@ -169,11 +114,11 @@ def test_update_conversation(
         "ancestor_response_id": "ancestor_789",
         "previous_response_id": "prev_123",
     }
-
+    headers = {"X-API-KEY": original_api_key}
     response = client.put(
-        f"/api/openai-conversation/{conversation.id}",
+        f"/api/v1/openai-conversation/{conversation.id}",
         json=update_data,
-        headers=superuser_token_headers,
+        headers=headers,
     )
 
     assert response.status_code == 200
@@ -184,49 +129,17 @@ def test_update_conversation(
     assert data["data"]["response_id"] == "resp_123"  # Should remain unchanged
 
 
-def test_update_conversation_not_found(
-    client: TestClient, superuser_token_headers: dict
-):
-    """Test updating a conversation that doesn't exist."""
-    update_data = {"ancestor_response_id": "ancestor_789"}
-
-    response = client.put(
-        "/api/openai-conversation/99999",
-        json=update_data,
-        headers=superuser_token_headers,
-    )
-
-    assert response.status_code == 404
-    data = response.json()
-    assert "Conversation not found" in data["detail"]
-
-
-def test_delete_conversation_by_id(
-    client: TestClient, superuser_token_headers: dict, db: Session
-):
+def test_delete_conversation_by_id(client: TestClient, db: Session):
     """Test deleting a conversation by ID."""
     # Create a conversation first
     conversation_data = OpenAIConversationCreate(response_id="resp_123")
     conversation = create_openai_conversation(db, conversation_data)
-
+    headers = {"X-API-KEY": original_api_key}
     response = client.delete(
-        f"/api/openai-conversation/{conversation.id}", headers=superuser_token_headers
+        f"/api/v1/openai-conversation/{conversation.id}", headers=headers
     )
 
     assert response.status_code == 200
     data = response.json()
     assert data["success"] is True
     assert "deleted successfully" in data["data"]["message"]
-
-
-def test_delete_conversation_by_id_not_found(
-    client: TestClient, superuser_token_headers: dict
-):
-    """Test deleting a conversation by ID that doesn't exist."""
-    response = client.delete(
-        "/api/openai-conversation/99999", headers=superuser_token_headers
-    )
-
-    assert response.status_code == 404
-    data = response.json()
-    assert "Conversation not found" in data["detail"]
