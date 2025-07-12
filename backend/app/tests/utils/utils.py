@@ -1,6 +1,7 @@
 import random
 import string
 from uuid import UUID
+from typing import List
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,7 +10,7 @@ from typing import Type, TypeVar
 
 from app.core.config import settings
 from app.crud.user import get_user_by_email
-from app.models import APIKeyPublic
+from app.models import APIKeyPublic, Credential
 from app.crud import create_api_key, get_api_key_by_value
 from uuid import uuid4
 
@@ -24,6 +25,10 @@ def openai_credentials():
 
 def random_lower_string() -> str:
     return "".join(random.choices(string.ascii_lowercase, k=32))
+
+
+def generate_random_string(length=10):
+    return "".join(random.choices(string.ascii_letters + string.digits, k=length))
 
 
 def random_email() -> str:
