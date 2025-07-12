@@ -3,27 +3,17 @@ from uuid import UUID
 import io
 
 import openai_responses
-from sqlmodel import Session, select
+from sqlmodel import Session
 from fastapi.testclient import TestClient
-from openai import OpenAIError
 
 from app.core.config import settings
 from app.tests.utils.document import DocumentStore
 from app.tests.utils.utils import openai_credentials, get_user_from_api_key
 from app.main import app
 from app.crud.collection import CollectionCrud
-from app.api.routes.collections import CreationRequest, ResponsePayload
-from app.seed_data.seed_data import seed_database
 from app.models.collection import CollectionStatus
 
 client = TestClient(app)
-
-
-@pytest.fixture(scope="function", autouse=True)
-def load_seed_data(db):
-    """Load seed data before each test."""
-    seed_database(db)
-    yield
 
 
 @pytest.fixture(autouse=True)
