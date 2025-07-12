@@ -12,7 +12,6 @@ from app.core.security import decrypt_credentials
 from app.tests.utils.utils import (
     generate_random_string,
     get_non_existent_id,
-    get_credential_by_provider,
 )
 from app.tests.utils.test_data import (
     create_test_credential,
@@ -318,7 +317,7 @@ def test_delete_provider_credential_not_found(
     )
 
     assert response.status_code == 404
-    assert response.json()["error"] == f"Provider credentials not found"
+    assert response.json()["error"] == "Provider credentials not found"
 
 
 def test_delete_all_credentials(

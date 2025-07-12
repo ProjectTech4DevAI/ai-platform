@@ -11,7 +11,6 @@ from app.crud import (
 )
 from app.models import CredsCreate, CredsUpdate
 from app.core.providers import Provider
-from app.tests.utils.utils import get_credential_by_provider
 from app.tests.utils.test_data import (
     create_test_project,
     create_test_credential,

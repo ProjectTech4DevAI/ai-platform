@@ -60,17 +60,6 @@ def get_user_from_api_key(db: Session, api_key_headers: dict[str, str]) -> APIKe
     return api_key
 
 
-def get_credential_by_provider(creds: List[Credential], provider: str) -> Credential:
-    """
-    From a list of credentials, return the one matching the given provider.
-    Raises ValueError if not found.
-    """
-    for c in creds:
-        if c.provider == provider:
-            return c
-    raise ValueError(f"No credential found for provider: {provider}")
-
-
 def get_non_existent_id(session: Session, model: Type[T]) -> int:
     result = session.exec(select(model.id).order_by(model.id.desc())).first()
     return (result or 0) + 1
