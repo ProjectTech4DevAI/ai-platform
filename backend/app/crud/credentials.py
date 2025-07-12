@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from sqlmodel import Session, select
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone
@@ -88,9 +88,20 @@ def get_creds_by_org(
 
 
 def get_provider_credential(
-    *, session: Session, org_id: int, provider: str, project_id: Optional[int] = None
-) -> Optional[Dict[str, Any]]:
-    """Fetches credentials for a specific provider of an organization."""
+    *,
+    session: Session,
+    org_id: int,
+    provider: str,
+    project_id: Optional[int] = None,
+    full: bool = False,
+) -> Optional[Union[Dict[str, Any], Credential]]:
+    """
+    Fetches credentials for a specific provider of a project.
+
+    Returns:
+        Optional[Union[Dict[str, Any], Credential]]: If full is True, returns full Credential object.
+        Otherwise returns just the decrypted credentials dict.
+    """
     validate_provider(provider)
 
     statement = select(Credential).where(
@@ -102,28 +113,7 @@ def get_provider_credential(
     creds = session.exec(statement).first()
 
     if creds and creds.credential:
-        # Decrypt entire credentials object
-        return decrypt_credentials(creds.credential)
-    return None
-
-
-def get_full_provider_credential(
-    *, session: Session, org_id: int, provider: str, project_id: Optional[int] = None
-) -> Optional[Credential]:
-    """Fetches credentials for a specific provider of an organization."""
-    validate_provider(provider)
-
-    statement = select(Credential).where(
-        Credential.organization_id == org_id,
-        Credential.provider == provider,
-        Credential.is_active == True,
-        Credential.project_id == project_id if project_id is not None else True,
-    )
-    creds = session.exec(statement).first()
-
-    if creds and creds.credential:
-        # Return the full Credential object
-        return creds
+        return creds if full else decrypt_credentials(creds.credential)
     return None
 
 

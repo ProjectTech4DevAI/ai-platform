@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.main import app
-from app.crud import get_full_provider_credential
+from app.crud import get_provider_credential
 from app.models import Organization, Project
 from app.core.config import settings
 from app.core.providers import Provider
@@ -116,11 +116,12 @@ def test_read_credentials_with_creds(
 ):
     _, project = create_test_credentials
 
-    credential = get_full_provider_credential(
+    credential = get_provider_credential(
         session=db,
         org_id=project.organization_id,
         provider="openai",
         project_id=project.id,
+        full=True,
     )
 
     response = client.get(
@@ -184,11 +185,12 @@ def test_update_credentials(
 ):
     _, project = create_test_credentials
 
-    credential = get_full_provider_credential(
+    credential = get_provider_credential(
         session=db,
         org_id=project.organization_id,
         provider="openai",
         project_id=project.id,
+        full=True,
     )
 
     update_data = {
@@ -220,11 +222,12 @@ def test_update_credentials_failed_update(
 ):
     _, project = create_test_credentials
 
-    credential = get_full_provider_credential(
+    credential = get_provider_credential(
         session=db,
         org_id=project.organization_id,
         provider="openai",
         project_id=project.id,
+        full=True,
     )
 
     org_without_credential = create_test_organization(db)
@@ -286,11 +289,12 @@ def test_delete_provider_credential(
 ):
     _, project = create_test_credentials
 
-    credential = get_full_provider_credential(
+    credential = get_provider_credential(
         session=db,
         org_id=project.organization_id,
         provider="openai",
         project_id=project.id,
+        full=True,
     )
 
     response = client.delete(
@@ -322,11 +326,12 @@ def test_delete_all_credentials(
 ):
     _, project = create_test_credentials
 
-    credential = get_full_provider_credential(
+    credential = get_provider_credential(
         session=db,
         org_id=project.organization_id,
         provider="openai",
         project_id=project.id,
+        full=True,
     )
     response = client.delete(
         f"{settings.API_V1_STR}/credentials/{credential.organization_id}",

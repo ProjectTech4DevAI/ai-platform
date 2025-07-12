@@ -39,7 +39,6 @@ from .credentials import (
     remove_creds_for_org,
     get_provider_credential,
     remove_provider_credential,
-    get_full_provider_credential,
 )
 
 from .thread_results import upsert_thread_result, get_thread_result
