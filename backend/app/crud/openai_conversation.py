@@ -46,15 +46,6 @@ def get_openai_conversations_by_ancestor(
     return session.exec(statement).all()
 
 
-def get_openai_conversations_by_previous(
-    session: Session, previous_response_id: str
-) -> List[OpenAI_Conversation]:
-    statement = select(OpenAI_Conversation).where(
-        OpenAI_Conversation.previous_response_id == previous_response_id
-    )
-    return session.exec(statement).all()
-
-
 def get_all_openai_conversations(
     session: Session, skip: int = 0, limit: int = 100
 ) -> List[OpenAI_Conversation]:
@@ -91,31 +82,3 @@ def delete_openai_conversation(session: Session, conversation_id: int) -> bool:
     session.delete(conversation)
     session.commit()
     return True
-
-
-def delete_openai_conversation_by_response_id(
-    session: Session, response_id: str
-) -> bool:
-    conversation = get_openai_conversation_by_response_id(session, response_id)
-    if not conversation:
-        return False
-
-    session.delete(conversation)
-    session.commit()
-    return True
-
-
-def upsert_openai_conversation(
-    session: Session, data: OpenAIConversationCreate
-) -> OpenAI_Conversation:
-    """Create or update a conversation based on response_id"""
-    existing = get_openai_conversation_by_response_id(session, data.response_id)
-
-    if existing:
-        update_data = OpenAIConversationUpdate(
-            ancestor_response_id=data.ancestor_response_id,
-            previous_response_id=data.previous_response_id,
-        )
-        return update_openai_conversation(session, existing.id, update_data)
-    else:
-        return create_openai_conversation(session, data)
