@@ -4,7 +4,7 @@ from typing import Optional
 import openai
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from openai import OpenAI
-from pydantic import BaseModel, Extra
+from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session
 
 from app.api.deps import get_db, get_current_user_org_project
@@ -32,8 +32,7 @@ class ResponsesAPIRequest(BaseModel):
     callback_url: Optional[str] = None
     response_id: Optional[str] = None
 
-    class Config:
-        extra = Extra.allow
+    model_config = ConfigDict(extra="allow")
 
 
 class ResponsesSyncAPIRequest(BaseModel):
@@ -65,8 +64,7 @@ class _APIResponse(BaseModel):
     chunks: list[FileResultChunk]
     diagnostics: Optional[Diagnostics] = None
 
-    class Config:
-        extra = Extra.allow
+    model_config = ConfigDict(extra="allow")
 
 
 class ResponsesAPIResponse(APIResponse[_APIResponse]):

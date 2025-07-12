@@ -1,5 +1,5 @@
 from sqlmodel import Session, select
-from datetime import datetime
+from datetime import datetime, UTC
 from app.models import OpenAIThreadCreate, OpenAI_Thread
 
 
@@ -12,9 +12,9 @@ def upsert_thread_result(session: Session, data: OpenAIThreadCreate):
         existing.response = data.response
         existing.status = data.status
         existing.error = data.error
-        existing.updated_at = datetime.utcnow()
+        existing.updated_at = datetime.now(UTC)
     else:
-        new_thread = OpenAI_Thread(**data.dict())
+        new_thread = OpenAI_Thread(**data.model_dump())
         session.add(new_thread)
 
     session.commit()

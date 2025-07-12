@@ -1,5 +1,5 @@
 from sqlmodel import Session, select
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import List, Optional
 from app.models import (
     OpenAI_Conversation,
@@ -12,7 +12,7 @@ from app.models import (
 def create_openai_conversation(
     session: Session, data: OpenAIConversationCreate
 ) -> OpenAI_Conversation:
-    conversation = OpenAI_Conversation(**data.dict())
+    conversation = OpenAI_Conversation(**data.model_dump())
     session.add(conversation)
     session.commit()
     session.refresh(conversation)
@@ -62,8 +62,8 @@ def update_openai_conversation(
     if not conversation:
         return None
 
-    update_data = data.dict(exclude_unset=True)
-    update_data["updated_at"] = datetime.utcnow()
+    update_data = data.model_dump(exclude_unset=True)
+    update_data["updated_at"] = datetime.now(UTC)
 
     for field, value in update_data.items():
         setattr(conversation, field, value)
