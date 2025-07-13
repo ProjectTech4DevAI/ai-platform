@@ -9,7 +9,7 @@ from openai.types.beta import Assistant as OpenAIAssistant
 from sqlmodel import Session, and_, select
 
 from app.models import Assistant
-from app.utils import APIResponse, mask_string
+from app.utils import mask_string
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ def insert_assistant(
     organization_id: int,
     project_id: int,
     openai_assistant: OpenAIAssistant,
-) -> APIResponse[Assistant]:
+) -> Assistant:
     """
     Insert an assistant into the database by converting OpenAI Assistant to local Assistant model.
     """

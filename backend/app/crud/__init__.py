@@ -6,8 +6,6 @@ from .user import (
 )
 from .collection import CollectionCrud
 
-from .credentials import get_provider_credential
-
 from .document import DocumentCrud
 from .document_collection import DocumentCollectionCrud
 
@@ -38,6 +36,7 @@ from .credentials import (
     set_creds_for_org,
     get_creds_by_org,
     get_key_by_org,
+    get_provider_credential,
     update_creds_for_org,
     remove_creds_for_org,
 )
