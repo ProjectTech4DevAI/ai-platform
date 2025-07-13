@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     api_keys,
+    assistants,
     collections,
     documents,
     login,
@@ -15,13 +16,12 @@ from app.api.routes import (
     utils,
     onboarding,
     credentials,
-    assistant,
 )
 from app.core.config import settings
 
 api_router = APIRouter()
 api_router.include_router(api_keys.router)
-api_router.include_router(assistant.router)
+api_router.include_router(assistants.router)
 api_router.include_router(collections.router)
 api_router.include_router(credentials.router)
 api_router.include_router(documents.router)

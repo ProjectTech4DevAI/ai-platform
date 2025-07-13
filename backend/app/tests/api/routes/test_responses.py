@@ -49,7 +49,7 @@ def test_responses_endpoint_success(
 
     headers = {"X-API-KEY": original_api_key}
     request_data = {
-        "assistant_id": "assistant_123",
+        "assistant_id": "assistant_glific",
         "question": "What is Glific?",
         "callback_url": "http://example.com/callback",
     }

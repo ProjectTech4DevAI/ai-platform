@@ -13,10 +13,12 @@ class TestAssistant:
         openai_assistant = mock_openai_assistant(
             assistant_id="asst_success",
             vector_store_ids=["vs_1", "vs_2"],
-            max_num_results=20
+            max_num_results=20,
         )
 
-        result = insert_assistant(db, project.organization_id, project.id, openai_assistant)
+        result = insert_assistant(
+            db, project.organization_id, project.id, openai_assistant
+        )
 
         assert result.assistant_id == openai_assistant.id
         assert result.project_id == project.id
@@ -38,7 +40,7 @@ class TestAssistant:
 
         with pytest.raises(HTTPException) as exc_info:
             insert_assistant(db, project.organization_id, project.id, openai_assistant)
-        
+
         assert exc_info.value.status_code == 409
         assert "already exists" in exc_info.value.detail
 
@@ -51,7 +53,7 @@ class TestAssistant:
 
         with pytest.raises(HTTPException) as exc_info:
             insert_assistant(db, project.organization_id, project.id, openai_assistant)
-        
+
         assert exc_info.value.status_code == 400
         assert "no instruction" in exc_info.value.detail
 
@@ -62,7 +64,9 @@ class TestAssistant:
         )
         openai_assistant.name = None
 
-        result = insert_assistant(db, project.organization_id, project.id, openai_assistant)
+        result = insert_assistant(
+            db, project.organization_id, project.id, openai_assistant
+        )
 
         assert result.name == openai_assistant.id
         assert result.assistant_id == openai_assistant.id
@@ -71,25 +75,25 @@ class TestAssistant:
     def test_insert_assistant_no_vector_stores(self, db: Session):
         project = get_project(db)
         openai_assistant = mock_openai_assistant(
-            assistant_id="asst_no_vectors",
-            vector_store_ids=None
+            assistant_id="asst_no_vectors", vector_store_ids=None
         )
 
-        result = insert_assistant(db, project.organization_id, project.id, openai_assistant)
+        result = insert_assistant(
+            db, project.organization_id, project.id, openai_assistant
+        )
 
         assert result.vector_store_ids == []
         assert result.assistant_id == openai_assistant.id
         assert result.project_id == project.id
 
-
     def test_insert_assistant_no_tools(self, db: Session):
         project = get_project(db)
-        openai_assistant = mock_openai_assistant(
-            assistant_id="asst_no_tools"
-        )
+        openai_assistant = mock_openai_assistant(assistant_id="asst_no_tools")
 
         openai_assistant.tool_resources = None
-        result = insert_assistant(db, project.organization_id, project.id, openai_assistant)
+        result = insert_assistant(
+            db, project.organization_id, project.id, openai_assistant
+        )
 
         assert result.vector_store_ids == []  # Default value
         assert result.assistant_id == openai_assistant.id
@@ -102,7 +106,9 @@ class TestAssistant:
         )
         openai_assistant.tools = None
 
-        result = insert_assistant(db, project.organization_id, project.id, openai_assistant)
+        result = insert_assistant(
+            db, project.organization_id, project.id, openai_assistant
+        )
 
         assert result.max_num_results == 20
         assert result.assistant_id == openai_assistant.id
