@@ -39,7 +39,7 @@ def fetch_assistant_from_openai(assistant_id: str, client: OpenAI) -> OpenAIAssi
     except openai.OpenAIError as e:
         error_msg = handle_openai_error(e)
         logger.error(
-            f"[get_assistant_by_id] OpenAI API error while retrieving assistant {mask_string(assistant_id)}: {error_msg}"
+            f"[fetch_assistant_from_openai] OpenAI API error while retrieving assistant {mask_string(assistant_id)}: {error_msg}"
         )
         raise HTTPException(status_code=400, detail=f"OpenAI API error: {error_msg}")
 
