@@ -9,7 +9,7 @@ from openai.types.beta import Assistant as OpenAIAssistant
 from sqlmodel import Session, and_, select
 
 from app.models import Assistant
-from app.utils import APIResponse, handle_openai_error, mask_string
+from app.utils import APIResponse, mask_string
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +37,10 @@ def fetch_assistant_from_openai(assistant_id: str, client: OpenAI) -> OpenAIAssi
         assistant = client.beta.assistants.retrieve(assistant_id=assistant_id)
         return assistant
     except openai.OpenAIError as e:
-        error_msg = handle_openai_error(e)
         logger.error(
-            f"[fetch_assistant_from_openai] OpenAI API error while retrieving assistant {mask_string(assistant_id)}: {error_msg}"
+            f"[fetch_assistant_from_openai] OpenAI API error while retrieving assistant {mask_string(assistant_id)}: {e}"
         )
-        raise HTTPException(status_code=400, detail=f"OpenAI API error: {error_msg}")
+        raise HTTPException(status_code=400, detail=f"OpenAI API error: {e}")
 
 
 def insert_assistant(

@@ -10,8 +10,6 @@ import jwt
 from jinja2 import Template
 from jwt.exceptions import InvalidTokenError
 
-import openai
-
 from app.core import security
 from app.core.config import settings
 
@@ -163,13 +161,6 @@ def mask_string(value: str, mask_char: str = "*") -> str:
     end = start + num_mask
 
     return value[:start] + (mask_char * num_mask) + value[end:]
-
-
-def handle_openai_error(e: openai.OpenAIError) -> str:
-    """Extract error message from OpenAI error."""
-    if isinstance(e.body, dict) and "message" in e.body:
-        return e.body["message"]
-    return str(e)
 
 
 @ft.singledispatch
