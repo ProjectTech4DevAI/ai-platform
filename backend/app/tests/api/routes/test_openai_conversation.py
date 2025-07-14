@@ -17,6 +17,15 @@ def test_create_conversation(client: TestClient):
         "response_id": "resp_123",
         "ancestor_response_id": "ancestor_456",
         "previous_response_id": "prev_789",
+        "user_question": "What is the capital of France?",
+        "assistant_response": "The capital of France is Paris.",
+        "model": "gpt-4o",
+        "input_tokens": 10,
+        "output_tokens": 5,
+        "total_tokens": 15,
+        "assistant_id": "asst_123",
+        "project_id": 1,
+        "organization_id": 1,
     }
     headers = {"X-API-KEY": original_api_key}
     response = client.post(
@@ -40,7 +49,17 @@ def test_get_conversation_by_id(client: TestClient, db: Session):
     """Test getting a conversation by ID."""
     # Create a conversation first
     conversation_data = OpenAIConversationCreate(
-        response_id="resp_123", ancestor_response_id="ancestor_456"
+        response_id="resp_123",
+        ancestor_response_id="ancestor_456",
+        user_question="What is the capital of France?",
+        assistant_response="The capital of France is Paris.",
+        model="gpt-4o",
+        input_tokens=10,
+        output_tokens=5,
+        total_tokens=15,
+        assistant_id="asst_123",
+        project_id=1,
+        organization_id=1,
     )
     conversation = create_openai_conversation(db, conversation_data)
     headers = {"X-API-KEY": original_api_key}
@@ -59,7 +78,17 @@ def test_get_conversation_by_response_id(client: TestClient, db: Session):
     """Test getting a conversation by response_id."""
     # Create a conversation first
     conversation_data = OpenAIConversationCreate(
-        response_id="resp_123", ancestor_response_id="ancestor_456"
+        response_id="resp_123",
+        ancestor_response_id="ancestor_456",
+        user_question="What is the capital of France?",
+        assistant_response="The capital of France is Paris.",
+        model="gpt-4o",
+        input_tokens=10,
+        output_tokens=5,
+        total_tokens=15,
+        assistant_id="asst_123",
+        project_id=1,
+        organization_id=1,
     )
     create_openai_conversation(db, conversation_data)
     headers = {"X-API-KEY": original_api_key}
@@ -77,13 +106,43 @@ def test_get_conversations_by_ancestor(client: TestClient, db: Session):
     """Test getting conversations by ancestor_response_id."""
     # Create multiple conversations with same ancestor
     conversation_data1 = OpenAIConversationCreate(
-        response_id="resp_1", ancestor_response_id="ancestor_123"
+        response_id="resp_1",
+        ancestor_response_id="ancestor_123",
+        user_question="What is the capital of France?",
+        assistant_response="The capital of France is Paris.",
+        model="gpt-4o",
+        input_tokens=10,
+        output_tokens=5,
+        total_tokens=15,
+        assistant_id="asst_123",
+        project_id=1,
+        organization_id=1,
     )
     conversation_data2 = OpenAIConversationCreate(
-        response_id="resp_2", ancestor_response_id="ancestor_123"
+        response_id="resp_2",
+        ancestor_response_id="ancestor_123",
+        user_question="What is the capital of Spain?",
+        assistant_response="The capital of Spain is Madrid.",
+        model="gpt-4o",
+        input_tokens=10,
+        output_tokens=5,
+        total_tokens=15,
+        assistant_id="asst_123",
+        project_id=1,
+        organization_id=1,
     )
     conversation_data3 = OpenAIConversationCreate(
-        response_id="resp_3", ancestor_response_id="ancestor_456"
+        response_id="resp_3",
+        ancestor_response_id="ancestor_456",
+        user_question="What is the capital of Italy?",
+        assistant_response="The capital of Italy is Rome.",
+        model="gpt-4o",
+        input_tokens=10,
+        output_tokens=5,
+        total_tokens=15,
+        assistant_id="asst_123",
+        project_id=1,
+        organization_id=1,
     )
 
     create_openai_conversation(db, conversation_data1)
@@ -106,7 +165,17 @@ def test_update_conversation(client: TestClient, db: Session):
     """Test updating a conversation."""
     # Create a conversation first
     conversation_data = OpenAIConversationCreate(
-        response_id="resp_123", ancestor_response_id="ancestor_456"
+        response_id="resp_123",
+        ancestor_response_id="ancestor_456",
+        user_question="What is the capital of France?",
+        assistant_response="The capital of France is Paris.",
+        model="gpt-4o",
+        input_tokens=10,
+        output_tokens=5,
+        total_tokens=15,
+        assistant_id="asst_123",
+        project_id=1,
+        organization_id=1,
     )
     conversation = create_openai_conversation(db, conversation_data)
 
@@ -132,7 +201,18 @@ def test_update_conversation(client: TestClient, db: Session):
 def test_delete_conversation_by_id(client: TestClient, db: Session):
     """Test deleting a conversation by ID."""
     # Create a conversation first
-    conversation_data = OpenAIConversationCreate(response_id="resp_123")
+    conversation_data = OpenAIConversationCreate(
+        response_id="resp_123",
+        user_question="What is the capital of France?",
+        assistant_response="The capital of France is Paris.",
+        model="gpt-4o",
+        input_tokens=10,
+        output_tokens=5,
+        total_tokens=15,
+        assistant_id="asst_123",
+        project_id=1,
+        organization_id=1,
+    )
     conversation = create_openai_conversation(db, conversation_data)
     headers = {"X-API-KEY": original_api_key}
     response = client.delete(
@@ -149,10 +229,30 @@ def test_list_conversations(client: TestClient, db: Session):
     """Test listing all conversations."""
     # Create multiple conversations
     conversation_data1 = OpenAIConversationCreate(
-        response_id="resp_1", ancestor_response_id="ancestor_1"
+        response_id="resp_1",
+        ancestor_response_id="ancestor_1",
+        user_question="What is the capital of France?",
+        assistant_response="The capital of France is Paris.",
+        model="gpt-4o",
+        input_tokens=10,
+        output_tokens=5,
+        total_tokens=15,
+        assistant_id="asst_123",
+        project_id=1,
+        organization_id=1,
     )
     conversation_data2 = OpenAIConversationCreate(
-        response_id="resp_2", ancestor_response_id="ancestor_2"
+        response_id="resp_2",
+        ancestor_response_id="ancestor_2",
+        user_question="What is the capital of Spain?",
+        assistant_response="The capital of Spain is Madrid.",
+        model="gpt-4o",
+        input_tokens=10,
+        output_tokens=5,
+        total_tokens=15,
+        assistant_id="asst_123",
+        project_id=1,
+        organization_id=1,
     )
     conversation1 = create_openai_conversation(db, conversation_data1)
     conversation2 = create_openai_conversation(db, conversation_data2)

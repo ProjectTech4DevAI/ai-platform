@@ -11,7 +11,8 @@ from app.api.deps import get_db, get_current_user_org_project
 from app.api.routes.threads import send_callback
 from app.crud.assistants import get_assistant_by_id
 from app.crud.credentials import get_provider_credential
-from app.models import UserProjectOrg
+from app.crud.openai_conversation import create_openai_conversation
+from app.models import UserProjectOrg, OpenAIConversationCreate
 from app.utils import APIResponse, mask_string
 from app.core.langfuse.langfuse import LangfuseTracer
 
@@ -96,6 +97,8 @@ def process_response(
     assistant,
     tracer: LangfuseTracer,
     project_id: int,
+    organization_id: int,
+    session: Session,
 ):
     """Process a response and send callback with results, with Langfuse tracing."""
     logger.info(
@@ -140,6 +143,30 @@ def process_response(
         logger.info(
             f"Successfully generated response: response_id={response.id}, assistant={mask_string(request.assistant_id)}, project_id={project_id}"
         )
+
+        # Store conversation in database
+        try:
+            conversation_data = OpenAIConversationCreate(
+                response_id=response.id,
+                previous_response_id=request.response_id,
+                user_question=request.question,
+                assistant_response=response.output_text,
+                model=response.model,
+                input_tokens=response.usage.input_tokens,
+                output_tokens=response.usage.output_tokens,
+                total_tokens=response.usage.total_tokens,
+                assistant_id=request.assistant_id,
+                project_id=project_id,
+                organization_id=organization_id,
+            )
+            create_openai_conversation(session, conversation_data)
+            logger.info(
+                f"Conversation stored in database: response_id={response.id}, project_id={project_id}"
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to store conversation in database: {str(e)}, response_id={response.id}, project_id={project_id}"
+            )
 
         tracer.end_generation(
             output={
@@ -262,6 +289,8 @@ async def responses(
         assistant,
         tracer,
         project_id,
+        organization_id,
+        _session,
     )
 
     logger.info(
@@ -343,6 +372,30 @@ async def responses_sync(
         )
 
         response_chunks = get_file_search_results(response)
+
+        # Store conversation in database
+        try:
+            conversation_data = OpenAIConversationCreate(
+                response_id=response.id,
+                previous_response_id=request.response_id,
+                user_question=request.question,
+                assistant_response=response.output_text,
+                model=response.model,
+                input_tokens=response.usage.input_tokens,
+                output_tokens=response.usage.output_tokens,
+                total_tokens=response.usage.total_tokens,
+                assistant_id=None,  # Not available in sync endpoint
+                project_id=project_id,
+                organization_id=organization_id,
+            )
+            create_openai_conversation(_session, conversation_data)
+            logger.info(
+                f"Conversation stored in database: response_id={response.id}, project_id={project_id}"
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to store conversation in database: {str(e)}, response_id={response.id}, project_id={project_id}"
+            )
 
         tracer.end_generation(
             output={
