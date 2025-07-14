@@ -1,7 +1,7 @@
 import random
 import string
 from uuid import UUID
-from typing import Optional, Type, TypeVar
+from typing import Type, TypeVar
 
 import pytest
 from fastapi.testclient import TestClient
@@ -59,7 +59,7 @@ def get_non_existent_id(session: Session, model: Type[T]) -> int:
     return (result or 0) + 1
 
 
-def get_project(session: Session, name: Optional[str] = None) -> Project:
+def get_project(session: Session, name: str | None = None) -> Project:
     """
     Retrieve an active project from the database.
 
@@ -69,11 +69,11 @@ def get_project(session: Session, name: Optional[str] = None) -> Project:
     if name:
         statement = (
             select(Project)
-            .where(Project.name == name, Project.is_active == True)
+            .where(Project.name == name, Project.is_active)
             .limit(1)
         )
     else:
-        statement = select(Project).where(Project.is_active == True).limit(1)
+        statement = select(Project).where(Project.is_active).limit(1)
 
     project = session.exec(statement).first()
 

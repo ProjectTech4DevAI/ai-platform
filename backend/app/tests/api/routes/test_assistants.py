@@ -1,10 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from app.main import app
-from app.tests.utils.utils import random_email
-from app.core.security import get_password_hash
 from app.tests.utils.openai import mock_openai_assistant
 
 client = TestClient(app)
@@ -18,7 +15,6 @@ def normal_user_api_key_header():
 @patch("app.api.routes.assistants.fetch_assistant_from_openai")
 def test_ingest_assistant_success(
     mock_fetch_assistant,
-    db: Session,
     normal_user_api_key_header: str,
 ):
     """Test successful assistant ingestion from OpenAI."""
@@ -43,7 +39,6 @@ def test_ingest_assistant_success(
 @patch("app.api.routes.assistants.configure_openai")
 def test_ingest_assistant_openai_not_configured(
     mock_configure_openai,
-    db: Session,
     normal_user_api_key_header: dict,
 ):
     """Test assistant ingestion failure when OpenAI is not configured."""
