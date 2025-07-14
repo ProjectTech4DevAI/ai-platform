@@ -56,9 +56,3 @@ def downgrade():
     )
 
     op.drop_column("openai_assistant", "vector_store_ids")
-
-    op.alter_column(
-        "openai_assistant",
-        "vector_store_id",
-        existing_type=sa.VARCHAR(length=255),
-    )

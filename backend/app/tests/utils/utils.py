@@ -68,9 +68,7 @@ def get_project(session: Session, name: str | None = None) -> Project:
     """
     if name:
         statement = (
-            select(Project)
-            .where(Project.name == name, Project.is_active)
-            .limit(1)
+            select(Project).where(Project.name == name, Project.is_active).limit(1)
         )
     else:
         statement = select(Project).where(Project.is_active).limit(1)
