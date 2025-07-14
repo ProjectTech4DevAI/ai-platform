@@ -96,11 +96,12 @@ def get_provider_credential(
     full: bool = False,
 ) -> Optional[Union[Dict[str, Any], Credential]]:
     """
-    Fetches credentials for a specific provider of a project.
+    Fetch credentials for a specific provider within a project.
 
     Returns:
-        Optional[Union[Dict[str, Any], Credential]]: If full is True, returns full Credential object.
-        Otherwise returns just the decrypted credentials dict.
+        Optional[Union[Dict[str, Any], Credential]]:
+            - If `full` is True, returns the full Credential SQLModel object.
+            - Otherwise, returns the decrypted credentials as a dictionary.
     """
     validate_provider(provider)
 
