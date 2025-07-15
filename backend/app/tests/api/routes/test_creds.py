@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
@@ -23,6 +24,7 @@ from app.tests.utils.test_data import (
 client = TestClient(app)
 
 
+@pytest.fixture
 def create_test_credentials(db: Session):
     return create_test_credential(db)
 
@@ -388,11 +390,11 @@ def test_duplicate_credential_creation(
 def test_multiple_provider_credentials(
     db: Session, superuser_token_headers: dict[str, str]
 ):
-    org = create_test_organization(db)
+    project = create_test_project(db)
 
     # Create OpenAI credentials
     openai_credential = {
-        "organization_id": org.id,
+        "organization_id": project.organization_id,
         "project_id": project.id,
         "is_active": True,
         "credential": {
@@ -406,7 +408,7 @@ def test_multiple_provider_credentials(
 
     # Create Langfuse credentials
     langfuse_credential = {
-        "organization_id": org.id,
+        "organization_id": project.organization_id,
         "project_id": project.id,
         "is_active": True,
         "credential": {
@@ -435,7 +437,7 @@ def test_multiple_provider_credentials(
 
     # Fetch all credentials
     response = client.get(
-        f"{settings.API_V1_STR}/credentials/{org.id}",
+        f"{settings.API_V1_STR}/credentials/{project.organization_id}",
         headers=superuser_token_headers,
     )
     assert response.status_code == 200
