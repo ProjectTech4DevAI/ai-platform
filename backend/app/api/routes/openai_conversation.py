@@ -135,15 +135,12 @@ async def get_conversations_by_ancestor(
     description="Update an existing conversation by ID",
 )
 async def update_conversation(
+    conversation_data: OpenAIConversationUpdate,
     conversation_id: int = Path(..., description="The conversation ID"),
-    conversation_data: OpenAIConversationUpdate = None,
     db: Session = Depends(get_db),
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
     """Update a conversation by its ID."""
-    if not conversation_data:
-        raise HTTPException(status_code=400, detail="Update data is required")
-
     conversation = update_openai_conversation(db, conversation_id, conversation_data)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")

@@ -13,10 +13,8 @@ class OpenAIConversationBase(SQLModel):
     assistant_id: Optional[str] = Field(
         default=None, description="The assistant ID used"
     )
-    project_id: Optional[int] = Field(default=None, description="The project ID")
-    organization_id: Optional[int] = Field(
-        default=None, description="The organization ID"
-    )
+    project_id: int = Field(foreign_key="project.id")
+    organization_id: int = Field(foreign_key="organization.id")
 
 
 class OpenAIConversationCreate(OpenAIConversationBase):
@@ -31,8 +29,8 @@ class OpenAIConversationUpdate(SQLModel):
     assistant_response: Optional[str] = None
     model: Optional[str] = None
     assistant_id: Optional[str] = None
-    project_id: Optional[int] = None
-    organization_id: Optional[int] = None
+    project_id: Optional[int] = Field(default=None, foreign_key="project.id")
+    organization_id: Optional[int] = Field(default=None, foreign_key="organization.id")
 
 
 class OpenAIConversationPublic(OpenAIConversationBase):
