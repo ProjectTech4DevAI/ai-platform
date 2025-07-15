@@ -1,4 +1,3 @@
-import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
@@ -22,6 +21,7 @@ from app.tests.utils.test_data import (
 
 
 client = TestClient(app)
+
 
 def create_test_credentials(db: Session):
     return create_test_credential(db)
@@ -83,6 +83,7 @@ def test_set_credentials_for_invalid_project_org_relationship(
         response_invalid.json()["error"]
         == "Project does not belong to the specified organization"
     )
+
 
 def test_set_credentials_for_project_not_found(
     db: Session, superuser_token_headers: dict[str, str]
