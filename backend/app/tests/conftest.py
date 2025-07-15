@@ -1,6 +1,7 @@
 from collections.abc import Generator
 
 import pytest
+
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 from sqlalchemy import event
@@ -11,6 +12,7 @@ from app.api.deps import get_db
 from app.main import app
 from app.tests.utils.user import authentication_token_from_email
 from app.tests.utils.utils import get_superuser_token_headers
+from app.tests.utils.api_keys import get_api_key_by_user_email
 from app.seed_data.seed_data import seed_database
 
 
@@ -59,3 +61,21 @@ def normal_user_token_headers(client: TestClient, db: Session) -> dict[str, str]
     return authentication_token_from_email(
         client=client, email=settings.EMAIL_TEST_USER, db=db
     )
+
+
+@pytest.fixture(scope="function")
+def superuser_api_key_headers() -> dict[str, str]:
+    """
+    Returns headers with the superuser API key for making API requests.
+    """
+    api_key = get_api_key_by_user_email(settings.FIRST_SUPERUSER)
+    return {"X-API-KEY": api_key}
+
+
+@pytest.fixture(scope="function")
+def normal_user_api_key_headers() -> dict[str, str]:
+    """
+    Returns headers with the normal user API key for making API requests.
+    """
+    api_key = get_api_key_by_user_email(settings.EMAIL_TEST_USER)
+    return {"X-API-KEY": api_key}

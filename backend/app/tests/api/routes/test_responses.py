@@ -16,9 +16,7 @@ client = TestClient(app)
 @patch("app.api.routes.responses.OpenAI")
 @patch("app.api.routes.responses.get_provider_credential")
 def test_responses_endpoint_success(
-    mock_get_credential,
-    mock_openai,
-    db,
+    mock_get_credential, mock_openai, db, superuser_api_key_headers: dict[str, str]
 ):
     """Test the /responses endpoint for successful response creation."""
     # Setup mock credentials
@@ -45,16 +43,18 @@ def test_responses_endpoint_success(
         pytest.skip("Glific project not found in the database")
 
     # Use the original API key from seed data (not the encrypted one)
-    original_api_key = "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8"
-
-    headers = {"X-API-KEY": original_api_key}
+    #  original_api_key = "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8"
+    #
+    #  headers = {"X-API-KEY": original_api_key}
     request_data = {
         "assistant_id": "assistant_123",
         "question": "What is Glific?",
         "callback_url": "http://example.com/callback",
     }
 
-    response = client.post("/responses", json=request_data, headers=headers)
+    response = client.post(
+        "/responses", json=request_data, headers=superuser_api_key_headers
+    )
     assert response.status_code == 200
     response_json = response.json()
     assert response_json["success"] is True
@@ -66,10 +66,7 @@ def test_responses_endpoint_success(
 @patch("app.api.routes.responses.get_provider_credential")
 @patch("app.api.routes.responses.get_assistant_by_id")
 def test_responses_endpoint_without_vector_store(
-    mock_get_assistant,
-    mock_get_credential,
-    mock_openai,
-    db,
+    mock_get_assistant, mock_get_credential, mock_openai, db, superuser_api_key_headers
 ):
     """Test the /responses endpoint when assistant has no vector store configured."""
     # Setup mock credentials
@@ -103,17 +100,15 @@ def test_responses_endpoint_without_vector_store(
     if not glific_project:
         pytest.skip("Glific project not found in the database")
 
-    # Use the original API key from seed data
-    original_api_key = "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8"
-
-    headers = {"X-API-KEY": original_api_key}
     request_data = {
         "assistant_id": "assistant_123",
         "question": "What is Glific?",
         "callback_url": "http://example.com/callback",
     }
 
-    response = client.post("/responses", json=request_data, headers=headers)
+    response = client.post(
+        "/responses", json=request_data, headers=superuser_api_key_headers
+    )
     assert response.status_code == 200
     response_json = response.json()
     assert response_json["success"] is True
