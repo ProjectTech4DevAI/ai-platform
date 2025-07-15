@@ -70,15 +70,6 @@ def downgrade():
         ["id"],
         ondelete="SET NULL",
     )
-    op.drop_constraint(None, "credential", type_="foreignkey")
-    op.create_foreign_key(
-        "credential_project_id_fkey",
-        "credential",
-        "project",
-        ["project_id"],
-        ["id"],
-        ondelete="SET NULL",
-    )
     op.alter_column(
         "credential", "updated_at", existing_type=postgresql.TIMESTAMP(), nullable=True
     )
