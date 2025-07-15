@@ -28,6 +28,14 @@ def upgrade():
         sa.Column(
             "previous_response_id", sqlmodel.sql.sqltypes.AutoString(), nullable=True
         ),
+        sa.Column("user_question", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column(
+            "assistant_response", sqlmodel.sql.sqltypes.AutoString(), nullable=False
+        ),
+        sa.Column("model", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("assistant_id", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+        sa.Column("project_id", sa.Integer(), nullable=True),
+        sa.Column("organization_id", sa.Integer(), nullable=True),
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("inserted_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),

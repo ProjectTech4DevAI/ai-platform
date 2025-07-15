@@ -10,15 +10,6 @@ class OpenAIConversationBase(SQLModel):
     user_question: str = Field(description="The user's input question")
     assistant_response: str = Field(description="The assistant's response")
     model: str = Field(description="The model used for the response")
-    input_tokens: Optional[int] = Field(
-        default=None, description="Number of input tokens"
-    )
-    output_tokens: Optional[int] = Field(
-        default=None, description="Number of output tokens"
-    )
-    total_tokens: Optional[int] = Field(
-        default=None, description="Total number of tokens"
-    )
     assistant_id: Optional[str] = Field(
         default=None, description="The assistant ID used"
     )
@@ -39,9 +30,6 @@ class OpenAIConversationUpdate(SQLModel):
     user_question: Optional[str] = None
     assistant_response: Optional[str] = None
     model: Optional[str] = None
-    input_tokens: Optional[int] = None
-    output_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
     assistant_id: Optional[str] = None
     project_id: Optional[int] = None
     organization_id: Optional[int] = None
