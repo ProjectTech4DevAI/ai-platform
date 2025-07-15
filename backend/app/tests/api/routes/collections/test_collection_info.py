@@ -1,25 +1,14 @@
-import pytest
 from uuid import uuid4
 from datetime import datetime, timezone
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 from app.core.config import settings
 from app.models import Collection
-from app.crud.collection import CollectionCrud
 from app.main import app
 from app.tests.utils.utils import get_user_from_api_key
-from app.seed_data.seed_data import seed_database
 from app.models.collection import CollectionStatus
 
 client = TestClient(app)
-
-
-@pytest.fixture(scope="function", autouse=True)
-def load_seed_data(db):
-    """Load seed data before each test."""
-    seed_database(db)
-    yield
-
 
 original_api_key = "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8"
 
@@ -49,7 +38,7 @@ def create_collection(
     return collection
 
 
-def test_collection_info_processing(db: Session):
+def test_collection_info_processing(db: Session, client: TestClient):
     headers = {"X-API-KEY": original_api_key}
     user = get_user_from_api_key(db, headers)
     collection = create_collection(db, user, status=CollectionStatus.processing)
@@ -68,7 +57,7 @@ def test_collection_info_processing(db: Session):
     assert data["llm_service_name"] is None
 
 
-def test_collection_info_successful(db: Session):
+def test_collection_info_successful(db: Session, client: TestClient):
     headers = {"X-API-KEY": original_api_key}
     user = get_user_from_api_key(db, headers)
     collection = create_collection(
@@ -89,7 +78,7 @@ def test_collection_info_successful(db: Session):
     assert data["llm_service_name"] == "gpt-4o"
 
 
-def test_collection_info_failed(db: Session):
+def test_collection_info_failed(db: Session, client: TestClient):
     headers = {"X-API-KEY": original_api_key}
     user = get_user_from_api_key(db, headers)
     collection = create_collection(db, user, status=CollectionStatus.failed)
