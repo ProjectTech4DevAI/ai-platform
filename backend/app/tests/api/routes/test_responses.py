@@ -42,10 +42,6 @@ def test_responses_endpoint_success(
     if not glific_project:
         pytest.skip("Glific project not found in the database")
 
-    # Use the original API key from seed data (not the encrypted one)
-    #  original_api_key = "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8"
-    #
-    #  headers = {"X-API-KEY": original_api_key}
     request_data = {
         "assistant_id": "assistant_123",
         "question": "What is Glific?",
