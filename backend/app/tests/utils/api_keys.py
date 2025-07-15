@@ -1,7 +1,5 @@
 import json
 from pathlib import Path
-from typing import Dict
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -10,12 +8,15 @@ SEED_DATA_PATH = (
 )
 
 
-def load_seed_data() -> Dict[str, list]:
+def load_seed_data() -> dict[str, list]:
     """
     Load the list of API keys from seed_data.json.
     """
-    with open(SEED_DATA_PATH) as f:
-        return json.load(f)
+    try:
+        with open(SEED_DATA_PATH) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        raise ValueError(f"Failed to load seed data: {e}")
 
 
 def get_api_key_by_user_email(user_email: str) -> str:
