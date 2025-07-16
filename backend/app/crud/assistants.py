@@ -36,14 +36,19 @@ def fetch_assistant_from_openai(assistant_id: str, client: OpenAI) -> OpenAIAssi
     try:
         assistant = client.beta.assistants.retrieve(assistant_id=assistant_id)
         return assistant
+    except openai.NotFoundError as e:
+        logger.error(
+            f"[fetch_assistant_from_openai] Assistant not found: {mask_string(assistant_id)} | {e}"
+        )
+        raise HTTPException(status_code=404, detail="Assistant not found in OpenAI.")
     except openai.OpenAIError as e:
         logger.error(
             f"[fetch_assistant_from_openai] OpenAI API error while retrieving assistant {mask_string(assistant_id)}: {e}"
         )
-        raise HTTPException(status_code=400, detail=f"OpenAI API error: {e}")
+        raise HTTPException(status_code=502, detail=f"OpenAI API error: {e}")
 
 
-def insert_assistant(
+def sync_assistant(
     session: Session,
     organization_id: int,
     project_id: int,

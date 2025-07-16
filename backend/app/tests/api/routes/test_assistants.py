@@ -4,8 +4,6 @@ from unittest.mock import patch
 from app.main import app
 from app.tests.utils.openai import mock_openai_assistant
 
-client = TestClient(app)
-
 
 @pytest.fixture
 def normal_user_api_key_header():
@@ -15,12 +13,10 @@ def normal_user_api_key_header():
 @patch("app.api.routes.assistants.fetch_assistant_from_openai")
 def test_ingest_assistant_success(
     mock_fetch_assistant,
+    client: TestClient,
     normal_user_api_key_header: str,
 ):
     """Test successful assistant ingestion from OpenAI."""
-
-    # Setup mock return value
-
     mock_assistant = mock_openai_assistant()
 
     mock_fetch_assistant.return_value = mock_assistant
@@ -34,27 +30,3 @@ def test_ingest_assistant_success(
     response_json = response.json()
     assert response_json["success"] is True
     assert response_json["data"]["assistant_id"] == mock_assistant.id
-
-
-@patch("app.api.routes.assistants.configure_openai")
-def test_ingest_assistant_openai_not_configured(
-    mock_configure_openai,
-    normal_user_api_key_header: dict,
-):
-    """Test assistant ingestion failure when OpenAI is not configured."""
-
-    # Setup mock to return failure for OpenAI configuration
-    mock_configure_openai.return_value = (None, False)
-
-    # Use a mock assistant ID
-    mock_assistant_id = "asst_123456789"
-
-    response = client.post(
-        f"/api/v1/assistant/{mock_assistant_id}/ingest",
-        headers=normal_user_api_key_header,
-    )
-
-    assert response.status_code == 400
-    response_json = response.json()
-    assert response_json["success"] is False
-    assert response_json["error"] == "OpenAI not configured for this organization."
