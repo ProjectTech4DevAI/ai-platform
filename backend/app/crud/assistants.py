@@ -62,7 +62,7 @@ def sync_assistant(
     existing_assistant = get_assistant_by_id(session, assistant_id, organization_id)
     if existing_assistant:
         logger.info(
-            f"[sync_assistant] Assistant with ID {assistant_id} already exists in the database."
+            f"[sync_assistant] Assistant with ID {mask_string(assistant_id)} already exists in the database."
         )
         raise HTTPException(
             status_code=409,
