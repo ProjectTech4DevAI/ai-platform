@@ -8,6 +8,7 @@ from pydantic import BaseModel, EmailStr
 from sqlmodel import Session, delete, select
 
 from app.core.db import engine
+from app.core import settings
 from app.core.security import encrypt_api_key, get_password_hash
 from app.models import APIKey, Organization, Project, User, Credential, Assistant
 
@@ -311,6 +312,23 @@ def seed_database(session: Session) -> None:
         # Create users
         users = []
         for user_data in seed_data["users"]:
+            # Directly map the emails from environment variables based on the user role
+            if user_data["full_name"] == "SUPERUSER":
+                user_data["email"] = settings.FIRST_SUPERUSER
+            elif user_data["full_name"] == "ADMIN":
+                user_data["email"] = settings.EMAIL_TEST_USER
+            else:
+                # If the user is not SUPERUSER or ADMIN, allow manual email assignment
+                if "email" not in user_data:
+                    logging.warning(
+                        f"Email not provided for user {user_data['full_name']}. Skipping user creation."
+                    )
+                    continue  # Skip if no email is provided for new users
+                logging.info(
+                    f"Email manually provided for user: {user_data['full_name']}"
+                )
+
+            # Create the user in the database
             user = create_user(session, user_data)
             users.append(user)
             logging.info(f"Created user: {user.email} (ID: {user.id})")
@@ -321,6 +339,12 @@ def seed_database(session: Session) -> None:
             project = create_project(session, project_data)
             projects.append(project)
             logging.info(f"Created project: {project.name} (ID: {project.id})")
+
+        for api_key_data in seed_data["apikeys"]:
+            if api_key_data["user_email"] == "{{SUPERUSER_EMAIL}}":
+                api_key_data["user_email"] = settings.FIRST_SUPERUSER
+            elif api_key_data["user_email"] == "{{ADMIN_EMAIL}}":
+                api_key_data["user_email"] = settings.EMAIL_TEST_USER
 
         # Create API keys
         api_keys = []

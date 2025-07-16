@@ -29,6 +29,7 @@ from .api_key import (
     get_api_keys_by_project,
     get_api_key_by_project_user,
     delete_api_key,
+    get_api_key_by_user_id,
 )
 
 from .credentials import (

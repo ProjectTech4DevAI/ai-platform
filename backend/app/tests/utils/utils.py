@@ -4,15 +4,15 @@ from uuid import UUID
 from typing import List
 
 import pytest
+from pydantic import EmailStr
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 from typing import Type, TypeVar
 
 from app.core.config import settings
-from app.crud.user import get_user_by_email
-from app.models import APIKeyPublic, Credential
-from app.crud import create_api_key, get_api_key_by_value
-from uuid import uuid4
+from app.crud import get_user_by_email, get_api_key_by_user_id
+from app.models import APIKeyPublic, User, APIKey
+from app.crud import get_api_key_by_value
 
 
 T = TypeVar("T")
@@ -45,6 +45,13 @@ def get_superuser_token_headers(client: TestClient) -> dict[str, str]:
     a_token = tokens["access_token"]
     headers = {"Authorization": f"Bearer {a_token}"}
     return headers
+
+
+def get_api_key_by_email(db: Session, email: EmailStr) -> str:
+    user = get_user_by_email(session=db, email=email)
+    api_key = get_api_key_by_user_id(db, user_id=user.id)
+
+    return api_key.key
 
 
 def get_user_id_by_email(db: Session) -> int:
