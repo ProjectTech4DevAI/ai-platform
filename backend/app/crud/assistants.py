@@ -62,7 +62,7 @@ def sync_assistant(
     existing_assistant = get_assistant_by_id(session, assistant_id, organization_id)
     if existing_assistant:
         logger.info(
-            f"[insert_assistant] Assistant with ID {assistant_id} already exists in the database."
+            f"[sync_assistant] Assistant with ID {assistant_id} already exists in the database."
         )
         raise HTTPException(
             status_code=409,
@@ -108,6 +108,6 @@ def sync_assistant(
     session.refresh(db_assistant)
 
     logger.info(
-        f"[insert_assistant] Successfully ingested assistant with ID {mask_string(assistant_id)}."
+        f"[sync_assistant] Successfully ingested assistant with ID {mask_string(assistant_id)}."
     )
     return db_assistant

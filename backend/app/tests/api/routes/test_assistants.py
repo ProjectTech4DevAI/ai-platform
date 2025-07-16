@@ -1,7 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch
-from app.main import app
 from app.tests.utils.openai import mock_openai_assistant
 
 
