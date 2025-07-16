@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel, Field
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 class OpenAIThreadBase(SQLModel):
@@ -17,5 +17,5 @@ class OpenAIThreadCreate(OpenAIThreadBase):
 
 class OpenAI_Thread(OpenAIThreadBase, table=True):
     id: int = Field(default=None, primary_key=True)
-    inserted_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    inserted_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

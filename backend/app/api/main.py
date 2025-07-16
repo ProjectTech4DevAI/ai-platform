@@ -15,6 +15,7 @@ from app.api.routes import (
     utils,
     onboarding,
     credentials,
+    openai_conversation,
 )
 from app.core.config import settings
 
@@ -25,6 +26,7 @@ api_router.include_router(credentials.router)
 api_router.include_router(documents.router)
 api_router.include_router(login.router)
 api_router.include_router(onboarding.router)
+api_router.include_router(openai_conversation.router)
 api_router.include_router(organization.router)
 api_router.include_router(project.router)
 api_router.include_router(project_user.router)

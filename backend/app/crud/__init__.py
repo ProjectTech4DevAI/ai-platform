@@ -43,4 +43,14 @@ from .credentials import (
 
 from .thread_results import upsert_thread_result, get_thread_result
 
+from .openai_conversation import (
+    create_openai_conversation,
+    get_openai_conversation_by_id,
+    get_openai_conversation_by_response_id,
+    get_openai_conversations_by_ancestor,
+    get_all_openai_conversations,
+    update_openai_conversation,
+    delete_openai_conversation,
+)
+
 from .assistants import get_assistant_by_id
