@@ -43,7 +43,7 @@ def test_responses_endpoint_success(
         pytest.skip("Glific project not found in the database")
 
     request_data = {
-        "assistant_id": "assistant_123",
+        "assistant_id": "assistant_glific",
         "question": "What is Glific?",
         "callback_url": "http://example.com/callback",
     }
@@ -73,7 +73,7 @@ def test_responses_endpoint_without_vector_store(
     mock_assistant.model = "gpt-4"
     mock_assistant.instructions = "Test instructions"
     mock_assistant.temperature = 0.1
-    mock_assistant.vector_store_id = None  # No vector store configured
+    mock_assistant.vector_store_ids = []  # No vector store configured
     mock_get_assistant.return_value = mock_assistant
 
     # Setup mock OpenAI client

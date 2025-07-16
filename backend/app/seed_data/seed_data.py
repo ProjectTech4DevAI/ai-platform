@@ -58,7 +58,7 @@ class AssistantData(BaseModel):
     name: str
     instructions: str
     model: str
-    vector_store_id: str
+    vector_store_ids: list[str]
     temperature: float
     max_num_results: int
     project_name: str
@@ -262,7 +262,7 @@ def create_assistant(session: Session, assistant_data_raw: dict) -> Assistant:
             name=assistant_data.name,
             instructions=assistant_data.instructions,
             model=assistant_data.model,
-            vector_store_id=assistant_data.vector_store_id,
+            vector_store_ids=assistant_data.vector_store_ids,
             temperature=assistant_data.temperature,
             max_num_results=assistant_data.max_num_results,
             organization_id=organization.id,
