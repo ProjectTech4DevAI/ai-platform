@@ -57,22 +57,41 @@
     {
       "is_active": true,
       "provider": "openai",
-      "credential": "{\"openai\": {\"api_key\": \"sk-proj-YxK21qI3i5SCxN\"}}",
+      "credential": "{\"api_key\": \"sk-proj-GlificI3i5SCxN\"}",
       "project_name": "Glific",
+      "organization_name": "Project Tech4dev",
+      "deleted_at": null
+    },
+    {
+      "is_active": true,
+      "provider": "openai",
+      "credential": "{\"api_key\": \"sk-proj-DalgoI3i5SCxN\"}",
+      "project_name": "Dalgo",
       "organization_name": "Project Tech4dev",
       "deleted_at": null
     }
   ],
   "assistants": [
     {
-      "assistant_id": "assistant_123",
-      "name": "Test Assistant",
+      "assistant_id": "assistant_glific",
+      "name": "Test Assistant Glific",
       "instructions": "Test instructions",
       "model": "gpt-4o",
-      "vector_store_id": "vs_123",
+      "vector_store_ids": ["vs_glific"],
       "temperature": 0.1,
       "max_num_results": 20,
       "project_name": "Glific",
+      "organization_name": "Project Tech4dev"
+    },
+    {
+      "assistant_id": "assistant_dalgo",
+      "name": "Test Assistant Dalgo",
+      "instructions": "Test instructions",
+      "model": "gpt-4o",
+      "vector_store_ids": ["vs_dalgo"],
+      "temperature": 0.1,
+      "max_num_results": 20,
+      "project_name": "Dalgo",
       "organization_name": "Project Tech4dev"
     }
   ]

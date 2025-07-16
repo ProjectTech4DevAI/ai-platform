@@ -5,16 +5,18 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Generic, Optional, TypeVar
 
-import emails  # type: ignore
 import jwt
+import emails
 from jinja2 import Template
 from jwt.exceptions import InvalidTokenError
+from fastapi import HTTPException
+from openai import OpenAI
+from pydantic import BaseModel
+from sqlmodel import Session
 
 from app.core import security
 from app.core.config import settings
-
-from typing import Generic, Optional, TypeVar
-from pydantic import BaseModel
+from app.crud.credentials import get_provider_credential
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -161,6 +163,32 @@ def mask_string(value: str, mask_char: str = "*") -> str:
     end = start + num_mask
 
     return value[:start] + (mask_char * num_mask) + value[end:]
+
+
+def get_openai_client(session: Session, org_id: int, project_id: int) -> OpenAI:
+    """
+    Fetch OpenAI credentials for the current org/project and return a configured client.
+    """
+    credentials = get_provider_credential(
+        session=session,
+        org_id=org_id,
+        provider="openai",
+        project_id=project_id,
+    )
+
+    if not credentials or "api_key" not in credentials:
+        raise HTTPException(
+            status_code=400,
+            detail="OpenAI credentials not configured for this organization/project.",
+        )
+
+    try:
+        return OpenAI(api_key=credentials["api_key"])
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to configure OpenAI client: {str(e)}",
+        )
 
 
 @ft.singledispatch
