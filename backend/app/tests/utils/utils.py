@@ -10,9 +10,8 @@ from sqlmodel import Session, select
 
 from app.core.config import settings
 from app.crud import get_user_by_email, get_api_key_by_user_id
-from app.models import APIKeyPublic, User, APIKey
+from app.models import APIKeyPublic
 from app.crud import get_api_key_by_value
-
 
 
 T = TypeVar("T")
