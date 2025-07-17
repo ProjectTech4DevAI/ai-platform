@@ -54,7 +54,7 @@ def get_api_key_by_email(db: Session, email: EmailStr) -> str:
 
 
 def get_user_id_by_email(db: Session) -> int:
-    user = get_user_by_email(session=db, email=settings.FIRST_SUPERUSER)
+    user = get_user_by_email(session=db, email=settings.EMAIL_TEST_USER)
     return user.id
 
 

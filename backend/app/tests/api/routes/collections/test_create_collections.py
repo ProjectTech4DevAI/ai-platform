@@ -47,7 +47,7 @@ class TestCollectionRouteCreate:
 
     @openai_responses.mock()
     def test_create_collection_success(
-        self, client: TestClient, db: Session, superuser_api_key_headers
+        self, client: TestClient, db: Session, normal_user_api_key_headers
     ):
         store = DocumentStore(db)
         documents = store.fill(self._n_documents)
@@ -60,7 +60,7 @@ class TestCollectionRouteCreate:
             "instructions": "Test collection assistant.",
             "temperature": 0.1,
         }
-        headers = superuser_api_key_headers
+        headers = normal_user_api_key_headers
 
         response = client.post(
             f"{settings.API_V1_STR}/collections/create", json=body, headers=headers

@@ -21,12 +21,14 @@
   ],
   "users": [
     {
+      "email": "{{SUPERUSER_EMAIL}}",
       "password": "changethis",
       "full_name": "SUPERUSER",
       "is_active": true,
       "is_superuser": true
     },
     {
+      "email": "{{ADMIN_EMAIL}}",
       "password": "admin123",
       "full_name": "ADMIN",
       "is_active": true,

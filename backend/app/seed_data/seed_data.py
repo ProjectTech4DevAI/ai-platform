@@ -309,26 +309,15 @@ def seed_database(session: Session) -> None:
                 f"Created organization: {organization.name} (ID: {organization.id})"
             )
 
+        for user_data in seed_data["users"]:
+            if user_data["email"] == "{{SUPERUSER_EMAIL}}":
+                user_data["email"] = settings.FIRST_SUPERUSER
+            elif user_data["email"] == "{{ADMIN_EMAIL}}":
+                user_data["email"] = settings.EMAIL_TEST_USER
+
         # Create users
         users = []
         for user_data in seed_data["users"]:
-            # Directly map the emails from environment variables based on the user name
-            if user_data["full_name"] == "SUPERUSER":
-                user_data["email"] = settings.FIRST_SUPERUSER
-            elif user_data["full_name"] == "ADMIN":
-                user_data["email"] = settings.EMAIL_TEST_USER
-            else:
-                # If the user is not SUPERUSER or ADMIN, allow manual email assignment
-                if "email" not in user_data:
-                    logging.warning(
-                        f"Email not provided for user {user_data['full_name']}. Skipping user creation."
-                    )
-                    continue  # Skip if no email is provided for new users
-                logging.info(
-                    f"Email manually provided for user: {user_data['full_name']}"
-                )
-
-            # Create the user in the database
             user = create_user(session, user_data)
             users.append(user)
             logging.info(f"Created user: {user.email} (ID: {user.id})")

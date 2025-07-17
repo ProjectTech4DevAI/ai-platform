@@ -16,7 +16,7 @@ client = TestClient(app)
 @patch("app.api.routes.responses.OpenAI")
 @patch("app.api.routes.responses.get_provider_credential")
 def test_responses_endpoint_success(
-    mock_get_credential, mock_openai, db, superuser_api_key_headers: dict[str, str]
+    mock_get_credential, mock_openai, db, normal_user_api_key_headers: dict[str, str]
 ):
     """Test the /responses endpoint for successful response creation."""
     # Setup mock credentials
@@ -49,7 +49,7 @@ def test_responses_endpoint_success(
     }
 
     response = client.post(
-        "/responses", json=request_data, headers=superuser_api_key_headers
+        "/responses", json=request_data, headers=normal_user_api_key_headers
     )
     assert response.status_code == 200
     response_json = response.json()
@@ -62,7 +62,11 @@ def test_responses_endpoint_success(
 @patch("app.api.routes.responses.get_provider_credential")
 @patch("app.api.routes.responses.get_assistant_by_id")
 def test_responses_endpoint_without_vector_store(
-    mock_get_assistant, mock_get_credential, mock_openai, db, superuser_api_key_headers
+    mock_get_assistant,
+    mock_get_credential,
+    mock_openai,
+    db,
+    normal_user_api_key_headers,
 ):
     """Test the /responses endpoint when assistant has no vector store configured."""
     # Setup mock credentials
@@ -103,7 +107,7 @@ def test_responses_endpoint_without_vector_store(
     }
 
     response = client.post(
-        "/responses", json=request_data, headers=superuser_api_key_headers
+        "/responses", json=request_data, headers=normal_user_api_key_headers
     )
     assert response.status_code == 200
     response_json = response.json()
