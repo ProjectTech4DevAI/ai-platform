@@ -312,7 +312,7 @@ def seed_database(session: Session) -> None:
         # Create users
         users = []
         for user_data in seed_data["users"]:
-            # Directly map the emails from environment variables based on the user role
+            # Directly map the emails from environment variables based on the user name
             if user_data["full_name"] == "SUPERUSER":
                 user_data["email"] = settings.FIRST_SUPERUSER
             elif user_data["full_name"] == "ADMIN":
