@@ -1,14 +1,17 @@
 import logging
-
 from typing import Optional
 
 import openai
 from fastapi import HTTPException
 from openai import OpenAI
+from openai._types import NOT_GIVEN
 from openai.types.beta import Assistant as OpenAIAssistant
+from openai.types.beta.assistant import ToolResources, ToolResourcesFileSearch
+from openai.types.beta.assistant_tool import FileSearchTool
+from openai.types.beta.file_search_tool import FileSearch
 from sqlmodel import Session, and_, select
 
-from app.models import Assistant
+from app.models import Assistant, AssistantCreateRequest
 from app.utils import mask_string
 
 logger = logging.getLogger(__name__)
@@ -46,6 +49,39 @@ def fetch_assistant_from_openai(assistant_id: str, client: OpenAI) -> OpenAIAssi
             f"[fetch_assistant_from_openai] OpenAI API error while retrieving assistant {mask_string(assistant_id)}: {e}"
         )
         raise HTTPException(status_code=502, detail=f"OpenAI API error: {e}")
+
+
+def create_assistant_in_openai(client: OpenAI, assistant_data: AssistantCreateRequest):
+    tool_resources = NOT_GIVEN
+    file_search_tool = NOT_GIVEN
+
+    if assistant_data.vector_store_id:
+        tool_resources = ToolResources(
+            file_search=ToolResourcesFileSearch(
+                vector_store_ids=[assistant_data.vector_store_id],
+            ),
+        )
+        file_search_tool = [
+            FileSearchTool(
+                type="file_search",
+                file_search=FileSearch(
+                    max_num_results=assistant_data.max_num_results,
+                ),
+            )
+        ]
+
+    try:
+        return client.beta.assistants.create(
+            name=assistant_data.name,
+            instructions=assistant_data.instructions,
+            model=assistant_data.model,
+            temperature=assistant_data.temperature,
+            tool_resources=tool_resources,
+            tools=file_search_tool,
+        )
+    except Exception as e:
+        logger.error(f"[create_openai_assistant] OpenAI assistant creation failed: {e}")
+        raise HTTPException(502, detail=f"OpenAI assistant creation failed: {e}")
 
 
 def sync_assistant(

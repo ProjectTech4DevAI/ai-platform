@@ -3,6 +3,7 @@ from typing import Optional, List
 from sqlmodel import Field, Relationship, SQLModel
 from sqlalchemy import Column, String
 from sqlalchemy.dialects.postgresql import ARRAY
+from pydantic import BaseModel, model_validator
 
 from app.core.util import now
 
@@ -31,3 +32,23 @@ class Assistant(AssistantBase, table=True):
     # Relationships
     project: "Project" = Relationship(back_populates="assistants")
     organization: "Organization" = Relationship(back_populates="assistants")
+
+
+class AssistantCreateRequest(BaseModel):
+    name: str
+    instructions: str
+    model: str
+    vector_store_id: str | None = None
+    temperature: float = 0.1
+    max_num_results: int = 20
+
+    @model_validator(mode="before")
+    def validate_max_num_results(cls, values):
+        vector_store_id = values.get("vector_store_id")
+        max_num_results = values.get("max_num_results")
+
+        if not vector_store_id and max_num_results:
+            raise ValueError(
+                "`max_num_results` is only applicable when `vector_store_id` is provided."
+            )
+        return values
