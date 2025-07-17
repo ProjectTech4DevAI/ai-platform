@@ -2,6 +2,8 @@ import random
 import string
 from uuid import UUID
 from typing import Type, TypeVar
+import os
+from dotenv import load_dotenv
 
 import pytest
 from fastapi.testclient import TestClient
@@ -83,6 +85,17 @@ def get_project(session: Session, name: str | None = None) -> Project:
         raise ValueError("No active projects found")
 
     return project
+
+
+def load_environment(env_test_path: str = "../.env.test"):
+    """Loads the test environment variables if the .env.test file exists."""
+    if os.path.exists(env_test_path):
+        load_dotenv(dotenv_path=env_test_path, override=True)
+        settings.__init__()
+    else:
+        print(
+            f"Warning: {env_test_path} not found. Using default environment settings."
+        )
 
 
 class SequentialUuidGenerator:

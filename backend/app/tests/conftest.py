@@ -1,17 +1,24 @@
 from collections.abc import Generator
 
 import pytest
+import os
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 from sqlalchemy import event
+from dotenv import load_dotenv
 
 from app.core.config import settings
 from app.core.db import engine
 from app.api.deps import get_db
 from app.main import app
 from app.tests.utils.user import authentication_token_from_email
-from app.tests.utils.utils import get_superuser_token_headers
+from app.tests.utils.utils import get_superuser_token_headers, load_environment
 from app.seed_data.seed_data import seed_database
+
+
+@pytest.fixture(scope="session", autouse=True)
+def load_test_env():
+    load_environment("../.env.test")
 
 
 @pytest.fixture(scope="function")
