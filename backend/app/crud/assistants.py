@@ -1,6 +1,6 @@
 import logging
 
-from typing import Optional
+from typing import Optional, Set
 import uuid
 
 import openai
@@ -9,8 +9,9 @@ from openai import OpenAI
 from openai.types.beta import Assistant as OpenAIAssistant
 from sqlmodel import Session, and_, select
 
-from app.models import Assistant, AssistantCreate
+from app.models import Assistant, AssistantCreate, AssistantUpdate
 from app.utils import mask_string
+from app.core.util import now
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,9 @@ def fetch_assistant_from_openai(assistant_id: str, client: OpenAI) -> OpenAIAssi
         raise HTTPException(status_code=502, detail=f"OpenAI API error: {e}")
 
 
-def verify_vector_store_ids_exist(openai_client: OpenAI, vector_store_ids: list[str]) -> None:
+def verify_vector_store_ids_exist(
+    openai_client: OpenAI, vector_store_ids: list[str]
+) -> None:
     """
     Raises HTTPException if any of the vector_store_ids do not exist in OpenAI.
     """
@@ -59,8 +62,7 @@ def verify_vector_store_ids_exist(openai_client: OpenAI, vector_store_ids: list[
         except Exception as e:
             logger.error(f"Vector store id {vs_id} not found in OpenAI: {e}")
             raise HTTPException(
-                status_code=400,
-                detail=f"Vector store ID {vs_id} not found in OpenAI."
+                status_code=400, detail=f"Vector store ID {vs_id} not found in OpenAI."
             )
 
 
@@ -136,11 +138,10 @@ def create_assistant(
     project_id: int,
     organization_id: int,
 ) -> Assistant:
-    
     verify_vector_store_ids_exist(openai_client, assistant.vector_store_ids)
-    
+
     assistant = Assistant(
-        assistant_id= uuid.uuid4(),
+        assistant_id=uuid.uuid4(),
         **assistant.model_dump(),
         project_id=project_id,
         organization_id=organization_id,
@@ -149,3 +150,60 @@ def create_assistant(
     session.commit()
     session.refresh(assistant)
     return assistant
+
+
+def update_assistant(
+    session: Session,
+    openai_client: OpenAI,
+    assistant_id: str,
+    project_id: int,
+    organization_id: int,
+    assistant_update: AssistantUpdate,
+) -> Assistant:
+    existing_assistant = get_assistant_by_id(session, assistant_id, organization_id)
+    if not existing_assistant:
+        logger.error(
+            f"[update_assistant] Assistant {mask_string(assistant_id)} not found | project_id: {project_id}"
+        )
+        raise HTTPException(status_code=404, detail="Assistant not found.")
+
+    # Update non-vector_store_ids fields, if present
+    update_fields = assistant_update.model_dump(
+        exclude_unset=True, exclude={"vector_store_ids_add", "vector_store_ids_remove"}
+    )
+    for field, value in update_fields.items():
+        setattr(existing_assistant, field, value)
+
+    current_vector_stores: Set[str] = set(existing_assistant.vector_store_ids or [])
+
+    # Validate for conflicting add/remove operations
+    add_ids = set(assistant_update.vector_store_ids_add or [])
+    remove_ids = set(assistant_update.vector_store_ids_remove or [])
+    if conflicting_ids := add_ids & remove_ids:
+        logger.error(
+            f"Conflicting vector store IDs in add/remove: {conflicting_ids} | project_id: {project_id}"
+        )
+        raise ValueError(
+            f"Cannot add and remove the same vector store IDs: {conflicting_ids}"
+        )
+
+    # Add new vector store IDs
+    if add_ids:
+        verify_vector_store_ids_exist(openai_client, list(add_ids))
+        current_vector_stores.update(add_ids)
+
+    # Remove vector store IDs
+    if remove_ids:
+        current_vector_stores.difference_update(remove_ids)
+
+    # Update assistant's vector store IDs
+    existing_assistant.vector_store_ids = list(current_vector_stores)
+    existing_assistant.updated_at = now()
+    session.add(existing_assistant)
+    session.commit()
+    session.refresh(existing_assistant)
+
+    logger.info(
+        f"[update_assistant] Assistant {mask_string(assistant_id)} updated successfully. | project_id: {project_id}"
+    )
+    return existing_assistant

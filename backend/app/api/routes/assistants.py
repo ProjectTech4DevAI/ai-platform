@@ -7,9 +7,10 @@ from app.api.deps import get_db, get_current_user_org_project
 from app.crud import (
     fetch_assistant_from_openai,
     sync_assistant,
-    create_assistant
+    create_assistant,
+    update_assistant,
 )
-from app.models import UserProjectOrg, AssistantCreate
+from app.models import UserProjectOrg, AssistantCreate, AssistantUpdate, Assistant
 from app.utils import APIResponse, get_openai_client
 
 router = APIRouter(prefix="/assistant", tags=["Assistants"])
@@ -17,7 +18,7 @@ router = APIRouter(prefix="/assistant", tags=["Assistants"])
 
 @router.post(
     "/{assistant_id}/ingest",
-    response_model=APIResponse,
+    response_model=APIResponse[Assistant],
     status_code=201,
 )
 def ingest_assistant_route(
@@ -44,7 +45,7 @@ def ingest_assistant_route(
     return APIResponse.success_response(assistant)
 
 
-@router.post("/", response_model=APIResponse, status_code=201)
+@router.post("/", response_model=APIResponse[Assistant], status_code=201)
 def create_assistant_route(
     assistant_in: AssistantCreate,
     session: Session = Depends(get_db),
@@ -64,3 +65,27 @@ def create_assistant_route(
         organization_id=current_user.organization_id,
     )
     return APIResponse.success_response(assistant)
+
+
+@router.put("/{assistant_id}", response_model=APIResponse[Assistant])
+def update_assistant_route(
+    assistant_id: Annotated[str, Path(description="Assistant ID to update")],
+    assistant_update: AssistantUpdate,
+    session: Session = Depends(get_db),
+    current_user: UserProjectOrg = Depends(get_current_user_org_project),
+):
+    """
+    Update an existing assistant with provided fields. Supports replacing, adding, or removing vector store IDs.
+    """
+    client = get_openai_client(
+        session, current_user.organization_id, current_user.project_id
+    )
+    updated_assistant = update_assistant(
+        session=session,
+        assistant_id=assistant_id,
+        openai_client=client,
+        project_id=current_user.project_id,
+        organization_id=current_user.organization_id,
+        assistant_update=assistant_update,
+    )
+    return APIResponse.success_response(updated_assistant)
