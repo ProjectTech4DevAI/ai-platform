@@ -1,10 +1,13 @@
 from datetime import datetime
-from typing import Optional, List
-from sqlmodel import Field, Relationship, SQLModel
-from sqlalchemy import Column, String
+from typing import List, Optional
+from sqlmodel import Field, Relationship, SQLModel, Column, String
 from sqlalchemy.dialects.postgresql import ARRAY
+from pydantic import BaseModel, Field as PydanticField, field_validator
+
 
 from app.core.util import now
+
+ALLOWED_OPENAI_MODELS = {"gpt-3.5-turbo", "gpt-4", "gpt-4o"}
 
 
 class AssistantBase(SQLModel):
@@ -31,3 +34,28 @@ class Assistant(AssistantBase, table=True):
     # Relationships
     project: "Project" = Relationship(back_populates="assistants")
     organization: "Organization" = Relationship(back_populates="assistants")
+
+
+class AssistantCreate(BaseModel):
+    name: str = PydanticField(description="Name of the assistant")
+    instructions: str = PydanticField(description="Instructions for the assistant")
+    model: str = PydanticField(description="Model name for the assistant")
+    vector_store_ids: List[str] = PydanticField(default_factory=list, description="List of Vector Store IDs that exist in OpenAI.")
+    temperature: Optional[float] = PydanticField(
+        default=0.1,
+        ge=0,
+        le=2,
+        description="Sampling temperature between 0 and 2"
+    )
+    max_num_results: Optional[int] = PydanticField(
+        default=20,
+        ge=1,
+        le=100,
+        description="Maximum number of results (must be between 1 and 100)"
+    )
+
+    @field_validator("model")
+    def validate_openai_model(cls, v):
+        if v not in ALLOWED_OPENAI_MODELS:
+            raise ValueError(f"Model '{v}' is not a supported OpenAI model. Choose from: {', '.join(ALLOWED_OPENAI_MODELS)}")
+        return v
