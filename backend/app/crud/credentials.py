@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from sqlmodel import Session, select
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone
@@ -88,9 +88,21 @@ def get_creds_by_org(
 
 
 def get_provider_credential(
-    *, session: Session, org_id: int, provider: str, project_id: Optional[int] = None
-) -> Optional[Dict[str, Any]]:
-    """Fetches credentials for a specific provider of an organization."""
+    *,
+    session: Session,
+    org_id: int,
+    provider: str,
+    project_id: Optional[int] = None,
+    full: bool = False,
+) -> Optional[Union[Dict[str, Any], Credential]]:
+    """
+    Fetch credentials for a specific provider within a project.
+
+    Returns:
+        Optional[Union[Dict[str, Any], Credential]]:
+            - If `full` is True, returns the full Credential SQLModel object.
+            - Otherwise, returns the decrypted credentials as a dictionary.
+    """
     validate_provider(provider)
 
     statement = select(Credential).where(
@@ -102,8 +114,7 @@ def get_provider_credential(
     creds = session.exec(statement).first()
 
     if creds and creds.credential:
-        # Decrypt entire credentials object
-        return decrypt_credentials(creds.credential)
+        return creds if full else decrypt_credentials(creds.credential)
     return None
 
 

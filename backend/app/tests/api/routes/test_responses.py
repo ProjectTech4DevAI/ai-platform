@@ -6,20 +6,11 @@ from sqlmodel import select
 
 from app.api.routes.responses import router
 from app.models import Project
-from app.seed_data.seed_data import seed_database
 
 # Wrap the router in a FastAPI app instance
 app = FastAPI()
 app.include_router(router)
 client = TestClient(app)
-
-
-@pytest.fixture(scope="function", autouse=True)
-def load_seed_data(db):
-    """Load seed data before each test."""
-    seed_database(db)
-    yield
-    # Cleanup is handled by the db fixture in conftest.py
 
 
 @patch("app.api.routes.responses.OpenAI")
@@ -58,8 +49,7 @@ def test_responses_endpoint_success(
 
     headers = {"X-API-KEY": original_api_key}
     request_data = {
-        "project_id": glific_project.id,
-        "assistant_id": "assistant_123",
+        "assistant_id": "assistant_glific",
         "question": "What is Glific?",
         "callback_url": "http://example.com/callback",
     }
@@ -90,7 +80,7 @@ def test_responses_endpoint_without_vector_store(
     mock_assistant.model = "gpt-4"
     mock_assistant.instructions = "Test instructions"
     mock_assistant.temperature = 0.1
-    mock_assistant.vector_store_id = None  # No vector store configured
+    mock_assistant.vector_store_ids = []  # No vector store configured
     mock_get_assistant.return_value = mock_assistant
 
     # Setup mock OpenAI client
@@ -118,7 +108,6 @@ def test_responses_endpoint_without_vector_store(
 
     headers = {"X-API-KEY": original_api_key}
     request_data = {
-        "project_id": glific_project.id,
         "assistant_id": "assistant_123",
         "question": "What is Glific?",
         "callback_url": "http://example.com/callback",

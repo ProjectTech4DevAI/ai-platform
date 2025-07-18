@@ -1,17 +1,16 @@
 import random
 import string
 from uuid import UUID
+from typing import Type, TypeVar
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
-from typing import Type, TypeVar
 
 from app.core.config import settings
 from app.crud.user import get_user_by_email
-from app.models import APIKeyPublic
-from app.crud import create_api_key, get_api_key_by_value
-from uuid import uuid4
+from app.crud.api_key import get_api_key_by_value
+from app.models import APIKeyPublic, Project
 
 
 T = TypeVar("T")
@@ -24,6 +23,10 @@ def openai_credentials():
 
 def random_lower_string() -> str:
     return "".join(random.choices(string.ascii_lowercase, k=32))
+
+
+def generate_random_string(length=10):
+    return "".join(random.choices(string.ascii_letters + string.digits, k=length))
 
 
 def random_email() -> str:
@@ -58,6 +61,28 @@ def get_user_from_api_key(db: Session, api_key_headers: dict[str, str]) -> APIKe
 def get_non_existent_id(session: Session, model: Type[T]) -> int:
     result = session.exec(select(model.id).order_by(model.id.desc())).first()
     return (result or 0) + 1
+
+
+def get_project(session: Session, name: str | None = None) -> Project:
+    """
+    Retrieve an active project from the database.
+
+    If a project name is provided, fetch the active project with that name.
+    If no name is provided, fetch any random project.
+    """
+    if name:
+        statement = (
+            select(Project).where(Project.name == name, Project.is_active).limit(1)
+        )
+    else:
+        statement = select(Project).where(Project.is_active).limit(1)
+
+    project = session.exec(statement).first()
+
+    if not project:
+        raise ValueError("No active projects found")
+
+    return project
 
 
 class SequentialUuidGenerator:
