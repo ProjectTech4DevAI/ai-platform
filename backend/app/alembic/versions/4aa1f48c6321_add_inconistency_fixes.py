@@ -12,7 +12,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = "4aa1f48c6321"
-down_revision = "3389c67fdcb4"
+down_revision = "f2589428c1d0"
 branch_labels = None
 depends_on = None
 
@@ -60,6 +60,15 @@ def downgrade():
     )
     op.drop_index(
         op.f("ix_openai_assistant_assistant_id"), table_name="openai_assistant"
+    )
+    op.drop_constraint(None, "credential", type_="foreignkey")
+    op.create_foreign_key(
+        "credential_project_id_fkey",
+        "credential",
+        "project",
+        ["project_id"],
+        ["id"],
+        ondelete="SET NULL",
     )
     op.drop_constraint(None, "credential", type_="foreignkey")
     op.create_foreign_key(
