@@ -29,6 +29,27 @@ def get_assistant_by_id(
     return session.exec(statement).first()
 
 
+def get_assistants_by_project(
+    session: Session,
+    project_id: int,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[Assistant]:
+    """
+    Return all assistants for a given project and organization, with optional pagination.
+    """
+    statement = (
+        select(Assistant)
+        .where(
+            Assistant.project_id == project_id
+        )
+        .offset(skip)
+        .limit(limit)
+    )
+    results = session.exec(statement).all()
+    return results
+
+
 def fetch_assistant_from_openai(assistant_id: str, client: OpenAI) -> OpenAIAssistant:
     """
     Fetch an assistant from OpenAI.
@@ -160,7 +181,7 @@ def update_assistant(
     organization_id: int,
     assistant_update: AssistantUpdate,
 ) -> Assistant:
-    existing_assistant = get_assistant_by_id(session, assistant_id, organization_id)
+    existing_assistant = get_assistant_by_id(session, assistant_id, project_id)
     if not existing_assistant:
         logger.error(
             f"[update_assistant] Assistant {mask_string(assistant_id)} not found | project_id: {project_id}"

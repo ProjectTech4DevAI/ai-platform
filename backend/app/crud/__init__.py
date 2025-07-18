@@ -50,4 +50,5 @@ from .assistants import (
     sync_assistant,
     create_assistant,
     update_assistant,
+    get_assistants_by_project
 )
