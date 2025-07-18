@@ -162,3 +162,21 @@ def get_api_keys_by_project(session: Session, project_id: int) -> list[APIKeyPub
         result.append(APIKeyPublic.model_validate(key_dict))
 
     return result
+
+
+def get_api_key_by_user_id(session: Session, user_id: int) -> APIKeyPublic | None:
+    """
+    Retrieves the API key associated with a user by their user_id.
+    """
+    api_key = (
+        session.query(APIKey)
+        .filter(APIKey.user_id == user_id, APIKey.is_deleted == False)
+        .first()
+    )
+
+    if not api_key:
+        return None
+
+    key_dict = api_key.model_dump()
+    key_dict["key"] = decrypt_api_key(api_key.key)
+    return APIKeyPublic.model_validate(key_dict)

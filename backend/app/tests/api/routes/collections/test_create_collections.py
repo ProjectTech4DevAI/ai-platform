@@ -47,9 +47,7 @@ class TestCollectionRouteCreate:
 
     @openai_responses.mock()
     def test_create_collection_success(
-        self,
-        client: TestClient,
-        db: Session,
+        self, client: TestClient, db: Session, normal_user_api_key_headers
     ):
         store = DocumentStore(db)
         documents = store.fill(self._n_documents)
@@ -62,14 +60,10 @@ class TestCollectionRouteCreate:
             "instructions": "Test collection assistant.",
             "temperature": 0.1,
         }
-        original_api_key = "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8"
-
-        headers = {"X-API-KEY": original_api_key}
+        headers = normal_user_api_key_headers
 
         response = client.post(
-            f"{settings.API_V1_STR}/collections/create",
-            json=body,
-            headers=headers,
+            f"{settings.API_V1_STR}/collections/create", json=body, headers=headers
         )
 
         assert response.status_code == 200
