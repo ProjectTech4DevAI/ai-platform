@@ -36,7 +36,7 @@ def get_collection(db: Session, client=None):
     )
 
     if client is None:
-        client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        client = OpenAI(api_key="test_api_key")
 
     vector_store = client.vector_stores.create()
     assistant = client.beta.assistants.create(
