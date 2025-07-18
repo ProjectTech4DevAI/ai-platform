@@ -1,4 +1,4 @@
-"""add inconsistency fixes
+"""Fixing inconsistencies
 
 Revision ID: 4aa1f48c6321
 Revises: 3389c67fdcb4
