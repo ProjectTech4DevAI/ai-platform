@@ -24,6 +24,7 @@ def get_assistant_by_id(
         and_(
             Assistant.assistant_id == assistant_id,
             Assistant.project_id == project_id,
+            Assistant.is_deleted == False,
         )
     )
     return session.exec(statement).first()
@@ -41,10 +42,11 @@ def get_assistants_by_project(
     statement = (
         select(Assistant)
         .where(
-            Assistant.project_id == project_id
+            Assistant.project_id == project_id,
+            Assistant.is_deleted == False,
         )
         .offset(skip)
-        .limit(limit)
+        .limit(limit),
     )
     results = session.exec(statement).all()
     return results
@@ -226,5 +228,32 @@ def update_assistant(
 
     logger.info(
         f"[update_assistant] Assistant {mask_string(assistant_id)} updated successfully. | project_id: {project_id}"
+    )
+    return existing_assistant
+
+
+def delete_assistant(
+    session: Session,
+    assistant_id: str,
+    project_id: int,
+) -> Assistant:
+    """
+    Soft delete an assistant by marking it as deleted.
+    """
+    existing_assistant = get_assistant_by_id(session, assistant_id, project_id)
+    if not existing_assistant:
+        logger.error(
+            f"[delete_assistant] Assistant {mask_string(assistant_id)} not found | project_id: {project_id}"
+        )
+        raise HTTPException(status_code=404, detail="Assistant not found.")
+
+    existing_assistant.is_deleted = True
+    existing_assistant.deleted_at = now()
+    session.add(existing_assistant)
+    session.commit()
+    session.refresh(existing_assistant)
+
+    logger.info(
+        f"[delete_assistant] Assistant {mask_string(assistant_id)} soft deleted successfully. | project_id: {project_id}"
     )
     return existing_assistant

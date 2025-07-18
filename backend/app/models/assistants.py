@@ -30,6 +30,8 @@ class Assistant(AssistantBase, table=True):
     id: int = Field(default=None, primary_key=True)
     inserted_at: datetime = Field(default_factory=now, nullable=False)
     updated_at: datetime = Field(default_factory=now, nullable=False)
+    is_deleted: bool = Field(default=False, nullable=False)
+    deleted_at: Optional[datetime] = Field(default=None, nullable=True)
 
     # Relationships
     project: "Project" = Relationship(back_populates="assistants")

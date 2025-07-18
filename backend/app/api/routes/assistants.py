@@ -10,7 +10,8 @@ from app.crud import (
     create_assistant,
     update_assistant,
     get_assistant_by_id,
-    get_assistants_by_project
+    get_assistants_by_project,
+    delete_assistant,
 )
 from app.models import UserProjectOrg, AssistantCreate, AssistantUpdate, Assistant
 from app.utils import APIResponse, get_openai_client
@@ -101,54 +102,23 @@ def update_assistant_route(
 def get_assistant_route(
     assistant_id: str = Path(..., description="The assistant_id to fetch"),
     session: Session = Depends(get_db),
-    current_user: UserProjectOrg = Depends(get_current_user_org_project)
+    current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
     """
     Fetch a single assistant by its assistant_id.
     """
-    assistant = get_assistant_by_id(
-        session,
-        assistant_id,
-        current_user.project_id
-    )
+    assistant = get_assistant_by_id(session, assistant_id, current_user.project_id)
     if not assistant:
         raise HTTPException(
-            status_code=404,
-            detail=f"Assistant with ID {assistant_id} not found."
+            status_code=404, detail=f"Assistant with ID {assistant_id} not found."
         )
     return APIResponse.success_response(assistant)
 
-
-@router.get(
-    "/{assistant_id}",
-    response_model=APIResponse[Assistant],
-    summary="Get a single assistant by its ID",
-)
-def get_assistant_route(
-    assistant_id: str = Path(..., description="The assistant_id to fetch"),
-    session: Session = Depends(get_db),
-    current_user: UserProjectOrg = Depends(get_current_user_org_project)
-):
-    """
-    Fetch a single assistant by its assistant_id.
-    """
-    assistant = get_assistant_by_id(
-        session,
-        assistant_id,
-        current_user.project_id
-    )
-    if not assistant:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Assistant with ID {assistant_id} not found."
-        )
-    return APIResponse.success_response(assistant)
-    
 
 @router.get(
     "/",
-    response_model=APIResponse,
-    summary="List all assistants in the current project"
+    response_model=APIResponse[list[Assistant]],
+    summary="List all assistants in the current project",
 )
 def list_assistants_route(
     session: Session = Depends(get_db),
@@ -161,9 +131,25 @@ def list_assistants_route(
     """
 
     assistants = get_assistants_by_project(
-        session=session,
-        project_id=current_user.project_id,
-        skip=skip,
-        limit=limit
+        session=session, project_id=current_user.project_id, skip=skip, limit=limit
     )
     return APIResponse.success_response(assistants)
+
+
+@router.delete("/{assistant_id}", response_model=APIResponse)
+def delete_assistant_route(
+    assistant_id: Annotated[str, Path(description="Assistant ID to delete")],
+    session: Session = Depends(get_db),
+    current_user: UserProjectOrg = Depends(get_current_user_org_project),
+):
+    """
+    Soft delete an assistant by marking it as deleted.
+    """
+    delete_assistant(
+        session=session,
+        assistant_id=assistant_id,
+        project_id=current_user.project_id,
+    )
+    return APIResponse.success_response(
+        data={"message": "Assistant deleted successfully."}
+    )
