@@ -7,7 +7,8 @@ from app.core.config import settings
 LOG_DIR = settings.LOG_DIR
 os.makedirs(LOG_DIR, exist_ok=True)
 
-LOG_FILE_PATH = os.path.join(LOG_DIR, "app.log")
+APP_LOG_FILE_PATH = os.path.join(LOG_DIR, "app.log")
+ERROR_LOG_FILE_PATH = os.path.join(LOG_DIR, "error.log")
 
 LOGGING_LEVEL = logging.INFO
 LOGGING_FORMAT = (
@@ -28,16 +29,27 @@ logger.setLevel(LOGGING_LEVEL)
 # Formatter
 formatter = logging.Formatter(LOGGING_FORMAT)
 
-# Stream handler (console)
+# === Stream Handler (Console) ===
 stream_handler = logging.StreamHandler()
+stream_handler.setLevel(LOGGING_LEVEL)
 stream_handler.setFormatter(formatter)
 stream_handler.addFilter(CorrelationIdFilter())
 logger.addHandler(stream_handler)
 
-# Rotating file handler
-file_handler = RotatingFileHandler(
-    LOG_FILE_PATH, maxBytes=10 * 1024 * 1024, backupCount=5
+# === App Log File Handler (INFO and above) ===
+app_file_handler = RotatingFileHandler(
+    APP_LOG_FILE_PATH, maxBytes=10 * 1024 * 1024, backupCount=5
 )
-file_handler.setFormatter(formatter)
-file_handler.addFilter(CorrelationIdFilter())
-logger.addHandler(file_handler)
+app_file_handler.setLevel(LOGGING_LEVEL)
+app_file_handler.setFormatter(formatter)
+app_file_handler.addFilter(CorrelationIdFilter())
+logger.addHandler(app_file_handler)
+
+# === Error Log File Handler (ERROR and above) ===
+error_file_handler = RotatingFileHandler(
+    ERROR_LOG_FILE_PATH, maxBytes=10 * 1024 * 1024, backupCount=5
+)
+error_file_handler.setLevel(logging.ERROR)
+error_file_handler.setFormatter(formatter)
+error_file_handler.addFilter(CorrelationIdFilter())
+logger.addHandler(error_file_handler)
