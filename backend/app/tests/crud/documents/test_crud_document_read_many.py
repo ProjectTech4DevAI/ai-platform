@@ -4,14 +4,6 @@ from sqlmodel import Session
 from app.crud import DocumentCrud
 
 from app.tests.utils.document import DocumentStore
-from app.seed_data.seed_data import seed_database
-
-
-@pytest.fixture(scope="function", autouse=True)
-def load_seed_data(db):
-    """Load seed data before each test."""
-    seed_database(db)
-    yield
 
 
 @pytest.fixture

@@ -13,15 +13,7 @@ from app.tests.utils.document import (
     WebCrawler,
     crawler,
 )
-from app.seed_data.seed_data import seed_database
 from app.tests.utils.utils import openai_credentials
-
-
-@pytest.fixture(scope="function", autouse=True)
-def load_seed_data(db):
-    """Load seed data before each test."""
-    seed_database(db)
-    yield
 
 
 @pytest.fixture

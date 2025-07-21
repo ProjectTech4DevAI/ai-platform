@@ -9,14 +9,6 @@ from app.models import Collection
 from app.tests.utils.document import DocumentStore
 from app.tests.utils.collection import get_collection
 from app.tests.utils.utils import openai_credentials
-from app.seed_data.seed_data import seed_database
-
-
-@pytest.fixture(scope="function", autouse=True)
-def load_seed_data(db):
-    """Load seed data before each test."""
-    seed_database(db)
-    yield
 
 
 def create_collections(db: Session, n: int):
