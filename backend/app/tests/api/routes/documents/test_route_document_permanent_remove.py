@@ -39,9 +39,9 @@ def aws_credentials():
     os.environ["AWS_DEFAULT_REGION"] = settings.AWS_DEFAULT_REGION
 
 
-@pytest.mark.usefixtures("openai_credentials")
+@pytest.mark.usefixtures("openai_credentials", "aws_credentials")
 @mock_aws
-class TestDocumentRouteRemove:
+class TestDocumentRoutePermanentRemove:
     @openai_responses.mock()
     @patch("app.api.routes.documents.get_provider_credential")
     @patch("app.api.routes.documents.configure_openai")
