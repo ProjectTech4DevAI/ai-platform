@@ -2,17 +2,16 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
-from app.models.openai_conversation import (
-    OpenAIConversationCreate,
-    OpenAIConversationUpdate,
-)
+from app.models.openai_conversation import OpenAIConversationCreate
 from app.crud.openai_conversation import create_openai_conversation
+from app.tests.utils.utils import get_project
 
-original_api_key = "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8"
 
-
-def test_create_conversation(client: TestClient):
+def test_create_conversation(
+    client: TestClient, db: Session, normal_user_api_key_headers: dict[str, str]
+):
     """Test creating a new conversation."""
+    project = get_project(db)
     conversation_data = {
         "response_id": "resp_123",
         "ancestor_response_id": "ancestor_456",
@@ -20,18 +19,14 @@ def test_create_conversation(client: TestClient):
         "user_question": "What is the capital of France?",
         "assistant_response": "The capital of France is Paris.",
         "model": "gpt-4o",
-        "input_tokens": 10,
-        "output_tokens": 5,
-        "total_tokens": 15,
         "assistant_id": "asst_123",
-        "project_id": 1,
-        "organization_id": 1,
+        "project_id": project.id,
+        "organization_id": project.organization_id,
     }
-    headers = {"X-API-KEY": original_api_key}
     response = client.post(
         "/api/v1/openai-conversation/create",
         json=conversation_data,
-        headers=headers,
+        headers=normal_user_api_key_headers,
     )
 
     assert response.status_code == 200

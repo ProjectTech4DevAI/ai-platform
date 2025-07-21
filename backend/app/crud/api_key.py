@@ -168,11 +168,12 @@ def get_api_key_by_user_id(session: Session, user_id: int) -> APIKeyPublic | Non
     """
     Retrieves the API key associated with a user by their user_id.
     """
-    api_key = (
-        session.query(APIKey)
-        .filter(APIKey.user_id == user_id, APIKey.is_deleted == False)
-        .first()
+    statement = (
+        select(APIKey)
+        .where(APIKey.user_id == user_id, APIKey.is_deleted == False)
+        .limit(1)
     )
+    api_key = session.exec(statement).first()
 
     if not api_key:
         return None
