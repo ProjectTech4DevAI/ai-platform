@@ -16,9 +16,7 @@ client = TestClient(app)
 @patch("app.api.routes.responses.OpenAI")
 @patch("app.api.routes.responses.get_provider_credential")
 def test_responses_endpoint_success(
-    mock_get_credential,
-    mock_openai,
-    db,
+    mock_get_credential, mock_openai, db, normal_user_api_key_headers: dict[str, str]
 ):
     """Test the /responses endpoint for successful response creation."""
     # Setup mock credentials
@@ -44,17 +42,15 @@ def test_responses_endpoint_success(
     if not glific_project:
         pytest.skip("Glific project not found in the database")
 
-    # Use the original API key from seed data (not the encrypted one)
-    original_api_key = "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8"
-
-    headers = {"X-API-KEY": original_api_key}
     request_data = {
-        "assistant_id": "assistant_123",
+        "assistant_id": "assistant_glific",
         "question": "What is Glific?",
         "callback_url": "http://example.com/callback",
     }
 
-    response = client.post("/responses", json=request_data, headers=headers)
+    response = client.post(
+        "/responses", json=request_data, headers=normal_user_api_key_headers
+    )
     assert response.status_code == 200
     response_json = response.json()
     assert response_json["success"] is True
@@ -70,6 +66,7 @@ def test_responses_endpoint_without_vector_store(
     mock_get_credential,
     mock_openai,
     db,
+    normal_user_api_key_headers,
 ):
     """Test the /responses endpoint when assistant has no vector store configured."""
     # Setup mock credentials
@@ -80,7 +77,7 @@ def test_responses_endpoint_without_vector_store(
     mock_assistant.model = "gpt-4"
     mock_assistant.instructions = "Test instructions"
     mock_assistant.temperature = 0.1
-    mock_assistant.vector_store_id = None  # No vector store configured
+    mock_assistant.vector_store_ids = []  # No vector store configured
     mock_get_assistant.return_value = mock_assistant
 
     # Setup mock OpenAI client
@@ -103,17 +100,15 @@ def test_responses_endpoint_without_vector_store(
     if not glific_project:
         pytest.skip("Glific project not found in the database")
 
-    # Use the original API key from seed data
-    original_api_key = "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8"
-
-    headers = {"X-API-KEY": original_api_key}
     request_data = {
         "assistant_id": "assistant_123",
         "question": "What is Glific?",
         "callback_url": "http://example.com/callback",
     }
 
-    response = client.post("/responses", json=request_data, headers=headers)
+    response = client.post(
+        "/responses", json=request_data, headers=normal_user_api_key_headers
+    )
     assert response.status_code == 200
     response_json = response.json()
     assert response_json["success"] is True

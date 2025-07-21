@@ -5,6 +5,7 @@ from .user import (
     update_user,
 )
 from .collection import CollectionCrud
+
 from .document import DocumentCrud
 from .document_collection import DocumentCollectionCrud
 
@@ -29,6 +30,7 @@ from .api_key import (
     get_api_keys_by_project,
     get_api_key_by_project_user,
     delete_api_key,
+    get_api_key_by_user_id,
 )
 
 from .credentials import (
@@ -51,6 +53,10 @@ from .openai_conversation import (
     get_all_openai_conversations,
     update_openai_conversation,
     delete_openai_conversation,
-)
+) 
 
-from .assistants import get_assistant_by_id
+from .assistants import (
+    get_assistant_by_id,
+    fetch_assistant_from_openai,
+    sync_assistant,
+)

@@ -7,8 +7,12 @@ from app.core.util import now
 
 
 class CredsBase(SQLModel):
-    organization_id: int = Field(foreign_key="organization.id")
-    project_id: Optional[int] = Field(default=None, foreign_key="project.id")
+    organization_id: int = Field(
+        foreign_key="organization.id", nullable=False, ondelete="CASCADE"
+    )
+    project_id: int = Field(
+        default=None, foreign_key="project.id", nullable=False, ondelete="CASCADE"
+    )
     is_active: bool = True
 
 
@@ -53,7 +57,7 @@ class Credential(CredsBase, table=True):
         index=True, description="Provider name like 'openai', 'gemini'"
     )
     credential: str = Field(
-        sa_column=sa.Column(sa.String),
+        sa_column=sa.Column(sa.String, nullable=False),
         description="Encrypted provider-specific credentials",
     )
     inserted_at: datetime = Field(

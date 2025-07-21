@@ -8,6 +8,7 @@ from pydantic import BaseModel, EmailStr
 from sqlmodel import Session, delete, select
 
 from app.core.db import engine
+from app.core import settings
 from app.core.security import encrypt_api_key, get_password_hash
 from app.models import APIKey, Organization, Project, User, Credential, Assistant
 
@@ -57,7 +58,7 @@ class AssistantData(BaseModel):
     name: str
     instructions: str
     model: str
-    vector_store_id: str
+    vector_store_ids: list[str]
     temperature: float
     max_num_results: int
     project_name: str
@@ -261,7 +262,7 @@ def create_assistant(session: Session, assistant_data_raw: dict) -> Assistant:
             name=assistant_data.name,
             instructions=assistant_data.instructions,
             model=assistant_data.model,
-            vector_store_id=assistant_data.vector_store_id,
+            vector_store_ids=assistant_data.vector_store_ids,
             temperature=assistant_data.temperature,
             max_num_results=assistant_data.max_num_results,
             organization_id=organization.id,
@@ -308,6 +309,12 @@ def seed_database(session: Session) -> None:
                 f"Created organization: {organization.name} (ID: {organization.id})"
             )
 
+        for user_data in seed_data["users"]:
+            if user_data["email"] == "{{SUPERUSER_EMAIL}}":
+                user_data["email"] = settings.FIRST_SUPERUSER
+            elif user_data["email"] == "{{ADMIN_EMAIL}}":
+                user_data["email"] = settings.EMAIL_TEST_USER
+
         # Create users
         users = []
         for user_data in seed_data["users"]:
@@ -321,6 +328,12 @@ def seed_database(session: Session) -> None:
             project = create_project(session, project_data)
             projects.append(project)
             logging.info(f"Created project: {project.name} (ID: {project.id})")
+
+        for api_key_data in seed_data["apikeys"]:
+            if api_key_data["user_email"] == "{{SUPERUSER_EMAIL}}":
+                api_key_data["user_email"] = settings.FIRST_SUPERUSER
+            elif api_key_data["user_email"] == "{{ADMIN_EMAIL}}":
+                api_key_data["user_email"] = settings.EMAIL_TEST_USER
 
         # Create API keys
         api_keys = []

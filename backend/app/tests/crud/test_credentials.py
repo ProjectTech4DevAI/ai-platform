@@ -1,5 +1,5 @@
-from sqlmodel import Session
 import pytest
+from sqlmodel import Session
 
 from app.crud import (
     set_creds_for_org,
@@ -31,7 +31,6 @@ def test_set_credentials_for_org(db: Session) -> None:
             "host": "https://cloud.langfuse.com",
         },
     }
-
     credentials_create = CredsCreate(
         organization_id=project.organization_id,
         project_id=project.id,
@@ -109,7 +108,9 @@ def test_update_creds_for_org(db: Session) -> None:
     )
     # Update credentials
     updated_creds = {"api_key": "updated-key"}
-    creds_update = CredsUpdate(provider="openai", credential=updated_creds)
+    creds_update = CredsUpdate(
+        project_id=project.id, provider="openai", credential=updated_creds
+    )
 
     updated = update_creds_for_org(
         session=db, org_id=credential.organization_id, creds_in=creds_update
@@ -189,7 +190,6 @@ def test_invalid_provider(db: Session) -> None:
 
     # Test with unsupported provider
     credentials_data = {"gemini": {"api_key": "test-key"}}
-
     credentials_create = CredsCreate(
         organization_id=project.organization_id,
         project_id=project.id,
@@ -235,7 +235,6 @@ def test_langfuse_credential_validation(db: Session) -> None:
             # Missing host
         }
     }
-
     credentials_create = CredsCreate(
         organization_id=project.organization_id,
         project_id=project.id,
