@@ -70,7 +70,7 @@ def create_assistant_route(
     return APIResponse.success_response(assistant)
 
 
-@router.put("/{assistant_id}", response_model=APIResponse[Assistant])
+@router.patch("/{assistant_id}", response_model=APIResponse[Assistant])
 def update_assistant_route(
     assistant_id: Annotated[str, Path(description="Assistant ID to update")],
     assistant_update: AssistantUpdate,
@@ -88,7 +88,6 @@ def update_assistant_route(
         assistant_id=assistant_id,
         openai_client=client,
         project_id=current_user.project_id,
-        organization_id=current_user.organization_id,
         assistant_update=assistant_update,
     )
     return APIResponse.success_response(updated_assistant)

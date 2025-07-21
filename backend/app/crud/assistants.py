@@ -46,7 +46,7 @@ def get_assistants_by_project(
             Assistant.is_deleted == False,
         )
         .offset(skip)
-        .limit(limit),
+        .limit(limit)
     )
     results = session.exec(statement).all()
     return results
@@ -82,10 +82,17 @@ def verify_vector_store_ids_exist(
     for vs_id in vector_store_ids:
         try:
             openai_client.vector_stores.retrieve(vs_id)
-        except Exception as e:
-            logger.error(f"Vector store id {vs_id} not found in OpenAI: {e}")
+        except openai.NotFoundError:
+            logger.error(f"Vector store ID {vs_id} not found in OpenAI.")
             raise HTTPException(
-                status_code=400, detail=f"Vector store ID {vs_id} not found in OpenAI."
+                status_code=400,
+                detail=f"Vector store ID {vs_id} not found in OpenAI.",
+            )
+        except openai.OpenAIError as e:
+            logger.error(f"Failed to verify vector store ID {vs_id}: {e}")
+            raise HTTPException(
+                status_code=502,
+                detail=f"Error verifying vector store ID {vs_id}: {str(e)}",
             )
 
 
@@ -165,7 +172,7 @@ def create_assistant(
 
     assistant = Assistant(
         assistant_id=uuid.uuid4(),
-        **assistant.model_dump(),
+        **assistant.model_dump(exclude_unset=True),
         project_id=project_id,
         organization_id=organization_id,
     )
@@ -180,7 +187,6 @@ def update_assistant(
     openai_client: OpenAI,
     assistant_id: str,
     project_id: int,
-    organization_id: int,
     assistant_update: AssistantUpdate,
 ) -> Assistant:
     existing_assistant = get_assistant_by_id(session, assistant_id, project_id)

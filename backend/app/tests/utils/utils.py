@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 from app.core.config import settings
 from app.crud.user import get_user_by_email
 from app.crud.api_key import get_api_key_by_value
-from app.models import APIKeyPublic, Project
+from app.models import APIKeyPublic, Project, Assistant
 
 
 T = TypeVar("T")
@@ -83,6 +83,30 @@ def get_project(session: Session, name: str | None = None) -> Project:
         raise ValueError("No active projects found")
 
     return project
+
+
+def get_assistant(session: Session, name: str | None = None) -> Assistant:
+    """
+    Retrieve an active assistant from the database.
+
+    If a assistant name is provided, fetch the active assistant with that name.
+    If no name is provided, fetch any random assistant.
+    """
+    if name:
+        statement = (
+            select(Assistant)
+            .where(Assistant.name == name, Assistant.is_deleted == False)
+            .limit(1)
+        )
+    else:
+        statement = select(Assistant).where(Assistant.is_deleted == False).limit(1)
+
+    assistant = session.exec(statement).first()
+
+    if not assistant:
+        raise ValueError("No active assistants found")
+
+    return assistant
 
 
 class SequentialUuidGenerator:
