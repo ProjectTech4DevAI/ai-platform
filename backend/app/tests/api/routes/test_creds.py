@@ -56,6 +56,7 @@ def test_set_credential(db: Session, superuser_token_headers: dict[str, str]):
     data = response.json()["data"]
     assert isinstance(data, list)
     assert len(data) == 1
+
     assert data[0]["organization_id"] == project.organization_id
     assert data[0]["provider"] == Provider.OPENAI.value
     assert data[0]["credential"]["model"] == "gpt-4"
@@ -70,7 +71,7 @@ def test_set_credentials_for_invalid_project_org_relationship(
     credential_data_invalid = {
         "organization_id": org1.id,
         "is_active": True,
-        "project_id": project2.id,  # Invalid project for org1
+        "project_id": project2.id,
         "credential": {Provider.OPENAI.value: {"api_key": "sk-123", "model": "gpt-4"}},
     }
 
@@ -389,11 +390,12 @@ def test_duplicate_credential_creation(
 def test_multiple_provider_credentials(
     db: Session, superuser_token_headers: dict[str, str]
 ):
-    org = create_test_organization(db)
+    project = create_test_project(db)
 
     # Create OpenAI credentials
     openai_credential = {
-        "organization_id": org.id,
+        "organization_id": project.organization_id,
+        "project_id": project.id,
         "is_active": True,
         "credential": {
             Provider.OPENAI.value: {
@@ -406,7 +408,8 @@ def test_multiple_provider_credentials(
 
     # Create Langfuse credentials
     langfuse_credential = {
-        "organization_id": org.id,
+        "organization_id": project.organization_id,
+        "project_id": project.id,
         "is_active": True,
         "credential": {
             Provider.LANGFUSE.value: {
@@ -434,7 +437,7 @@ def test_multiple_provider_credentials(
 
     # Fetch all credentials
     response = client.get(
-        f"{settings.API_V1_STR}/credentials/{org.id}",
+        f"{settings.API_V1_STR}/credentials/{project.organization_id}",
         headers=superuser_token_headers,
     )
     assert response.status_code == 200

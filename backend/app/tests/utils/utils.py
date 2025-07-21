@@ -4,12 +4,13 @@ from uuid import UUID
 from typing import Type, TypeVar
 
 import pytest
+from pydantic import EmailStr
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from app.core.config import settings
 from app.crud.user import get_user_by_email
-from app.crud.api_key import get_api_key_by_value
+from app.crud.api_key import get_api_key_by_value, get_api_key_by_user_id
 from app.models import APIKeyPublic, Project, Assistant
 
 
@@ -45,8 +46,15 @@ def get_superuser_token_headers(client: TestClient) -> dict[str, str]:
     return headers
 
 
+def get_api_key_by_email(db: Session, email: EmailStr) -> str:
+    user = get_user_by_email(session=db, email=email)
+    api_key = get_api_key_by_user_id(db, user_id=user.id)
+
+    return api_key.key
+
+
 def get_user_id_by_email(db: Session) -> int:
-    user = get_user_by_email(session=db, email=settings.FIRST_SUPERUSER)
+    user = get_user_by_email(session=db, email=settings.EMAIL_TEST_USER)
     return user.id
 
 

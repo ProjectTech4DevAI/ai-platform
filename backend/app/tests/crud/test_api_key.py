@@ -98,3 +98,20 @@ def test_get_api_keys_by_project(db: Session) -> None:
     assert retrieved_key.id == created_key.id
     assert retrieved_key.project_id == project.id
     assert retrieved_key.key.startswith("ApiKey ")
+
+
+def test_get_api_key_by_user_id(db: Session) -> None:
+    user = create_random_user(db)
+    project = create_test_project(db)
+
+    created_key = api_key_crud.create_api_key(
+        db, project.organization_id, user.id, project.id
+    )
+
+    retrieved_key = api_key_crud.get_api_key_by_user_id(db, user.id)
+
+    assert retrieved_key is not None
+
+    assert retrieved_key.id == created_key.id
+    assert retrieved_key.user_id == user.id
+    assert retrieved_key.key.startswith("ApiKey ")

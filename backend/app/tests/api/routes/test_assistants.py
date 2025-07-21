@@ -10,11 +10,6 @@ from app.tests.utils.utils import get_assistant
 
 
 @pytest.fixture
-def normal_user_api_key_header():
-    return {"X-API-KEY": "ApiKey Px8y47B6roJHin1lWLkR88eiDrFdXSJRZmFQazzai8j9"}
-
-
-@pytest.fixture
 def assistant_create_payload():
     return {
         "name": "Test Assistant",
@@ -35,7 +30,7 @@ def assistant_id():
 def test_ingest_assistant_success(
     mock_fetch_assistant,
     client: TestClient,
-    normal_user_api_key_header: str,
+    normal_user_api_key_headers: dict[str, str],
 ):
     """Test successful assistant ingestion from OpenAI."""
     mock_assistant = mock_openai_assistant()
@@ -44,7 +39,7 @@ def test_ingest_assistant_success(
 
     response = client.post(
         f"/api/v1/assistant/{mock_assistant.id}/ingest",
-        headers=normal_user_api_key_header,
+        headers=normal_user_api_key_headers,
     )
 
     assert response.status_code == 201
@@ -58,7 +53,7 @@ def test_create_assistant_success(
     mock_verify_vector_ids,
     client: TestClient,
     assistant_create_payload: dict,
-    normal_user_api_key_header: dict,
+    normal_user_api_key_headers: dict,
 ):
     """Test successful assistant creation with OpenAI vector store ID verification."""
 
@@ -67,7 +62,7 @@ def test_create_assistant_success(
     response = client.post(
         "/api/v1/assistant",
         json=assistant_create_payload,
-        headers=normal_user_api_key_header,
+        headers=normal_user_api_key_headers,
     )
 
     assert response.status_code == 201
@@ -97,7 +92,7 @@ def test_create_assistant_invalid_vector_store(
     mock_verify_vector_ids,
     client: TestClient,
     assistant_create_payload: dict,
-    normal_user_api_key_header: dict,
+    normal_user_api_key_headers: dict,
 ):
     """Test failure when one or more vector store IDs are invalid."""
 
@@ -111,7 +106,7 @@ def test_create_assistant_invalid_vector_store(
     response = client.post(
         "/api/v1/assistant",
         json=payload,
-        headers=normal_user_api_key_header,
+        headers=normal_user_api_key_headers,
     )
 
     assert response.status_code == 400
@@ -122,7 +117,6 @@ def test_create_assistant_invalid_vector_store(
 def test_update_assistant_success(
     client: TestClient,
     db: Session,
-    normal_user_api_key_header: dict,
 ):
     """Test successful assistant update."""
     update_payload = {
@@ -158,7 +152,6 @@ def test_update_assistant_invalid_vector_store(
     mock_verify_vector_ids,
     client: TestClient,
     db: Session,
-    normal_user_api_key_header: dict,
 ):
     """Test failure when updating assistant with invalid vector store IDs."""
     mock_verify_vector_ids.side_effect = HTTPException(
@@ -183,7 +176,7 @@ def test_update_assistant_invalid_vector_store(
 
 def test_update_assistant_not_found(
     client: TestClient,
-    normal_user_api_key_header: dict,
+    normal_user_api_key_headers: dict,
 ):
     """Test failure when updating a non-existent assistant."""
     update_payload = {"name": "Updated Assistant"}
@@ -193,7 +186,7 @@ def test_update_assistant_not_found(
     response = client.patch(
         f"/api/v1/assistant/{non_existent_id}",
         json=update_payload,
-        headers=normal_user_api_key_header,
+        headers=normal_user_api_key_headers,
     )
 
     assert response.status_code == 404
@@ -225,14 +218,14 @@ def test_get_assistant_success(
 
 def test_get_assistant_not_found(
     client: TestClient,
-    normal_user_api_key_header: dict,
+    normal_user_api_key_headers: dict,
 ):
     """Test failure when fetching a non-existent assistant."""
     non_existent_id = str(uuid4())
 
     response = client.get(
         f"/api/v1/assistant/{non_existent_id}",
-        headers=normal_user_api_key_header,
+        headers=normal_user_api_key_headers,
     )
 
     assert response.status_code == 404
@@ -266,27 +259,27 @@ def test_list_assistants_success(
 
 def test_list_assistants_invalid_pagination(
     client: TestClient,
-    normal_user_api_key_header: dict,
+    normal_user_api_key_headers: dict,
 ):
     """Test assistants list with invalid pagination parameters."""
     # Test negative skip
     response = client.get(
         "/api/v1/assistant/?skip=-1&limit=10",
-        headers=normal_user_api_key_header,
+        headers=normal_user_api_key_headers,
     )
     assert response.status_code == 422
 
     # Test limit too high
     response = client.get(
         "/api/v1/assistant/?skip=0&limit=101",
-        headers=normal_user_api_key_header,
+        headers=normal_user_api_key_headers,
     )
     assert response.status_code == 422
 
     # Test limit too low
     response = client.get(
         "/api/v1/assistant/?skip=0&limit=0",
-        headers=normal_user_api_key_header,
+        headers=normal_user_api_key_headers,
     )
     assert response.status_code == 422
 
@@ -312,14 +305,14 @@ def test_delete_assistant_success(
 
 def test_delete_assistant_not_found(
     client: TestClient,
-    normal_user_api_key_header: dict,
+    normal_user_api_key_headers: dict,
 ):
     """Test failure when deleting a non-existent assistant."""
     non_existent_id = str(uuid4())
 
     response = client.delete(
         f"/api/v1/assistant/{non_existent_id}",
-        headers=normal_user_api_key_header,
+        headers=normal_user_api_key_headers,
     )
 
     assert response.status_code == 404

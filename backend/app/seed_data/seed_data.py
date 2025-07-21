@@ -8,6 +8,7 @@ from pydantic import BaseModel, EmailStr
 from sqlmodel import Session, delete, select
 
 from app.core.db import engine
+from app.core import settings
 from app.core.security import encrypt_api_key, get_password_hash
 from app.models import APIKey, Organization, Project, User, Credential, Assistant
 
@@ -308,6 +309,12 @@ def seed_database(session: Session) -> None:
                 f"Created organization: {organization.name} (ID: {organization.id})"
             )
 
+        for user_data in seed_data["users"]:
+            if user_data["email"] == "{{SUPERUSER_EMAIL}}":
+                user_data["email"] = settings.FIRST_SUPERUSER
+            elif user_data["email"] == "{{ADMIN_EMAIL}}":
+                user_data["email"] = settings.EMAIL_TEST_USER
+
         # Create users
         users = []
         for user_data in seed_data["users"]:
@@ -321,6 +328,12 @@ def seed_database(session: Session) -> None:
             project = create_project(session, project_data)
             projects.append(project)
             logging.info(f"Created project: {project.name} (ID: {project.id})")
+
+        for api_key_data in seed_data["apikeys"]:
+            if api_key_data["user_email"] == "{{SUPERUSER_EMAIL}}":
+                api_key_data["user_email"] = settings.FIRST_SUPERUSER
+            elif api_key_data["user_email"] == "{{ADMIN_EMAIL}}":
+                api_key_data["user_email"] = settings.EMAIL_TEST_USER
 
         # Create API keys
         api_keys = []

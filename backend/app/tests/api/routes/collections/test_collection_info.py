@@ -10,8 +10,6 @@ from app.models.collection import CollectionStatus
 
 client = TestClient(app)
 
-original_api_key = "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8"
-
 
 def create_collection(
     db,
@@ -38,8 +36,10 @@ def create_collection(
     return collection
 
 
-def test_collection_info_processing(db: Session, client: TestClient):
-    headers = {"X-API-KEY": original_api_key}
+def test_collection_info_processing(
+    db: Session, client: TestClient, normal_user_api_key_headers
+):
+    headers = normal_user_api_key_headers
     user = get_user_from_api_key(db, headers)
     collection = create_collection(db, user, status=CollectionStatus.processing)
 
@@ -57,8 +57,10 @@ def test_collection_info_processing(db: Session, client: TestClient):
     assert data["llm_service_name"] is None
 
 
-def test_collection_info_successful(db: Session, client: TestClient):
-    headers = {"X-API-KEY": original_api_key}
+def test_collection_info_successful(
+    db: Session, client: TestClient, normal_user_api_key_headers
+):
+    headers = normal_user_api_key_headers
     user = get_user_from_api_key(db, headers)
     collection = create_collection(
         db, user, status=CollectionStatus.successful, with_llm=True
@@ -78,8 +80,10 @@ def test_collection_info_successful(db: Session, client: TestClient):
     assert data["llm_service_name"] == "gpt-4o"
 
 
-def test_collection_info_failed(db: Session, client: TestClient):
-    headers = {"X-API-KEY": original_api_key}
+def test_collection_info_failed(
+    db: Session, client: TestClient, normal_user_api_key_headers
+):
+    headers = normal_user_api_key_headers
     user = get_user_from_api_key(db, headers)
     collection = create_collection(db, user, status=CollectionStatus.failed)
 
