@@ -50,14 +50,14 @@ class AssistantCreate(BaseModel):
     model: str = PydanticField(
         default="gpt-4o", description="Model name for the assistant"
     )
-    vector_store_ids: List[str] = PydanticField(
+    vector_store_ids: list[str] = PydanticField(
         default_factory=list,
         description="List of Vector Store IDs that exist in OpenAI.",
     )
-    temperature: Optional[float] = PydanticField(
+    temperature: float | None = PydanticField(
         default=0.1, ge=0, le=2, description="Sampling temperature between 0 and 2"
     )
-    max_num_results: Optional[int] = PydanticField(
+    max_num_results: int | None = PydanticField(
         default=20,
         ge=1,
         le=100,
@@ -74,15 +74,15 @@ class AssistantCreate(BaseModel):
 
 
 class AssistantUpdate(BaseModel):
-    name: Optional[str] = None
-    instructions: Optional[str] = None
-    model: Optional[str] = None
-    vector_store_ids_add: Optional[List[str]] = None
-    vector_store_ids_remove: Optional[List[str]] = None
-    temperature: Optional[float] = PydanticField(
+    name: str | None = None
+    instructions: str | None = None
+    model: str | None = None
+    vector_store_ids_add: list[str] | None = None
+    vector_store_ids_remove: list[str] | None = None
+    temperature: float | None = PydanticField(
         default=None, ge=0, le=2, description="Sampling temperature between 0 and 2"
     )
-    max_num_results: Optional[int] = PydanticField(
+    max_num_results: int | None = PydanticField(
         default=None,
         ge=1,
         le=100,
