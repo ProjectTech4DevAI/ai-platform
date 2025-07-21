@@ -15,8 +15,8 @@ def load_seed_data(db):
 
 
 @pytest.fixture
-def documents(db: Session, api_key_headers: dict[str, str]):
-    store = DocumentStore(db, api_key_headers)
+def documents(db: Session):
+    store = DocumentStore(db)
     return store.documents
 
 

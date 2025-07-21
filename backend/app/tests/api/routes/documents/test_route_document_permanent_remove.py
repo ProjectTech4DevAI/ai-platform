@@ -60,7 +60,6 @@ class TestDocumentRouteRemove:
         db: Session,
         route: Route,
         crawler: WebCrawler,
-        api_key_headers: dict[str, str],
     ):
         openai_mock = OpenAIMock()
         with openai_mock.router:
@@ -73,7 +72,7 @@ class TestDocumentRouteRemove:
         aws.create()
 
         # Setup document in DB and S3
-        store = DocumentStore(db, api_key_headers)
+        store = DocumentStore(db)
         document = store.put()
         s3_key = Path(urlparse(document.object_store_url).path).relative_to("/")
         aws.client.put_object(
@@ -105,11 +104,10 @@ class TestDocumentRouteRemove:
         db: Session,
         route: Route,
         crawler: WebCrawler,
-        api_key_headers: dict[str, str],
     ):
         DocumentStore.clear(db)
 
-        maker = DocumentMaker(db, api_key_headers)
+        maker = DocumentMaker(db)
         response = crawler.delete(route.append(next(maker), suffix="permanent"))
 
         assert response.is_error

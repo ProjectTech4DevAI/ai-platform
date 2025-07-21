@@ -22,10 +22,8 @@ class TestCollectionCreate:
     _n_documents = 10
 
     @openai_responses.mock()
-    def test_create_associates_documents(
-        self, db: Session, api_key_headers: dict[str, str]
-    ):
-        store = DocumentStore(db, api_key_headers)
+    def test_create_associates_documents(self, db: Session):
+        store = DocumentStore(db)
         documents = store.fill(self._n_documents)
 
         collection = get_collection(db)

@@ -17,8 +17,8 @@ def load_seed_data(db):
 
 
 @pytest.fixture
-def store(db: Session, api_key_headers: dict[str, str]):
-    return DocumentStore(db, api_key_headers)
+def store(db: Session):
+    return DocumentStore(db)
 
 
 class TestDatabaseReadOne:
@@ -41,11 +41,9 @@ class TestDatabaseReadOne:
         assert exc_info.value.status_code == 404
         assert "Document not found" in str(exc_info.value.detail)
 
-    def test_cannot_read_others_documents(
-        self, db: Session, store: DocumentStore, api_key_headers: dict[str, str]
-    ):
+    def test_cannot_read_others_documents(self, db: Session, store: DocumentStore):
         document = store.put()
-        other = DocumentStore(db, api_key_headers)
+        other = DocumentStore(db)
 
         crud = DocumentCrud(db, other.owner)
         with pytest.raises(HTTPException) as exc_info:

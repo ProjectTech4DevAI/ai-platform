@@ -13,9 +13,8 @@ from app.tests.utils.document import (
     WebCrawler,
     crawler,
 )
-from app.tests.utils.collection import get_collection
-from app.tests.utils.utils import openai_credentials
 from app.seed_data.seed_data import seed_database
+from app.tests.utils.utils import openai_credentials
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -42,7 +41,6 @@ class TestDocumentRouteRemove:
         db: Session,
         route: Route,
         crawler: WebCrawler,
-        api_key_headers: dict[str, str],
     ):
         openai_mock = OpenAIMock()
         with openai_mock.router:
@@ -50,7 +48,7 @@ class TestDocumentRouteRemove:
             mock_get_credential.return_value = {"api_key": "sk-test-key"}
             mock_configure_openai.return_value = (client, True)
 
-            store = DocumentStore(db, api_key_headers)
+            store = DocumentStore(db)
             response = crawler.get(route.append(store.put()))
 
             assert response.is_success
@@ -65,15 +63,14 @@ class TestDocumentRouteRemove:
         db: Session,
         route: Route,
         crawler: WebCrawler,
-        api_key_headers: dict[str, str],
     ):
         openai_mock = OpenAIMock()
         with openai_mock.router:
+            mock_get_credential.return_value = {"api_key": "test-key"}
             client = OpenAI(api_key="test_key")
-            mock_get_credential.return_value = {"api_key": "sk-test-key"}
             mock_configure_openai.return_value = (client, True)
 
-            store = DocumentStore(db, api_key_headers)
+            store = DocumentStore(db)
             document = store.put()
 
             crawler.get(route.append(document))
@@ -93,7 +90,6 @@ class TestDocumentRouteRemove:
         db: Session,
         route: Route,
         crawler: WebCrawler,
-        api_key_headers: dict[str, str],
     ):
         openai_mock = OpenAIMock()
         with openai_mock.router:
@@ -102,7 +98,7 @@ class TestDocumentRouteRemove:
             mock_configure_openai.return_value = (client, True)
 
             DocumentStore.clear(db)
-            maker = DocumentMaker(db, api_key_headers)
+            maker = DocumentMaker(db)
             response = crawler.get(route.append(next(maker)))
 
             assert response.is_error

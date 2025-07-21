@@ -2,11 +2,9 @@ import pytest
 from uuid import UUID
 import io
 
-import openai_responses
 from sqlmodel import Session
 from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, patch
-
 
 from app.core.config import settings
 from app.tests.utils.document import DocumentStore
@@ -44,16 +42,21 @@ def mock_s3(monkeypatch):
     monkeypatch.setattr("boto3.client", lambda service: FakeS3Client())
 
 
-@patch("app.api.routes.collections.configure_openai")
-@patch("app.api.routes.collections.get_provider_credential")
 class TestCollectionRouteCreate:
     _n_documents = 5
 
+    @patch("app.api.routes.collections.configure_openai")
+    @patch("app.api.routes.collections.get_provider_credential")
     def test_create_collection_success(
-        self, client: TestClient, db: Session, normal_user_api_key_headers
+        self,
+        mock_get_credential,
+        mock_configure_openai,
+        client: TestClient,
+        db: Session,
+        normal_user_api_key_headers,
     ):
         # Setup test documents
-        store = DocumentStore(db, api_key_headers)
+        store = DocumentStore(db)
         documents = store.fill(self._n_documents)
         doc_ids = [str(doc.id) for doc in documents]
 
@@ -64,11 +67,10 @@ class TestCollectionRouteCreate:
             "instructions": "Test collection assistant.",
             "temperature": 0.1,
         }
-        
+
         headers = normal_user_api_key_headers
 
         mock_get_credential.return_value = {"api_key": "test_api_key"}
-
         mock_openai_client = get_mock_openai_client()
         mock_configure_openai.return_value = (mock_openai_client, True)
 

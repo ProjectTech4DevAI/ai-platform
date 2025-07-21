@@ -18,8 +18,8 @@ def load_seed_data(db):
 
 
 @pytest.fixture
-def document(db: Session, api_key_headers: dict[str, str]):
-    store = DocumentStore(db, api_key_headers)
+def document(db: Session):
+    store = DocumentStore(db)
     document = store.put()
 
     crud = DocumentCrud(db, document.owner_id)
@@ -39,10 +39,8 @@ class TestDatabaseDelete:
     def test_delete_follows_insert(self, document: Document):
         assert document.inserted_at <= document.deleted_at
 
-    def test_cannot_delete_others_documents(
-        self, db: Session, api_key_headers: dict[str, str]
-    ):
-        store = DocumentStore(db, api_key_headers)
+    def test_cannot_delete_others_documents(self, db: Session):
+        store = DocumentStore(db)
         document = store.put()
         other_owner_id = store.documents.owner_id + 1
 

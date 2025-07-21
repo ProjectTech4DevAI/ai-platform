@@ -15,7 +15,7 @@ from app.core.config import settings
 from app.models import Document
 from app.utils import APIResponse
 
-from .utils import SequentialUuidGenerator, get_user_id_by_email, get_user_from_api_key
+from .utils import SequentialUuidGenerator, get_user_id_by_email
 
 
 @ft.cache
@@ -23,18 +23,13 @@ def _get_user_id_by_email(db: Session):
     return get_user_id_by_email(db)
 
 
-def _get_user_from_api_key(db: Session, api_key_headers: dict[str, str]):
-    return get_user_from_api_key(db, api_key_headers)
-
-
 def httpx_to_standard(response: Response):
     return APIResponse(**response.json())
 
 
 class DocumentMaker:
-    def __init__(self, db: Session, api_key_headers: dict[str, str]):
-        user = _get_user_from_api_key(db, api_key_headers)
-        self.owner_id = user.user_id
+    def __init__(self, db: Session):
+        self.owner_id = _get_user_id_by_email(db)
         self.index = SequentialUuidGenerator()
 
     def __iter__(self):
@@ -63,9 +58,9 @@ class DocumentStore:
     def owner(self):
         return self.documents.owner_id
 
-    def __init__(self, db: Session, api_key_headers: dict[str, str]):
+    def __init__(self, db: Session):
         self.db = db
-        self.documents = DocumentMaker(db, api_key_headers)
+        self.documents = DocumentMaker(self.db)
         self.clear(self.db)
 
     def put(self):

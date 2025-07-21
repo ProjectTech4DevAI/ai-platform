@@ -19,8 +19,8 @@ def load_seed_data(db):
     yield
 
 
-def mk_collection(db: Session, api_key_headers: dict[str, str]):
-    store = DocumentStore(db, api_key_headers)
+def mk_collection(db: Session):
+    store = DocumentStore(db)
     documents = store.fill(1)
 
     openai_mock = OpenAIMock()
@@ -33,18 +33,16 @@ def mk_collection(db: Session, api_key_headers: dict[str, str]):
 
 @pytest.mark.usefixtures("openai_credentials")
 class TestDatabaseReadOne:
-    def test_can_select_valid_id(self, db: Session, api_key_headers: dict[str, str]):
-        collection = mk_collection(db, api_key_headers)
+    def test_can_select_valid_id(self, db: Session):
+        collection = mk_collection(db)
 
         crud = CollectionCrud(db, collection.owner_id)
         result = crud.read_one(collection.id)
 
         assert result.id == collection.id
 
-    def test_cannot_select_others_collections(
-        self, db: Session, api_key_headers: dict[str, str]
-    ):
-        collection = mk_collection(db, api_key_headers)
+    def test_cannot_select_others_collections(self, db: Session):
+        collection = mk_collection(db)
 
         other = collection.owner_id + 1
         crud = CollectionCrud(db, other)
