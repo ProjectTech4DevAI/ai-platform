@@ -1,11 +1,8 @@
-from collections.abc import Generator
-
 import pytest
-import time
-
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 from sqlalchemy import event
+from collections.abc import Generator
 
 from app.core.config import settings
 from app.core.db import engine
@@ -61,6 +58,7 @@ def normal_user_token_headers(client: TestClient, db: Session) -> dict[str, str]
     return authentication_token_from_email(
         client=client, email=settings.EMAIL_TEST_USER, db=db
     )
+
 
 @pytest.fixture(scope="function")
 def superuser_api_key_headers(db: Session) -> dict[str, str]:
