@@ -45,8 +45,12 @@ class Assistant(AssistantBase, table=True):
 
 
 class AssistantCreate(BaseModel):
-    name: str = PydanticField(description="Name of the assistant")
-    instructions: str = PydanticField(description="Instructions for the assistant")
+    name: str = PydanticField(
+        description="Name of the assistant", min_length=3, max_length=30
+    )
+    instructions: str = PydanticField(
+        description="Instructions for the assistant", min_length=3
+    )
     model: str = PydanticField(
         default="gpt-4o", description="Model name for the assistant"
     )
@@ -74,8 +78,12 @@ class AssistantCreate(BaseModel):
 
 
 class AssistantUpdate(BaseModel):
-    name: str | None = None
-    instructions: str | None = None
+    name: str = PydanticField(
+        default=None, description="Name of the assistant", min_length=3, max_length=30
+    )
+    instructions: str | None = PydanticField(
+        default=None, min_length=3, description="Instructions for the assistant"
+    )
     model: str | None = None
     vector_store_ids_add: list[str] | None = None
     vector_store_ids_remove: list[str] | None = None
