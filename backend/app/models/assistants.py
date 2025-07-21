@@ -6,10 +6,10 @@ from sqlalchemy import Column, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlmodel import Field, Relationship, SQLModel
 
-
+from app.core.config import settings
 from app.core.util import now
 
-ALLOWED_OPENAI_MODELS = {"gpt-3.5-turbo", "gpt-4", "gpt-4o"}
+ALLOWED_OPENAI_MODELS = settings.ALLOWED_OPENAI_MODELS
 
 
 class AssistantBase(SQLModel):
@@ -45,8 +45,10 @@ class Assistant(AssistantBase, table=True):
 
 
 class AssistantCreate(BaseModel):
-    name: str = PydanticField(description="Name of the assistant")
-    instructions: str = PydanticField(description="Instructions for the assistant")
+    name: str = PydanticField(description="Name of the assistant", min_length=1)
+    instructions: str = PydanticField(
+        description="Instructions for the assistant", min_length=1
+    )
     model: str = PydanticField(
         default="gpt-4o", description="Model name for the assistant"
     )

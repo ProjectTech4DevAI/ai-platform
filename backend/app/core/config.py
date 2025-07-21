@@ -3,6 +3,8 @@ import warnings
 import os
 from typing import Annotated, Any, Literal
 
+from pathlib import Path
+import yaml
 from pydantic import (
     EmailStr,
     HttpUrl,
@@ -78,6 +80,9 @@ class Settings(BaseSettings):
 
     LOG_DIR: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
 
+    # config.yaml variables
+    ALLOWED_OPENAI_MODELS: list[str] = []
+
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
             message = (
@@ -99,5 +104,22 @@ class Settings(BaseSettings):
 
         return self
 
+    def load_yaml_config(self) -> None:
+        config_map = {
+            "local": "config.dev.yaml",
+            "staging": "config.staging.yaml",
+            "production": "config.prod.yaml",
+        }
+        config_filename = config_map.get(self.ENVIRONMENT)
+        config_path = Path(__file__).parent / "../config" / config_filename
+        if not config_path.exists():
+            raise FileNotFoundError(f"YAML config file not found: {config_path}")
+        with open(config_path, "r") as f:
+            config_data = yaml.safe_load(f)
+
+        # Load into field
+        self.ALLOWED_OPENAI_MODELS = config_data.get("allowed_ai_models", [])
+
 
 settings = Settings()  # type: ignore
+settings.load_yaml_config()  # Load YAML config after instantiation
