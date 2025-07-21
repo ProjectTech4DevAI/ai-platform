@@ -130,7 +130,6 @@ def test_update_assistant_success(
     assistant = get_assistant(db)
     api_key = get_api_keys_by_project(db, assistant.project_id)[0]
 
-    print(api_key.key)
     response = client.patch(
         f"/api/v1/assistant/{assistant.assistant_id}",
         json=update_payload,

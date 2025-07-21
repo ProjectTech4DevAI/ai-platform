@@ -37,10 +37,10 @@ def test_responses_endpoint_success(
     mock_response.output = []
     mock_client.responses.create.return_value = mock_response
 
-    # Get the Glific project ID (the assistant is created for this project)
-    glific_project = db.exec(select(Project).where(Project.name == "Dalgo")).first()
-    if not glific_project:
-        pytest.skip("Glific project not found in the database")
+    # Get the Dalgo project ID (the assistant is created for this project)
+    dalgo_project = db.exec(select(Project).where(Project.name == "Dalgo")).first()
+    if not dalgo_project:
+        pytest.skip("Dalgo project not found in the database")
 
     request_data = {
         "assistant_id": "assistant_dalgo",
@@ -48,12 +48,10 @@ def test_responses_endpoint_success(
         "callback_url": "http://example.com/callback",
     }
 
-    # import time
-    # time.sleep(2000)
     response = client.post(
         "/responses", json=request_data, headers=normal_user_api_key_headers
     )
-    print(response.json())  # Debugging output
+
     assert response.status_code == 200
     response_json = response.json()
     assert response_json["success"] is True
