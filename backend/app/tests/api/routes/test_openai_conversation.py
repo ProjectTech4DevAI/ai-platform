@@ -40,8 +40,11 @@ def test_create_conversation(
     assert "updated_at" in data["data"]
 
 
-def test_get_conversation_by_id(client: TestClient, db: Session):
+def test_get_conversation_by_id(
+    client: TestClient, db: Session, normal_user_api_key_headers: dict[str, str]
+):
     """Test getting a conversation by ID."""
+    project = get_project(db)
     # Create a conversation first
     conversation_data = OpenAIConversationCreate(
         response_id="resp_123",
@@ -53,13 +56,13 @@ def test_get_conversation_by_id(client: TestClient, db: Session):
         output_tokens=5,
         total_tokens=15,
         assistant_id="asst_123",
-        project_id=1,
-        organization_id=1,
+        project_id=project.id,
+        organization_id=project.organization_id,
     )
     conversation = create_openai_conversation(db, conversation_data)
-    headers = {"X-API-KEY": original_api_key}
     response = client.get(
-        f"/api/v1/openai-conversation/{conversation.id}", headers=headers
+        f"/api/v1/openai-conversation/{conversation.id}",
+        headers=normal_user_api_key_headers,
     )
 
     assert response.status_code == 200
@@ -69,8 +72,11 @@ def test_get_conversation_by_id(client: TestClient, db: Session):
     assert data["data"]["response_id"] == "resp_123"
 
 
-def test_get_conversation_by_response_id(client: TestClient, db: Session):
+def test_get_conversation_by_response_id(
+    client: TestClient, db: Session, normal_user_api_key_headers: dict[str, str]
+):
     """Test getting a conversation by response_id."""
+    project = get_project(db)
     # Create a conversation first
     conversation_data = OpenAIConversationCreate(
         response_id="resp_123",
@@ -82,13 +88,13 @@ def test_get_conversation_by_response_id(client: TestClient, db: Session):
         output_tokens=5,
         total_tokens=15,
         assistant_id="asst_123",
-        project_id=1,
-        organization_id=1,
+        project_id=project.id,
+        organization_id=project.organization_id,
     )
     create_openai_conversation(db, conversation_data)
-    headers = {"X-API-KEY": original_api_key}
     response = client.get(
-        "/api/v1/openai-conversation/response/resp_123", headers=headers
+        "/api/v1/openai-conversation/response/resp_123",
+        headers=normal_user_api_key_headers,
     )
 
     assert response.status_code == 200
@@ -97,8 +103,11 @@ def test_get_conversation_by_response_id(client: TestClient, db: Session):
     assert data["data"]["response_id"] == "resp_123"
 
 
-def test_get_conversations_by_ancestor(client: TestClient, db: Session):
+def test_get_conversations_by_ancestor(
+    client: TestClient, db: Session, normal_user_api_key_headers: dict[str, str]
+):
     """Test getting conversations by ancestor_response_id."""
+    project = get_project(db)
     # Create multiple conversations with same ancestor
     conversation_data1 = OpenAIConversationCreate(
         response_id="resp_1",
@@ -110,8 +119,8 @@ def test_get_conversations_by_ancestor(client: TestClient, db: Session):
         output_tokens=5,
         total_tokens=15,
         assistant_id="asst_123",
-        project_id=1,
-        organization_id=1,
+        project_id=project.id,
+        organization_id=project.organization_id,
     )
     conversation_data2 = OpenAIConversationCreate(
         response_id="resp_2",
@@ -123,8 +132,8 @@ def test_get_conversations_by_ancestor(client: TestClient, db: Session):
         output_tokens=5,
         total_tokens=15,
         assistant_id="asst_123",
-        project_id=1,
-        organization_id=1,
+        project_id=project.id,
+        organization_id=project.organization_id,
     )
     conversation_data3 = OpenAIConversationCreate(
         response_id="resp_3",
@@ -136,17 +145,16 @@ def test_get_conversations_by_ancestor(client: TestClient, db: Session):
         output_tokens=5,
         total_tokens=15,
         assistant_id="asst_123",
-        project_id=1,
-        organization_id=1,
+        project_id=project.id,
+        organization_id=project.organization_id,
     )
 
     create_openai_conversation(db, conversation_data1)
     create_openai_conversation(db, conversation_data2)
     create_openai_conversation(db, conversation_data3)
-    headers = {"X-API-KEY": original_api_key}
     response = client.get(
         "/api/v1/openai-conversation/ancestor/ancestor_123",
-        headers=headers,
+        headers=normal_user_api_key_headers,
     )
 
     assert response.status_code == 200
@@ -156,8 +164,11 @@ def test_get_conversations_by_ancestor(client: TestClient, db: Session):
     assert all(conv["ancestor_response_id"] == "ancestor_123" for conv in data["data"])
 
 
-def test_update_conversation(client: TestClient, db: Session):
+def test_update_conversation(
+    client: TestClient, db: Session, normal_user_api_key_headers: dict[str, str]
+):
     """Test updating a conversation."""
+    project = get_project(db)
     # Create a conversation first
     conversation_data = OpenAIConversationCreate(
         response_id="resp_123",
@@ -169,8 +180,8 @@ def test_update_conversation(client: TestClient, db: Session):
         output_tokens=5,
         total_tokens=15,
         assistant_id="asst_123",
-        project_id=1,
-        organization_id=1,
+        project_id=project.id,
+        organization_id=project.organization_id,
     )
     conversation = create_openai_conversation(db, conversation_data)
 
@@ -178,11 +189,10 @@ def test_update_conversation(client: TestClient, db: Session):
         "ancestor_response_id": "ancestor_789",
         "previous_response_id": "prev_123",
     }
-    headers = {"X-API-KEY": original_api_key}
     response = client.put(
         f"/api/v1/openai-conversation/{conversation.id}",
         json=update_data,
-        headers=headers,
+        headers=normal_user_api_key_headers,
     )
 
     assert response.status_code == 200
@@ -193,8 +203,11 @@ def test_update_conversation(client: TestClient, db: Session):
     assert data["data"]["response_id"] == "resp_123"  # Should remain unchanged
 
 
-def test_delete_conversation_by_id(client: TestClient, db: Session):
+def test_delete_conversation_by_id(
+    client: TestClient, db: Session, normal_user_api_key_headers: dict[str, str]
+):
     """Test deleting a conversation by ID."""
+    project = get_project(db)
     # Create a conversation first
     conversation_data = OpenAIConversationCreate(
         response_id="resp_123",
@@ -205,13 +218,13 @@ def test_delete_conversation_by_id(client: TestClient, db: Session):
         output_tokens=5,
         total_tokens=15,
         assistant_id="asst_123",
-        project_id=1,
-        organization_id=1,
+        project_id=project.id,
+        organization_id=project.organization_id,
     )
     conversation = create_openai_conversation(db, conversation_data)
-    headers = {"X-API-KEY": original_api_key}
     response = client.delete(
-        f"/api/v1/openai-conversation/{conversation.id}", headers=headers
+        f"/api/v1/openai-conversation/{conversation.id}",
+        headers=normal_user_api_key_headers,
     )
 
     assert response.status_code == 200
@@ -220,8 +233,11 @@ def test_delete_conversation_by_id(client: TestClient, db: Session):
     assert "deleted successfully" in data["data"]["message"]
 
 
-def test_list_conversations(client: TestClient, db: Session):
+def test_list_conversations(
+    client: TestClient, db: Session, normal_user_api_key_headers: dict[str, str]
+):
     """Test listing all conversations."""
+    project = get_project(db)
     # Create multiple conversations
     conversation_data1 = OpenAIConversationCreate(
         response_id="resp_1",
@@ -233,8 +249,8 @@ def test_list_conversations(client: TestClient, db: Session):
         output_tokens=5,
         total_tokens=15,
         assistant_id="asst_123",
-        project_id=1,
-        organization_id=1,
+        project_id=project.id,
+        organization_id=project.organization_id,
     )
     conversation_data2 = OpenAIConversationCreate(
         response_id="resp_2",
@@ -246,15 +262,14 @@ def test_list_conversations(client: TestClient, db: Session):
         output_tokens=5,
         total_tokens=15,
         assistant_id="asst_123",
-        project_id=1,
-        organization_id=1,
+        project_id=project.id,
+        organization_id=project.organization_id,
     )
     conversation1 = create_openai_conversation(db, conversation_data1)
     conversation2 = create_openai_conversation(db, conversation_data2)
-    headers = {"X-API-KEY": original_api_key}
     response = client.get(
         "/api/v1/openai-conversation/list",
-        headers=headers,
+        headers=normal_user_api_key_headers,
         params={"skip": 0, "limit": 100},
     )
 
