@@ -1,8 +1,8 @@
-"""add openai_conversation table
+"""your migration message
 
-Revision ID: f5628e3a9988
-Revises: 3389c67fdcb4
-Create Date: 2025-07-12 12:59:51.909268
+Revision ID: 8811e4d2fcf9
+Revises: 4aa1f48c6321
+Create Date: 2025-07-21 22:07:01.129760
 
 """
 from alembic import op
@@ -11,8 +11,8 @@ import sqlmodel.sql.sqltypes
 
 
 # revision identifiers, used by Alembic.
-revision = "f5628e3a9988"
-down_revision = "3389c67fdcb4"
+revision = "8811e4d2fcf9"
+down_revision = "4aa1f48c6321"
 branch_labels = None
 depends_on = None
 
