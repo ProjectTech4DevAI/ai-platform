@@ -58,6 +58,9 @@ jobs:
           uv run pre-commit run --all-files
         working-directory: backend
 
+      - name: Making env file
+        run: cp .env.test.example .env.test
+
       - name: Run tests
         run: uv run bash scripts/tests-start.sh "Coverage for ${{ github.sha }}"
         working-directory: backend
