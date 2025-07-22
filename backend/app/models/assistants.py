@@ -45,7 +45,7 @@ class AssistantCreate(SQLModel):
         description="Name of the assistant", min_length=3, max_length=50
     )
     instructions: str = Field(
-        description="Instructions for the assistant", min_length=3
+        description="Instructions for the assistant", min_length=10
     )
     model: str = Field(
         default="gpt-4o",
@@ -70,15 +70,15 @@ class AssistantCreate(SQLModel):
 
 class AssistantUpdate(SQLModel):
     name: str | None = Field(
-        default=None, description="Name of the assistant", min_length=3, max_length=30
+        default=None, description="Name of the assistant", min_length=3, max_length=50
     )
     instructions: str | None = Field(
         default=None,
         description="Instructions for the assistant",
-        min_length=3,
+        min_length=10,
     )
     model: str | None = Field(
-        default=None, description="Name of the model", min_length=1, max_length=30
+        default=None, description="Name of the model", min_length=1, max_length=50
     )
     vector_store_ids_add: list[str] | None = None
     vector_store_ids_remove: list[str] | None = None
