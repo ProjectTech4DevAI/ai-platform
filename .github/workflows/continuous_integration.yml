@@ -33,7 +33,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Making env file
+      - name: Making test-env file
         run: cp .env.example .env
 
       - name: Install uv
@@ -58,7 +58,7 @@ jobs:
           uv run pre-commit run --all-files
         working-directory: backend
 
-      - name: Making env file
+      - name: Making env file for testing
         run: cp .env.test.example .env.test
 
       - name: Run tests
