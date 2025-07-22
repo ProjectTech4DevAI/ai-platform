@@ -10,7 +10,7 @@ from pydantic import EmailStr
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
-from app.core.config import settings
+from app.core.config import settings, Settings
 from app.crud import get_user_by_email, get_api_key_by_user_id
 from app.models import APIKeyPublic, Project
 from app.crud import get_api_key_by_value
@@ -95,15 +95,39 @@ def get_project(session: Session, name: str | None = None) -> Project:
     return project
 
 
-def load_environment(env_test_path: str = "../.env.test"):
-    """Loads the test environment variables if the .env.test file exists."""
+def load_environment(
+    env_test_path: str = "./Users/nishikayadav/Desktop/platform/.env.test",
+):
+    """Loads the test environment variables if the .env.test file exists.
+
+    If any of the required PostgreSQL credentials are missing in the env test, raises an error.
+    """
+
     if os.path.exists(env_test_path):
         load_dotenv(dotenv_path=env_test_path, override=True)
         settings.__init__()
+
+        required_vars = [
+            "POSTGRES_USER",
+            "POSTGRES_PASSWORD",
+            "POSTGRES_SERVER",
+            "POSTGRES_PORT",
+            "POSTGRES_DB",
+        ]
+
+        missing_vars = [var for var in required_vars if not os.getenv(var)]
+
+        if missing_vars:
+            raise ValueError(
+                f"Missing the following PostgreSQL credentials in {env_test_path}: {', '.join(missing_vars)}"
+            )
+
     else:
-        print(
-            f"Warning: {env_test_path} not found. Using default environment settings."
+        raise FileNotFoundError(
+            f"Warning: {env_test_path} not found. No environment variables loaded."
         )
+
+    return settings
 
 
 class SequentialUuidGenerator:
