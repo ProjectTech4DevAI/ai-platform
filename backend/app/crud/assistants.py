@@ -109,8 +109,8 @@ def sync_assistant(
 
     existing_assistant = get_assistant_by_id(session, assistant_id, project_id)
     if existing_assistant:
-        logger.info(
-            f"[sync_assistant] Assistant with ID {mask_string(assistant_id)} already exists in the database."
+        logger.warning(
+            f"[sync_assistant] Assistant with ID {mask_string(assistant_id)} already exists in the database. | project_id: {project_id}"
         )
         raise HTTPException(
             status_code=409,
@@ -118,6 +118,9 @@ def sync_assistant(
         )
 
     if not openai_assistant.instructions:
+        logger.warning(
+            f"[sync_assistant] OpenAI assistant {mask_string(assistant_id)} has no instructions. | project_id: {project_id}"
+        )
         raise HTTPException(
             status_code=400,
             detail="Assistant has no instruction.",
@@ -179,6 +182,9 @@ def create_assistant(
     session.add(assistant)
     session.commit()
     session.refresh(assistant)
+    logger.info(
+        f"[create_assistant] Assistant created successfully. | project_id: {project_id}, assistant_id: {mask_string(assistant.assistant_id)}"
+    )
     return assistant
 
 
@@ -210,10 +216,11 @@ def update_assistant(
     remove_ids = set(assistant_update.vector_store_ids_remove or [])
     if conflicting_ids := add_ids & remove_ids:
         logger.error(
-            f"Conflicting vector store IDs in add/remove: {conflicting_ids} | project_id: {project_id}"
+            f"[update_assistant] Conflicting vector store IDs in add/remove: {conflicting_ids} | project_id: {project_id}"
         )
-        raise ValueError(
-            f"Cannot add and remove the same vector store IDs: {conflicting_ids}"
+        raise HTTPException(
+            status_code=400,
+            detail=f"Conflicting vector store IDs in add/remove: {conflicting_ids}.",
         )
 
     # Add new vector store IDs
@@ -248,7 +255,7 @@ def delete_assistant(
     """
     existing_assistant = get_assistant_by_id(session, assistant_id, project_id)
     if not existing_assistant:
-        logger.error(
+        logger.warning(
             f"[delete_assistant] Assistant {mask_string(assistant_id)} not found | project_id: {project_id}"
         )
         raise HTTPException(status_code=404, detail="Assistant not found.")
