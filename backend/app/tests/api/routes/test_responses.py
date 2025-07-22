@@ -146,7 +146,7 @@ def test_responses_endpoint_stores_conversation(
     mock_assistant.model = "gpt-4o"
     mock_assistant.instructions = "Test instructions"
     mock_assistant.temperature = 0.1
-    mock_assistant.vector_store_id = "vs_test"
+    mock_assistant.vector_store_ids = "vs_test"
     mock_assistant.max_num_results = 20
     mock_get_assistant.return_value = mock_assistant
 

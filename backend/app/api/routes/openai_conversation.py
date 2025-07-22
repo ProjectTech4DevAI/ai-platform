@@ -1,5 +1,4 @@
-from typing import List, Optional
-from uuid import UUID
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, Path
 from sqlmodel import Session
 
