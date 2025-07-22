@@ -250,23 +250,30 @@ class TestAssistantCrud:
         assert error_message in exc_info.value.detail
 
     def test_update_assistant_conflicting_vector_store_ids(self, db: Session):
-        """Should raise ValueError when vector store IDs are both added and removed"""
+        """Should raise HTTPException with 400 when vector store IDs are both added and removed"""
         assistant = get_assistant(db)
+        conflicting_id = "vs_1"
         assistant_update = AssistantUpdate(
-            vector_store_ids_add=["vs_1"], vector_store_ids_remove=["vs_1"]
+            vector_store_ids_add=[conflicting_id],
+            vector_store_ids_remove=[conflicting_id],
         )
 
         client = OpenAI(api_key="test_key")
-        with pytest.raises(ValueError) as exc_info:
+
+        with pytest.raises(HTTPException) as exc_info:
             update_assistant(
-                db,
-                client,
-                assistant.assistant_id,
-                assistant.project_id,
-                assistant_update,
+                session=db,
+                openai_client=client,
+                assistant_id=assistant.assistant_id,
+                project_id=assistant.project_id,
+                assistant_update=assistant_update,
             )
 
-        assert "Cannot add and remove the same vector store IDs" in str(exc_info.value)
+        expected_error = (
+            f"Conflicting vector store IDs in add/remove: {{{conflicting_id!r}}}."
+        )
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == expected_error
 
     @patch("app.crud.assistants.verify_vector_store_ids_exist")
     def test_update_assistant_partial_update(
