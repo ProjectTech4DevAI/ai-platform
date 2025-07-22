@@ -183,6 +183,6 @@ def test_responses_endpoint_stores_conversation(
 
     assert conversation_data.response_id == "mock_response_id"
     assert conversation_data.user_question == "What is Glific?"
-    assert conversation_data.assistant_response == "Test assistant response"
+    assert conversation_data.response == "Test assistant response"
     assert conversation_data.model == "gpt-4o"
     assert conversation_data.assistant_id == "assistant_123"

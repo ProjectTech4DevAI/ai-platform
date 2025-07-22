@@ -8,7 +8,7 @@ class OpenAIConversationBase(SQLModel):
     ancestor_response_id: Optional[str] = Field(default=None, index=True)
     previous_response_id: Optional[str] = Field(default=None, index=True)
     user_question: str = Field(description="The user's input question")
-    assistant_response: str = Field(description="The assistant's response")
+    response: str = Field(description="The assistant's response")
     model: str = Field(description="The model used for the response")
     assistant_id: Optional[str] = Field(
         default=None, description="The assistant ID used"
@@ -26,7 +26,7 @@ class OpenAIConversationUpdate(SQLModel):
     ancestor_response_id: Optional[str] = None
     previous_response_id: Optional[str] = None
     user_question: Optional[str] = None
-    assistant_response: Optional[str] = None
+    response: Optional[str] = None
     model: Optional[str] = None
     assistant_id: Optional[str] = None
     project_id: Optional[int] = Field(default=None, foreign_key="project.id")

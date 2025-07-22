@@ -150,7 +150,7 @@ def process_response(
                 response_id=response.id,
                 previous_response_id=request.response_id,
                 user_question=request.question,
-                assistant_response=response.output_text,
+                response=response.output_text,
                 model=response.model,
                 assistant_id=request.assistant_id,
                 project_id=project_id,
@@ -376,7 +376,7 @@ async def responses_sync(
                 response_id=response.id,
                 previous_response_id=request.response_id,
                 user_question=request.question,
-                assistant_response=response.output_text,
+                response=response.output_text,
                 model=response.model,
                 assistant_id=None,  # Not available in sync endpoint
                 project_id=project_id,
