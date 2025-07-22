@@ -1,4 +1,4 @@
-"""your migration message
+"""add openai_conversation table
 
 Revision ID: 8811e4d2fcf9
 Revises: 4aa1f48c6321
