@@ -1,4 +1,3 @@
-from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, Path
 from sqlmodel import Session
 
@@ -48,7 +47,7 @@ async def create_conversation(
 
 @router.get(
     "/list",
-    response_model=APIResponse[List[OpenAIConversationPublic]],
+    response_model=APIResponse[list[OpenAIConversationPublic]],
     summary="List all conversations",
     description="Retrieve all conversations with pagination support",
 )
@@ -111,7 +110,7 @@ async def get_conversation_by_response_id(
 
 @router.get(
     "/ancestor/{ancestor_response_id}",
-    response_model=APIResponse[List[OpenAIConversationPublic]],
+    response_model=APIResponse[list[OpenAIConversationPublic]],
     summary="Get conversations by ancestor",
     description="Retrieve all conversations that have the specified ancestor_response_id",
 )
