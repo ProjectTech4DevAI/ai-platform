@@ -1,6 +1,6 @@
 import logging
 
-from typing import Optional, Set
+from typing import Optional
 import uuid
 
 import openai
@@ -174,7 +174,7 @@ def create_assistant(
     verify_vector_store_ids_exist(openai_client, assistant.vector_store_ids)
 
     assistant = Assistant(
-        assistant_id=uuid.uuid4(),
+        assistant_id=str(uuid.uuid4()),
         **assistant.model_dump(exclude_unset=True),
         project_id=project_id,
         organization_id=organization_id,
@@ -209,7 +209,7 @@ def update_assistant(
     for field, value in update_fields.items():
         setattr(existing_assistant, field, value)
 
-    current_vector_stores: Set[str] = set(existing_assistant.vector_store_ids or [])
+    current_vector_stores: set[str] = set(existing_assistant.vector_store_ids or [])
 
     # Validate for conflicting add/remove operations
     add_ids = set(assistant_update.vector_store_ids_add or [])
