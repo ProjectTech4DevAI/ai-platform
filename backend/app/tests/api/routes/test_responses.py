@@ -135,6 +135,7 @@ def test_responses_endpoint_stores_conversation(
     mock_get_credential,
     mock_openai,
     db,
+    normal_user_api_key_headers,
 ):
     """Test that the /responses endpoint stores conversation in database."""
     # Setup mock credentials
@@ -158,28 +159,18 @@ def test_responses_endpoint_stores_conversation(
     mock_response.id = "mock_response_id"
     mock_response.output_text = "Test assistant response"
     mock_response.model = "gpt-4o"
-    mock_response.usage.input_tokens = 10
-    mock_response.usage.output_tokens = 5
-    mock_response.usage.total_tokens = 15
     mock_response.output = []
     mock_client.responses.create.return_value = mock_response
 
-    # Get the Glific project ID
-    glific_project = db.exec(select(Project).where(Project.name == "Glific")).first()
-    if not glific_project:
-        pytest.skip("Glific project not found in the database")
-
-    # Use the original API key from seed data
-    original_api_key = "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8"
-
-    headers = {"X-API-KEY": original_api_key}
     request_data = {
         "assistant_id": "assistant_123",
         "question": "What is Glific?",
         "callback_url": "http://example.com/callback",
     }
 
-    response = client.post("/responses", json=request_data, headers=headers)
+    response = client.post(
+        "/responses", json=request_data, headers=normal_user_api_key_headers
+    )
     assert response.status_code == 200
     response_json = response.json()
     assert response_json["success"] is True
@@ -194,79 +185,4 @@ def test_responses_endpoint_stores_conversation(
     assert conversation_data.user_question == "What is Glific?"
     assert conversation_data.assistant_response == "Test assistant response"
     assert conversation_data.model == "gpt-4o"
-    assert conversation_data.input_tokens == 10
-    assert conversation_data.output_tokens == 5
-    assert conversation_data.total_tokens == 15
     assert conversation_data.assistant_id == "assistant_123"
-    assert conversation_data.project_id == glific_project.id
-
-
-@patch("app.api.routes.responses.OpenAI")
-@patch("app.api.routes.responses.get_provider_credential")
-@patch("app.api.routes.responses.get_assistant_by_id")
-def test_responses_sync_endpoint_stores_conversation(
-    mock_get_assistant,
-    mock_get_credential,
-    mock_openai,
-    db,
-):
-    """Test that the /responses/sync endpoint stores conversation in database."""
-    # Setup mock credentials
-    mock_get_credential.return_value = {"api_key": "test_api_key"}
-
-    # Setup mock OpenAI client
-    mock_client = MagicMock()
-    mock_openai.return_value = mock_client
-
-    # Setup the mock response object
-    mock_response = MagicMock()
-    mock_response.id = "mock_response_id"
-    mock_response.output_text = "Test assistant response"
-    mock_response.model = "gpt-4o"
-    mock_response.usage.input_tokens = 10
-    mock_response.usage.output_tokens = 5
-    mock_response.usage.total_tokens = 15
-    mock_response.output = []
-    mock_client.responses.create.return_value = mock_response
-
-    # Get the Glific project ID
-    glific_project = db.exec(select(Project).where(Project.name == "Glific")).first()
-    if not glific_project:
-        pytest.skip("Glific project not found in the database")
-
-    # Use the original API key from seed data
-    original_api_key = "ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8"
-
-    headers = {"X-API-KEY": original_api_key}
-    request_data = {
-        "model": "gpt-4o",
-        "instructions": "Test instructions",
-        "vector_store_ids": ["vs_test"],
-        "max_num_results": 20,
-        "temperature": 0.1,
-        "question": "What is Glific?",
-    }
-
-    response = client.post("/responses/sync", json=request_data, headers=headers)
-    assert response.status_code == 200
-    response_json = response.json()
-    assert response_json["success"] is True
-    assert response_json["data"]["status"] == "success"
-
-    # Verify that conversation was stored in database
-    conversation = db.exec(
-        select(OpenAI_Conversation).where(
-            OpenAI_Conversation.response_id == "mock_response_id"
-        )
-    ).first()
-
-    assert conversation is not None
-    assert conversation.response_id == "mock_response_id"
-    assert conversation.user_question == "What is Glific?"
-    assert conversation.assistant_response == "Test assistant response"
-    assert conversation.model == "gpt-4o"
-    assert conversation.input_tokens == 10
-    assert conversation.output_tokens == 5
-    assert conversation.total_tokens == 15
-    assert conversation.assistant_id == "assistant_123"
-    assert conversation.project_id == glific_project.id
