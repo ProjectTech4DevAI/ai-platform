@@ -1,15 +1,12 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field as PydanticField, field_validator
+from pydantic import BaseModel, Field as PydanticField
 from sqlalchemy import Column, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlmodel import Field, Relationship, SQLModel
 
-
 from app.core.util import now
-
-ALLOWED_OPENAI_MODELS = {"gpt-3.5-turbo", "gpt-4", "gpt-4o"}
 
 
 class AssistantBase(SQLModel):
@@ -52,7 +49,10 @@ class AssistantCreate(BaseModel):
         description="Instructions for the assistant", min_length=3
     )
     model: str = PydanticField(
-        default="gpt-4o", description="Model name for the assistant"
+        default="gpt-4o",
+        description="Model name for the assistant",
+        min_length=1,
+        max_length=30,
     )
     vector_store_ids: list[str] = PydanticField(
         default_factory=list,
@@ -68,23 +68,19 @@ class AssistantCreate(BaseModel):
         description="Maximum number of results (must be between 1 and 100)",
     )
 
-    @field_validator("model")
-    def validate_openai_model(cls, v):
-        if v not in ALLOWED_OPENAI_MODELS:
-            raise ValueError(
-                f"Model '{v}' is not a supported OpenAI model. Choose from: {', '.join(ALLOWED_OPENAI_MODELS)}"
-            )
-        return v
-
 
 class AssistantUpdate(BaseModel):
     name: str = PydanticField(
         default=None, description="Name of the assistant", min_length=3, max_length=30
     )
     instructions: str | None = PydanticField(
-        default=None, min_length=3, description="Instructions for the assistant"
+        default=None,
+        description="Instructions for the assistant",
+        min_length=3,
     )
-    model: str | None = None
+    model: str | None = PydanticField(
+        default=None, description="Name of the model", min_length=1, max_length=30
+    )
     vector_store_ids_add: list[str] | None = None
     vector_store_ids_remove: list[str] | None = None
     temperature: float | None = PydanticField(
@@ -96,11 +92,3 @@ class AssistantUpdate(BaseModel):
         le=100,
         description="Maximum number of results (must be between 1 and 100)",
     )
-
-    @field_validator("model")
-    def validate_openai_model(cls, v):
-        if v not in ALLOWED_OPENAI_MODELS:
-            raise ValueError(
-                f"Model '{v}' is not a supported OpenAI model. Choose from: {', '.join(ALLOWED_OPENAI_MODELS)}"
-            )
-        return v
