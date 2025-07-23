@@ -10,13 +10,12 @@ log_file = base_dir / "credentials.logs"
 logging.basicConfig(
     filename=str(log_file),
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
 logger = logging.getLogger(__name__)
 
 if __name__ == "__main__":
-
     input_csv = base_dir / "sample_input.csv"
     output_csv = base_dir / "credentials_output.csv"
 
@@ -29,6 +28,6 @@ if __name__ == "__main__":
         output_file=str(output_csv),
         api_url=api_url,
         api_key=api_key,
-        openai_key=openai_key
+        openai_key=openai_key,
     )
     processor.run()

@@ -5,14 +5,12 @@ from glific_migration.client import APIClient
 
 logger = logging.getLogger(__name__)
 
+
 class AssistantIngestProcessor(BaseCSVProcessor):
     def __init__(self, input_file, output_file, base_url):
         super().__init__(input_file, output_file)
         self.base_url = base_url
-        self.headers = [
-            'assistant_id', 'api_key',
-            'success', 'response_from_endpoint'
-        ]
+        self.headers = ["assistant_id", "api_key", "success", "response_from_endpoint"]
 
     def run(self):
         logger.info("Loading assistant ingest CSV input...")
@@ -38,24 +36,28 @@ class AssistantIngestProcessor(BaseCSVProcessor):
                 logger.error(f"Row {idx} missing required fields: {missing}")
                 raise ValueError(f"Row {idx} missing required fields: {missing}")
 
-            if not row['assistant_id'].strip() or not row['api_key'].strip():
+            if not row["assistant_id"].strip() or not row["api_key"].strip():
                 logger.error(f"Row {idx} has empty assistant_id or api_key")
                 raise ValueError(f"Row {idx} has empty assistant_id or api_key")
 
     def init_output_csv(self):
-        with open(self.output_file, 'w', newline='', encoding='utf-8') as f:
+        with open(self.output_file, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=self.headers)
             writer.writeheader()
 
     def process_rows(self, rows: list[dict]):
-        with open(self.output_file, 'a', newline='', encoding='utf-8') as f:
+        with open(self.output_file, "a", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=self.headers)
 
             for idx, row in enumerate(rows, start=1):
-                assistant_id = row['assistant_id']
-                api_key = row['api_key']
+                assistant_id = row["assistant_id"]
+                api_key = row["api_key"]
 
-                logger.info("Ingesting assistant for row %d (assistant_id: %s)", idx, assistant_id)
+                logger.info(
+                    "Ingesting assistant for row %d (assistant_id: %s)",
+                    idx,
+                    assistant_id,
+                )
 
                 url = f"{self.base_url.rstrip('/')}/assistant/{assistant_id}/ingest"
                 client = APIClient(api_key=api_key)
@@ -66,8 +68,8 @@ class AssistantIngestProcessor(BaseCSVProcessor):
                 result = {
                     "assistant_id": assistant_id,
                     "api_key": api_key,
-                    "success": 'yes' if success else 'no',
-                    "response_from_endpoint": str(resp)
+                    "success": "yes" if success else "no",
+                    "response_from_endpoint": str(resp),
                 }
 
                 writer.writerow(result)

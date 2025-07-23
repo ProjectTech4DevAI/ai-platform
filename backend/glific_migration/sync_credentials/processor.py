@@ -5,6 +5,7 @@ from glific_migration.client import APIClient
 
 logger = logging.getLogger(__name__)
 
+
 class CredentialProcessor(BaseCSVProcessor):
     def __init__(self, input_file, output_file, api_url, api_key, openai_key):
         super().__init__(input_file, output_file)
@@ -12,8 +13,10 @@ class CredentialProcessor(BaseCSVProcessor):
         self.api_url = api_url
         self.openai_key = openai_key
         self.headers = [
-            'organization_id', 'project_id',
-            'success', 'response_from_endpoint'
+            "organization_id",
+            "project_id",
+            "success",
+            "response_from_endpoint",
         ]
 
     def run(self):
@@ -41,46 +44,51 @@ class CredentialProcessor(BaseCSVProcessor):
                 raise ValueError(f"Row {idx} is missing required fields: {missing}")
 
             try:
-                int(row['organization_id'])
-                int(row['project_id'])
+                int(row["organization_id"])
+                int(row["project_id"])
             except ValueError:
-                logger.error(f"Row {idx} has non-integer organization_id or project_id: {row}")
-                raise ValueError(f"Row {idx} has non-integer organization_id or project_id")
+                logger.error(
+                    f"Row {idx} has non-integer organization_id or project_id: {row}"
+                )
+                raise ValueError(
+                    f"Row {idx} has non-integer organization_id or project_id"
+                )
 
     def init_output_csv(self):
         """Initialize CSV file with headers (overwrite if already exists)."""
-        with open(self.output_file, 'w', newline='', encoding='utf-8') as f:
+        with open(self.output_file, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=self.headers)
             writer.writeheader()
 
     def process_rows(self, rows: list[dict]):
-        with open(self.output_file, 'a', newline='', encoding='utf-8') as f:
+        with open(self.output_file, "a", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=self.headers)
 
             for idx, row in enumerate(rows, start=1):
-                org_id = int(row['organization_id'])
-                proj_id = int(row['project_id'])
+                org_id = int(row["organization_id"])
+                proj_id = int(row["project_id"])
 
                 payload = {
                     "organization_id": org_id,
                     "project_id": proj_id,
                     "is_active": True,
-                    "credential": {
-                        "openai": {
-                            "api_key": self.openai_key
-                        }
-                    }
+                    "credential": {"openai": {"api_key": self.openai_key}},
                 }
 
-                logger.info("Sending credential request for row %d (org: %s, project: %s)...", idx, org_id, proj_id)
+                logger.info(
+                    "Sending credential request for row %d (org: %s, project: %s)...",
+                    idx,
+                    org_id,
+                    proj_id,
+                )
                 success, resp = self.client.post(self.api_url, data=payload)
                 logger.info("Row %d processed. Success: %s", idx, success)
 
                 result = {
                     "organization_id": org_id,
                     "project_id": proj_id,
-                    "success": 'yes' if success else 'no',
-                    "response_from_endpoint": str(resp)
+                    "success": "yes" if success else "no",
+                    "response_from_endpoint": str(resp),
                 }
 
                 writer.writerow(result)
