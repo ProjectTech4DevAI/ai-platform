@@ -2,11 +2,14 @@ import logging
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from typing import Tuple, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
 
 class APIClient:
+    """Client for making API requests with retry and error handling."""
+
     def __init__(self, api_key: str):
         self.headers = {
             "accept": "application/json",
@@ -14,11 +17,15 @@ class APIClient:
             "X-API-KEY": api_key,
         }
         self.session = requests.Session()
-        retries = Retry(total=3, backoff_factor=1, status_forcelist=[429])
-        self.session.mount("https://", HTTPAdapter(max_retries=retries))
-        self.session.mount("http://", HTTPAdapter(max_retries=retries))
+        retries = Retry(
+            total=3, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504]
+        )
+        adapter = HTTPAdapter(max_retries=retries)
+        self.session.mount("https://", adapter)
+        self.session.mount("http://", adapter)
 
-    def post(self, url: str, data: dict = None):
+    def post(self, url: str, data: Optional[Dict] = None) -> Tuple[bool, Dict]:
+        """Make a POST request to the specified URL."""
         try:
             response = self.session.post(
                 url, headers=self.headers, json=data, timeout=10

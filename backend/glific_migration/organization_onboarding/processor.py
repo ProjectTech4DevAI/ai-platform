@@ -1,80 +1,70 @@
 import logging
-import json
-import csv
+from typing import List, Dict, Set
 from glific_migration.base_processor import BaseCSVProcessor
+from glific_migration.client import APIClient
 from glific_migration.validator import (
     validate_required_fields,
     validate_email_format,
     validate_password,
 )
-from glific_migration.client import APIClient
 
 logger = logging.getLogger(__name__)
 
 
 class OnboardProcessor(BaseCSVProcessor):
-    def __init__(self, input_file, output_file, api_url, api_key):
-        super().__init__(input_file, output_file)
+    """Processor for handling organization onboarding."""
+
+    HEADERS = [
+        "organization_name",
+        "organization_id",
+        "project_name",
+        "project_id",
+        "user_name",
+        "user_id",
+        "api_key",
+        "success",
+        "response_from_endpoint",
+    ]
+    REQUIRED_FIELDS = {
+        "organization_name",
+        "project_name",
+        "email",
+        "password",
+        "user_name",
+    }
+
+    def __init__(self, input_file: str, output_file: str, api_url: str, api_key: str):
+        super().__init__(input_file, output_file, self.HEADERS)
         self.client = APIClient(api_key)
         self.api_url = api_url
-        self.headers = [
-            "organization_name",
-            "organization_id",
-            "project_name",
-            "project_id",
-            "user_name",
-            "user_id",
-            "api_key",
-            "success",
-            "response_from_endpoint",
-        ]
 
-    def run(self):
-        logger.info("Loading CSV input...")
-        rows = self.load_csv()
-
-        logger.info("Validating CSV rows...")
-        if not self.validate_csv(rows):
-            logger.error("Validation failed. Aborting processing.")
-            return
-
-        logger.info("Creating output CSV and writing headers...")
-        self.init_output_csv()
-
-        logger.info("Processing rows and writing results...")
-        self.process_rows(rows)
-
-        logger.info("Processing complete. Output written to %s", self.output_file)
-
-    def validate_csv(self, rows: list[dict]) -> bool:
+    def validate_csv(self, rows: List[Dict[str, str]]) -> bool:
+        """Validate CSV data for organization onboarding."""
         seen_projects = set()
         validation_errors = []
 
-        for i, row in enumerate(rows, start=2):
+        for idx, row in enumerate(rows, start=1):
             row_errors = []
 
-            missing = validate_required_fields(
-                row,
-                ["organization_name", "project_name", "email", "password", "user_name"],
-            )
+            missing = validate_required_fields(row, self.REQUIRED_FIELDS)
             if missing:
-                row_errors.append(f"Row {i}: Missing fields: {', '.join(missing)}")
+                row_errors.append(f"Missing fields: {', '.join(missing)}")
 
             project_name = row.get("project_name", "")
             if project_name in seen_projects:
-                row_errors.append(f"Row {i}: Duplicate project name '{project_name}'")
+                row_errors.append(f"Duplicate project name '{project_name}'")
             else:
                 seen_projects.add(project_name)
 
             ok, msg = validate_email_format(row.get("email", ""))
             if not ok:
-                row_errors.append(f"Row {i}: Invalid email: {msg}")
+                row_errors.append(f"Invalid email: {msg}")
 
             if not validate_password(row.get("password", "")):
-                row_errors.append(f"Row {i}: Password must be at least 8 characters")
+                row_errors.append("Password must be at least 8 characters")
 
             if row_errors:
-                validation_errors.extend(row_errors)
+                validation_errors.extend(f"Row {idx}: {error}" for error in row_errors)
 
         if validation_errors:
             logger.error("CSV validation failed with the following issues:")
@@ -85,31 +75,19 @@ class OnboardProcessor(BaseCSVProcessor):
         logger.info("CSV validation passed.")
         return True
 
-    def init_output_csv(self):
-        """Initialize CSV file with headers (overwrite if already exists)."""
-        with open(self.output_file, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=self.headers)
-            writer.writeheader()
+    def process_rows(self, rows: List[Dict[str, str]]) -> None:
+        """Process rows for organization onboarding and write to CSV after each request."""
+        for idx, row in enumerate(rows, start=1):
+            logger.info(
+                f"Sending API request for row {idx} (project: {row.get('project_name', '')})..."
+            )
+            success, resp = self.client.post(self.api_url, data=row)
+            logger.info(f"Row {idx} processed. Success: {success}")
 
-    def process_rows(self, rows: list[dict]):
-        with open(self.output_file, "a", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=self.headers)
-
-            for idx, row in enumerate(rows, start=1):
-                logger.info(
-                    "Sending API request for row %d (project: %s)...",
-                    idx,
-                    row.get("project_name", ""),
-                )
-                success, resp = self.client.post(self.api_url, data=row)
-                logger.info("Row %d processed. Success: %s", idx, success)
-
-                row_result = {
-                    **row,
-                    "success": "yes" if success else "no",
-                    "response_from_endpoint": str(resp),
-                }
-                row_result.update(resp if success else {})
-
-                filtered = {k: row_result.get(k, "") for k in self.headers}
-                writer.writerow(filtered)
+            row_result = {
+                **row,
+                "success": "yes" if success else "no",
+                "response_from_endpoint": str(resp),
+            }
+            row_result.update(resp if success else {})
+            self.append_to_csv({k: row_result.get(k, "") for k in self.HEADERS})

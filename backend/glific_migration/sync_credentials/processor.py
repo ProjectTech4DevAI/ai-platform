@@ -1,94 +1,88 @@
 import logging
-import csv
+from typing import List, Dict, Set
 from glific_migration.base_processor import BaseCSVProcessor
 from glific_migration.client import APIClient
+from glific_migration.validator import validate_required_fields, is_valid_api_key
 
 logger = logging.getLogger(__name__)
 
 
 class CredentialProcessor(BaseCSVProcessor):
-    def __init__(self, input_file, output_file, api_url, api_key, openai_key):
-        super().__init__(input_file, output_file)
+    """Processor for handling credential migration."""
+
+    HEADERS = ["organization_id", "project_id", "success", "response_from_endpoint"]
+    REQUIRED_FIELDS = {"organization_id", "project_id"}
+
+    def __init__(
+        self,
+        input_file: str,
+        output_file: str,
+        api_url: str,
+        api_key: str,
+        openai_key: str,
+    ):
+        super().__init__(input_file, output_file, self.HEADERS)
         self.client = APIClient(api_key)
         self.api_url = api_url
         self.openai_key = openai_key
-        self.headers = [
-            "organization_id",
-            "project_id",
-            "success",
-            "response_from_endpoint",
-        ]
 
-    def run(self):
-        logger.info("Loading CSV input...")
-        rows = self.load_csv()
-
-        logger.info("Validating input data...")
-        self.validate_csv(rows)
-
-        logger.info("Initializing output file if needed...")
-        self.init_output_csv()
-
-        logger.info("Processing rows for credential creation...")
-        self.process_rows(rows)
-
-        logger.info("Credential processing complete.")
-
-    def validate_csv(self, rows: list[dict]):
-        required_fields = {"organization_id", "project_id"}
+    def validate_csv(self, rows: List[Dict[str, str]]) -> bool:
+        """Validate CSV data for credential processing."""
+        validation_errors = []
 
         for idx, row in enumerate(rows, start=1):
-            missing = required_fields - row.keys()
+            row_errors = []
+
+            missing = validate_required_fields(row, self.REQUIRED_FIELDS)
             if missing:
-                logger.error(f"Row {idx} is missing required fields: {missing}")
-                raise ValueError(f"Row {idx} is missing required fields: {missing}")
+                row_errors.append(f"Missing fields: {', '.join(missing)}")
 
             try:
-                int(row["organization_id"])
-                int(row["project_id"])
+                int(row.get("organization_id", ""))
+                int(row.get("project_id", ""))
             except ValueError:
-                logger.error(
-                    f"Row {idx} has non-integer organization_id or project_id: {row}"
-                )
-                raise ValueError(
-                    f"Row {idx} has non-integer organization_id or project_id"
+                row_errors.append(
+                    f"organization_id or project_id is not an integer: org_id='{row.get('organization_id')}', proj_id='{row.get('project_id')}'"
                 )
 
-    def init_output_csv(self):
-        """Initialize CSV file with headers (overwrite if already exists)."""
-        with open(self.output_file, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=self.headers)
-            writer.writeheader()
+            if row_errors:
+                validation_errors.extend(f"Row {idx}: {err}" for err in row_errors)
 
-    def process_rows(self, rows: list[dict]):
-        with open(self.output_file, "a", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=self.headers)
+            if row.get("api_key") and not is_valid_api_key(row["api_key"]):
+                validation_errors.append(f"Invalid api_key format: {row['api_key']}")
 
-            for idx, row in enumerate(rows, start=1):
-                org_id = int(row["organization_id"])
-                proj_id = int(row["project_id"])
+        if validation_errors:
+            logger.error("CSV validation failed with the following issues:")
+            for error in validation_errors:
+                logger.error(" - %s", error)
+            return False
 
-                payload = {
-                    "organization_id": org_id,
-                    "project_id": proj_id,
-                    "is_active": True,
-                    "credential": {"openai": {"api_key": self.openai_key}},
-                }
+        logger.info("CSV validation passed.")
+        return True
 
-                logger.info(
-                    "Sending credential request for row %d (org: %s, project: %s)...",
-                    idx,
-                    org_id,
-                    proj_id,
-                )
-                success, resp = self.client.post(self.api_url, data=payload)
-                logger.info("Row %d processed. Success: %s", idx, success)
+    def process_rows(self, rows: List[Dict[str, str]]) -> None:
+        """Process rows for credential creation and write to CSV after each request."""
+        for idx, row in enumerate(rows, start=1):
+            org_id = int(row["organization_id"])
+            proj_id = int(row["project_id"])
 
-                result = {
-                    "organization_id": org_id,
-                    "project_id": proj_id,
-                    "success": "yes" if success else "no",
-                    "response_from_endpoint": str(resp),
-                }
+            payload = {
+                "organization_id": org_id,
+                "project_id": proj_id,
+                "is_active": True,
+                "credential": {"openai": {"api_key": self.openai_key}},
+            }
 
-                writer.writerow(result)
+            logger.info(
+                f"Sending credential request for row {idx} (org: {org_id}, project: {proj_id})..."
+            )
+            success, resp = self.client.post(self.api_url, data=payload)
+            logger.info(f"Row {idx} processed. Success: {success}")
+
+            result = {
+                "organization_id": org_id,
+                "project_id": proj_id,
+                "success": "yes" if success else "no",
+                "response_from_endpoint": str(resp),
+            }
+            self.append_to_csv(result)

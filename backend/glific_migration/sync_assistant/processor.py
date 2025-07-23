@@ -1,75 +1,82 @@
 import logging
-import csv
+from typing import List, Dict, Set
 from glific_migration.base_processor import BaseCSVProcessor
 from glific_migration.client import APIClient
+from glific_migration.validator import (
+    validate_required_fields,
+    is_valid_api_key,
+    is_valid_assistant_id,
+)
+
 
 logger = logging.getLogger(__name__)
 
 
 class AssistantIngestProcessor(BaseCSVProcessor):
-    def __init__(self, input_file, output_file, base_url):
-        super().__init__(input_file, output_file)
-        self.base_url = base_url
-        self.headers = ["assistant_id", "api_key", "success", "response_from_endpoint"]
+    """Processor for handling assistant ingestion."""
 
-    def run(self):
-        logger.info("Loading assistant ingest CSV input...")
-        rows = self.load_csv()
+    HEADERS = ["assistant_id", "api_key", "success", "response_from_endpoint"]
+    REQUIRED_FIELDS = {"assistant_id", "api_key"}
 
-        logger.info("Validating CSV rows...")
-        self.validate_csv(rows)
+    def __init__(self, input_file: str, output_file: str, base_url: str):
+        super().__init__(input_file, output_file, self.HEADERS)
+        self.base_url = base_url.rstrip("/")
 
-        logger.info("Initializing output file...")
-        self.init_output_csv()
-
-        logger.info("Processing rows for assistant ingestion...")
-        self.process_rows(rows)
-
-        logger.info("Assistant ingestion processing complete.")
-
-    def validate_csv(self, rows: list[dict]):
-        required_fields = {"assistant_id", "api_key"}
+    def validate_csv(self, rows: List[Dict[str, str]]) -> bool:
+        """Validate CSV data for assistant ingestion."""
+        validation_errors = []
 
         for idx, row in enumerate(rows, start=1):
-            missing = required_fields - row.keys()
+            row_errors = []
+
+            missing = validate_required_fields(row, self.REQUIRED_FIELDS)
             if missing:
-                logger.error(f"Row {idx} missing required fields: {missing}")
-                raise ValueError(f"Row {idx} missing required fields: {missing}")
+                row_errors.append(f"Missing fields: {', '.join(missing)}")
 
-            if not row["assistant_id"].strip() or not row["api_key"].strip():
-                logger.error(f"Row {idx} has empty assistant_id or api_key")
-                raise ValueError(f"Row {idx} has empty assistant_id or api_key")
+            if not row.get("assistant_id", "").strip():
+                row_errors.append("Empty assistant_id")
 
-    def init_output_csv(self):
-        with open(self.output_file, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=self.headers)
-            writer.writeheader()
+            if not row.get("api_key", "").strip():
+                row_errors.append("Empty api_key")
 
-    def process_rows(self, rows: list[dict]):
-        with open(self.output_file, "a", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=self.headers)
+            if row.get("assistant_id") and not is_valid_assistant_id(
+                row["assistant_id"]
+            ):
+                row_errors.append(f"Invalid assistant_id format: {row['assistant_id']}")
 
-            for idx, row in enumerate(rows, start=1):
-                assistant_id = row["assistant_id"]
-                api_key = row["api_key"]
+            if row.get("api_key") and not is_valid_api_key(row["api_key"]):
+                row_errors.append(f"Invalid api_key format: {row['api_key']}")
 
-                logger.info(
-                    "Ingesting assistant for row %d (assistant_id: %s)",
-                    idx,
-                    assistant_id,
-                )
+            if row_errors:
+                validation_errors.extend(f"Row {idx}: {err}" for err in row_errors)
 
-                url = f"{self.base_url.rstrip('/')}/assistant/{assistant_id}/ingest"
-                client = APIClient(api_key=api_key)
+        if validation_errors:
+            logger.error("CSV validation failed with the following issues:")
+            for error in validation_errors:
+                logger.error(" - %s", error)
+            return False
 
-                success, resp = client.post(url)
-                logger.info("Row %d processed. Success: %s", idx, success)
+        logger.info("CSV validation passed.")
+        return True
 
-                result = {
-                    "assistant_id": assistant_id,
-                    "api_key": api_key,
-                    "success": "yes" if success else "no",
-                    "response_from_endpoint": str(resp),
-                }
+    def process_rows(self, rows: List[Dict[str, str]]) -> None:
+        """Process rows for assistant ingestion and write to CSV after each request."""
+        for idx, row in enumerate(rows, start=1):
+            assistant_id = row["assistant_id"]
+            api_key = row["api_key"]
 
-                writer.writerow(result)
+            logger.info(
+                f"Ingesting assistant for row {idx} (assistant_id: {assistant_id})"
+            )
+            url = f"{self.base_url}/assistant/{assistant_id}/ingest"
+            client = APIClient(api_key=api_key)
+            success, resp = client.post(url)
+            logger.info(f"Row {idx} processed. Success: {success}")
+
+            result = {
+                "assistant_id": assistant_id,
+                "api_key": api_key,
+                "success": "yes" if success else "no",
+                "response_from_endpoint": str(resp),
+            }
+            self.append_to_csv(result)
