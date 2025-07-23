@@ -9,7 +9,6 @@ from app.models.openai_conversation import (
     OpenAIConversationPublic,
 )
 from app.crud.openai_conversation import (
-    create_openai_conversation,
     get_openai_conversation_by_id,
     get_openai_conversation_by_response_id,
     get_openai_conversations_by_ancestor,
