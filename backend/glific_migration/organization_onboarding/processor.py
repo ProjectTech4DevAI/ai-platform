@@ -1,89 +1,100 @@
-import csv
-import json
 import logging
-
-from .client import OnboardingClient
-from .validator import CSVValidator
+import json
+import csv
+from glific_migration.base_processor import BaseCSVProcessor
+from glific_migration.validator import validate_required_fields, validate_email_format, validate_password
+from glific_migration.client import APIClient
 
 logger = logging.getLogger(__name__)
 
-
-class OnboardingProcessor:
-    def __init__(self, input_filename, output_filename, api_url, api_key):
-        self.input_filename = input_filename
-        self.output_filename = output_filename
-        self.client = OnboardingClient(api_url, api_key)
-        self.csv_validator = CSVValidator(['organization_name', 'project_name', 'email', 'password', 'user_name'])
-        self.output_headers = [
+class OnboardProcessor(BaseCSVProcessor):
+    def __init__(self, input_file, output_file, api_url, api_key):
+        super().__init__(input_file, output_file)
+        self.client = APIClient(api_key)
+        self.api_url = api_url
+        self.headers = [
             'organization_name', 'organization_id',
             'project_name', 'project_id',
-            'user_name', 'user_id',
-            'api_key',
+            'user_name', 'user_id', 'api_key',
             'success', 'response_from_endpoint'
         ]
 
-    def create_error_row(self, row, error_message):
-        return {
-            'organization_name': row.get('organization_name', ''),
-            'organization_id': '',
-            'project_name': row.get('project_name', ''),
-            'project_id': '',
-            'user_name': row.get('user_name', ''),
-            'user_id': '',
-            'api_key': '',
-            'success': 'no',
-            'response_from_endpoint': error_message
-        }
-
     def run(self):
-        try:
-            with open(self.input_filename, 'r', newline='', encoding='utf-8') as infile:
-                reader = list(csv.DictReader(infile))
+        logger.info("Loading CSV input...")
+        rows = self.load_csv()
 
-                if not reader:
-                    logger.error("CSV file is empty.")
-                    return
+        logger.info("Validating CSV rows...")
+        if not self.validate_csv(rows):
+            logger.error("Validation failed. Aborting processing.")
+            return
 
-                is_valid, errors = self.csv_validator.validate_rows(reader)
-                if not is_valid:
-                    logger.error("CSV validation failed:")
-                    for e in errors:
-                        logger.error(f"  - {e}")
-                    print("Validation failed. Check onboarding.log for details.")
-                    return
+        logger.info("Creating output CSV and writing headers...")
+        self.init_output_csv()
 
-                with open(self.output_filename, 'w', newline='', encoding='utf-8') as outfile:
-                    writer = csv.DictWriter(outfile, fieldnames=self.output_headers)
-                    writer.writeheader()
+        logger.info("Processing rows and writing results...")
+        self.process_rows(rows)
 
-                    for row in reader:
-                        logger.info(f"Processing: Org='{row.get('organization_name')}', Project='{row.get('project_name')}'")
-                        success, response_data = self.client.send(row)
+        logger.info("Processing complete. Output written to %s", self.output_file)
 
-                        if success:
-                            logger.info(f"Success: Org='{row['organization_name']}', Project='{row['project_name']}'")
-                        else:
-                            logger.warning(f"Failed: Org='{row['organization_name']}' - {response_data.get('error')}")
 
-                        writer.writerow({
-                            'organization_name': row['organization_name'],
-                            'organization_id': response_data.get('organization_id', ''),
-                            'project_name': row['project_name'],
-                            'project_id': response_data.get('project_id', ''),
-                            'user_name': row['user_name'],
-                            'user_id': response_data.get('user_id', ''),
-                            'api_key': response_data.get('api_key', ''),
-                            'success': 'yes' if success else 'no',
-                            'response_from_endpoint': json.dumps(response_data)
-                        })
+    def validate_csv(self, rows: list[dict]) -> bool:
+        seen_projects = set()
+        validation_errors = []
 
-        except FileNotFoundError:
-            logger.error(f"Input file '{self.input_filename}' not found.")
-        except PermissionError:
-            logger.error(f"Permission denied to access file '{self.input_filename}'.")
-        except csv.Error as e:
-            logger.error(f"CSV parsing error: {str(e)}")
-        except Exception as e:
-            logger.exception(f"Unhandled error in processor: {str(e)}")
+        for i, row in enumerate(rows, start=2):
+            row_errors = []
 
-        logger.info(f"Onboarding completed. See {self.output_filename} for results.")
+            missing = validate_required_fields(row, ['organization_name', 'project_name', 'email', 'password', 'user_name'])
+            if missing:
+                row_errors.append(f"Row {i}: Missing fields: {', '.join(missing)}")
+
+            project_name = row.get('project_name', '')
+            if project_name in seen_projects:
+                row_errors.append(f"Row {i}: Duplicate project name '{project_name}'")
+            else:
+                seen_projects.add(project_name)
+
+            ok, msg = validate_email_format(row.get('email', ''))
+            if not ok:
+                row_errors.append(f"Row {i}: Invalid email: {msg}")
+
+            if not validate_password(row.get('password', '')):
+                row_errors.append(f"Row {i}: Password must be at least 8 characters")
+
+            if row_errors:
+                validation_errors.extend(row_errors)
+
+        if validation_errors:
+            logger.error("CSV validation failed with the following issues:")
+            for error in validation_errors:
+                logger.error(" - %s", error)
+            return False
+
+        logger.info("CSV validation passed.")
+        return True
+
+    def init_output_csv(self):
+        """Initialize CSV file with headers (overwrite if already exists)."""
+        with open(self.output_file, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=self.headers)
+            writer.writeheader()
+
+    def process_rows(self, rows: list[dict]):
+        with open(self.output_file, 'a', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=self.headers)
+
+            for idx, row in enumerate(rows, start=1):
+                logger.info("Sending API request for row %d (project: %s)...", idx, row.get('project_name', ''))
+                success, resp = self.client.post(self.api_url, data=row)
+                logger.info("Row %d processed. Success: %s", idx, success)
+
+                row_result = {
+                    **row,
+                    'success': 'yes' if success else 'no',
+                    'response_from_endpoint': str(resp)
+                }
+                row_result.update(resp if success else {})
+
+                filtered = {k: row_result.get(k, '') for k in self.headers}
+                writer.writerow(filtered)
+                

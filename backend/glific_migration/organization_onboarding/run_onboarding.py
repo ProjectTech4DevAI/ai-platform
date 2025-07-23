@@ -1,20 +1,32 @@
 import logging
-from .processor import OnboardingProcessor
+from pathlib import Path
+from glific_migration.organization_onboarding.processor import OnboardProcessor
 
+base_dir = Path(__file__).parent.resolve()
+
+log_file = base_dir / "onboarding.logs"
 logging.basicConfig(
-    filename='onboarding.log',
+    filename=str(log_file),
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
 )
 
-def main():
-    input_filename = 'sample_input.csv'
-    output_filename = 'output_onboarding.csv'
-    api_url = 'http://localhost:8000/api/v1/onboard'
-    api_key = 'test_api_key'
+logger = logging.getLogger(__name__)
 
-    processor = OnboardingProcessor(input_filename, output_filename, api_url, api_key)
-    processor.run()
+def main():
+    logger.info("Starting onboarding process...")
+
+    input_file = base_dir / "sample_input.csv"
+    output_file = base_dir / "orgs_output.csv"
+
+    OnboardProcessor(
+        input_file=str(input_file),
+        output_file=str(output_file),
+        api_url="http://localhost:8000/api/v1/onboard",
+        api_key="ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8"
+    ).run()
+
+    logger.info("Onboarding process completed successfully.")
 
 if __name__ == "__main__":
     main()
