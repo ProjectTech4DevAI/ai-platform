@@ -79,20 +79,20 @@ def verify_vector_store_ids_exist(
     """
     Raises HTTPException if any of the vector_store_ids do not exist in OpenAI.
     """
-    for vs_id in vector_store_ids:
+    for vector_store_id in vector_store_ids:
         try:
-            openai_client.vector_stores.retrieve(vs_id)
+            openai_client.vector_stores.retrieve(vector_store_id)
         except openai.NotFoundError:
-            logger.error(f"Vector store ID {vs_id} not found in OpenAI.")
+            logger.error(f"Vector store ID {vector_store_id} not found in OpenAI.")
             raise HTTPException(
                 status_code=400,
-                detail=f"Vector store ID {vs_id} not found in OpenAI.",
+                detail=f"Vector store ID {vector_store_id} not found in OpenAI.",
             )
         except openai.OpenAIError as e:
-            logger.error(f"Failed to verify vector store ID {vs_id}: {e}")
+            logger.error(f"Failed to verify vector store ID {vector_store_id}: {e}")
             raise HTTPException(
                 status_code=502,
-                detail=f"Error verifying vector store ID {vs_id}: {str(e)}",
+                detail=f"Error verifying vector store ID {vector_store_id}: {str(e)}",
             )
 
 

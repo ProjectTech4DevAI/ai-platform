@@ -41,9 +41,7 @@ class Assistant(AssistantBase, table=True):
 
 
 class AssistantCreate(SQLModel):
-    name: str = Field(
-        description="Name of the assistant", min_length=3, max_length=50
-    )
+    name: str = Field(description="Name of the assistant", min_length=3, max_length=50)
     instructions: str = Field(
         description="Instructions for the assistant", min_length=10
     )
@@ -58,7 +56,7 @@ class AssistantCreate(SQLModel):
         description="List of Vector Store IDs that exist in OpenAI.",
     )
     temperature: float = Field(
-        default=0.1, ge=0, le=2, description="Sampling temperature between 0 and 2"
+        default=0.1, gt=0, le=2, description="Sampling temperature between 0 and 2"
     )
     max_num_results: int = Field(
         default=20,
@@ -83,7 +81,7 @@ class AssistantUpdate(SQLModel):
     vector_store_ids_add: list[str] | None = None
     vector_store_ids_remove: list[str] | None = None
     temperature: float | None = Field(
-        default=None, ge=0, le=2, description="Sampling temperature between 0 and 2"
+        default=None, gt=0, le=2, description="Sampling temperature between 0 and 2"
     )
     max_num_results: int | None = Field(
         default=None,

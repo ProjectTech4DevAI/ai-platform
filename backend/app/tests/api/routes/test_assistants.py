@@ -13,7 +13,7 @@ from app.tests.utils.utils import get_assistant
 def assistant_create_payload():
     return {
         "name": "Test Assistant",
-        "instructions": "These are test instructions.",
+        "instructions": "This is a test instruction.",
         "model": "gpt-4o",
         "vector_store_ids": ["vs_test_1", "vs_test_2"],
         "temperature": 0.5,
