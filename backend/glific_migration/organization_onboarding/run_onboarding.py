@@ -23,7 +23,7 @@ def main():
         input_file=str(input_file),
         output_file=str(output_file),
         api_url="http://localhost:8000/api/v1/onboard",
-        api_key="ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8"
+        api_key="api_key"
     ).run()
 
     logger.info("Onboarding process completed successfully.")
