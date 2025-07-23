@@ -1,13 +1,17 @@
 from pathlib import Path
+import json
 from glific_migration.sync_assistant.processor import AssistantIngestProcessor
 
 base_dir = Path(__file__).parent.resolve()
 
 
 def main():
-    input_csv = base_dir / "sample_input.csv"
-    output_csv = base_dir / "assistants_output.csv"
-    api_base_url = "http://localhost:8000/api/v1"
+    with open(base_dir / "../config.json", "r") as file:
+        config = json.load(file)
+
+    input_csv = base_dir / config["assistant_ingest"]["input_csv"]
+    output_csv = base_dir / config["assistant_ingest"]["output_csv"]
+    api_base_url = config["base_url"]
 
     processor = AssistantIngestProcessor(
         input_file=str(input_csv),
