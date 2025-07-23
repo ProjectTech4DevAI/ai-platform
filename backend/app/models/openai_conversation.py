@@ -9,9 +9,15 @@ class OpenAIConversationBase(SQLModel):
     previous_response_id: Optional[str] = Field(default=None, index=True)
     user_question: str = Field(description="The user's input question")
     response: str = Field(description="The assistant's response")
-    model: str = Field(description="The model used for the response")
+    model: str = Field(
+        description="The model used for the response", min_length=5, max_length=40
+    )
     assistant_id: Optional[str] = Field(
-        default=None, description="The assistant ID used"
+        unique=True,
+        default=None,
+        description="The assistant ID used",
+        min_length=20,
+        max_length=40,
     )
     project_id: int = Field(
         default=None, foreign_key="project.id", nullable=False, ondelete="CASCADE"

@@ -28,7 +28,7 @@ def test_responses_endpoint_success(
 
     # Setup the mock response object with real values for all used fields
     mock_response = MagicMock()
-    mock_response.id = "mock_response_id"
+    mock_response.id = "resp_test688080a1c52c819c937"
     mock_response.output_text = "Test assistant response"
     mock_response.model = "gpt-4o"
     mock_response.usage.input_tokens = 10
@@ -86,7 +86,7 @@ def test_responses_endpoint_without_vector_store(
 
     # Setup the mock response object
     mock_response = MagicMock()
-    mock_response.id = "mock_response_id"
+    mock_response.id = "resp_test688080a1c52c819c937"
     mock_response.output_text = "Test assistant response"
     mock_response.model = "gpt-4"
     mock_response.usage.input_tokens = 10
@@ -101,7 +101,7 @@ def test_responses_endpoint_without_vector_store(
         pytest.skip("Glific project not found in the database")
 
     request_data = {
-        "assistant_id": "assistant_123",
+        "assistant_id": "asst_testXLnzQYrQlAEzrOA",
         "question": "What is Glific?",
         "callback_url": "http://example.com/callback",
     }
@@ -156,14 +156,14 @@ def test_responses_endpoint_stores_conversation(
 
     # Setup the mock response object
     mock_response = MagicMock()
-    mock_response.id = "mock_response_id"
+    mock_response.id = "resp_test688080a1c52c819c937"
     mock_response.output_text = "Test assistant response"
     mock_response.model = "gpt-4o"
     mock_response.output = []
     mock_client.responses.create.return_value = mock_response
 
     request_data = {
-        "assistant_id": "assistant_123",
+        "assistant_id": "asst_testXLnzQYrQlAEzrOA",
         "question": "What is Glific?",
         "callback_url": "http://example.com/callback",
     }
@@ -181,8 +181,8 @@ def test_responses_endpoint_stores_conversation(
     call_args = mock_create_conversation.call_args
     conversation_data = call_args[0][1]  # Second argument is the conversation data
 
-    assert conversation_data.response_id == "mock_response_id"
+    assert conversation_data.response_id == "resp_test688080a1c52c819c937"
     assert conversation_data.user_question == "What is Glific?"
     assert conversation_data.response == "Test assistant response"
     assert conversation_data.model == "gpt-4o"
-    assert conversation_data.assistant_id == "assistant_123"
+    assert conversation_data.assistant_id == "asst_testXLnzQYrQlAEzrOA"

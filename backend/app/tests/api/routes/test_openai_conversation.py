@@ -14,12 +14,12 @@ def test_get_conversation_by_id(
     project = get_project(db)
     # Create a conversation first
     conversation_data = OpenAIConversationCreate(
-        response_id="resp_123",
+        response_id="resp_test688080a1c52c819c937",
         ancestor_response_id="ancestor_456",
         user_question="What is the capital of France?",
         response="The capital of France is Paris.",
         model="gpt-4o",
-        assistant_id="asst_123",
+        assistant_id="asst_testXLnzQYrQlAEzrOA",
         project_id=project.id,
         organization_id=project.organization_id,
     )
@@ -33,7 +33,7 @@ def test_get_conversation_by_id(
     data = response.json()
     assert data["success"] is True
     assert data["data"]["id"] == conversation.id
-    assert data["data"]["response_id"] == "resp_123"
+    assert data["data"]["response_id"] == "resp_test688080a1c52c819c937"
 
 
 def test_get_conversation_by_response_id(
@@ -43,25 +43,25 @@ def test_get_conversation_by_response_id(
     project = get_project(db)
     # Create a conversation first
     conversation_data = OpenAIConversationCreate(
-        response_id="resp_123",
+        response_id="resp_test688080a1c52c819c937",
         ancestor_response_id="ancestor_456",
         user_question="What is the capital of France?",
         response="The capital of France is Paris.",
         model="gpt-4o",
-        assistant_id="asst_123",
+        assistant_id="asst_testXLnzQYrQlAEzrOA",
         project_id=project.id,
         organization_id=project.organization_id,
     )
     create_openai_conversation(db, conversation_data)
     response = client.get(
-        "/api/v1/openai-conversation/response/resp_123",
+        "/api/v1/openai-conversation/response/resp_test688080a1c52c819c937",
         headers=normal_user_api_key_headers,
     )
 
     assert response.status_code == 200
     data = response.json()
     assert data["success"] is True
-    assert data["data"]["response_id"] == "resp_123"
+    assert data["data"]["response_id"] == "resp_test688080a1c52c819c937"
 
 
 def test_get_conversations_by_ancestor(
@@ -76,7 +76,7 @@ def test_get_conversations_by_ancestor(
         user_question="What is the capital of France?",
         response="The capital of France is Paris.",
         model="gpt-4o",
-        assistant_id="asst_123",
+        assistant_id="asst_testXLnzQYrQlAEzrOA",
         project_id=project.id,
         organization_id=project.organization_id,
     )
@@ -86,7 +86,7 @@ def test_get_conversations_by_ancestor(
         user_question="What is the capital of Spain?",
         response="The capital of Spain is Madrid.",
         model="gpt-4o",
-        assistant_id="asst_123",
+        assistant_id="asst_testXLnzQYrQlAEzrOA",
         project_id=project.id,
         organization_id=project.organization_id,
     )
@@ -96,7 +96,7 @@ def test_get_conversations_by_ancestor(
         user_question="What is the capital of Italy?",
         response="The capital of Italy is Rome.",
         model="gpt-4o",
-        assistant_id="asst_123",
+        assistant_id="asst_testXLnzQYrQlAEzrOA",
         project_id=project.id,
         organization_id=project.organization_id,
     )
@@ -123,12 +123,12 @@ def test_update_conversation(
     project = get_project(db)
     # Create a conversation first
     conversation_data = OpenAIConversationCreate(
-        response_id="resp_123",
+        response_id="resp_test688080a1c52c819c937",
         ancestor_response_id="ancestor_456",
         user_question="What is the capital of France?",
         response="The capital of France is Paris.",
         model="gpt-4o",
-        assistant_id="asst_123",
+        assistant_id="asst_testXLnzQYrQlAEzrOA",
         project_id=project.id,
         organization_id=project.organization_id,
     )
@@ -149,7 +149,9 @@ def test_update_conversation(
     assert data["success"] is True
     assert data["data"]["ancestor_response_id"] == "ancestor_789"
     assert data["data"]["previous_response_id"] == "prev_123"
-    assert data["data"]["response_id"] == "resp_123"  # Should remain unchanged
+    assert (
+        data["data"]["response_id"] == "resp_test688080a1c52c819c937"
+    )  # Should remain unchanged
 
 
 def test_delete_conversation_by_id(
@@ -159,11 +161,11 @@ def test_delete_conversation_by_id(
     project = get_project(db)
     # Create a conversation first
     conversation_data = OpenAIConversationCreate(
-        response_id="resp_123",
+        response_id="resp_test688080a1c52c819c937",
         user_question="What is the capital of France?",
         response="The capital of France is Paris.",
         model="gpt-4o",
-        assistant_id="asst_123",
+        assistant_id="asst_testXLnzQYrQlAEzrOA",
         project_id=project.id,
         organization_id=project.organization_id,
     )
@@ -191,7 +193,7 @@ def test_list_conversations(
         user_question="What is the capital of France?",
         response="The capital of France is Paris.",
         model="gpt-4o",
-        assistant_id="asst_123",
+        assistant_id="asst_testXLnzQYrQlAEzrOA",
         project_id=project.id,
         organization_id=project.organization_id,
     )
@@ -201,7 +203,7 @@ def test_list_conversations(
         user_question="What is the capital of Spain?",
         response="The capital of Spain is Madrid.",
         model="gpt-4o",
-        assistant_id="asst_123",
+        assistant_id="asst_testXLnzQYrQlAEzrOA",
         project_id=project.id,
         organization_id=project.organization_id,
     )
