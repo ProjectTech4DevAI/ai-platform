@@ -5,7 +5,6 @@ from app.models import (
     OpenAI_Conversation,
     OpenAIConversationCreate,
     OpenAIConversationUpdate,
-    OpenAIConversationPublic,
 )
 
 

@@ -7,39 +7,6 @@ from app.crud.openai_conversation import create_openai_conversation
 from app.tests.utils.utils import get_project
 
 
-def test_create_conversation(
-    client: TestClient, db: Session, normal_user_api_key_headers: dict[str, str]
-):
-    """Test creating a new conversation."""
-    project = get_project(db)
-    conversation_data = {
-        "response_id": "resp_123",
-        "ancestor_response_id": "ancestor_456",
-        "previous_response_id": "prev_789",
-        "user_question": "What is the capital of France?",
-        "response": "The capital of France is Paris.",
-        "model": "gpt-4o",
-        "assistant_id": "asst_123",
-        "project_id": project.id,
-        "organization_id": project.organization_id,
-    }
-    response = client.post(
-        "/api/v1/openai-conversation/create",
-        json=conversation_data,
-        headers=normal_user_api_key_headers,
-    )
-
-    assert response.status_code == 200
-    data = response.json()
-    assert data["success"] is True
-    assert data["data"]["response_id"] == "resp_123"
-    assert data["data"]["ancestor_response_id"] == "ancestor_456"
-    assert data["data"]["previous_response_id"] == "prev_789"
-    assert "id" in data["data"]
-    assert "inserted_at" in data["data"]
-    assert "updated_at" in data["data"]
-
-
 def test_get_conversation_by_id(
     client: TestClient, db: Session, normal_user_api_key_headers: dict[str, str]
 ):

@@ -22,29 +22,6 @@ from app.utils import APIResponse
 router = APIRouter(prefix="/openai-conversation", tags=["openai_conversation"])
 
 
-@router.post(
-    "/create",
-    response_model=APIResponse[OpenAIConversationPublic],
-    summary="Create a new OpenAI conversation",
-    description="Create a new conversation entry with response_id, ancestor_response_id, and previous_response_id",
-)
-async def create_conversation(
-    conversation_data: OpenAIConversationCreate,
-    db: Session = Depends(get_db),
-    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
-):
-    """Create a new OpenAI conversation entry."""
-    try:
-        conversation = create_openai_conversation(db, conversation_data)
-        return APIResponse.success_response(
-            data=OpenAIConversationPublic.model_validate(conversation)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=400, detail=f"Failed to create conversation: {str(e)}"
-        )
-
-
 @router.get(
     "/list",
     response_model=APIResponse[list[OpenAIConversationPublic]],
@@ -54,7 +31,7 @@ async def create_conversation(
 async def list_conversations(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(
-        100, gt=0, le=1000, description="Maximum number of records to return"
+        100, gt=0, le=100, description="Maximum number of records to return"
     ),
     db: Session = Depends(get_db),
     _current_user: UserOrganization = Depends(get_current_user_org),
