@@ -1,5 +1,6 @@
 {
   "base_url": "http://localhost:8000/api/v1",
+  "api_key": "SuperUserApiKey",
   "openai_key": "openai_api_key_example",
   "assistant_ingest": {
     "input_csv": "sample_input.csv",
