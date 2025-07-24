@@ -68,9 +68,8 @@ jobs:
           uv run pre-commit run --all-files
         working-directory: backend
 
-      - name: Load environment variables for testing
-        run: cp .env.test.example .env.test  # Copy the test env file
-        working-directory: backend
+      - name: Making env file for testing
+        run: cp .env.test.example .env.test
 
       - name: Set environment for test DB
         run: |
