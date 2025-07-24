@@ -37,9 +37,9 @@ def create_collection(
 
 
 def test_collection_info_processing(
-    db: Session, client: TestClient, normal_user_api_key_headers
+    db: Session, client: TestClient, user_api_key_header
 ):
-    headers = normal_user_api_key_headers
+    headers = user_api_key_header
     user = get_user_from_api_key(db, headers)
     collection = create_collection(db, user, status=CollectionStatus.processing)
 
@@ -58,9 +58,9 @@ def test_collection_info_processing(
 
 
 def test_collection_info_successful(
-    db: Session, client: TestClient, normal_user_api_key_headers
+    db: Session, client: TestClient, user_api_key_header
 ):
-    headers = normal_user_api_key_headers
+    headers = user_api_key_header
     user = get_user_from_api_key(db, headers)
     collection = create_collection(
         db, user, status=CollectionStatus.successful, with_llm=True
@@ -80,10 +80,8 @@ def test_collection_info_successful(
     assert data["llm_service_name"] == "gpt-4o"
 
 
-def test_collection_info_failed(
-    db: Session, client: TestClient, normal_user_api_key_headers
-):
-    headers = normal_user_api_key_headers
+def test_collection_info_failed(db: Session, client: TestClient, user_api_key_header):
+    headers = user_api_key_header
     user = get_user_from_api_key(db, headers)
     collection = create_collection(db, user, status=CollectionStatus.failed)
 

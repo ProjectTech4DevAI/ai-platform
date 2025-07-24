@@ -64,12 +64,24 @@ def normal_user_token_headers(client: TestClient, db: Session) -> dict[str, str]
 
 
 @pytest.fixture(scope="function")
-def superuser_api_key_headers(db: Session) -> dict[str, str]:
+def superuser_api_key_header(db: Session) -> dict[str, str]:
     api_key = get_api_key_by_email(db, settings.FIRST_SUPERUSER)
-    return {"X-API-KEY": api_key}
+    return {"X-API-KEY": api_key.key}
 
 
 @pytest.fixture(scope="function")
-def normal_user_api_key_headers(db: Session) -> dict[str, str]:
+def user_api_key_header(db: Session) -> dict[str, str]:
     api_key = get_api_key_by_email(db, settings.EMAIL_TEST_USER)
-    return {"X-API-KEY": api_key}
+    return {"X-API-KEY": api_key.key}
+
+
+@pytest.fixture(scope="function")
+def superuser_api_key(db: Session) -> dict[str, str]:
+    api_key = get_api_key_by_email(db, settings.FIRST_SUPERUSER)
+    return api_key
+
+
+@pytest.fixture(scope="function")
+def user_api_key(db: Session) -> dict[str, str]:
+    api_key = get_api_key_by_email(db, settings.EMAIL_TEST_USER)
+    return api_key
