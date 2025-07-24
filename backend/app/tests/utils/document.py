@@ -113,18 +113,18 @@ class Route:
 @dataclass
 class WebCrawler:
     client: TestClient
-    normal_user_api_key_headers: dict[str, str]
+    user_api_key_header: dict[str, str]
 
     def get(self, route: Route):
         return self.client.get(
             str(route),
-            headers=self.normal_user_api_key_headers,
+            headers=self.user_api_key_header,
         )
 
     def delete(self, route: Route):
         return self.client.delete(
             str(route),
-            headers=self.normal_user_api_key_headers,
+            headers=self.user_api_key_header,
         )
 
 
@@ -158,5 +158,5 @@ class DocumentComparator:
 
 
 @pytest.fixture
-def crawler(client: TestClient, normal_user_api_key_headers: dict[str, str]):
-    return WebCrawler(client, normal_user_api_key_headers)
+def crawler(client: TestClient, user_api_key_header: dict[str, str]):
+    return WebCrawler(client, user_api_key_header)
