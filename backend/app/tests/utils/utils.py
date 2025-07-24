@@ -48,11 +48,11 @@ def get_superuser_token_headers(client: TestClient) -> dict[str, str]:
     return headers
 
 
-def get_api_key_by_email(db: Session, email: EmailStr) -> str:
+def get_api_key_by_email(db: Session, email: EmailStr) -> APIKeyPublic:
     user = get_user_by_email(session=db, email=email)
     api_key = get_api_key_by_user_id(db, user_id=user.id)
 
-    return api_key.key
+    return api_key
 
 
 def get_user_id_by_email(db: Session) -> int:
