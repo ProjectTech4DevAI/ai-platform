@@ -220,7 +220,7 @@ async def responses(
         f"Processing response request for assistant_id={mask_string(request.assistant_id)}, project_id={project_id}, organization_id={organization_id}"
     )
 
-    assistant = get_assistant_by_id(_session, request.assistant_id, organization_id)
+    assistant = get_assistant_by_id(_session, request.assistant_id, project_id)
     if not assistant:
         logger.warning(
             f"Assistant not found: assistant_id={mask_string(request.assistant_id)}, project_id={project_id}, organization_id={organization_id}",
