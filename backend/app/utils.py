@@ -177,6 +177,9 @@ def get_openai_client(session: Session, org_id: int, project_id: int) -> OpenAI:
     )
 
     if not credentials or "api_key" not in credentials:
+        logger.warning(
+            f"[get_openai_client] OpenAI credentials not found. | project_id: {project_id}"
+        )
         raise HTTPException(
             status_code=400,
             detail="OpenAI credentials not configured for this organization/project.",
@@ -185,6 +188,10 @@ def get_openai_client(session: Session, org_id: int, project_id: int) -> OpenAI:
     try:
         return OpenAI(api_key=credentials["api_key"])
     except Exception as e:
+        logger.error(
+            f"[get_openai_client] Failed to configure OpenAI client. | project_id: {project_id} | error: {str(e)}",
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=500,
             detail=f"Failed to configure OpenAI client: {str(e)}",
