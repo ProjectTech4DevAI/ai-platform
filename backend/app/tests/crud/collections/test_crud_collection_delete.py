@@ -17,7 +17,7 @@ class TestCollectionDelete:
 
     @openai_responses.mock()
     def test_delete_marks_deleted(self, db: Session):
-        client = OpenAI(api_key="test_api_key")
+        client = OpenAI(api_key=self.openai_api_key)
 
         assistant = OpenAIAssistantCrud(client)
         collection = get_collection(db, client)
@@ -29,7 +29,7 @@ class TestCollectionDelete:
 
     @openai_responses.mock()
     def test_delete_follows_insert(self, db: Session):
-        client = OpenAI(api_key="test_api_key")
+        client = OpenAI(api_key=self.openai_api_key)
 
         assistant = OpenAIAssistantCrud(client)
         collection = get_collection(db, client)
@@ -41,7 +41,7 @@ class TestCollectionDelete:
 
     @openai_responses.mock()
     def test_cannot_delete_others_collections(self, db: Session):
-        client = OpenAI(api_key="test_api_key")
+        client = OpenAI(api_key=self.openai_api_key)
 
         assistant = OpenAIAssistantCrud(client)
         collection = get_collection(db, client)
@@ -56,7 +56,7 @@ class TestCollectionDelete:
         store = DocumentStore(db)
         documents = store.fill(1)
 
-        client = OpenAI(api_key="test_api_key")
+        client = OpenAI(api_key=self.openai_api_key)
         resources = []
         for _ in range(self._n_collections):
             coll = get_collection(db, client)

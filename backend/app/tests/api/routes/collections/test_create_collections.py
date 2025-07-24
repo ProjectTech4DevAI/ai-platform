@@ -4,17 +4,14 @@ import io
 
 from sqlmodel import Session
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from app.core.config import settings
 from app.tests.utils.document import DocumentStore
 from app.tests.utils.utils import get_user_from_api_key
-from app.main import app
 from app.crud.collection import CollectionCrud
 from app.models.collection import CollectionStatus
 from app.tests.utils.collections_openai_mock import get_mock_openai_client
-
-client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
@@ -45,12 +42,10 @@ def mock_s3(monkeypatch):
 class TestCollectionRouteCreate:
     _n_documents = 5
 
-    @patch("app.api.routes.collections.configure_openai")
-    @patch("app.api.routes.collections.get_provider_credential")
+    @patch("app.api.routes.collections.get_openai_client")
     def test_create_collection_success(
         self,
-        mock_get_credential,
-        mock_configure_openai,
+        mock_get_openai_client,
         client: TestClient,
         db: Session,
         normal_user_api_key_headers,
@@ -70,9 +65,8 @@ class TestCollectionRouteCreate:
 
         headers = normal_user_api_key_headers
 
-        mock_get_credential.return_value = {"api_key": "test_api_key"}
         mock_openai_client = get_mock_openai_client()
-        mock_configure_openai.return_value = (mock_openai_client, True)
+        mock_get_openai_client.return_value = mock_openai_client
 
         response = client.post(
             f"{settings.API_V1_STR}/collections/create", json=body, headers=headers

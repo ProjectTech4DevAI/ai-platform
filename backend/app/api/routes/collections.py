@@ -1,31 +1,28 @@
 import inspect
 import logging
 import time
-import warnings
 from uuid import UUID, uuid4
 from typing import Any, List, Optional
 from dataclasses import dataclass, field, fields, asdict, replace
 
-from openai import OpenAI, OpenAIError
+from openai import OpenAIError, OpenAI
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
 from fastapi import Path as FastPath
 from pydantic import BaseModel, Field, HttpUrl
-from sqlalchemy.exc import NoResultFound, MultipleResultsFound, SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
 from app.core.cloud import AmazonCloudStorage
-from app.core.config import settings
-from app.core.util import now, raise_from_unknown, post_callback, configure_openai
+from app.core.util import now, post_callback, configure_openai
 from app.crud import (
     DocumentCrud,
     CollectionCrud,
     DocumentCollectionCrud,
-    get_provider_credential,
 )
 from app.crud.rag import OpenAIVectorStoreCrud, OpenAIAssistantCrud
 from app.models import Collection, Document
 from app.models.collection import CollectionStatus
-from app.utils import APIResponse, load_description
+from app.utils import APIResponse, load_description, get_openai_client
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/collections", tags=["collections"])
@@ -183,24 +180,12 @@ def _backout(crud: OpenAIAssistantCrud, assistant_id: str):
         )
 
 
-def mark_collection_failed(session, user_id, collection_id, reason: str):
-    try:
-        collection = CollectionCrud(session, user_id).read_one(collection_id)
-        collection.status = CollectionStatus.failed
-        collection.updated_at = now()
-        CollectionCrud(session, user_id)._update(collection)
-    except Exception as suberr:
-        logger.warning(
-            f"[do_create_collection] Failed to mark collection failed | {{'collection_id': '{collection_id}', 'reason': '{str(suberr)}'}}"
-        )
-
-
 def do_create_collection(
     session: SessionDep,
     current_user: CurrentUserOrgProject,
     request: CreationRequest,
     payload: ResponsePayload,
-    client,
+    client: OpenAI,
 ):
     start_time = time.time()
 
@@ -279,18 +264,9 @@ def create_collection(
     request: CreationRequest,
     background_tasks: BackgroundTasks,
 ):
-    credentials = get_provider_credential(
-        session=session,
-        org_id=current_user.organization_id,
-        provider="openai",
-        project_id=current_user.project_id,
+    client = get_openai_client(
+        session, current_user.organization_id, current_user.project_id
     )
-    client, success = configure_openai(credentials)
-    if not success:
-        logger.error(
-            f"[create_collection] OpenAI API key not configured for org_id={current_user.organization_id}, project_id={current_user.project_id}"
-        )
-        raise HTTPException(status_code=400, detail="OpenAI is not configured")
 
     this = inspect.currentframe()
     route = router.url_path_for(this.f_code.co_name)

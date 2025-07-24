@@ -43,21 +43,18 @@ def aws_credentials():
 @mock_aws
 class TestDocumentRoutePermanentRemove:
     @openai_responses.mock()
-    @patch("app.api.routes.documents.get_provider_credential")
-    @patch("app.api.routes.documents.configure_openai")
-    def test_item_is_soft_removed(
+    @patch("app.api.routes.documents.get_openai_client")
+    def test_permanent_delete_document_from_s3(
         self,
-        mock_configure_openai,
-        mock_get_credential,
+        mock_get_openai_client,
         db: Session,
         route: Route,
         crawler: WebCrawler,
     ):
         openai_mock = OpenAIMock()
         with openai_mock.router:
-            client = OpenAI(api_key="test_key")
-            mock_get_credential.return_value = {"api_key": "sk-test-key"}
-            mock_configure_openai.return_value = (client, True)
+            client = OpenAI(api_key=self.openai_api_key)
+            mock_get_openai_client.return_value = client
 
         # Setup AWS
         aws = AmazonCloudStorageClient()
@@ -73,7 +70,6 @@ class TestDocumentRoutePermanentRemove:
 
         # Delete document
         response = crawler.delete(route.append(document, suffix="permanent"))
-        print(response)
         assert response.is_success
 
         db.refresh(document)

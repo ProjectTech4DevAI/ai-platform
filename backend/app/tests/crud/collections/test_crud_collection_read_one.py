@@ -11,13 +11,13 @@ from app.tests.utils.collection import get_collection, uuid_increment
 from app.tests.utils.utils import openai_credentials
 
 
-def mk_collection(db: Session):
+def mk_collection(db: Session, api_key: str):
     store = DocumentStore(db)
     documents = store.fill(1)
 
     openai_mock = OpenAIMock()
     with openai_mock.router:
-        client = OpenAI(api_key="Test_api_key")
+        client = OpenAI(api_key=api_key)
         collection = get_collection(db, client)
         crud = CollectionCrud(db, collection.owner_id)
         return crud.create(collection, documents)
@@ -26,7 +26,7 @@ def mk_collection(db: Session):
 @pytest.mark.usefixtures("openai_credentials")
 class TestDatabaseReadOne:
     def test_can_select_valid_id(self, db: Session):
-        collection = mk_collection(db)
+        collection = mk_collection(db, self.openai_api_key)
 
         crud = CollectionCrud(db, collection.owner_id)
         result = crud.read_one(collection.id)
@@ -34,7 +34,7 @@ class TestDatabaseReadOne:
         assert result.id == collection.id
 
     def test_cannot_select_others_collections(self, db: Session):
-        collection = mk_collection(db)
+        collection = mk_collection(db, self.openai_api_key)
 
         other = collection.owner_id + 1
         crud = CollectionCrud(db, other)

@@ -4,11 +4,8 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 from app.core.config import settings
 from app.models import Collection
-from app.main import app
 from app.tests.utils.utils import get_user_from_api_key
 from app.models.collection import CollectionStatus
-
-client = TestClient(app)
 
 
 def create_collection(

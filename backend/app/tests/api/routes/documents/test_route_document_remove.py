@@ -24,21 +24,18 @@ def route():
 @pytest.mark.usefixtures("openai_credentials")
 class TestDocumentRouteRemove:
     @openai_responses.mock()
-    @patch("app.api.routes.documents.get_provider_credential")
-    @patch("app.api.routes.documents.configure_openai")
+    @patch("app.api.routes.documents.get_openai_client")
     def test_response_is_success(
         self,
-        mock_configure_openai,
-        mock_get_credential,
+        mock_get_openai_client,
         db: Session,
         route: Route,
         crawler: WebCrawler,
     ):
         openai_mock = OpenAIMock()
         with openai_mock.router:
-            client = OpenAI(api_key="test_key")
-            mock_get_credential.return_value = {"api_key": "sk-test-key"}
-            mock_configure_openai.return_value = (client, True)
+            client = OpenAI(api_key=self.openai_api_key)
+            mock_get_openai_client.return_value = client
 
             store = DocumentStore(db)
             response = crawler.get(route.append(store.put()))
@@ -46,21 +43,18 @@ class TestDocumentRouteRemove:
             assert response.is_success
 
     @openai_responses.mock()
-    @patch("app.api.routes.documents.get_provider_credential")
-    @patch("app.api.routes.documents.configure_openai")
+    @patch("app.api.routes.documents.get_openai_client")
     def test_item_is_soft_removed(
         self,
-        mock_configure_openai,
-        mock_get_credential,
+        mock_get_openai_client,
         db: Session,
         route: Route,
         crawler: WebCrawler,
     ):
         openai_mock = OpenAIMock()
         with openai_mock.router:
-            mock_get_credential.return_value = {"api_key": "test-key"}
-            client = OpenAI(api_key="test_key")
-            mock_configure_openai.return_value = (client, True)
+            client = OpenAI(api_key=self.openai_api_key)
+            mock_get_openai_client.return_value = client
 
             store = DocumentStore(db)
             document = store.put()
@@ -73,21 +67,18 @@ class TestDocumentRouteRemove:
             assert result.deleted_at is not None
 
     @openai_responses.mock()
-    @patch("app.api.routes.documents.get_provider_credential")
-    @patch("app.api.routes.documents.configure_openai")
+    @patch("app.api.routes.documents.get_openai_client")
     def test_cannot_remove_unknown_document(
         self,
-        mock_configure_openai,
-        mock_get_credential,
+        mock_get_openai_client,
         db: Session,
         route: Route,
         crawler: WebCrawler,
     ):
         openai_mock = OpenAIMock()
         with openai_mock.router:
-            client = OpenAI(api_key="test_key")
-            mock_get_credential.return_value = {"api_key": "sk-test-key"}
-            mock_configure_openai.return_value = (client, True)
+            client = OpenAI(api_key=self.openai_api_key)
+            mock_get_openai_client.return_value = client
 
             DocumentStore.clear(db)
             maker = DocumentMaker(db)

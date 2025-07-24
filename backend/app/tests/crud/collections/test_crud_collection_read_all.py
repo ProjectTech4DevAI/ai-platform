@@ -11,14 +11,14 @@ from app.tests.utils.collection import get_collection
 from app.tests.utils.utils import openai_credentials
 
 
-def create_collections(db: Session, n: int):
+def create_collections(db: Session, n: int, api_key: str):
     crud = None
     store = DocumentStore(db)
     documents = store.fill(1)
 
     openai_mock = OpenAIMock()
     with openai_mock.router:
-        client = OpenAI(api_key="test_api_key")
+        client = OpenAI(api_key=api_key)
         for _ in range(n):
             collection = get_collection(db, client)
             if crud is None:
@@ -41,13 +41,13 @@ class TestCollectionReadAll:
     def test_number_read_is_expected(self, db: Session):
         db.query(Collection).delete()
 
-        owner = create_collections(db, self._ncollections)
+        owner = create_collections(db, self._ncollections, self.openai_api_key)
         crud = CollectionCrud(db, owner)
         docs = crud.read_all()
 
         assert len(docs) == self._ncollections
 
     def test_deleted_docs_are_excluded(self, db: Session):
-        owner = create_collections(db, self._ncollections)
+        owner = create_collections(db, self._ncollections, self.openai_api_key)
         crud = CollectionCrud(db, owner)
         assert all(x.deleted_at is None for x in crud.read_all())

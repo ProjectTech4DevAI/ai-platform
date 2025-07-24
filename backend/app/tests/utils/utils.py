@@ -3,6 +3,7 @@ import string
 from uuid import UUID
 from typing import Type, TypeVar
 
+
 import pytest
 from pydantic import EmailStr
 from fastapi.testclient import TestClient
@@ -18,8 +19,8 @@ T = TypeVar("T")
 
 
 @pytest.fixture(scope="class")
-def openai_credentials():
-    OPENAI_API_KEY = "sk-fake123"
+def openai_credentials(request):
+    request.cls.openai_api_key = "sk-fake123"
 
 
 def random_lower_string() -> str:

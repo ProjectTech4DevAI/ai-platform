@@ -6,10 +6,10 @@ from pathlib import Path
 from fastapi import APIRouter, File, UploadFile, Query, HTTPException
 from fastapi import Path as FastPath
 
-from app.crud import DocumentCrud, CollectionCrud, get_provider_credential
+from app.crud import DocumentCrud, CollectionCrud
 from app.models import Document
 from app.core.util import configure_openai
-from app.utils import APIResponse, load_description
+from app.utils import APIResponse, load_description, get_openai_client
 from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
 from app.core.cloud import AmazonCloudStorage
 from app.crud.rag import OpenAIAssistantCrud
@@ -69,18 +69,9 @@ def remove_doc(
     current_user: CurrentUserOrgProject,
     doc_id: UUID = FastPath(description="Document to delete"),
 ):
-    credentials = get_provider_credential(
-        session=session,
-        org_id=current_user.organization_id,
-        provider="openai",
-        project_id=current_user.project_id,
+    client = get_openai_client(
+        session, current_user.organization_id, current_user.project_id
     )
-    client, success = configure_openai(credentials)
-    if not success:
-        logger.error(
-            f"[remove_doc] OpenAI API key not configured for org_id={current_user.organization_id}, project_id={current_user.project_id}"
-        )
-        raise HTTPException(status_code=400, detail="OpenAI is not configured")
 
     a_crud = OpenAIAssistantCrud(client)
     d_crud = DocumentCrud(session, current_user.id)
@@ -101,18 +92,9 @@ def permanent_delete_doc(
     current_user: CurrentUserOrgProject,
     doc_id: UUID = FastPath(description="Document to permanently delete"),
 ):
-    credentials = get_provider_credential(
-        session=session,
-        org_id=current_user.organization_id,
-        provider="openai",
-        project_id=current_user.project_id,
+    client = get_openai_client(
+        session, current_user.organization_id, current_user.project_id
     )
-    client, success = configure_openai(credentials)
-    if not success:
-        logger.error(
-            f"[permanent_delete_doc] OpenAI API key not configured for org_id={current_user.organization_id}, project_id={current_user.project_id}"
-        )
-        raise HTTPException(status_code=400, detail="OpenAI is not configured")
 
     a_crud = OpenAIAssistantCrud(client)
     d_crud = DocumentCrud(session, current_user.id)
