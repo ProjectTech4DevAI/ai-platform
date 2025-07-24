@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import select
 
 from app.api.routes.responses import router
-from app.models import Project, OpenAI_Conversation
+from app.models import Project
 
 # Wrap the router in a FastAPI app instance
 app = FastAPI()
