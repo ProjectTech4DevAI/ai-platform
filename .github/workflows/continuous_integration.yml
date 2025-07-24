@@ -68,8 +68,20 @@ jobs:
           uv run pre-commit run --all-files
         working-directory: backend
 
-      - name: Making env file for testing
-        run: cp .env.test.example .env.test
+      - name: Load environment variables for testing
+        run: cp .env.test.example .env.test  # Copy the test env file
+        working-directory: backend
+
+      - name: Set environment for test DB
+        run: |
+          echo "SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@localhost:5433/ai_platform_test" >> .env.test
+        working-directory: backend
+
+      - name: Activate virtual environment and run Alembic migrations for test DB
+        run: |
+          source .venv/bin/activate
+          alembic upgrade head
+        working-directory: backend
 
       - name: Run tests
         run: uv run bash scripts/tests-start.sh "Coverage for ${{ github.sha }}"
