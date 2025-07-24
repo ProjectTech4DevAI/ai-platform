@@ -62,4 +62,4 @@ from .openai_conversation import (
     OpenAIConversationPublic,
 )
 
-from .assistants import Assistant, AssistantBase
+from .assistants import Assistant, AssistantBase, AssistantCreate, AssistantUpdate

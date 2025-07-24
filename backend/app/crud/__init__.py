@@ -59,4 +59,8 @@ from .assistants import (
     get_assistant_by_id,
     fetch_assistant_from_openai,
     sync_assistant,
+    create_assistant,
+    update_assistant,
+    get_assistants_by_project,
+    delete_assistant,
 )
