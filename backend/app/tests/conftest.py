@@ -1,20 +1,36 @@
 from collections.abc import Generator
-
 import pytest
-import time
-
 from fastapi.testclient import TestClient
-from sqlmodel import Session
+from sqlmodel import Session, create_engine
 from sqlalchemy import event
 
-from app.core.config import settings
-from app.core.db import engine
 from app.api.deps import get_db
 from app.main import app
 from app.models import APIKeyPublic
 from app.tests.utils.user import authentication_token_from_email
-from app.tests.utils.utils import get_superuser_token_headers, get_api_key_by_email
+
+
+@pytest.fixture(scope="session", autouse=True)
+def load_test_env():
+    load_environment("../.env.test")
+
+
+from app.core.config import settings
+from app.tests.utils.utils import (
+    get_superuser_token_headers,
+    get_api_key_by_email,
+    load_environment,
+)
 from app.seed_data.seed_data import seed_database
+from app.core.db import engine
+
+
+@pytest.fixture(scope="session", autouse=True)
+def seed_baseline():
+    with Session(engine) as session:
+        print("Seeding baseline data...")
+        seed_database(session)  # deterministic baseline
+        yield
 
 
 @pytest.fixture(scope="function")
@@ -22,8 +38,6 @@ def db() -> Generator[Session, None, None]:
     connection = engine.connect()
     transaction = connection.begin()
     session = Session(bind=connection)
-
-    nested = session.begin_nested()
 
     @event.listens_for(session, "after_transaction_end")
     def restart_savepoint(sess, trans):
@@ -35,14 +49,6 @@ def db() -> Generator[Session, None, None]:
     finally:
         session.close()
         transaction.rollback()
-        connection.close()
-
-
-@pytest.fixture(scope="session", autouse=True)
-def seed_baseline():
-    with Session(engine) as session:
-        seed_database(session)  # deterministic baseline
-        yield
 
 
 @pytest.fixture(scope="function")
