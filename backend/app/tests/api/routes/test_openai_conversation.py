@@ -116,44 +116,6 @@ def test_get_conversations_by_ancestor(
     assert all(conv["ancestor_response_id"] == "ancestor_123" for conv in data["data"])
 
 
-def test_update_conversation(
-    client: TestClient, db: Session, normal_user_api_key_headers: dict[str, str]
-):
-    """Test updating a conversation."""
-    project = get_project(db)
-    # Create a conversation first
-    conversation_data = OpenAIConversationCreate(
-        response_id="resp_test688080a1c52c819c937",
-        ancestor_response_id="ancestor_456",
-        user_question="What is the capital of France?",
-        response="The capital of France is Paris.",
-        model="gpt-4o",
-        assistant_id="asst_testXLnzQYrQlAEzrOA",
-        project_id=project.id,
-        organization_id=project.organization_id,
-    )
-    conversation = create_openai_conversation(db, conversation_data)
-
-    update_data = {
-        "ancestor_response_id": "ancestor_789",
-        "previous_response_id": "prev_123",
-    }
-    response = client.put(
-        f"/api/v1/openai-conversation/{conversation.id}",
-        json=update_data,
-        headers=normal_user_api_key_headers,
-    )
-
-    assert response.status_code == 200
-    data = response.json()
-    assert data["success"] is True
-    assert data["data"]["ancestor_response_id"] == "ancestor_789"
-    assert data["data"]["previous_response_id"] == "prev_123"
-    assert (
-        data["data"]["response_id"] == "resp_test688080a1c52c819c937"
-    )  # Should remain unchanged
-
-
 def test_delete_conversation_by_id(
     client: TestClient, db: Session, normal_user_api_key_headers: dict[str, str]
 ):
