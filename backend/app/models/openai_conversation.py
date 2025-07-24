@@ -31,18 +31,6 @@ class OpenAIConversationCreate(OpenAIConversationBase):
     pass  # Used for requests, no `id` or timestamps
 
 
-class OpenAIConversationUpdate(SQLModel):
-    response_id: Optional[str] = None
-    ancestor_response_id: Optional[str] = None
-    previous_response_id: Optional[str] = None
-    user_question: Optional[str] = None
-    response: Optional[str] = None
-    model: Optional[str] = None
-    assistant_id: Optional[str] = None
-    project_id: Optional[int] = Field(default=None, foreign_key="project.id")
-    organization_id: Optional[int] = Field(default=None, foreign_key="organization.id")
-
-
 class OpenAIConversationPublic(OpenAIConversationBase):
     id: int
     inserted_at: datetime

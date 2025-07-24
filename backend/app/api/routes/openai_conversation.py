@@ -3,11 +3,7 @@ from sqlmodel import Session
 
 from app.api.deps import get_db, get_current_user_org, get_current_user_org_project
 from app.models import UserOrganization, UserProjectOrg
-from app.models.openai_conversation import (
-    OpenAIConversationCreate,
-    OpenAIConversationUpdate,
-    OpenAIConversationPublic,
-)
+from app.models.openai_conversation import OpenAIConversationPublic
 from app.crud.openai_conversation import (
     get_openai_conversation_by_id,
     get_openai_conversation_by_response_id,
@@ -99,28 +95,6 @@ async def get_conversations_by_ancestor(
     conversations = get_openai_conversations_by_ancestor(db, ancestor_response_id)
     return APIResponse.success_response(
         data=[OpenAIConversationPublic.model_validate(conv) for conv in conversations]
-    )
-
-
-@router.put(
-    "/{conversation_id}",
-    response_model=APIResponse[OpenAIConversationPublic],
-    summary="Update conversation",
-    description="Update an existing conversation by ID",
-)
-async def update_conversation(
-    conversation_data: OpenAIConversationUpdate,
-    conversation_id: int = Path(..., description="The conversation ID"),
-    db: Session = Depends(get_db),
-    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
-):
-    """Update a conversation by its ID."""
-    conversation = update_openai_conversation(db, conversation_id, conversation_data)
-    if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-
-    return APIResponse.success_response(
-        data=OpenAIConversationPublic.model_validate(conversation)
     )
 
 
