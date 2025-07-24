@@ -21,7 +21,7 @@ class OpenAIConversationBase(SQLModel):
         max_length=50,
     )
     project_id: int = Field(
-        default=None, foreign_key="project.id", nullable=False, ondelete="CASCADE"
+        foreign_key="project.id", nullable=False, ondelete="CASCADE"
     )
     organization_id: int = Field(
         foreign_key="organization.id", nullable=False, ondelete="CASCADE"
