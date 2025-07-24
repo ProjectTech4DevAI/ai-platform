@@ -85,10 +85,13 @@ jobs:
           SQLALCHEMY_DATABASE_URI: postgresql://postgres:postgres@localhost:5433/ai_platform_test
 
       - name: Run tests
-        run: uv run bash scripts/tests-start.sh "Coverage for ${{ github.sha }}"
+        run: |
+          source .env.test
+          uv run bash scripts/tests-start.sh "Coverage for ${{ github.sha }}"
         working-directory: backend
         env:
           SQLALCHEMY_DATABASE_URI: postgresql://postgres:postgres@localhost:5433/ai_platform_test
+
 
       - name: Upload coverage reports to codecov
         uses: codecov/codecov-action@v5.4.3
