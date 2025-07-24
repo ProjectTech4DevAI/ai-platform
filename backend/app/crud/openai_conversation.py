@@ -42,9 +42,20 @@ def get_openai_conversations_by_ancestor(
 
 
 def get_all_openai_conversations(
-    session: Session, skip: int = 0, limit: int = 100
+    session: Session, project_id: int, skip: int = 0, limit: int = 100
 ) -> List[OpenAI_Conversation]:
-    statement = select(OpenAI_Conversation).offset(skip).limit(limit)
+    """
+    Return all openai conversations for a given project and organization, with optional pagination.
+    """
+    statement = (
+        select(OpenAI_Conversation)
+        .where(
+            OpenAI_Conversation.project_id == project_id,
+            OpenAI_Conversation.is_deleted == False,
+        )
+        .offset(skip)
+        .limit(limit)
+    )
     return session.exec(statement).all()
 
 

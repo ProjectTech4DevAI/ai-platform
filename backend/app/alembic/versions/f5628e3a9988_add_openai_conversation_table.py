@@ -34,8 +34,10 @@ def upgrade():
         sa.Column("assistant_id", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("project_id", sa.Integer(), nullable=False),
         sa.Column("organization_id", sa.Integer(), nullable=False),
+        sa.Column("is_deleted", sa.Boolean(), nullable=False),
         sa.Column("inserted_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("deleted_at", sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
         sa.ForeignKeyConstraint(
             ["organization_id"], ["organization.id"], ondelete="CASCADE"

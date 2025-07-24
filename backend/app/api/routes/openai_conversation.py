@@ -20,18 +20,20 @@ router = APIRouter(prefix="/openai-conversation", tags=["openai_conversation"])
     "/list",
     response_model=APIResponse[list[OpenAIConversationPublic]],
     summary="List all conversations",
-    description="Retrieve all conversations with pagination support",
+    description="Retrieve all OpenAI conversations with pagination support",
 )
 async def list_conversations(
+    session: Session = Depends(get_db),
+    current_user: UserProjectOrg = Depends(get_current_user_org_project),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(
         100, gt=0, le=100, description="Maximum number of records to return"
     ),
-    db: Session = Depends(get_db),
-    _current_user: UserOrganization = Depends(get_current_user_org),
 ):
-    """Get all conversations with pagination."""
-    conversations = get_all_openai_conversations(db, skip=skip, limit=limit)
+    """Get all conversations with pagination for project and organization"""
+    conversations = get_all_openai_conversations(
+        session=session, project_id=current_user.project_id, skip=skip, limit=limit
+    )
     return APIResponse.success_response(
         data=[OpenAIConversationPublic.model_validate(conv) for conv in conversations]
     )
@@ -46,11 +48,11 @@ async def list_conversations(
 async def get_conversation_by_id(
     conversation_id: int = Path(..., description="The conversation ID"),
     db: Session = Depends(get_db),
-    _current_user: UserOrganization = Depends(get_current_user_org),
+    current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
-    """Get a conversation by its ID."""
+    """Get a conversation by its ID, only if it belongs to the user's project."""
     conversation = get_openai_conversation_by_id(db, conversation_id)
-    if not conversation:
+    if not conversation or conversation.project_id != current_user.project_id:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     return APIResponse.success_response(
@@ -67,11 +69,11 @@ async def get_conversation_by_id(
 async def get_conversation_by_response_id(
     response_id: str = Path(..., description="The response ID"),
     db: Session = Depends(get_db),
-    _current_user: UserOrganization = Depends(get_current_user_org),
+    current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
-    """Get a conversation by its response_id."""
+    """Get a conversation by its response_id, only if it belongs to the user's project."""
     conversation = get_openai_conversation_by_response_id(db, response_id)
-    if not conversation:
+    if not conversation or conversation.project_id != current_user.project_id:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     return APIResponse.success_response(
@@ -88,12 +90,15 @@ async def get_conversation_by_response_id(
 async def get_conversations_by_ancestor(
     ancestor_response_id: str = Path(..., description="The ancestor response ID"),
     db: Session = Depends(get_db),
-    _current_user: UserOrganization = Depends(get_current_user_org),
+    current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
-    """Get all conversations by ancestor_response_id."""
+    """Get all conversations by ancestor_response_id, only for the user's project."""
     conversations = get_openai_conversations_by_ancestor(db, ancestor_response_id)
+    filtered = [
+        conv for conv in conversations if conv.project_id == current_user.project_id
+    ]
     return APIResponse.success_response(
-        data=[OpenAIConversationPublic.model_validate(conv) for conv in conversations]
+        data=[OpenAIConversationPublic.model_validate(conv) for conv in filtered]
     )
 
 
@@ -106,9 +111,12 @@ async def get_conversations_by_ancestor(
 async def delete_conversation_by_id(
     conversation_id: int = Path(..., description="The conversation ID"),
     db: Session = Depends(get_db),
-    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
+    current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
-    """Delete a conversation by its ID."""
+    """Delete a conversation by its ID, only if it belongs to the user's project."""
+    conversation = get_openai_conversation_by_id(db, conversation_id)
+    if not conversation or conversation.project_id != current_user.project_id:
+        raise HTTPException(status_code=404, detail="Conversation not found")
     success = delete_openai_conversation(db, conversation_id)
     if not success:
         raise HTTPException(status_code=404, detail="Conversation not found")

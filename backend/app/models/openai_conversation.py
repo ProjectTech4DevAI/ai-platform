@@ -26,6 +26,8 @@ class OpenAIConversationBase(SQLModel):
     organization_id: int = Field(
         foreign_key="organization.id", nullable=False, ondelete="CASCADE"
     )
+    is_deleted: bool = Field(default=False, nullable=False)
+    deleted_at: Optional[datetime] = Field(default=None, nullable=True)
 
 
 class OpenAIConversationCreate(OpenAIConversationBase):

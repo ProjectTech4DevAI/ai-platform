@@ -34,6 +34,8 @@ def test_get_conversation_by_id(
     assert data["success"] is True
     assert data["data"]["id"] == conversation.id
     assert data["data"]["response_id"] == "resp_test688080a1c52c819c937"
+    assert data["data"]["is_deleted"] is False
+    assert data["data"]["deleted_at"] is None
 
 
 def test_get_conversation_by_response_id(
@@ -62,6 +64,8 @@ def test_get_conversation_by_response_id(
     data = response.json()
     assert data["success"] is True
     assert data["data"]["response_id"] == "resp_test688080a1c52c819c937"
+    assert data["data"]["is_deleted"] is False
+    assert data["data"]["deleted_at"] is None
 
 
 def test_get_conversations_by_ancestor(
@@ -114,12 +118,17 @@ def test_get_conversations_by_ancestor(
     assert data["success"] is True
     assert len(data["data"]) == 2
     assert all(conv["ancestor_response_id"] == "ancestor_123" for conv in data["data"])
+    for conv in data["data"]:
+        assert conv["is_deleted"] is False
+        assert conv["deleted_at"] is None
 
 
 def test_delete_conversation_by_id(
     client: TestClient, db: Session, normal_user_api_key_headers: dict[str, str]
 ):
     """Test deleting a conversation by ID."""
+    from app.crud.openai_conversation import get_openai_conversation_by_id
+
     project = get_project(db)
     # Create a conversation first
     conversation_data = OpenAIConversationCreate(
@@ -141,6 +150,10 @@ def test_delete_conversation_by_id(
     data = response.json()
     assert data["success"] is True
     assert "deleted successfully" in data["data"]["message"]
+    # Fetch from DB and check is_deleted and deleted_at
+    deleted_conv = get_openai_conversation_by_id(db, conversation.id)
+    assert deleted_conv.is_deleted is True
+    assert deleted_conv.deleted_at is not None
 
 
 def test_list_conversations(
@@ -184,3 +197,6 @@ def test_list_conversations(
     response_ids = [conv["response_id"] for conv in data["data"]]
     assert conversation1.response_id in response_ids
     assert conversation2.response_id in response_ids
+    for conv in data["data"]:
+        assert conv["is_deleted"] is False
+        assert conv["deleted_at"] is None
