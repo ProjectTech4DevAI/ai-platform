@@ -29,7 +29,7 @@ def upgrade():
             "previous_response_id", sqlmodel.sql.sqltypes.AutoString(), nullable=True
         ),
         sa.Column("user_question", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-        sa.Column("response", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("response", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column("model", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("assistant_id", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("project_id", sa.Integer(), nullable=False),

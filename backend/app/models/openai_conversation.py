@@ -4,20 +4,21 @@ from datetime import datetime, UTC
 
 
 class OpenAIConversationBase(SQLModel):
-    response_id: str = Field(index=True)
+    response_id: str = Field(index=True, min_length=10)
     ancestor_response_id: Optional[str] = Field(default=None, index=True)
     previous_response_id: Optional[str] = Field(default=None, index=True)
-    user_question: str = Field(description="The user's input question")
-    response: str = Field(description="The assistant's response")
+    user_question: str = Field(description="The user's input question", min_length=1)
+    response: Optional[str] = Field(description="The assistant's response")
+    # there are models with small name like o1 and usually fine tuned models have long names
     model: str = Field(
-        description="The model used for the response", min_length=5, max_length=40
+        description="The model used for the response", min_length=1, max_length=150
     )
+    # usually follow the pattern of asst_WD9bumYqTtpSvxxxxx
     assistant_id: Optional[str] = Field(
-        unique=True,
         default=None,
         description="The assistant ID used",
-        min_length=20,
-        max_length=40,
+        min_length=10,
+        max_length=50,
     )
     project_id: int = Field(
         default=None, foreign_key="project.id", nullable=False, ondelete="CASCADE"
