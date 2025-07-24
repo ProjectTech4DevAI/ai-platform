@@ -1,8 +1,8 @@
 """add openai_conversation table
 
-Revision ID: 8811e4d2fcf9
-Revises: 4aa1f48c6321
-Create Date: 2025-07-21 22:07:01.129760
+Revision ID: ff579a9523c5
+Revises: e8ee93526b37
+Create Date: 2025-07-24 12:16:51.311014
 
 """
 from alembic import op
@@ -11,8 +11,8 @@ import sqlmodel.sql.sqltypes
 
 
 # revision identifiers, used by Alembic.
-revision = "8811e4d2fcf9"
-down_revision = "4aa1f48c6321"
+revision = "ff579a9523c5"
+down_revision = "e8ee93526b37"
 branch_labels = None
 depends_on = None
 
