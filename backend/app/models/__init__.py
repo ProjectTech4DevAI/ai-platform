@@ -58,7 +58,6 @@ from .openai_conversation import (
     OpenAI_Conversation,
     OpenAIConversationBase,
     OpenAIConversationCreate,
-    OpenAIConversationUpdate,
     OpenAIConversationPublic,
 )
 
