@@ -3,12 +3,11 @@ from uuid import UUID, uuid4
 from typing import List
 from pathlib import Path
 
-from fastapi import APIRouter, File, UploadFile, Query, HTTPException
+from fastapi import APIRouter, File, UploadFile, Query
 from fastapi import Path as FastPath
 
 from app.crud import DocumentCrud, CollectionCrud
 from app.models import Document
-from app.core.util import configure_openai
 from app.utils import APIResponse, load_description, get_openai_client
 from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
 from app.core.cloud import AmazonCloudStorage

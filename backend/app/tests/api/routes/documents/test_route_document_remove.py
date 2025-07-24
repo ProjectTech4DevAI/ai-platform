@@ -13,7 +13,6 @@ from app.tests.utils.document import (
     WebCrawler,
     crawler,
 )
-from app.tests.utils.utils import openai_credentials
 
 
 @pytest.fixture
@@ -21,7 +20,6 @@ def route():
     return Route("remove")
 
 
-@pytest.mark.usefixtures("openai_credentials")
 class TestDocumentRouteRemove:
     @openai_responses.mock()
     @patch("app.api.routes.documents.get_openai_client")
@@ -34,7 +32,7 @@ class TestDocumentRouteRemove:
     ):
         openai_mock = OpenAIMock()
         with openai_mock.router:
-            client = OpenAI(api_key=self.openai_api_key)
+            client = OpenAI(api_key="sk-test-key")
             mock_get_openai_client.return_value = client
 
             store = DocumentStore(db)
@@ -53,7 +51,7 @@ class TestDocumentRouteRemove:
     ):
         openai_mock = OpenAIMock()
         with openai_mock.router:
-            client = OpenAI(api_key=self.openai_api_key)
+            client = OpenAI(api_key="sk-test-key")
             mock_get_openai_client.return_value = client
 
             store = DocumentStore(db)
@@ -77,7 +75,7 @@ class TestDocumentRouteRemove:
     ):
         openai_mock = OpenAIMock()
         with openai_mock.router:
-            client = OpenAI(api_key=self.openai_api_key)
+            client = OpenAI(api_key="sk-test-key")
             mock_get_openai_client.return_value = client
 
             DocumentStore.clear(db)

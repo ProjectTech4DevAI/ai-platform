@@ -13,7 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
 from app.core.cloud import AmazonCloudStorage
-from app.core.util import now, post_callback, configure_openai
+from app.core.util import now, post_callback
 from app.crud import (
     DocumentCrud,
     CollectionCrud,
@@ -297,9 +297,10 @@ def create_collection(
 
 def do_delete_collection(
     session: SessionDep,
-    current_user: CurrentUser,
+    current_user: CurrentUserOrgProject,
     request: DeletionRequest,
     payload: ResponsePayload,
+    client: OpenAI,
 ):
     if request.callback_url is None:
         callback = SilentCallback(payload)
@@ -309,7 +310,7 @@ def do_delete_collection(
     collection_crud = CollectionCrud(session, current_user.id)
     try:
         collection = collection_crud.read_one(request.collection_id)
-        assistant = OpenAIAssistantCrud()
+        assistant = OpenAIAssistantCrud(client)
         data = collection_crud.delete(collection, assistant)
         logger.info(
             f"[do_delete_collection] Collection deleted successfully | {{'collection_id': '{collection.id}'}}"
@@ -335,20 +336,20 @@ def do_delete_collection(
 )
 def delete_collection(
     session: SessionDep,
-    current_user: CurrentUser,
+    current_user: CurrentUserOrgProject,
     request: DeletionRequest,
     background_tasks: BackgroundTasks,
 ):
+    client = get_openai_client(
+        session, current_user.organization_id, current_user.project_id
+    )
+
     this = inspect.currentframe()
     route = router.url_path_for(this.f_code.co_name)
     payload = ResponsePayload("processing", route)
 
     background_tasks.add_task(
-        do_delete_collection,
-        session,
-        current_user,
-        request,
-        payload,
+        do_delete_collection, session, current_user, request, payload, client
     )
 
     logger.info(

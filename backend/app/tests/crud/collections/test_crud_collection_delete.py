@@ -8,16 +8,14 @@ from app.crud import CollectionCrud
 from app.crud.rag import OpenAIAssistantCrud
 from app.tests.utils.document import DocumentStore
 from app.tests.utils.collection import get_collection, uuid_increment
-from app.tests.utils.utils import openai_credentials
 
 
-@pytest.mark.usefixtures("openai_credentials")
 class TestCollectionDelete:
     _n_collections = 5
 
     @openai_responses.mock()
     def test_delete_marks_deleted(self, db: Session):
-        client = OpenAI(api_key=self.openai_api_key)
+        client = OpenAI(api_key="sk-test-key")
 
         assistant = OpenAIAssistantCrud(client)
         collection = get_collection(db, client)
@@ -29,7 +27,7 @@ class TestCollectionDelete:
 
     @openai_responses.mock()
     def test_delete_follows_insert(self, db: Session):
-        client = OpenAI(api_key=self.openai_api_key)
+        client = OpenAI(api_key="sk-test-key")
 
         assistant = OpenAIAssistantCrud(client)
         collection = get_collection(db, client)
@@ -41,7 +39,7 @@ class TestCollectionDelete:
 
     @openai_responses.mock()
     def test_cannot_delete_others_collections(self, db: Session):
-        client = OpenAI(api_key=self.openai_api_key)
+        client = OpenAI(api_key="sk-test-key")
 
         assistant = OpenAIAssistantCrud(client)
         collection = get_collection(db, client)
@@ -56,7 +54,7 @@ class TestCollectionDelete:
         store = DocumentStore(db)
         documents = store.fill(1)
 
-        client = OpenAI(api_key=self.openai_api_key)
+        client = OpenAI(api_key="sk-test-key")
         resources = []
         for _ in range(self._n_collections):
             coll = get_collection(db, client)

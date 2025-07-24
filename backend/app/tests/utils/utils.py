@@ -18,11 +18,6 @@ from app.models import APIKeyPublic, Project, Assistant
 T = TypeVar("T")
 
 
-@pytest.fixture(scope="class")
-def openai_credentials(request):
-    request.cls.openai_api_key = "sk-fake123"
-
-
 def random_lower_string() -> str:
     return "".join(random.choices(string.ascii_lowercase, k=32))
 

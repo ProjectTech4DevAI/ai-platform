@@ -22,7 +22,6 @@ from app.tests.utils.document import (
     WebCrawler,
     crawler,
 )
-from app.tests.utils.utils import openai_credentials
 
 
 @pytest.fixture
@@ -39,7 +38,7 @@ def aws_credentials():
     os.environ["AWS_DEFAULT_REGION"] = settings.AWS_DEFAULT_REGION
 
 
-@pytest.mark.usefixtures("openai_credentials", "aws_credentials")
+@pytest.mark.usefixtures("aws_credentials")
 @mock_aws
 class TestDocumentRoutePermanentRemove:
     @openai_responses.mock()
@@ -53,7 +52,7 @@ class TestDocumentRoutePermanentRemove:
     ):
         openai_mock = OpenAIMock()
         with openai_mock.router:
-            client = OpenAI(api_key=self.openai_api_key)
+            client = OpenAI(api_key="sk-test-key")
             mock_get_openai_client.return_value = client
 
         # Setup AWS
