@@ -4,16 +4,9 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, create_engine
 from sqlalchemy import event
 
-from app.core.config import settings
 from app.api.deps import get_db
 from app.main import app
 from app.tests.utils.user import authentication_token_from_email
-from app.tests.utils.utils import (
-    get_superuser_token_headers,
-    get_api_key_by_email,
-    load_environment,
-)
-from app.seed_data.seed_data import seed_database
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -21,18 +14,27 @@ def load_test_env():
     load_environment("../.env.test")
 
 
-@pytest.fixture(scope="session")
-def engine_connection():
-    engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
-    connection = engine.connect()
-    yield engine, connection
-    connection.close()
+from app.core.config import settings
+from app.tests.utils.utils import (
+    get_superuser_token_headers,
+    get_api_key_by_email,
+    load_environment,
+)
+from app.seed_data.seed_data import seed_database
+from app.core.db import engine
+
+
+@pytest.fixture(scope="session", autouse=True)
+def seed_baseline():
+    with Session(engine) as session:
+        print("Seeding baseline data...")
+        seed_database(session)  # deterministic baseline
+        yield
 
 
 @pytest.fixture(scope="function")
-def db(engine_connection) -> Generator[Session, None, None]:
-    engine, connection = engine_connection
-    print("enginer_1", engine)
+def db() -> Generator[Session, None, None]:
+    connection = engine.connect()
     transaction = connection.begin()
     session = Session(bind=connection)
 
@@ -46,16 +48,6 @@ def db(engine_connection) -> Generator[Session, None, None]:
     finally:
         session.close()
         transaction.rollback()
-
-
-@pytest.fixture(scope="session", autouse=True)
-def seed_baseline(engine_connection):
-    engine, connection = engine_connection
-    print("enginer_2", engine)
-    with Session(engine) as session:
-        print("Seeding baseline data...")
-        seed_database(session)  # deterministic baseline
-        yield
 
 
 @pytest.fixture(scope="function")

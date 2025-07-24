@@ -95,12 +95,15 @@ def get_project(session: Session, name: str | None = None) -> Project:
     return project
 
 
-def load_environment(
-    env_test_path: str = "./Users/nishikayadav/Desktop/platform/.env.test",
-):
+from sqlalchemy.engine.url import make_url
+from sqlalchemy import create_engine
+
+
+def load_environment(env_test_path: str = "../.env.test"):
     """Loads the test environment variables if the .env.test file exists.
 
-    If any of the required PostgreSQL credentials are missing in the env test, raises an error.
+    Raises an error if any required PostgreSQL credentials are missing or if the
+    POSTGRES_DB value does not contain the word 'test', to ensure a safe test database is used.
     """
 
     if os.path.exists(env_test_path):
@@ -122,15 +125,21 @@ def load_environment(
                 f"Missing the following PostgreSQL credentials in {env_test_path}: {', '.join(missing_vars)}"
             )
 
+        db_name = os.getenv("POSTGRES_DB", "").lower()
+        if "test" not in db_name:
+            raise RuntimeError(
+                f"Connected to database '{db_name}', which doesn't appear to be a test database"
+            )
+
     else:
         raise FileNotFoundError(
-            f"Warning: {env_test_path} not found. No environment variables loaded."
+            f"{env_test_path} not found. No environment variables loaded."
         )
 
     return settings
 
-  
-  def get_assistant(session: Session, name: str | None = None) -> Assistant:
+
+def get_assistant(session: Session, name: str | None = None) -> Assistant:
     """
     Retrieve an active assistant from the database.
 

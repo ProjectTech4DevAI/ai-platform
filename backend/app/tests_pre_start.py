@@ -4,6 +4,10 @@ from sqlalchemy import Engine
 from sqlmodel import Session, select
 from tenacity import after_log, before_log, retry, stop_after_attempt, wait_fixed
 
+from app.tests.utils.utils import load_environment
+
+load_environment("../.env.test")
+
 from app.core.db import engine
 
 logging.basicConfig(level=logging.INFO)
@@ -21,7 +25,6 @@ wait_seconds = 1
 )
 def init(db_engine: Engine) -> None:
     try:
-        # Try to create session to check if DB is awake
         with Session(db_engine) as session:
             session.exec(select(1))
     except Exception as e:
@@ -33,6 +36,9 @@ def main() -> None:
     logger.info("Initializing service")
     init(engine)
     logger.info("Service finished initializing")
+    logger.info(
+        f"Using database URL: {engine.url.render_as_string(hide_password=True)}"
+    )
 
 
 if __name__ == "__main__":
