@@ -5,8 +5,7 @@ from datetime import datetime, UTC
 
 class OpenAIConversationBase(SQLModel):
     response_id: str = Field(index=True, min_length=10)
-    # ancestor_response_id of first response will be itself
-    ancestor_response_id: str = Field(index=True)
+    ancestor_response_id: Optional[str] = Field(default=None, index=True)
     previous_response_id: Optional[str] = Field(default=None, index=True)
     user_question: str = Field(description="The user's input question", min_length=1)
     response: Optional[str] = Field(description="The assistant's response")
