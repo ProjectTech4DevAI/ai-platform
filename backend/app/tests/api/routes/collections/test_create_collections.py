@@ -11,7 +11,7 @@ from app.tests.utils.document import DocumentStore
 from app.tests.utils.utils import get_user_from_api_key
 from app.crud.collection import CollectionCrud
 from app.models.collection import CollectionStatus
-from app.tests.utils.collections_openai_mock import get_mock_openai_client
+from app.tests.utils.openai import get_mock_openai_client_with_vector_store
 
 
 @pytest.fixture(autouse=True)
@@ -64,7 +64,7 @@ class TestCollectionRouteCreate:
 
         headers = user_api_key_header
 
-        mock_openai_client = get_mock_openai_client()
+        mock_openai_client = get_mock_openai_client_with_vector_store()
         mock_get_openai_client.return_value = mock_openai_client
 
         response = client.post(
