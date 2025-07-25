@@ -48,7 +48,7 @@ class TestCollectionRouteCreate:
         mock_get_openai_client,
         client: TestClient,
         db: Session,
-        normal_user_api_key_headers,
+        user_api_key_header,
     ):
         store = DocumentStore(db)
         documents = store.fill(self._n_documents)
@@ -62,7 +62,7 @@ class TestCollectionRouteCreate:
             "temperature": 0.1,
         }
 
-        headers = normal_user_api_key_headers
+        headers = user_api_key_header
 
         mock_openai_client = get_mock_openai_client()
         mock_get_openai_client.return_value = mock_openai_client
