@@ -13,7 +13,7 @@ from app.api.deps import get_current_user_org, get_db, get_current_user_org_proj
 from app.core import logging, settings
 from app.models import UserOrganization, OpenAIThreadCreate, UserProjectOrg
 from app.crud import upsert_thread_result, get_thread_result
-from app.utils import APIResponse
+from app.utils import APIResponse, mask_string
 from app.crud.credentials import get_provider_credential
 from app.core.util import configure_openai
 from app.core.langfuse.langfuse import LangfuseTracer
@@ -42,9 +42,10 @@ def send_callback(callback_url: str, data: dict):
         # session.verify = False
         response = session.post(callback_url, json=data)
         response.raise_for_status()
+        logger.info(f"[send_callback] Callback sent successfully to {callback_url}")
         return True
     except requests.RequestException as e:
-        logger.error(f"Callback failed: {str(e)}", exc_info=True)
+        logger.error(f"[send_callback] Callback failed: {str(e)}", exc_info=True)
         return False
 
 
@@ -84,6 +85,10 @@ def setup_thread(client: OpenAI, request: dict) -> tuple[bool, str]:
             )
             return True, None
         except openai.OpenAIError as e:
+            logger.error(
+                f"[setup_thread] Failed to add message to existing thread {mask_string(thread_id)}: {str(e)}",
+                exc_info=True,
+            )
             return False, handle_openai_error(e)
     else:
         try:
@@ -94,6 +99,9 @@ def setup_thread(client: OpenAI, request: dict) -> tuple[bool, str]:
             request["thread_id"] = thread.id
             return True, None
         except openai.OpenAIError as e:
+            logger.error(
+                f"[setup_thread] Failed to create new thread: {str(e)}", exc_info=True
+            )
             return False, handle_openai_error(e)
 
 
@@ -156,6 +164,9 @@ def process_run_core(
     )
 
     try:
+        logger.info(
+            f"[process_run_core] Starting run for thread ID: {mask_string(request.get('thread_id'))} with assistant ID: {mask_string(request.get('assistant_id'))}"
+        )
         run = client.beta.threads.runs.create_and_poll(
             thread_id=request["thread_id"],
             assistant_id=request["assistant_id"],
@@ -189,15 +200,25 @@ def process_run_core(
                 "model": run.model,
             }
             request = {**request, **{"diagnostics": diagnostics}}
+            logger.info(
+                f"[process_run_core] Run completed successfully for thread ID: {mask_string(request.get('thread_id'))}"
+            )
             return create_success_response(request, message).model_dump(), None
         else:
             error_msg = f"Run failed with status: {run.status}"
+            logger.warning(
+                f"[process_run_core] Run failed with error: {run.last_error} for thread ID: {mask_string(request.get('thread_id'))}"
+            )
             tracer.log_error(error_msg)
             return APIResponse.failure_response(error=error_msg).model_dump(), error_msg
 
     except openai.OpenAIError as e:
         error_msg = handle_openai_error(e)
         tracer.log_error(error_msg)
+        logger.error(
+            f"[process_run_core] OpenAI error: {error_msg} for thread ID: {mask_string(request.get('thread_id'))}",
+            exc_info=True,
+        )
         return APIResponse.failure_response(error=error_msg).model_dump(), error_msg
     finally:
         tracer.flush()
@@ -214,9 +235,12 @@ def poll_run_and_prepare_response(request: dict, client: OpenAI, db: Session):
     thread_id = request["thread_id"]
     prompt = request["question"]
 
+    logger.info(
+        f"[poll_run_and_prepare_response] Starting run for thread ID: {mask_string(thread_id)}"
+    )
+
     try:
         run = run_and_poll_thread(client, thread_id, request["assistant_id"])
-
         status = run.status or "unknown"
         response = None
         error = None
@@ -225,11 +249,18 @@ def poll_run_and_prepare_response(request: dict, client: OpenAI, db: Session):
             response = extract_response_from_thread(
                 client, thread_id, request.get("remove_citation", False)
             )
+            logger.info(
+                f"[poll_run_and_prepare_response] Successfully executed run for thread ID: {mask_string(thread_id)}"
+            )
 
     except openai.OpenAIError as e:
         status = "failed"
         error = str(e)
         response = None
+        logger.error(
+            f"[poll_run_and_prepare_response] Run failed for thread ID {mask_string(thread_id)}: {error}",
+            exc_info=True,
+        )
 
     upsert_thread_result(
         db,
@@ -259,6 +290,9 @@ async def threads(
     )
     client, success = configure_openai(credentials)
     if not success:
+        logger.warning(
+            f"[threads] OpenAI API key not configured for this organization. | organization_id: {_current_user.organization_id}, project_id: {request.get('project_id')}"
+        )
         return APIResponse.failure_response(
             error="OpenAI API key not configured for this organization."
         )
@@ -273,10 +307,16 @@ async def threads(
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
     if not is_valid:
+        logger.error(
+            f"[threads] Error processing thread ID {mask_string(request.get('thread_id'))}: {error_message} | organization_id: {_current_user.organization_id}, project_id: {request.get('project_id')}"
+        )
         raise Exception(error_message)
     # Setup thread
     is_success, error_message = setup_thread(client, request)
     if not is_success:
+        logger.error(
+            f"[threads] Error setting up thread ID {mask_string(request.get('thread_id'))}: {error_message} | organization_id: {_current_user.organization_id}, project_id: {request.get('project_id')}"
+        )
         raise Exception(error_message)
 
     # Send immediate response
@@ -304,7 +344,9 @@ async def threads(
     )
     # Schedule background task
     background_tasks.add_task(process_run, request, client, tracer)
-
+    logger.info(
+        f"[threads] Background task scheduled for thread ID: {mask_string(request.get('thread_id'))} | organization_id: {_current_user.organization_id}, project_id: {request.get('project_id')}"
+    )
     return initial_response
 
 
@@ -325,6 +367,9 @@ async def threads_sync(
     # Configure OpenAI client
     client, success = configure_openai(credentials)
     if not success:
+        logger.error(
+            f"[threads_sync] OpenAI API key not configured for this organization. | organization_id: {_current_user.organization_id}, project_id: {request.get('project_id')}"
+        )
         return APIResponse.failure_response(
             error="OpenAI API key not configured for this organization."
         )
@@ -340,6 +385,9 @@ async def threads_sync(
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
     if not is_valid:
+        logger.error(
+            f"[threads_sync] Error processing thread ID {mask_string(request.get('thread_id'))}: {error_message}"
+        )
         raise Exception(error_message)
     # Setup thread
     is_success, error_message = setup_thread(client, request)
@@ -360,11 +408,8 @@ async def threads_sync(
         metadata={"thread_id": request.get("thread_id")},
     )
 
-    try:
-        response, error_message = process_run_core(request, client, tracer)
-        return response
-    finally:
-        tracer.flush()
+    response, error_message = process_run_core(request, client, tracer)
+    return response
 
 
 @router.post("/threads/start")
@@ -389,6 +434,9 @@ async def start_thread(
     # Configure OpenAI client
     client, success = configure_openai(credentials)
     if not success:
+        logger.error(
+            f"[start_thread] OpenAI API key not configured for this organization. | project_id: {_current_user.project_id}"
+        )
         return APIResponse.failure_response(
             error="OpenAI API key not configured for this organization."
         )
@@ -412,6 +460,9 @@ async def start_thread(
 
     background_tasks.add_task(poll_run_and_prepare_response, request, client, db)
 
+    logger.info(
+        f"[start_thread] Background task scheduled to process response for thread ID: {mask_string(thread_id)} | project_id: {_current_user.project_id}"
+    )
     return APIResponse.success_response(
         data={
             "thread_id": thread_id,
@@ -434,6 +485,9 @@ async def get_thread(
     result = get_thread_result(db, thread_id)
 
     if not result:
+        logger.warning(
+            f"[get_thread] Thread result not found for ID: {mask_string(thread_id)} | org_id: {_current_user.organization_id}"
+        )
         raise HTTPException(404, "thread not found")
 
     status = result.status or ("success" if result.response else "processing")
