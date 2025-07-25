@@ -1,5 +1,4 @@
-from sqlmodel import Session, select
-from datetime import datetime, UTC
+from sqlmodel import Session, and_, select
 from typing import List, Optional
 from app.models import OpenAI_Conversation, OpenAIConversationCreate
 
@@ -15,19 +14,29 @@ def create_openai_conversation(
 
 
 def get_openai_conversation_by_id(
-    session: Session, conversation_id: int
+    session: Session, openai_conversation_id: str, project_id: int
 ) -> Optional[OpenAI_Conversation]:
+    """Get an openai_conversation by its OpenAI openai_conversation ID and project ID."""
     statement = select(OpenAI_Conversation).where(
-        OpenAI_Conversation.id == conversation_id
+        and_(
+            OpenAI_Conversation.id == openai_conversation_id,
+            OpenAI_Conversation.project_id == project_id,
+            OpenAI_Conversation.is_deleted == False,
+        )
     )
     return session.exec(statement).first()
 
 
 def get_openai_conversation_by_response_id(
-    session: Session, response_id: str
+    session: Session, response_id: str, project_id: int
 ) -> Optional[OpenAI_Conversation]:
+    """Get an openai_conversation by its OpenAI response ID and project ID."""
     statement = select(OpenAI_Conversation).where(
-        OpenAI_Conversation.response_id == response_id
+        and_(
+            OpenAI_Conversation.response_id == response_id,
+            OpenAI_Conversation.project_id == project_id,
+            OpenAI_Conversation.is_deleted == False,
+        )
     )
     return session.exec(statement).first()
 
