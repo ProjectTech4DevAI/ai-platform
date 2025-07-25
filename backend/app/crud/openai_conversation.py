@@ -1,6 +1,13 @@
+import logging
+
+from fastapi import HTTPException
 from sqlmodel import Session, and_, select
 from typing import List, Optional
+
+from app.core.util import now
 from app.models import OpenAI_Conversation, OpenAIConversationCreate
+
+logger = logging.getLogger(__name__)
 
 
 def create_openai_conversation(
@@ -74,11 +81,30 @@ def get_all_openai_conversations(
     return results
 
 
-def delete_openai_conversation(session: Session, conversation_id: int) -> bool:
-    conversation = get_openai_conversation_by_id(session, conversation_id)
-    if not conversation:
-        return False
+def delete_openai_conversation(
+    session: Session,
+    conversation_id: int,
+    project_id: int,
+) -> OpenAI_Conversation:
+    """
+    Soft delete an conversation by updating is_deleted flag.
+    """
+    existing_conversation = get_openai_conversation_by_id(
+        session, conversation_id, project_id
+    )
+    if not existing_conversation:
+        logger.warning(
+            f"[delete_openai_conversation] Conversation {conversation_id} not found | project_id: {project_id}"
+        )
+        raise HTTPException(status_code=404, detail="Conversation not found.")
 
-    session.delete(conversation)
+    existing_conversation.is_deleted = True
+    existing_conversation.deleted_at = now()
+    session.add(existing_conversation)
     session.commit()
-    return True
+    session.refresh(existing_conversation)
+
+    logger.info(
+        f"[delete_openai_conversation] Conversation {conversation_id} soft deleted successfully. | project_id: {project_id}"
+    )
+    return existing_conversation

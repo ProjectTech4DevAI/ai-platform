@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Path
 from sqlmodel import Session
+from fastapi import APIRouter, Depends, HTTPException, Query, Path
 
 from app.api.deps import get_db, get_current_user_org, get_current_user_org_project
 from app.models import UserOrganization, UserProjectOrg
@@ -107,27 +107,20 @@ async def get_conversations_by_ancestor(
     return APIResponse.success_response(conversation)
 
 
-@router.delete(
-    "/{conversation_id}",
-    response_model=APIResponse[dict],
-    summary="Delete conversation by ID",
-    description="Delete a conversation by its database ID",
-)
-async def delete_conversation_by_id(
+@router.delete("/{conversation_id}", response_model=APIResponse)
+def delete_conversation_by_id(
     conversation_id: int = Path(..., description="The conversation ID"),
     session: Session = Depends(get_db),
     current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
-    """Delete a conversation by its ID, only if it belongs to the user's project."""
-    conversation = get_openai_conversation_by_id(
-        session, conversation_id, current_user.project_id
+    """
+    Soft delete an conversation by updating flag is_deleted.
+    """
+    delete_openai_conversation(
+        session=session,
+        conversation_id=conversation_id,
+        project_id=current_user.project_id,
     )
-    if not conversation or conversation.project_id != current_user.project_id:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    success = delete_openai_conversation(session, conversation_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-
     return APIResponse.success_response(
-        data={"message": "Conversation deleted successfully"}
+        data={"message": "Conversation deleted successfully."}
     )
