@@ -1,3 +1,4 @@
+import logging
 from typing import Any, List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,6 +19,7 @@ from app.api.deps import (
 from app.crud.organization import create_organization, get_organization_by_id
 from app.utils import APIResponse
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/organizations", tags=["organizations"])
 
 
@@ -74,6 +76,9 @@ def update_organization(
 ):
     org = get_organization_by_id(session=session, org_id=org_id)
     if org is None:
+        logger.warning(
+            f"[update_organization] Organization not found | 'org_id': {org_id}"
+        )
         raise HTTPException(status_code=404, detail="Organization not found")
 
     org_data = org_in.model_dump(exclude_unset=True)
@@ -82,7 +87,9 @@ def update_organization(
     session.add(org)
     session.commit()
     session.flush()
-
+    logger.info(
+        f"[update_organization] Organization Updated Successfully | 'org_id': {org.id}"
+    )
     return APIResponse.success_response(org)
 
 
@@ -96,9 +103,14 @@ def update_organization(
 def delete_organization(session: SessionDep, org_id: int):
     org = get_organization_by_id(session=session, org_id=org_id)
     if org is None:
+        logger.warning(
+            f"[delete_organization] Organization not found | 'org_id': {org_id}"
+        )
         raise HTTPException(status_code=404, detail="Organization not found")
 
     session.delete(org)
     session.commit()
-
+    logger.info(
+        f"[delete_organization] Organization Deleted Successfully | 'org_id': {org_id}"
+    )
     return APIResponse.success_response(None)

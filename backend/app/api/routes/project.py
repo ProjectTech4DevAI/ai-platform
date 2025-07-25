@@ -1,3 +1,4 @@
+import logging
 from typing import Any, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -6,17 +7,16 @@ from sqlmodel import Session, select
 
 from app.models import Project, ProjectCreate, ProjectUpdate, ProjectPublic
 from app.api.deps import (
-    CurrentUser,
     SessionDep,
     get_current_active_superuser,
 )
 from app.crud.project import (
     create_project,
     get_project_by_id,
-    get_projects_by_organization,
 )
 from app.utils import APIResponse
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
@@ -75,6 +75,7 @@ def read_project(*, session: SessionDep, project_id: int):
 def update_project(*, session: SessionDep, project_id: int, project_in: ProjectUpdate):
     project = get_project_by_id(session=session, project_id=project_id)
     if project is None:
+        logger.warning(f"[update_project] Project not found | project_id={project_id}")
         raise HTTPException(status_code=404, detail="Project not found")
 
     project_data = project_in.model_dump(exclude_unset=True)
@@ -83,6 +84,9 @@ def update_project(*, session: SessionDep, project_id: int, project_in: ProjectU
     session.add(project)
     session.commit()
     session.flush()
+    logger.info(
+        f"[update_project] Project updated successfully | project_id={project.id}"
+    )
     return APIResponse.success_response(project)
 
 
@@ -95,9 +99,12 @@ def update_project(*, session: SessionDep, project_id: int, project_in: ProjectU
 def delete_project(session: SessionDep, project_id: int):
     project = get_project_by_id(session=session, project_id=project_id)
     if project is None:
+        logger.warning(f"[delete_project] Project not found | project_id={project_id}")
         raise HTTPException(status_code=404, detail="Project not found")
 
     session.delete(project)
     session.commit()
-
+    logger.info(
+        f"[delete_project] Project deleted successfully | project_id={project_id}"
+    )
     return APIResponse.success_response(None)
