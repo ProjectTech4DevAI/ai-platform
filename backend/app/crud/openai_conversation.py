@@ -56,7 +56,8 @@ def get_all_openai_conversations(
         .offset(skip)
         .limit(limit)
     )
-    return session.exec(statement).all()
+    results = session.exec(statement).all()
+    return results
 
 
 def delete_openai_conversation(session: Session, conversation_id: int) -> bool:
