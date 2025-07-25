@@ -16,7 +16,7 @@ client = TestClient(app)
 @patch("app.api.routes.responses.OpenAI")
 @patch("app.api.routes.responses.get_provider_credential")
 def test_responses_endpoint_success(
-    mock_get_credential, mock_openai, db, normal_user_api_key_headers: dict[str, str]
+    mock_get_credential, mock_openai, db, user_api_key_header: dict[str, str]
 ):
     """Test the /responses endpoint for successful response creation."""
     # Setup mock credentials
@@ -48,9 +48,7 @@ def test_responses_endpoint_success(
         "callback_url": "http://example.com/callback",
     }
 
-    response = client.post(
-        "/responses", json=request_data, headers=normal_user_api_key_headers
-    )
+    response = client.post("/responses", json=request_data, headers=user_api_key_header)
 
     assert response.status_code == 200
     response_json = response.json()
@@ -67,7 +65,7 @@ def test_responses_endpoint_without_vector_store(
     mock_get_credential,
     mock_openai,
     db,
-    normal_user_api_key_headers,
+    user_api_key_header,
 ):
     """Test the /responses endpoint when assistant has no vector store configured."""
     # Setup mock credentials
@@ -107,9 +105,7 @@ def test_responses_endpoint_without_vector_store(
         "callback_url": "http://example.com/callback",
     }
 
-    response = client.post(
-        "/responses", json=request_data, headers=normal_user_api_key_headers
-    )
+    response = client.post("/responses", json=request_data, headers=user_api_key_header)
     assert response.status_code == 200
     response_json = response.json()
     assert response_json["success"] is True
