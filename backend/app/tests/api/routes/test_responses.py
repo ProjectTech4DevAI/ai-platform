@@ -132,7 +132,7 @@ def test_responses_endpoint_stores_conversation(
     mock_get_credential,
     mock_openai,
     db,
-    normal_user_api_key_headers,
+    user_api_key_header,
 ):
     """Test that the /responses endpoint stores conversation in database."""
     # Setup mock credentials
@@ -165,9 +165,7 @@ def test_responses_endpoint_stores_conversation(
         "callback_url": "http://example.com/callback",
     }
 
-    response = client.post(
-        "/responses", json=request_data, headers=normal_user_api_key_headers
-    )
+    response = client.post("/responses", json=request_data, headers=user_api_key_header)
     assert response.status_code == 200
     response_json = response.json()
     assert response_json["success"] is True
