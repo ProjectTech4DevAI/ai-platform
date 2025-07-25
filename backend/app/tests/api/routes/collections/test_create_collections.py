@@ -2,18 +2,16 @@ import pytest
 from uuid import UUID
 import io
 
-import openai_responses
 from sqlmodel import Session
 from fastapi.testclient import TestClient
+from unittest.mock import patch
 
 from app.core.config import settings
 from app.tests.utils.document import DocumentStore
-from app.tests.utils.utils import openai_credentials, get_user_from_api_key
-from app.main import app
+from app.tests.utils.utils import get_user_from_api_key
 from app.crud.collection import CollectionCrud
 from app.models.collection import CollectionStatus
-
-client = TestClient(app)
+from app.tests.utils.openai import get_mock_openai_client_with_vector_store
 
 
 @pytest.fixture(autouse=True)
@@ -31,7 +29,7 @@ def mock_s3(monkeypatch):
             return fake_file
 
         def get_file_size_kb(self, url: str) -> float:
-            return 1.0  # Simulate 1KB files
+            return 1.0
 
     class FakeS3Client:
         def head_object(self, Bucket, Key):
@@ -41,13 +39,16 @@ def mock_s3(monkeypatch):
     monkeypatch.setattr("boto3.client", lambda service: FakeS3Client())
 
 
-@pytest.mark.usefixtures("openai_credentials")
 class TestCollectionRouteCreate:
     _n_documents = 5
 
-    @openai_responses.mock()
+    @patch("app.api.routes.collections.get_openai_client")
     def test_create_collection_success(
-        self, client: TestClient, db: Session, user_api_key_header
+        self,
+        mock_get_openai_client,
+        client: TestClient,
+        db: Session,
+        user_api_key_header,
     ):
         store = DocumentStore(db)
         documents = store.fill(self._n_documents)
@@ -60,7 +61,11 @@ class TestCollectionRouteCreate:
             "instructions": "Test collection assistant.",
             "temperature": 0.1,
         }
+
         headers = user_api_key_header
+
+        mock_openai_client = get_mock_openai_client_with_vector_store()
+        mock_get_openai_client.return_value = mock_openai_client
 
         response = client.post(
             f"{settings.API_V1_STR}/collections/create", json=body, headers=headers
@@ -73,8 +78,8 @@ class TestCollectionRouteCreate:
         assert metadata["status"] == CollectionStatus.processing.value
         assert UUID(metadata["key"])
 
+        # Confirm collection metadata in DB
         collection_id = UUID(metadata["key"])
-
         user = get_user_from_api_key(db, headers)
         collection = CollectionCrud(db, user.user_id).read_one(collection_id)
 
