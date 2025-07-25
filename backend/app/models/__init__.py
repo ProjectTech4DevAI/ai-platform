@@ -55,7 +55,7 @@ from .credentials import (
 from .threads import OpenAI_Thread, OpenAIThreadBase, OpenAIThreadCreate
 
 from .openai_conversation import (
-    OpenAI_Conversation,
+    OpenAIConversation,
     OpenAIConversationBase,
     OpenAIConversationCreate,
     OpenAIConversationPublic,

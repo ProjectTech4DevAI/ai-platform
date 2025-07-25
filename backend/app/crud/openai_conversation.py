@@ -5,15 +5,15 @@ from sqlmodel import Session, and_, select
 from typing import List, Optional
 
 from app.core.util import now
-from app.models import OpenAI_Conversation, OpenAIConversationCreate
+from app.models import OpenAIConversation, OpenAIConversationCreate
 
 logger = logging.getLogger(__name__)
 
 
 def create_openai_conversation(
     session: Session, data: OpenAIConversationCreate
-) -> OpenAI_Conversation:
-    conversation = OpenAI_Conversation(**data.model_dump())
+) -> OpenAIConversation:
+    conversation = OpenAIConversation(**data.model_dump())
     session.add(conversation)
     session.commit()
     session.refresh(conversation)
@@ -22,13 +22,13 @@ def create_openai_conversation(
 
 def get_openai_conversation_by_id(
     session: Session, openai_conversation_id: str, project_id: int
-) -> Optional[OpenAI_Conversation]:
+) -> Optional[OpenAIConversation]:
     """Get an openai_conversation by its OpenAI openai_conversation ID and project ID."""
-    statement = select(OpenAI_Conversation).where(
+    statement = select(OpenAIConversation).where(
         and_(
-            OpenAI_Conversation.id == openai_conversation_id,
-            OpenAI_Conversation.project_id == project_id,
-            OpenAI_Conversation.is_deleted == False,
+            OpenAIConversation.id == openai_conversation_id,
+            OpenAIConversation.project_id == project_id,
+            OpenAIConversation.is_deleted == False,
         )
     )
     return session.exec(statement).first()
@@ -36,13 +36,13 @@ def get_openai_conversation_by_id(
 
 def get_openai_conversation_by_response_id(
     session: Session, response_id: str, project_id: int
-) -> Optional[OpenAI_Conversation]:
+) -> Optional[OpenAIConversation]:
     """Get an openai_conversation by its OpenAI response ID and project ID."""
-    statement = select(OpenAI_Conversation).where(
+    statement = select(OpenAIConversation).where(
         and_(
-            OpenAI_Conversation.response_id == response_id,
-            OpenAI_Conversation.project_id == project_id,
-            OpenAI_Conversation.is_deleted == False,
+            OpenAIConversation.response_id == response_id,
+            OpenAIConversation.project_id == project_id,
+            OpenAIConversation.is_deleted == False,
         )
     )
     return session.exec(statement).first()
@@ -50,13 +50,13 @@ def get_openai_conversation_by_response_id(
 
 def get_openai_conversations_by_ancestor(
     session: Session, ancestor_response_id: str, project_id: int
-) -> list[OpenAI_Conversation]:
+) -> list[OpenAIConversation]:
     """Get all openai_conversations by ancestor_response_id."""
-    statement = select(OpenAI_Conversation).where(
+    statement = select(OpenAIConversation).where(
         and_(
-            OpenAI_Conversation.ancestor_response_id == ancestor_response_id,
-            OpenAI_Conversation.project_id == project_id,
-            OpenAI_Conversation.is_deleted == False,
+            OpenAIConversation.ancestor_response_id == ancestor_response_id,
+            OpenAIConversation.project_id == project_id,
+            OpenAIConversation.is_deleted == False,
         )
     )
     return session.exec(statement).all()
@@ -64,15 +64,15 @@ def get_openai_conversations_by_ancestor(
 
 def get_all_openai_conversations(
     session: Session, project_id: int, skip: int = 0, limit: int = 100
-) -> List[OpenAI_Conversation]:
+) -> List[OpenAIConversation]:
     """
     Return all openai conversations for a given project and organization, with optional pagination.
     """
     statement = (
-        select(OpenAI_Conversation)
+        select(OpenAIConversation)
         .where(
-            OpenAI_Conversation.project_id == project_id,
-            OpenAI_Conversation.is_deleted == False,
+            OpenAIConversation.project_id == project_id,
+            OpenAIConversation.is_deleted == False,
         )
         .offset(skip)
         .limit(limit)
@@ -85,7 +85,7 @@ def delete_openai_conversation(
     session: Session,
     conversation_id: int,
     project_id: int,
-) -> OpenAI_Conversation:
+) -> OpenAIConversation:
     """
     Soft delete an conversation by updating is_deleted flag.
     """

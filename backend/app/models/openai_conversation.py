@@ -40,7 +40,7 @@ class OpenAIConversationPublic(OpenAIConversationBase):
     updated_at: datetime
 
 
-class OpenAI_Conversation(OpenAIConversationBase, table=True):
+class OpenAIConversation(OpenAIConversationBase, table=True):
     id: int = Field(default=None, primary_key=True)
     inserted_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
