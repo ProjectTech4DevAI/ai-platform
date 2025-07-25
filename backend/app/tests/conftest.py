@@ -1,11 +1,8 @@
-from collections.abc import Generator
-
 import pytest
-import time
-
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 from sqlalchemy import event
+from collections.abc import Generator
 
 from app.core.config import settings
 from app.core.db import engine

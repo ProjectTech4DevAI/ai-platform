@@ -33,11 +33,7 @@ class TestDatabaseReadOne:
         assert exc_info.value.status_code == 404
         assert "Document not found" in str(exc_info.value.detail)
 
-    def test_cannot_read_others_documents(
-        self,
-        db: Session,
-        store: DocumentStore,
-    ):
+    def test_cannot_read_others_documents(self, db: Session, store: DocumentStore):
         document = store.put()
         other = DocumentStore(db)
 

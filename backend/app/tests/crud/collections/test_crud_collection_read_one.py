@@ -8,7 +8,6 @@ from app.core.config import settings
 from app.crud import CollectionCrud
 from app.tests.utils.document import DocumentStore
 from app.tests.utils.collection import get_collection, uuid_increment
-from app.tests.utils.utils import openai_credentials
 
 
 def mk_collection(db: Session):
@@ -17,13 +16,12 @@ def mk_collection(db: Session):
 
     openai_mock = OpenAIMock()
     with openai_mock.router:
-        client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        client = OpenAI(api_key="sk-test-key")
         collection = get_collection(db, client)
         crud = CollectionCrud(db, collection.owner_id)
         return crud.create(collection, documents)
 
 
-@pytest.mark.usefixtures("openai_credentials")
 class TestDatabaseReadOne:
     def test_can_select_valid_id(self, db: Session):
         collection = mk_collection(db)
@@ -35,7 +33,6 @@ class TestDatabaseReadOne:
 
     def test_cannot_select_others_collections(self, db: Session):
         collection = mk_collection(db)
-
         other = collection.owner_id + 1
         crud = CollectionCrud(db, other)
         with pytest.raises(NoResultFound):
