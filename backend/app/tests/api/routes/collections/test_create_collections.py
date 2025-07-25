@@ -29,7 +29,7 @@ def mock_s3(monkeypatch):
             return fake_file
 
         def get_file_size_kb(self, url: str) -> float:
-            return 1.0  # Simulate 1KB files
+            return 1.0
 
     class FakeS3Client:
         def head_object(self, Bucket, Key):
@@ -50,7 +50,6 @@ class TestCollectionRouteCreate:
         db: Session,
         normal_user_api_key_headers,
     ):
-        # Setup test documents
         store = DocumentStore(db)
         documents = store.fill(self._n_documents)
         doc_ids = [str(doc.id) for doc in documents]
