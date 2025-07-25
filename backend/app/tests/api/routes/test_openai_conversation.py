@@ -135,6 +135,7 @@ def test_delete_conversation_by_id(
     # Create a conversation first
     conversation_data = OpenAIConversationCreate(
         response_id="resp_test688080a1c52c819c937",
+        ancestor_response_id="resp_test688080a1c52c819c937",
         user_question="What is the capital of France?",
         response="The capital of France is Paris.",
         model="gpt-4o",
