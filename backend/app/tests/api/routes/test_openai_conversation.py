@@ -102,24 +102,23 @@ def test_get_conversations_by_ancestor(
         organization_id=user_api_key.organization_id,
     )
 
-    conv_1 = create_openai_conversation(db, conversation_data1)
-    conv_2 = create_openai_conversation(db, conversation_data2)
-    conv_3 = create_openai_conversation(db, conversation_data3)
+    create_openai_conversation(db, conversation_data1)
+    create_openai_conversation(db, conversation_data2)
+    create_openai_conversation(db, conversation_data3)
 
-    print(conv_1)
-    print(conv_2)
-    print(conv_3)
     response = client.get(
-        "/api/v1/openai-conversation/ancestor/ancestor_123",
+        "/api/v1/openai-conversation/ancestor/resp_test688080a1c52c819c937",
         headers={"X-API-KEY": user_api_key.key},
     )
-    print(response.json())
 
     assert response.status_code == 200
     data = response.json()
     assert data["success"] is True
-    assert len(data["data"]) == 2
-    assert all(conv["ancestor_response_id"] == "ancestor_123" for conv in data["data"])
+    assert len(data["data"]) == 3
+    assert all(
+        conv["ancestor_response_id"] == "resp_test688080a1c52c819c937"
+        for conv in data["data"]
+    )
     for conv in data["data"]:
         assert conv["is_deleted"] is False
         assert conv["deleted_at"] is None

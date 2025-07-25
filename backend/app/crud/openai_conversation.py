@@ -42,10 +42,15 @@ def get_openai_conversation_by_response_id(
 
 
 def get_openai_conversations_by_ancestor(
-    session: Session, ancestor_response_id: str
-) -> List[OpenAI_Conversation]:
+    session: Session, ancestor_response_id: str, project_id: int
+) -> list[OpenAI_Conversation]:
+    """Get all openai_conversations by ancestor_response_id."""
     statement = select(OpenAI_Conversation).where(
-        OpenAI_Conversation.ancestor_response_id == ancestor_response_id
+        and_(
+            OpenAI_Conversation.ancestor_response_id == ancestor_response_id,
+            OpenAI_Conversation.project_id == project_id,
+            OpenAI_Conversation.is_deleted == False,
+        )
     )
     return session.exec(statement).all()
 

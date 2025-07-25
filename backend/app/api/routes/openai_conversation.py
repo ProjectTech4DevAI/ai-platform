@@ -91,18 +91,20 @@ async def get_conversation_by_response_id(
     description="Retrieve all conversations that have the specified ancestor_response_id",
 )
 async def get_conversations_by_ancestor(
-    ancestor_response_id: str = Path(..., description="The ancestor response ID"),
-    db: Session = Depends(get_db),
+    ancestor_response_id: str = Path(..., description="The ancestor ID"),
+    session: Session = Depends(get_db),
     current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
-    """Get all conversations by ancestor_response_id, only for the user's project."""
-    conversations = get_openai_conversations_by_ancestor(db, ancestor_response_id)
-    filtered = [
-        conv for conv in conversations if conv.project_id == current_user.project_id
-    ]
-    return APIResponse.success_response(
-        data=[OpenAIConversationPublic.model_validate(conv) for conv in filtered]
+    """Get a conversation by its response_id, only if it belongs to the user's project."""
+    conversation = get_openai_conversations_by_ancestor(
+        session, ancestor_response_id, current_user.project_id
     )
+    if not conversation:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Conversation with ancestor ID {ancestor_response_id} not found.",
+        )
+    return APIResponse.success_response(conversation)
 
 
 @router.delete(
