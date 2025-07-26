@@ -54,3 +54,15 @@ from .assistants import (
     get_assistants_by_project,
     delete_assistant,
 )
+
+from .openai_conversation import (
+    get_conversation_by_id,
+    get_conversation_by_response_id,
+    get_conversations_by_project,
+    get_conversations_by_assistant,
+    get_conversation_thread,
+    create_conversation,
+    update_conversation,
+    delete_conversation,
+    upsert_conversation,
+)

@@ -55,3 +55,10 @@ from .credentials import (
 from .threads import OpenAI_Thread, OpenAIThreadBase, OpenAIThreadCreate
 
 from .assistants import Assistant, AssistantBase, AssistantCreate, AssistantUpdate
+
+from .openai_conversation import (
+    OpenAIConversation,
+    OpenAIConversationBase,
+    OpenAIConversationCreate,
+    OpenAIConversationUpdate,
+)
