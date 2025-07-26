@@ -58,11 +58,8 @@ from .assistants import (
 from .openai_conversation import (
     get_conversation_by_id,
     get_conversation_by_response_id,
+    get_conversation_by_ancestor_id,
     get_conversations_by_project,
-    get_conversations_by_assistant,
-    get_conversation_thread,
     create_conversation,
-    update_conversation,
     delete_conversation,
-    upsert_conversation,
 )

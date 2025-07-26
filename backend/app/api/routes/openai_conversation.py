@@ -7,18 +7,14 @@ from app.api.deps import get_db, get_current_user_org_project
 from app.crud import (
     get_conversation_by_id,
     get_conversation_by_response_id,
+    get_conversation_by_ancestor_id,
     get_conversations_by_project,
-    get_conversations_by_assistant,
-    get_conversation_thread,
     create_conversation,
-    update_conversation,
     delete_conversation,
-    upsert_conversation,
 )
 from app.models import (
     UserProjectOrg,
     OpenAIConversationCreate,
-    OpenAIConversationUpdate,
     OpenAIConversation,
 )
 from app.utils import APIResponse
@@ -42,49 +38,6 @@ def create_conversation_route(
         organization_id=current_user.organization_id,
     )
     return APIResponse.success_response(conversation)
-
-
-@router.post("/upsert", response_model=APIResponse[OpenAIConversation], status_code=201)
-def upsert_conversation_route(
-    conversation_in: OpenAIConversationCreate,
-    session: Session = Depends(get_db),
-    current_user: UserProjectOrg = Depends(get_current_user_org_project),
-):
-    """
-    Create a new conversation or update existing one if response_id already exists.
-    """
-    conversation = upsert_conversation(
-        session=session,
-        conversation=conversation_in,
-        project_id=current_user.project_id,
-        organization_id=current_user.organization_id,
-    )
-    return APIResponse.success_response(conversation)
-
-
-@router.patch("/{conversation_id}", response_model=APIResponse[OpenAIConversation])
-def update_conversation_route(
-    conversation_id: Annotated[int, Path(description="Conversation ID to update")],
-    conversation_update: OpenAIConversationUpdate,
-    session: Session = Depends(get_db),
-    current_user: UserProjectOrg = Depends(get_current_user_org_project),
-):
-    """
-    Update an existing conversation with provided fields.
-    """
-    updated_conversation = update_conversation(
-        session=session,
-        conversation_id=conversation_id,
-        project_id=current_user.project_id,
-        conversation_update=conversation_update,
-    )
-
-    if not updated_conversation:
-        raise HTTPException(
-            status_code=404, detail=f"Conversation with ID {conversation_id} not found."
-        )
-
-    return APIResponse.success_response(updated_conversation)
 
 
 @router.get(
@@ -135,27 +88,29 @@ def get_conversation_by_response_id_route(
 
 
 @router.get(
-    "/thread/{response_id}",
-    response_model=APIResponse[list[OpenAIConversation]],
-    summary="Get the full conversation thread starting from a response ID",
+    "/ancestor/{ancestor_response_id}",
+    response_model=APIResponse[OpenAIConversation],
+    summary="Get a conversation by its ancestor response ID",
 )
-def get_conversation_thread_route(
-    response_id: str = Path(
-        ..., description="The response ID to start the thread from"
+def get_conversation_by_ancestor_id_route(
+    ancestor_response_id: str = Path(
+        ..., description="The ancestor response ID to fetch"
     ),
     session: Session = Depends(get_db),
     current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
     """
-    Get the full conversation thread starting from a given response ID.
-    This includes all ancestor and previous responses in the conversation chain.
+    Fetch a conversation by its ancestor response ID.
     """
-    thread_conversations = get_conversation_thread(
-        session=session,
-        response_id=response_id,
-        project_id=current_user.project_id,
+    conversation = get_conversation_by_ancestor_id(
+        session, ancestor_response_id, current_user.project_id
     )
-    return APIResponse.success_response(thread_conversations)
+    if not conversation:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Conversation with ancestor response ID {ancestor_response_id} not found.",
+        )
+    return APIResponse.success_response(conversation)
 
 
 @router.get(
@@ -174,31 +129,6 @@ def list_conversations_route(
     """
     conversations = get_conversations_by_project(
         session=session, project_id=current_user.project_id, skip=skip, limit=limit
-    )
-    return APIResponse.success_response(conversations)
-
-
-@router.get(
-    "/assistant/{assistant_id}",
-    response_model=APIResponse[list[OpenAIConversation]],
-    summary="List all conversations for a specific assistant",
-)
-def list_conversations_by_assistant_route(
-    assistant_id: str = Path(..., description="The assistant ID to filter by"),
-    session: Session = Depends(get_db),
-    current_user: UserProjectOrg = Depends(get_current_user_org_project),
-    skip: int = Query(0, ge=0, description="How many items to skip"),
-    limit: int = Query(100, ge=1, le=100, description="Maximum items to return"),
-):
-    """
-    List all conversations for a specific assistant in the current project.
-    """
-    conversations = get_conversations_by_assistant(
-        session=session,
-        assistant_id=assistant_id,
-        project_id=current_user.project_id,
-        skip=skip,
-        limit=limit,
     )
     return APIResponse.success_response(conversations)
 

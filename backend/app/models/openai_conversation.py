@@ -56,23 +56,3 @@ class OpenAIConversationCreate(SQLModel):
     assistant_id: str = Field(
         description="Assistant ID used for the response", min_length=1
     )
-
-
-class OpenAIConversationUpdate(SQLModel):
-    response_id: Optional[str] = Field(default=None, description="OpenAI response ID")
-    ancestor_response_id: Optional[str] = Field(
-        default=None, description="Ancestor response ID for conversation threading"
-    )
-    previous_response_id: Optional[str] = Field(
-        default=None, description="Previous response ID in the conversation"
-    )
-    user_question: Optional[str] = Field(
-        default=None, description="User's question/input", min_length=1
-    )
-    response: Optional[str] = Field(default=None, description="AI response")
-    model: Optional[str] = Field(
-        default=None, description="Model used for the response", min_length=1
-    )
-    assistant_id: Optional[str] = Field(
-        default=None, description="Assistant ID used for the response", min_length=1
-    )
