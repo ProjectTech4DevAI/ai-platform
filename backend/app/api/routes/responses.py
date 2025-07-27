@@ -13,7 +13,7 @@ from app.crud.assistants import get_assistant_by_id
 from app.crud.credentials import get_provider_credential
 from app.crud.openai_conversation import (
     create_conversation,
-    get_conversation_by_response_id,
+    set_ancestor_response_id,
 )
 from app.models import UserProjectOrg, OpenAIConversationCreate
 from app.utils import APIResponse, mask_string
@@ -172,24 +172,13 @@ def process_response(
             },
         )
 
-        # Determine ancestor_response_id based on previous_response_id
-        ancestor_response_id = None
-        if response.previous_response_id is None:
-            # If previous_response_id is None, then ancestor_response_id = response.id
-            ancestor_response_id = response.id
-        else:
-            # If previous_response_id is not None, look in db for that ID
-            previous_conversation = get_conversation_by_response_id(
-                session=session,
-                response_id=response.previous_response_id,
-                project_id=project_id,
-            )
-            if previous_conversation:
-                # If found, use that conversation's ancestor_id
-                ancestor_response_id = previous_conversation.ancestor_response_id
-            else:
-                # If not found, ancestor_response_id = previous_response_id
-                ancestor_response_id = request.response_id
+        # Set ancestor_response_id using CRUD function
+        ancestor_response_id = set_ancestor_response_id(
+            session=session,
+            current_response_id=response.id,
+            previous_response_id=response.previous_response_id,
+            project_id=project_id,
+        )
 
         # Create conversation record in database
         conversation_data = OpenAIConversationCreate(
@@ -422,22 +411,13 @@ async def responses_sync(
             },
         )
 
-        # Determine ancestor_response_id based on previous_response_id for sync endpoint
-        ancestor_response_id = None
-        if request.response_id is None:
-            # If previous_response_id is None, then ancestor_response_id = response.id
-            ancestor_response_id = response.id
-        else:
-            # If previous_response_id is not None, look in db for that ID
-            previous_conversation = get_conversation_by_response_id(
-                session=_session, response_id=request.response_id, project_id=project_id
-            )
-            if previous_conversation:
-                # If found, use that conversation's ancestor_id
-                ancestor_response_id = previous_conversation.ancestor_response_id
-            else:
-                # If not found, ancestor_response_id = previous_response_id
-                ancestor_response_id = request.response_id
+        # Set ancestor_response_id using CRUD function for sync endpoint
+        ancestor_response_id = set_ancestor_response_id(
+            session=_session,
+            current_response_id=response.id,
+            previous_response_id=response.previous_response_id,
+            project_id=project_id,
+        )
 
         # Create conversation record in database
         conversation_data = OpenAIConversationCreate(

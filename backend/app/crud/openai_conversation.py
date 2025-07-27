@@ -52,6 +52,47 @@ def get_conversation_by_ancestor_id(
     return result
 
 
+def set_ancestor_response_id(
+    session: Session,
+    current_response_id: str,
+    previous_response_id: Optional[str],
+    project_id: int,
+) -> str:
+    """
+    Set the ancestor_response_id based on previous_response_id.
+
+    Logic:
+    1. If previous_response_id is None, then ancestor_response_id = current_response_id
+    2. If previous_response_id is not None, look in db for that ID
+       - If found, use that conversation's ancestor_id
+       - If not found, ancestor_response_id = current_response_id
+
+    Args:
+        session: Database session
+        current_response_id: The current response ID
+        previous_response_id: The previous response ID (can be None)
+        project_id: The project ID for scoping the search
+
+    Returns:
+        str: The determined ancestor_response_id
+    """
+    if previous_response_id is None:
+        # If previous_response_id is None, then ancestor_response_id = current_response_id
+        return current_response_id
+
+    # If previous_response_id is not None, look in db for that ID
+    previous_conversation = get_conversation_by_response_id(
+        session=session, response_id=previous_response_id, project_id=project_id
+    )
+
+    if previous_conversation:
+        # If found, use that conversation's ancestor_id
+        return previous_conversation.ancestor_response_id
+    else:
+        # If not found, ancestor_response_id = previous_response_id
+        return current_response_id
+
+
 def get_conversations_by_project(
     session: Session,
     project_id: int,
