@@ -11,7 +11,8 @@ from app.api.deps import get_db, get_current_user_org_project
 from app.api.routes.threads import send_callback
 from app.crud.assistants import get_assistant_by_id
 from app.crud.credentials import get_provider_credential
-from app.models import UserProjectOrg
+from app.crud.openai_conversation import create_conversation
+from app.models import UserProjectOrg, OpenAIConversationCreate
 from app.utils import APIResponse, mask_string
 from app.core.langfuse.langfuse import LangfuseTracer
 
@@ -98,6 +99,8 @@ def process_response(
     assistant,
     tracer: LangfuseTracer,
     project_id: int,
+    organization_id: int,
+    session: Session,
 ):
     """Process a response and send callback with results, with Langfuse tracing."""
     logger.info(
@@ -165,6 +168,31 @@ def process_response(
                 "error": None,
             },
         )
+
+        # Create conversation record in database
+        conversation_data = OpenAIConversationCreate(
+            response_id=response.id,
+            previous_response_id=request.response_id,
+            user_question=request.question,
+            response=response.output_text,
+            model=response.model,
+            assistant_id=request.assistant_id,
+        )
+
+        try:
+            create_conversation(
+                session=session,
+                conversation=conversation_data,
+                project_id=project_id,
+                organization_id=organization_id,
+            )
+            logger.info(
+                f"Created conversation record for response_id={response.id}, assistant_id={mask_string(request.assistant_id)}, project_id={project_id}"
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to create conversation record for response_id={response.id}, assistant_id={mask_string(request.assistant_id)}, project_id={project_id}: {str(e)}"
+            )
 
         request_dict = request.model_dump()
         callback_response = ResponsesAPIResponse.success_response(
@@ -264,6 +292,8 @@ async def responses(
         assistant,
         tracer,
         project_id,
+        organization_id,
+        _session,
     )
 
     logger.info(
@@ -368,6 +398,31 @@ async def responses_sync(
                 "error": None,
             },
         )
+
+        # Create conversation record in database
+        conversation_data = OpenAIConversationCreate(
+            response_id=response.id,
+            previous_response_id=request.response_id,
+            user_question=request.question,
+            response=response.output_text,
+            model=response.model,
+            assistant_id="sync_request",  # For sync requests, we don't have assistant_id
+        )
+
+        try:
+            create_conversation(
+                session=_session,
+                conversation=conversation_data,
+                project_id=project_id,
+                organization_id=organization_id,
+            )
+            logger.info(
+                f"Created conversation record for sync response_id={response.id}, project_id={project_id}"
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to create conversation record for sync response_id={response.id}, project_id={project_id}: {str(e)}"
+            )
 
         tracer.flush()
 
