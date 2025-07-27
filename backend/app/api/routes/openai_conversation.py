@@ -9,7 +9,6 @@ from app.crud import (
     get_conversation_by_response_id,
     get_conversation_by_ancestor_id,
     get_conversations_by_project,
-    create_conversation,
     delete_conversation,
 )
 from app.models import (
@@ -20,24 +19,6 @@ from app.models import (
 from app.utils import APIResponse
 
 router = APIRouter(prefix="/openai-conversation", tags=["OpenAI Conversations"])
-
-
-@router.post("/", response_model=APIResponse[OpenAIConversation], status_code=201)
-def create_conversation_route(
-    conversation_in: OpenAIConversationCreate,
-    session: Session = Depends(get_db),
-    current_user: UserProjectOrg = Depends(get_current_user_org_project),
-):
-    """
-    Create a new OpenAI conversation in the database.
-    """
-    conversation = create_conversation(
-        session=session,
-        conversation=conversation_in,
-        project_id=current_user.project_id,
-        organization_id=current_user.organization_id,
-    )
-    return APIResponse.success_response(conversation)
 
 
 @router.get(

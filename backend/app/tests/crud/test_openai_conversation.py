@@ -15,45 +15,6 @@ from app.tests.utils.conversation import get_conversation
 from app.tests.utils.utils import get_project, get_organization
 
 
-@pytest.fixture
-def conversation_create_data():
-    return OpenAIConversationCreate(
-        response_id=f"resp_{uuid4()}",
-        ancestor_response_id=None,
-        previous_response_id=None,
-        user_question="What is the capital of France?",
-        response="The capital of France is Paris.",
-        model="gpt-4o",
-        assistant_id=f"asst_{uuid4()}",
-    )
-
-
-def test_create_conversation_success(
-    db: Session, conversation_create_data: OpenAIConversationCreate
-):
-    """Test successful conversation creation."""
-    project = get_project(db)
-    organization = get_organization(db)
-
-    conversation = create_conversation(
-        session=db,
-        conversation=conversation_create_data,
-        project_id=project.id,
-        organization_id=organization.id,
-    )
-
-    assert conversation is not None
-    assert conversation.response_id == conversation_create_data.response_id
-    assert conversation.user_question == conversation_create_data.user_question
-    assert conversation.response == conversation_create_data.response
-    assert conversation.model == conversation_create_data.model
-    assert conversation.assistant_id == conversation_create_data.assistant_id
-    assert conversation.project_id == project.id
-    assert conversation.organization_id == organization.id
-    assert conversation.is_deleted is False
-    assert conversation.deleted_at is None
-
-
 def test_get_conversation_by_id_success(db: Session):
     """Test successful conversation retrieval by ID."""
     conversation = get_conversation(db)
