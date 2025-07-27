@@ -13,21 +13,56 @@ Start the local development environment with Docker Compose following the guide 
 
 By default, the dependencies are managed with [uv](https://docs.astral.sh/uv/), go there and install it.
 
+Create and activate new virtual environment with Python 3.12 (the ```httptools``` package (as of July 2025) does not work with latest, stable Python version 3.13 - therefore need to first create a 3.12 venv and not let uv auto-create it).
+
+```console
+$ python3.12 -m venv .venv
+```
+
 From `./backend/` you can install all the dependencies with:
 
 ```console
 $ uv sync
 ```
 
-Then you can activate the virtual environment with:
+~~Then you can activate the virtual environment with:~~
 
-```console
-$ source .venv/bin/activate
-```
+~~```console~~
+~~$ source .venv/bin/activate~~
+~~```~~
 
 Make sure your editor is using the correct Python virtual environment, with the interpreter at `backend/.venv/bin/python`.
 
 Modify or add SQLModel models for data and SQL tables in `./backend/app/models.py`, API endpoints in `./backend/app/api/`, CRUD (Create, Read, Update, Delete) utils in `./backend/app/crud.py`.
+
+## Run locally (w/o docker compose)
+
+- Pull postgres image (only first time) and run
+
+```
+docker pull postgres
+
+docker run --name my-postgres \
+  -e POSTGRES_USER=myuser \
+  -e POSTGRES_PASSWORD=mypassword \
+  -e POSTGRES_DB=mydatabase \
+  -p 5432:5432 \
+  -d postgres
+```
+
+Following scripts should run in ```backend/``` directory:
+
+- Run ```uv run  fastapi run --reload app/main.py``` to start server.
+
+- To run migration and seed initial data: ```bash scripts/prestart.sh```
+
+- To only run migrations: ```alembic upgrade head```
+
+- API key to make requests is present in ```backend/app/seed_data/seed_data.json```
+
+- API will run at http://localhost:8000/docs
+
+
 
 ## VS Code
 
