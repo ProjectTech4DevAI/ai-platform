@@ -49,6 +49,12 @@ class Project(ProjectBase, table=True):
     collections: list["Collection"] = Relationship(
         back_populates="project", cascade_delete=True
     )
+    fine_tuning: List["Fine_Tuning"] = Relationship(
+        back_populates="project", cascade_delete=True
+    )
+    model_evaluation: List["Model_Evaluation"] = Relationship(
+        back_populates="project", cascade_delete=True
+    )
 
 
 # Properties to return via API
