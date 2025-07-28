@@ -1,10 +1,18 @@
 import pytest
-from uuid import uuid4
+import secrets
+import string
 from sqlmodel import Session
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.tests.utils.conversation import get_conversation
+
+
+def generate_realistic_id(prefix: str, length: int = 40) -> str:
+    """Generate a realistic ID similar to OpenAI's format (alphanumeric only)"""
+    chars = string.ascii_lowercase + string.digits
+    random_part = "".join(secrets.choice(chars) for _ in range(length))
+    return f"{prefix}{random_part}"
 
 
 def test_get_conversation_success(
@@ -105,15 +113,15 @@ def test_get_conversation_by_ancestor_id_success(
     api_key = get_user_from_api_key(db, user_api_key_header)
 
     # Create a conversation with an ancestor in the same project as the API key
-    ancestor_response_id = f"resp_{uuid4()}"
+    ancestor_response_id = generate_realistic_id("resp_", 40)
     conversation_data = OpenAIConversationCreate(
-        response_id=f"resp_{uuid4()}",
+        response_id=generate_realistic_id("resp_", 40),
         ancestor_response_id=ancestor_response_id,
         previous_response_id=None,
         user_question="What is the capital of France?",
         response="The capital of France is Paris.",
         model="gpt-4o",
-        assistant_id=f"asst_{uuid4()}",
+        assistant_id=generate_realistic_id("asst_", 20),
     )
 
     conversation = create_conversation(

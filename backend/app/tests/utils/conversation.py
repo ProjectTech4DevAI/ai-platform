@@ -1,8 +1,17 @@
-from uuid import uuid4
+import secrets
+import string
 from sqlmodel import Session, select
 
 from app.models import OpenAIConversation, OpenAIConversationCreate
 from app.crud.openai_conversation import create_conversation
+
+
+def generate_realistic_id(prefix: str, length: int = 40) -> str:
+    """Generate a realistic ID similar to OpenAI's format (alphanumeric only)"""
+    # Generate random alphanumeric string
+    chars = string.ascii_lowercase + string.digits
+    random_part = "".join(secrets.choice(chars) for _ in range(length))
+    return f"{prefix}{random_part}"
 
 
 def get_conversation(
@@ -59,13 +68,13 @@ def get_conversation(
         organization = get_organization(session)
 
         conversation_data = OpenAIConversationCreate(
-            response_id=f"resp_{uuid4()}",
+            response_id=generate_realistic_id("resp_", 40),
             ancestor_response_id=None,
             previous_response_id=None,
             user_question="Test question",
             response="Test response",
             model="gpt-4o",
-            assistant_id=f"asst_{uuid4()}",
+            assistant_id=generate_realistic_id("asst_", 20),
         )
 
         conversation = create_conversation(
