@@ -28,7 +28,6 @@ def test_get_conversation_by_id_success(db: Session):
         response="The capital of Japan is Tokyo.",
         model="gpt-4o",
         assistant_id=generate_openai_id("asst_", 20),
-        project_id=project.id,
     )
 
     # Create the conversation in the database
@@ -76,7 +75,6 @@ def test_get_conversation_by_response_id_success(db: Session):
         response="The capital of Japan is Tokyo.",
         model="gpt-4o",
         assistant_id=generate_openai_id("asst_", 20),
-        project_id=project.id,
     )
 
     # Create the conversation in the database
@@ -126,7 +124,6 @@ def test_get_conversation_by_ancestor_id_success(db: Session):
         response="The capital of France is Paris.",
         model="gpt-4o",
         assistant_id=generate_openai_id("asst_", 20),
-        project_id=project.id,
     )
 
     conversation = create_conversation(
@@ -169,13 +166,12 @@ def test_get_conversations_by_project_success(db: Session):
     for i in range(3):
         conversation_data = OpenAIConversationCreate(
             response_id=generate_openai_id("resp_", 40),
-            ancestor_response_id=None,
+            ancestor_response_id=generate_openai_id("resp_", 40),
             previous_response_id=None,
             user_question=f"Test question {i}",
             response=f"Test response {i}",
             model="gpt-4o",
             assistant_id=generate_openai_id("asst_", 20),
-            project_id=project.id,
         )
         create_conversation(
             session=db,
@@ -204,13 +200,12 @@ def test_get_conversations_by_project_with_pagination(db: Session):
     for i in range(5):
         conversation_data = OpenAIConversationCreate(
             response_id=generate_openai_id("resp_", 40),
-            ancestor_response_id=None,
+            ancestor_response_id=generate_openai_id("resp_", 40),
             previous_response_id=None,
             user_question=f"Test question {i}",
             response=f"Test response {i}",
             model="gpt-4o",
             assistant_id=generate_openai_id("asst_", 20),
-            project_id=project.id,
         )
         create_conversation(
             session=db,
@@ -242,7 +237,6 @@ def test_delete_conversation_success(db: Session):
         response="The capital of Japan is Tokyo.",
         model="gpt-4o",
         assistant_id=generate_openai_id("asst_", 20),
-        project_id=project.id,
     )
 
     # Create the conversation in the database first
@@ -291,7 +285,6 @@ def test_conversation_soft_delete_behavior(db: Session):
         response="The capital of Japan is Tokyo.",
         model="gpt-4o",
         assistant_id=generate_openai_id("asst_", 20),
-        project_id=project.id,
     )
 
     # Create the conversation in the database first
@@ -346,13 +339,12 @@ def test_get_conversations_count_by_project_success(db: Session):
     for i in range(3):
         conversation_data = OpenAIConversationCreate(
             response_id=generate_openai_id("resp_", 40),
-            ancestor_response_id=None,
+            ancestor_response_id=generate_openai_id("resp_", 40),
             previous_response_id=None,
             user_question=f"Test question {i}",
             response=f"Test response {i}",
             model="gpt-4o",
             assistant_id=generate_openai_id("asst_", 20),
-            project_id=project.id,
         )
         create_conversation(
             session=db,
@@ -378,13 +370,12 @@ def test_get_conversations_count_by_project_excludes_deleted(db: Session):
     # Create a conversation
     conversation_data = OpenAIConversationCreate(
         response_id=generate_openai_id("resp_", 40),
-        ancestor_response_id=None,
+        ancestor_response_id=generate_openai_id("resp_", 40),
         previous_response_id=None,
         user_question="Test question",
         response="Test response",
         model="gpt-4o",
         assistant_id=generate_openai_id("asst_", 20),
-        project_id=project.id,
     )
 
     conversation = create_conversation(
@@ -424,62 +415,103 @@ def test_get_conversations_count_by_project_different_projects(db: Session):
     # Get another project (assuming there are multiple projects in test data)
     project2 = (
         get_project(db, "Dalgo")
-        if project1.name == "Glific"
-        else get_project(db, "Glific")
+        if get_project(db, "Dalgo") is not None
+        else get_project(db)
     )
 
-    if not project2 or project2.id == project1.id:
-        pytest.skip("Need at least 2 different projects for this test")
+    # Create conversations in project1
+    for i in range(2):
+        conversation_data = OpenAIConversationCreate(
+            response_id=generate_openai_id("resp_", 40),
+            ancestor_response_id=generate_openai_id("resp_", 40),
+            previous_response_id=None,
+            user_question=f"Test question {i}",
+            response=f"Test response {i}",
+            model="gpt-4o",
+            assistant_id=generate_openai_id("asst_", 20),
+        )
+        create_conversation(
+            session=db,
+            conversation=conversation_data,
+            project_id=project1.id,
+            organization_id=organization.id,
+        )
 
-    # Create conversation in project1
-    conversation_data1 = OpenAIConversationCreate(
-        response_id=generate_openai_id("resp_", 40),
-        ancestor_response_id=None,
+    # Create conversations in project2
+    for i in range(3):
+        conversation_data = OpenAIConversationCreate(
+            response_id=generate_openai_id("resp_", 40),
+            ancestor_response_id=generate_openai_id("resp_", 40),
+            previous_response_id=None,
+            user_question=f"Test question {i}",
+            response=f"Test response {i}",
+            model="gpt-4o",
+            assistant_id=generate_openai_id("asst_", 20),
+        )
+        create_conversation(
+            session=db,
+            conversation=conversation_data,
+            project_id=project2.id,
+            organization_id=organization.id,
+        )
+
+    # Check counts are isolated
+    count1 = get_conversations_count_by_project(session=db, project_id=project1.id)
+    count2 = get_conversations_count_by_project(session=db, project_id=project2.id)
+
+    assert count1 >= 2
+    assert count2 >= 3
+
+
+def test_response_id_validation_pattern(db: Session):
+    """Test that response ID validation pattern is enforced."""
+    project = get_project(db)
+    organization = get_organization(db)
+
+    # Test valid response ID
+    valid_response_id = "resp_1234567890abcdef"
+    conversation_data = OpenAIConversationCreate(
+        response_id=valid_response_id,
+        ancestor_response_id="resp_abcdef1234567890",
         previous_response_id=None,
-        user_question="Test question 1",
-        response="Test response 1",
+        user_question="Test question",
+        response="Test response",
         model="gpt-4o",
         assistant_id=generate_openai_id("asst_", 20),
-        project_id=project1.id,
     )
 
-    create_conversation(
+    # This should work
+    conversation = create_conversation(
         session=db,
-        conversation=conversation_data1,
-        project_id=project1.id,
+        conversation=conversation_data,
+        project_id=project.id,
         organization_id=organization.id,
     )
+    assert conversation is not None
+    assert conversation.response_id == valid_response_id
 
-    # Create conversation in project2
-    conversation_data2 = OpenAIConversationCreate(
-        response_id=generate_openai_id("resp_", 40),
-        ancestor_response_id=None,
-        previous_response_id=None,
-        user_question="Test question 2",
-        response="Test response 2",
-        model="gpt-4o",
-        assistant_id=generate_openai_id("asst_", 20),
-        project_id=project2.id,
-    )
+    # Test invalid response ID (too short)
+    invalid_response_id = "resp_123"
+    with pytest.raises(ValueError, match="String should have at least 10 characters"):
+        OpenAIConversationCreate(
+            response_id=invalid_response_id,
+            ancestor_response_id="resp_abcdef1234567890",
+            previous_response_id=None,
+            user_question="Test question",
+            response="Test response",
+            model="gpt-4o",
+            assistant_id=generate_openai_id("asst_", 20),
+        )
 
-    create_conversation(
-        session=db,
-        conversation=conversation_data2,
-        project_id=project2.id,
-        organization_id=organization.id,
-    )
-
-    # Get counts for both projects
-    count1 = get_conversations_count_by_project(
-        session=db,
-        project_id=project1.id,
-    )
-
-    count2 = get_conversations_count_by_project(
-        session=db,
-        project_id=project2.id,
-    )
-
-    # Both should have at least 1 conversation (the one we just created)
-    assert count1 >= 1
-    assert count2 >= 1
+    # Test invalid response ID (wrong prefix but long enough)
+    invalid_response_id2 = "msg_1234567890abcdef"
+    with pytest.raises(ValueError, match="response_id fields must follow pattern"):
+        OpenAIConversationCreate(
+            response_id=invalid_response_id2,
+            ancestor_response_id="resp_abcdef1234567890",
+            previous_response_id=None,
+            user_question="Test question",
+            response="Test response",
+            model="gpt-4o",
+            assistant_id=generate_openai_id("asst_", 20),
+        )

@@ -23,7 +23,6 @@ class OpenAIConversationBase(SQLModel):
     # usually follow the pattern of resp_688704e41190819db512c30568xxxxxxx
     response_id: str = Field(index=True, min_length=10)
     ancestor_response_id: str = Field(
-        default=None,
         index=True,
         description="Ancestor response ID for conversation threading",
     )
@@ -73,8 +72,8 @@ class OpenAIConversation(OpenAIConversationBase, table=True):
 class OpenAIConversationCreate(SQLModel):
     # usually follow the pattern of resp_688704e41190819db512c30568dcaebc0a42e02be2c2c49b
     response_id: str = Field(min_length=10)
-    ancestor_response_id: Optional[str] = Field(
-        default=None, description="Ancestor response ID for conversation threading"
+    ancestor_response_id: str = Field(
+        description="Ancestor response ID for conversation threading"
     )
     previous_response_id: Optional[str] = Field(
         default=None, description="Previous response ID in the conversation"

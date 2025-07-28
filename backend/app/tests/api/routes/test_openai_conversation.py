@@ -467,3 +467,66 @@ def test_delete_conversation_not_found(
     assert response.status_code == 404
     response_data = response.json()
     assert "not found" in response_data["error"]
+
+
+def test_get_conversation_unauthorized_no_api_key(
+    client: TestClient,
+    db: Session,
+):
+    """Test conversation retrieval without API key."""
+    response = client.get("/api/v1/openai-conversation/1")
+    assert response.status_code == 401
+
+
+def test_get_conversation_unauthorized_invalid_api_key(
+    client: TestClient,
+    db: Session,
+):
+    """Test conversation retrieval with invalid API key."""
+    response = client.get(
+        "/api/v1/openai-conversation/1",
+        headers={"X-API-KEY": "invalid_api_key"},
+    )
+    assert response.status_code == 401
+
+
+def test_list_conversations_unauthorized_no_api_key(
+    client: TestClient,
+    db: Session,
+):
+    """Test conversation listing without API key."""
+    response = client.get("/api/v1/openai-conversation")
+    assert response.status_code == 401
+
+
+def test_list_conversations_unauthorized_invalid_api_key(
+    client: TestClient,
+    db: Session,
+):
+    """Test conversation listing with invalid API key."""
+    response = client.get(
+        "/api/v1/openai-conversation",
+        headers={"X-API-KEY": "invalid_api_key"},
+    )
+    assert response.status_code == 401
+
+
+def test_delete_conversation_unauthorized_no_api_key(
+    client: TestClient,
+    db: Session,
+):
+    """Test conversation deletion without API key."""
+    response = client.delete("/api/v1/openai-conversation/1")
+    assert response.status_code == 401
+
+
+def test_delete_conversation_unauthorized_invalid_api_key(
+    client: TestClient,
+    db: Session,
+):
+    """Test conversation deletion with invalid API key."""
+    response = client.delete(
+        "/api/v1/openai-conversation/1",
+        headers={"X-API-KEY": "invalid_api_key"},
+    )
+    assert response.status_code == 401
