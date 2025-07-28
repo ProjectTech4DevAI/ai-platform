@@ -61,6 +61,7 @@ def read_organization(*, session: SessionDep, org_id: int):
     """
     org = get_organization_by_id(session=session, org_id=org_id)
     if org is None:
+        logger.error(f"[read_organization] Organization not found | org_id={org_id}")
         raise HTTPException(status_code=404, detail="Organization not found")
     return APIResponse.success_response(org)
 
@@ -76,7 +77,7 @@ def update_organization(
 ):
     org = get_organization_by_id(session=session, org_id=org_id)
     if org is None:
-        logger.warning(
+        logger.error(
             f"[update_organization] Organization not found | 'org_id': {org_id}"
         )
         raise HTTPException(status_code=404, detail="Organization not found")
@@ -103,7 +104,7 @@ def update_organization(
 def delete_organization(session: SessionDep, org_id: int):
     org = get_organization_by_id(session=session, org_id=org_id)
     if org is None:
-        logger.warning(
+        logger.error(
             f"[delete_organization] Organization not found | 'org_id': {org_id}"
         )
         raise HTTPException(status_code=404, detail="Organization not found")

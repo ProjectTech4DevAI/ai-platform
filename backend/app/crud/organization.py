@@ -43,13 +43,13 @@ def validate_organization(session: Session, org_id: int) -> Organization:
     """
     organization = get_organization_by_id(session, org_id)
     if not organization:
-        logger.warning(
+        logger.error(
             f"[validate_organization] Organization not found | 'org_id': {org_id}"
         )
         raise HTTPException(404, "Organization not found")
 
     if not organization.is_active:
-        logger.warning(
+        logger.error(
             f"[validate_organization] Organization is not active | 'org_id': {org_id}"
         )
         raise HTTPException("Organization is not active")
