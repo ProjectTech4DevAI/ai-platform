@@ -27,6 +27,7 @@ evaluation_status_enum = postgresql.ENUM(
 
 
 def upgrade():
+    evaluation_status_enum.create(op.get_bind(), checkfirst=True)
     op.create_table(
         "fine_tuning",
         sa.Column("id", sa.Integer(), nullable=False),
