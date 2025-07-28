@@ -39,13 +39,13 @@ def validate_project(session: Session, project_id: int) -> Project:
     """
     project = get_project_by_id(session=session, project_id=project_id)
     if not project:
-        logger.warning(
+        logger.error(
             f"[validate_project] Project not found | 'project_id': {project_id}"
         )
         raise HTTPException(404, "Project not found")
 
     if not project.is_active:
-        logger.warning(
+        logger.error(
             f"[validate_project] Project is not active | 'project_id': {project_id}"
         )
         raise HTTPException(404, "Project is not active")
