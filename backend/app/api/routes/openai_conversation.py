@@ -108,7 +108,10 @@ def list_conversations_route(
     List all conversations in the current project.
     """
     conversations = get_conversations_by_project(
-        session=session, project_id=current_user.project_id, skip=skip, limit=limit
+        session=session,
+        project_id=current_user.project_id,
+        skip=skip,  # ← Pagination offset
+        limit=limit,  # ← Page size
     )
     return APIResponse.success_response(conversations)
 
