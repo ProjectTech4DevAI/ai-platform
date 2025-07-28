@@ -6,7 +6,7 @@ from app.models import OpenAIConversation, OpenAIConversationCreate
 from app.crud.openai_conversation import create_conversation
 
 
-def generate_realistic_id(prefix: str, length: int = 40) -> str:
+def generate_openai_id(prefix: str, length: int = 40) -> str:
     """Generate a realistic ID similar to OpenAI's format (alphanumeric only)"""
     # Generate random alphanumeric string
     chars = string.ascii_lowercase + string.digits
@@ -70,13 +70,13 @@ def get_conversation(
         organization = get_organization(session)
 
         conversation_data = OpenAIConversationCreate(
-            response_id=generate_realistic_id("resp_", 40),
+            response_id=generate_openai_id("resp_", 40),
             ancestor_response_id=None,
             previous_response_id=None,
             user_question="Test question",
             response="Test response",
             model="gpt-4o",
-            assistant_id=generate_realistic_id("asst_", 20),
+            assistant_id=generate_openai_id("asst_", 20),
         )
 
         conversation = create_conversation(
