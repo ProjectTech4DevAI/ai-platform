@@ -258,6 +258,152 @@ def test_list_conversations_with_pagination(
     assert isinstance(response_data["data"], list)
     assert len(response_data["data"]) <= 2
 
+    # Check pagination metadata
+    assert "metadata" in response_data
+    metadata = response_data["metadata"]
+    assert metadata["skip"] == 1
+    assert metadata["limit"] == 2
+    assert "total" in metadata
+    assert isinstance(metadata["total"], int)
+    assert metadata["total"] >= 2
+
+
+def test_list_conversations_pagination_metadata(
+    client: TestClient,
+    db: Session,
+    user_api_key: APIKeyPublic,
+):
+    """Test conversation listing pagination metadata."""
+    # Create 5 conversations
+    for i in range(5):
+        conversation_data = OpenAIConversationCreate(
+            response_id=generate_openai_id("resp_", 40),
+            ancestor_response_id=generate_openai_id("resp_", 40),
+            previous_response_id=None,
+            user_question=f"Test question {i}",
+            response=f"Test response {i}",
+            model="gpt-4o",
+            assistant_id=generate_openai_id("asst_", 20),
+        )
+
+        create_conversation(
+            session=db,
+            conversation=conversation_data,
+            project_id=user_api_key.project_id,
+            organization_id=user_api_key.organization_id,
+        )
+
+    # Test first page
+    response = client.get(
+        "/api/v1/openai-conversation?skip=0&limit=3",
+        headers={"X-API-KEY": user_api_key.key},
+    )
+
+    assert response.status_code == 200
+    response_data = response.json()
+    assert response_data["success"] is True
+
+    metadata = response_data["metadata"]
+    assert metadata["skip"] == 0
+    assert metadata["limit"] == 3
+    assert (
+        metadata["total"] >= 5
+    )  # Should include the 5 we created plus any existing ones
+
+    # Test second page
+    response = client.get(
+        "/api/v1/openai-conversation?skip=3&limit=3",
+        headers={"X-API-KEY": user_api_key.key},
+    )
+
+    assert response.status_code == 200
+    response_data = response.json()
+    assert response_data["success"] is True
+
+    metadata = response_data["metadata"]
+    assert metadata["skip"] == 3
+    assert metadata["limit"] == 3
+    assert metadata["total"] >= 5
+
+
+def test_list_conversations_default_pagination(
+    client: TestClient,
+    db: Session,
+    user_api_key: APIKeyPublic,
+):
+    """Test conversation listing with default pagination parameters."""
+    # Create a conversation
+    conversation_data = OpenAIConversationCreate(
+        response_id=generate_openai_id("resp_", 40),
+        ancestor_response_id=generate_openai_id("resp_", 40),
+        previous_response_id=None,
+        user_question="Test question",
+        response="Test response",
+        model="gpt-4o",
+        assistant_id=generate_openai_id("asst_", 20),
+    )
+
+    create_conversation(
+        session=db,
+        conversation=conversation_data,
+        project_id=user_api_key.project_id,
+        organization_id=user_api_key.organization_id,
+    )
+
+    # Test without pagination parameters (should use defaults)
+    response = client.get(
+        "/api/v1/openai-conversation",
+        headers={"X-API-KEY": user_api_key.key},
+    )
+
+    assert response.status_code == 200
+    response_data = response.json()
+    assert response_data["success"] is True
+
+    metadata = response_data["metadata"]
+    assert metadata["skip"] == 0  # Default skip
+    assert metadata["limit"] == 100  # Default limit
+    assert "total" in metadata
+    assert isinstance(metadata["total"], int)
+
+
+def test_list_conversations_edge_cases(
+    client: TestClient,
+    db: Session,
+    user_api_key: APIKeyPublic,
+):
+    """Test conversation listing edge cases for pagination."""
+    # Test with skip larger than total
+    response = client.get(
+        "/api/v1/openai-conversation?skip=1000&limit=10",
+        headers={"X-API-KEY": user_api_key.key},
+    )
+
+    assert response.status_code == 200
+    response_data = response.json()
+    assert response_data["success"] is True
+    assert len(response_data["data"]) == 0  # Should return empty list
+
+    metadata = response_data["metadata"]
+    assert metadata["skip"] == 1000
+    assert metadata["limit"] == 10
+    assert "total" in metadata
+
+    # Test with maximum limit
+    response = client.get(
+        "/api/v1/openai-conversation?skip=0&limit=100",
+        headers={"X-API-KEY": user_api_key.key},
+    )
+
+    assert response.status_code == 200
+    response_data = response.json()
+    assert response_data["success"] is True
+
+    metadata = response_data["metadata"]
+    assert metadata["skip"] == 0
+    assert metadata["limit"] == 100
+    assert "total" in metadata
+
 
 def test_list_conversations_invalid_pagination(
     client: TestClient,

@@ -1,6 +1,6 @@
 import logging
 from typing import Optional
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func
 from app.models import OpenAIConversation, OpenAIConversationCreate
 from app.core.util import now
 
@@ -54,6 +54,21 @@ def get_conversation_by_ancestor_id(
         .limit(1)
     )
     result = session.exec(statement).first()
+    return result
+
+
+def get_conversations_count_by_project(
+    session: Session,
+    project_id: int,
+) -> int:
+    """
+    Return the total count of conversations for a given project.
+    """
+    statement = select(func.count(OpenAIConversation.id)).where(
+        OpenAIConversation.project_id == project_id,
+        OpenAIConversation.is_deleted == False,
+    )
+    result = session.exec(statement).one()
     return result
 
 

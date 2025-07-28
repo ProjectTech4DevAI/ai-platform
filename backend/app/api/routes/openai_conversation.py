@@ -9,6 +9,8 @@ from app.crud import (
     get_conversation_by_response_id,
     get_conversation_by_ancestor_id,
     get_conversations_by_project,
+    get_conversations_count_by_project,
+    create_conversation,
     delete_conversation,
 )
 from app.models import (
@@ -113,7 +115,16 @@ def list_conversations_route(
         skip=skip,  # ← Pagination offset
         limit=limit,  # ← Page size
     )
-    return APIResponse.success_response(conversations)
+
+    # Get total count for pagination metadata
+    total = get_conversations_count_by_project(
+        session=session,
+        project_id=current_user.project_id,
+    )
+
+    return APIResponse.success_response(
+        data=conversations, metadata={"skip": skip, "limit": limit, "total": total}
+    )
 
 
 @router.delete("/{conversation_id}", response_model=APIResponse)
