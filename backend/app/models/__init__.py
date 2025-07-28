@@ -68,11 +68,10 @@ from .model_evaluation import (
     ModelEvaluationBase,
     ModelEvaluationCreate,
     ModelEvaluationPublic,
-
+)
 from .openai_conversation import (
     OpenAIConversationPublic,
     OpenAIConversation,
     OpenAIConversationBase,
     OpenAIConversationCreate,
-
 )

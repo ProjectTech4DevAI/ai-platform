@@ -53,6 +53,8 @@ class Project(ProjectBase, table=True):
         back_populates="project", cascade_delete=True
     )
     model_evaluation: List["Model_Evaluation"] = Relationship(
+        back_populates="project", cascade_delete=True
+    )
     openai_conversations: list["OpenAIConversation"] = Relationship(
         back_populates="project", cascade_delete=True
     )
