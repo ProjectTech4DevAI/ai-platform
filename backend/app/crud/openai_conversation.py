@@ -41,12 +41,17 @@ def get_conversation_by_ancestor_id(
     session: Session, ancestor_response_id: str, project_id: int
 ) -> OpenAIConversation | None:
     """
-    Return a conversation by its ancestor response ID and project.
+    Return the latest conversation by its ancestor response ID and project.
     """
-    statement = select(OpenAIConversation).where(
-        OpenAIConversation.ancestor_response_id == ancestor_response_id,
-        OpenAIConversation.project_id == project_id,
-        OpenAIConversation.is_deleted == False,
+    statement = (
+        select(OpenAIConversation)
+        .where(
+            OpenAIConversation.ancestor_response_id == ancestor_response_id,
+            OpenAIConversation.project_id == project_id,
+            OpenAIConversation.is_deleted == False,
+        )
+        .order_by(OpenAIConversation.inserted_at.desc())
+        .limit(1)
     )
     result = session.exec(statement).first()
     return result
