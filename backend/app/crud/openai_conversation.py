@@ -65,7 +65,7 @@ def set_ancestor_response_id(
     1. If previous_response_id is None, then ancestor_response_id = current_response_id
     2. If previous_response_id is not None, look in db for that ID
        - If found, use that conversation's ancestor_id
-       - If not found, ancestor_response_id = current_response_id
+       - If not found, ancestor_response_id = previous_response_id
 
     Args:
         session: Database session
@@ -90,7 +90,7 @@ def set_ancestor_response_id(
         return previous_conversation.ancestor_response_id
     else:
         # If not found, ancestor_response_id = previous_response_id
-        return current_response_id
+        return previous_response_id
 
 
 def get_conversations_by_project(
