@@ -5,7 +5,6 @@ from sqlmodel import Session
 from fastapi.testclient import TestClient
 
 from app.models import APIKeyPublic
-from app.tests.utils.conversation import get_conversation
 from app.crud.openai_conversation import create_conversation
 from app.models import OpenAIConversationCreate
 
@@ -176,11 +175,23 @@ def test_list_conversations_success(
     user_api_key: APIKeyPublic,
 ):
     """Test successful conversation listing."""
-    # Get the project ID from the user's API key
-    from app.tests.utils.utils import get_user_from_api_key
+    conversation_data = OpenAIConversationCreate(
+        response_id=generate_openai_id("resp_", 40),
+        ancestor_response_id=generate_openai_id("resp_", 40),
+        previous_response_id=None,
+        user_question="What is the capital of France?",
+        response="The capital of France is Paris.",
+        model="gpt-4o",
+        assistant_id=generate_openai_id("asst_", 20),
+    )
 
-    # Create a conversation in the same project as the API key
-    get_conversation(db, project_id=user_api_key.project_id)
+    # Actually create the conversation in the database
+    create_conversation(
+        session=db,
+        conversation=conversation_data,
+        project_id=user_api_key.project_id,
+        organization_id=user_api_key.organization_id,
+    )
 
     response = client.get(
         "/api/v1/openai-conversation",
@@ -201,8 +212,40 @@ def test_list_conversations_with_pagination(
 ):
     """Test conversation listing with pagination."""
     # Create multiple conversations
-    for _ in range(3):
-        get_conversation(db)
+    conversation_data_1 = OpenAIConversationCreate(
+        response_id=generate_openai_id("resp_", 40),
+        ancestor_response_id=generate_openai_id("resp_", 40),
+        previous_response_id=None,
+        user_question="What is the capital of Japan?",
+        response="The capital of Japan is Tokyo.",
+        model="gpt-4o",
+        assistant_id=generate_openai_id("asst_", 20),
+    )
+
+    conversation_data_2 = OpenAIConversationCreate(
+        response_id=generate_openai_id("resp_", 40),
+        ancestor_response_id=generate_openai_id("resp_", 40),
+        previous_response_id=None,
+        user_question="What is the capital of Brazil?",
+        response="The capital of Brazil is Brasília.",
+        model="gpt-4o",
+        assistant_id=generate_openai_id("asst_", 20),
+    )
+
+    # Actually create the conversations in the database
+    create_conversation(
+        session=db,
+        conversation=conversation_data_1,
+        project_id=user_api_key.project_id,
+        organization_id=user_api_key.organization_id,
+    )
+
+    create_conversation(
+        session=db,
+        conversation=conversation_data_2,
+        project_id=user_api_key.project_id,
+        organization_id=user_api_key.organization_id,
+    )
 
     response = client.get(
         "/api/v1/openai-conversation?skip=1&limit=2",
@@ -235,11 +278,24 @@ def test_delete_conversation_success(
     user_api_key: APIKeyPublic,
 ):
     """Test successful conversation deletion."""
-    # Get the project ID from the user's API key
-    from app.tests.utils.utils import get_user_from_api_key
+    conversation_data = OpenAIConversationCreate(
+        response_id=generate_openai_id("resp_", 40),
+        ancestor_response_id=generate_openai_id("resp_", 40),
+        previous_response_id=None,
+        user_question="What is the capital of Japan?",
+        response="The capital of Japan is Tokyo.",
+        model="gpt-4o",
+        assistant_id=generate_openai_id("asst_", 20),
+    )
 
-    # Create a conversation in the same project as the API key
-    conversation = get_conversation(db, project_id=user_api_key.project_id)
+    # Create the conversation in the database and get the created object with ID
+    conversation = create_conversation(
+        session=db,
+        conversation=conversation_data,
+        project_id=user_api_key.project_id,
+        organization_id=user_api_key.organization_id,
+    )
+
     conversation_id = conversation.id
 
     response = client.delete(

@@ -33,7 +33,7 @@ def validate_assistant_id_pattern(v: str) -> str:
 class OpenAIConversationBase(SQLModel):
     # usually follow the pattern of resp_688704e41190819db512c30568xxxxxxx
     response_id: str = Field(index=True, min_length=10)
-    ancestor_response_id: Optional[str] = Field(
+    ancestor_response_id: str = Field(
         default=None,
         index=True,
         description="Ancestor response ID for conversation threading",

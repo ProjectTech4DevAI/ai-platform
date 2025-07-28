@@ -11,7 +11,6 @@ from app.crud.openai_conversation import (
     delete_conversation,
 )
 from app.models import OpenAIConversationCreate
-from app.tests.utils.conversation import get_conversation
 from app.tests.utils.utils import get_project, get_organization
 
 
@@ -25,7 +24,26 @@ def generate_openai_id(prefix: str, length: int = 40) -> str:
 def test_get_conversation_by_id_success(db: Session):
     """Test successful conversation retrieval by ID."""
     project = get_project(db)
-    conversation = get_conversation(db, project_id=project.id)
+    organization = get_organization(db)
+
+    conversation_data = OpenAIConversationCreate(
+        response_id=generate_openai_id("resp_", 40),
+        ancestor_response_id=generate_openai_id("resp_", 40),
+        previous_response_id=None,
+        user_question="What is the capital of Japan?",
+        response="The capital of Japan is Tokyo.",
+        model="gpt-4o",
+        assistant_id=generate_openai_id("asst_", 20),
+        project_id=project.id,
+    )
+
+    # Create the conversation in the database
+    conversation = create_conversation(
+        session=db,
+        conversation=conversation_data,
+        project_id=project.id,
+        organization_id=organization.id,
+    )
 
     retrieved_conversation = get_conversation_by_id(
         session=db,
@@ -54,7 +72,26 @@ def test_get_conversation_by_id_not_found(db: Session):
 def test_get_conversation_by_response_id_success(db: Session):
     """Test successful conversation retrieval by response ID."""
     project = get_project(db)
-    conversation = get_conversation(db, project_id=project.id)
+    organization = get_organization(db)
+
+    conversation_data = OpenAIConversationCreate(
+        response_id=generate_openai_id("resp_", 40),
+        ancestor_response_id=generate_openai_id("resp_", 40),
+        previous_response_id=None,
+        user_question="What is the capital of Japan?",
+        response="The capital of Japan is Tokyo.",
+        model="gpt-4o",
+        assistant_id=generate_openai_id("asst_", 20),
+        project_id=project.id,
+    )
+
+    # Create the conversation in the database
+    conversation = create_conversation(
+        session=db,
+        conversation=conversation_data,
+        project_id=project.id,
+        organization_id=organization.id,
+    )
 
     retrieved_conversation = get_conversation_by_response_id(
         session=db,
@@ -95,6 +132,7 @@ def test_get_conversation_by_ancestor_id_success(db: Session):
         response="The capital of France is Paris.",
         model="gpt-4o",
         assistant_id=generate_openai_id("asst_", 20),
+        project_id=project.id,
     )
 
     conversation = create_conversation(
@@ -143,6 +181,7 @@ def test_get_conversations_by_project_success(db: Session):
             response=f"Test response {i}",
             model="gpt-4o",
             assistant_id=generate_openai_id("asst_", 20),
+            project_id=project.id,
         )
         create_conversation(
             session=db,
@@ -165,10 +204,26 @@ def test_get_conversations_by_project_success(db: Session):
 def test_get_conversations_by_project_with_pagination(db: Session):
     """Test conversation listing by project with pagination."""
     project = get_project(db)
+    organization = get_organization(db)
 
     # Create multiple conversations
-    for _ in range(5):
-        get_conversation(db, project_id=project.id)
+    for i in range(5):
+        conversation_data = OpenAIConversationCreate(
+            response_id=generate_openai_id("resp_", 40),
+            ancestor_response_id=None,
+            previous_response_id=None,
+            user_question=f"Test question {i}",
+            response=f"Test response {i}",
+            model="gpt-4o",
+            assistant_id=generate_openai_id("asst_", 20),
+            project_id=project.id,
+        )
+        create_conversation(
+            session=db,
+            conversation=conversation_data,
+            project_id=project.id,
+            organization_id=organization.id,
+        )
 
     conversations = get_conversations_by_project(
         session=db,
@@ -183,7 +238,26 @@ def test_get_conversations_by_project_with_pagination(db: Session):
 def test_delete_conversation_success(db: Session):
     """Test successful conversation deletion."""
     project = get_project(db)
-    conversation = get_conversation(db, project_id=project.id)
+    organization = get_organization(db)
+
+    conversation_data = OpenAIConversationCreate(
+        response_id=generate_openai_id("resp_", 40),
+        ancestor_response_id=generate_openai_id("resp_", 40),
+        previous_response_id=None,
+        user_question="What is the capital of Japan?",
+        response="The capital of Japan is Tokyo.",
+        model="gpt-4o",
+        assistant_id=generate_openai_id("asst_", 20),
+        project_id=project.id,
+    )
+
+    # Create the conversation in the database first
+    conversation = create_conversation(
+        session=db,
+        conversation=conversation_data,
+        project_id=project.id,
+        organization_id=organization.id,
+    )
 
     deleted_conversation = delete_conversation(
         session=db,
@@ -213,7 +287,26 @@ def test_delete_conversation_not_found(db: Session):
 def test_conversation_soft_delete_behavior(db: Session):
     """Test that deleted conversations are not returned by get functions."""
     project = get_project(db)
-    conversation = get_conversation(db, project_id=project.id)
+    organization = get_organization(db)
+
+    conversation_data = OpenAIConversationCreate(
+        response_id=generate_openai_id("resp_", 40),
+        ancestor_response_id=generate_openai_id("resp_", 40),
+        previous_response_id=None,
+        user_question="What is the capital of Japan?",
+        response="The capital of Japan is Tokyo.",
+        model="gpt-4o",
+        assistant_id=generate_openai_id("asst_", 20),
+        project_id=project.id,
+    )
+
+    # Create the conversation in the database first
+    conversation = create_conversation(
+        session=db,
+        conversation=conversation_data,
+        project_id=project.id,
+        organization_id=organization.id,
+    )
 
     # Delete the conversation
     delete_conversation(
