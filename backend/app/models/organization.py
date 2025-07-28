@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from .collection import Collection
     from .fine_tuning import Fine_Tuning
     from .model_evaluation import Model_Evaluation
+    from .openai_conversation import OpenAIConversation
 
 
 # Shared properties for an Organization
@@ -57,6 +58,7 @@ class Organization(OrganizationBase, table=True):
         back_populates="organization", cascade_delete=True
     )
     fine_tuning: List["Model_Evaluation"] = Relationship(
+    openai_conversations: list["OpenAIConversation"] = Relationship(
         back_populates="organization", cascade_delete=True
     )
 
