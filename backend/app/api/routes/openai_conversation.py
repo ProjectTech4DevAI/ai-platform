@@ -13,7 +13,6 @@ from app.crud import (
 )
 from app.models import (
     UserProjectOrg,
-    OpenAIConversationCreate,
     OpenAIConversation,
 )
 from app.utils import APIResponse

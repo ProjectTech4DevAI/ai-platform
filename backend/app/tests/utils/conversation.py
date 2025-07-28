@@ -20,7 +20,7 @@ def get_conversation(
             select(OpenAIConversation)
             .where(
                 OpenAIConversation.response_id == response_id,
-                OpenAIConversation.is_deleted == False,
+                not OpenAIConversation.is_deleted,
             )
             .limit(1)
         )
@@ -29,15 +29,13 @@ def get_conversation(
             select(OpenAIConversation)
             .where(
                 OpenAIConversation.project_id == project_id,
-                OpenAIConversation.is_deleted == False,
+                not OpenAIConversation.is_deleted,
             )
             .limit(1)
         )
     else:
         statement = (
-            select(OpenAIConversation)
-            .where(OpenAIConversation.is_deleted == False)
-            .limit(1)
+            select(OpenAIConversation).where(not OpenAIConversation.is_deleted).limit(1)
         )
 
     conversation = session.exec(statement).first()

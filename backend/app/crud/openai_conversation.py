@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import Optional
 from sqlmodel import Session, select
 from app.models import OpenAIConversation, OpenAIConversationCreate
 from app.core.util import now
@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 def get_conversation_by_id(
     session: Session, conversation_id: int, project_id: int
-) -> Optional[OpenAIConversation]:
+) -> OpenAIConversation | None:
     """
     Return a conversation by its ID and project.
     """
@@ -57,7 +57,7 @@ def get_conversations_by_project(
     project_id: int,
     skip: int = 0,
     limit: int = 100,
-) -> List[OpenAIConversation]:
+) -> list[OpenAIConversation]:
     """
     Return all conversations for a given project, with optional pagination.
     """
