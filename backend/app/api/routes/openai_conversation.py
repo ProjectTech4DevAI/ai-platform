@@ -9,12 +9,15 @@ from app.crud import (
     get_conversation_by_response_id,
     get_conversation_by_ancestor_id,
     get_conversations_by_project,
+    get_conversations_count_by_project,
+    create_conversation,
     delete_conversation,
 )
 from app.models import (
     UserProjectOrg,
     OpenAIConversationCreate,
     OpenAIConversation,
+    OpenAIConversationPublic,
 )
 from app.utils import APIResponse
 
@@ -23,7 +26,7 @@ router = APIRouter(prefix="/openai-conversation", tags=["OpenAI Conversations"])
 
 @router.get(
     "/{conversation_id}",
-    response_model=APIResponse[OpenAIConversation],
+    response_model=APIResponse[OpenAIConversationPublic],
     summary="Get a single conversation by its ID",
 )
 def get_conversation_route(
@@ -46,7 +49,7 @@ def get_conversation_route(
 
 @router.get(
     "/response/{response_id}",
-    response_model=APIResponse[OpenAIConversation],
+    response_model=APIResponse[OpenAIConversationPublic],
     summary="Get a conversation by its OpenAI response ID",
 )
 def get_conversation_by_response_id_route(
@@ -70,7 +73,7 @@ def get_conversation_by_response_id_route(
 
 @router.get(
     "/ancestor/{ancestor_response_id}",
-    response_model=APIResponse[OpenAIConversation],
+    response_model=APIResponse[OpenAIConversationPublic],
     summary="Get a conversation by its ancestor response ID",
 )
 def get_conversation_by_ancestor_id_route(
@@ -96,7 +99,7 @@ def get_conversation_by_ancestor_id_route(
 
 @router.get(
     "/",
-    response_model=APIResponse[list[OpenAIConversation]],
+    response_model=APIResponse[list[OpenAIConversationPublic]],
     summary="List all conversations in the current project",
 )
 def list_conversations_route(
@@ -109,9 +112,21 @@ def list_conversations_route(
     List all conversations in the current project.
     """
     conversations = get_conversations_by_project(
-        session=session, project_id=current_user.project_id, skip=skip, limit=limit
+        session=session,
+        project_id=current_user.project_id,
+        skip=skip,  # ← Pagination offset
+        limit=limit,  # ← Page size
     )
-    return APIResponse.success_response(conversations)
+
+    # Get total count for pagination metadata
+    total = get_conversations_count_by_project(
+        session=session,
+        project_id=current_user.project_id,
+    )
+
+    return APIResponse.success_response(
+        data=conversations, metadata={"skip": skip, "limit": limit, "total": total}
+    )
 
 
 @router.delete("/{conversation_id}", response_model=APIResponse)

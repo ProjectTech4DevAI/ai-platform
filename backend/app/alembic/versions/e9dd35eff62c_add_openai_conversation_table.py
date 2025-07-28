@@ -23,7 +23,7 @@ def upgrade():
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("response_id", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column(
-            "ancestor_response_id", sqlmodel.sql.sqltypes.AutoString(), nullable=True
+            "ancestor_response_id", sqlmodel.sql.sqltypes.AutoString(), nullable=False
         ),
         sa.Column(
             "previous_response_id", sqlmodel.sql.sqltypes.AutoString(), nullable=True
@@ -31,7 +31,7 @@ def upgrade():
         sa.Column("user_question", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("response", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column("model", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-        sa.Column("assistant_id", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("assistant_id", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column("project_id", sa.Integer(), nullable=False),
         sa.Column("organization_id", sa.Integer(), nullable=False),
         sa.Column("is_deleted", sa.Boolean(), nullable=False),

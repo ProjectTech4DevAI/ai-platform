@@ -1,6 +1,7 @@
 import logging
 from typing import List, Optional
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func
+
 from app.models import OpenAIConversation, OpenAIConversationCreate
 from app.core.util import now
 
@@ -9,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 def get_conversation_by_id(
     session: Session, conversation_id: int, project_id: int
-) -> Optional[OpenAIConversation]:
+) -> OpenAIConversation | None:
     """
     Return a conversation by its ID and project.
     """
@@ -24,7 +25,7 @@ def get_conversation_by_id(
 
 def get_conversation_by_response_id(
     session: Session, response_id: str, project_id: int
-) -> Optional[OpenAIConversation]:
+) -> OpenAIConversation | None:
     """
     Return a conversation by its OpenAI response ID and project.
     """
@@ -39,18 +40,22 @@ def get_conversation_by_response_id(
 
 def get_conversation_by_ancestor_id(
     session: Session, ancestor_response_id: str, project_id: int
-) -> Optional[OpenAIConversation]:
+) -> OpenAIConversation | None:
     """
-    Return a conversation by its ancestor response ID and project.
+    Return the latest conversation by its ancestor response ID and project.
     """
-    statement = select(OpenAIConversation).where(
-        OpenAIConversation.ancestor_response_id == ancestor_response_id,
-        OpenAIConversation.project_id == project_id,
-        OpenAIConversation.is_deleted == False,
+    statement = (
+        select(OpenAIConversation)
+        .where(
+            OpenAIConversation.ancestor_response_id == ancestor_response_id,
+            OpenAIConversation.project_id == project_id,
+            OpenAIConversation.is_deleted == False,
+        )
+        .order_by(OpenAIConversation.inserted_at.desc())
+        .limit(1)
     )
     result = session.exec(statement).first()
     return result
-
 
 def set_ancestor_response_id(
     session: Session,
@@ -92,13 +97,27 @@ def set_ancestor_response_id(
         # If not found, ancestor_response_id = previous_response_id
         return previous_response_id
 
+def get_conversations_count_by_project(
+    session: Session,
+    project_id: int,
+) -> int:
+    """
+    Return the total count of conversations for a given project.
+    """
+    statement = select(func.count(OpenAIConversation.id)).where(
+        OpenAIConversation.project_id == project_id,
+        OpenAIConversation.is_deleted == False,
+    )
+    result = session.exec(statement).one()
+    return result
+
 
 def get_conversations_by_project(
     session: Session,
     project_id: int,
     skip: int = 0,
     limit: int = 100,
-) -> List[OpenAIConversation]:
+) -> list[OpenAIConversation]:
     """
     Return all conversations for a given project, with optional pagination.
     """
@@ -146,7 +165,7 @@ def delete_conversation(
     session: Session,
     conversation_id: int,
     project_id: int,
-) -> Optional[OpenAIConversation]:
+) -> OpenAIConversation | None:
     """
     Soft delete a conversation by marking it as deleted.
     """
