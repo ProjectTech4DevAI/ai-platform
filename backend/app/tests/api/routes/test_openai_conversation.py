@@ -1,4 +1,3 @@
-import pytest
 from sqlmodel import Session
 from fastapi.testclient import TestClient
 
@@ -361,7 +360,6 @@ def test_list_conversations_default_pagination(
 
 def test_list_conversations_edge_cases(
     client: TestClient,
-    db: Session,
     user_api_key: APIKeyPublic,
 ):
     """Test conversation listing edge cases for pagination."""
