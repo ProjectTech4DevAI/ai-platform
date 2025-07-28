@@ -23,19 +23,33 @@ def test_get_conversation_success(
     user_api_key: APIKeyPublic,
 ):
     """Test successful conversation retrieval."""
-    # Create a conversation in the same project as the API key
-    conversation = get_conversation(db, project_id=user_api_key.project_id)
-    conversation_id = conversation.id
 
+    response_id = generate_openai_id("resp_", 40)
+    conversation_data = OpenAIConversationCreate(
+        response_id=response_id,
+        ancestor_response_id=generate_openai_id("resp_", 40),
+        previous_response_id=None,
+        user_question="What is the capital of France?",
+        response="The capital of France is Paris.",
+        model="gpt-4o",
+        assistant_id=generate_openai_id("asst_", 20),
+    )
+
+    conversation = create_conversation(
+        session=db,
+        conversation=conversation_data,
+        project_id=user_api_key.project_id,
+        organization_id=user_api_key.organization_id,
+    )
     response = client.get(
-        f"/api/v1/openai-conversation/{conversation_id}",
+        f"/api/v1/openai-conversation/{conversation.id}",
         headers={"X-API-KEY": user_api_key.key},
     )
 
     assert response.status_code == 200
     response_data = response.json()
     assert response_data["success"] is True
-    assert response_data["data"]["id"] == conversation_id
+    assert response_data["data"]["id"] == conversation.id
     assert response_data["data"]["response_id"] == conversation.response_id
 
 
@@ -60,12 +74,23 @@ def test_get_conversation_by_response_id_success(
     user_api_key: APIKeyPublic,
 ):
     """Test successful conversation retrieval by response ID."""
-    # Get the project ID from the user's API key
-    from app.tests.utils.utils import get_user_from_api_key
+    response_id = generate_openai_id("resp_", 40)
+    conversation_data = OpenAIConversationCreate(
+        response_id=response_id,
+        ancestor_response_id=generate_openai_id("resp_", 40),
+        previous_response_id=None,
+        user_question="What is the capital of France?",
+        response="The capital of France is Paris.",
+        model="gpt-4o",
+        assistant_id=generate_openai_id("asst_", 20),
+    )
 
-    # Create a conversation in the same project as the API key
-    conversation = get_conversation(db, project_id=user_api_key.project_id)
-    response_id = conversation.response_id
+    conversation = create_conversation(
+        session=db,
+        conversation=conversation_data,
+        project_id=user_api_key.project_id,
+        organization_id=user_api_key.organization_id,
+    )
 
     response = client.get(
         f"/api/v1/openai-conversation/response/{response_id}",
@@ -100,9 +125,6 @@ def test_get_conversation_by_ancestor_id_success(
     user_api_key: APIKeyPublic,
 ):
     """Test successful conversation retrieval by ancestor ID."""
-    # Get the project ID from the user's API key
-
-    # Create a conversation with an ancestor in the same project as the API key
     ancestor_response_id = generate_openai_id("resp_", 40)
     conversation_data = OpenAIConversationCreate(
         response_id=generate_openai_id("resp_", 40),
