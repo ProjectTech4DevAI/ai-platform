@@ -118,3 +118,16 @@ class OpenAIConversationCreate(SQLModel):
     @classmethod
     def validate_assistant_id(cls, v):
         return validate_assistant_id_pattern(v)
+
+
+class OpenAIConversationPublic(OpenAIConversationBase):
+    """Public model for OpenAIConversation without sensitive fields"""
+
+    id: int
+    inserted_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+        populate_by_name = True
+        use_enum_values = True

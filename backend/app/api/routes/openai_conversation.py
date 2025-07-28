@@ -13,7 +13,7 @@ from app.crud import (
 )
 from app.models import (
     UserProjectOrg,
-    OpenAIConversation,
+    OpenAIConversationPublic,
 )
 from app.utils import APIResponse
 
@@ -22,7 +22,7 @@ router = APIRouter(prefix="/openai-conversation", tags=["OpenAI Conversations"])
 
 @router.get(
     "/{conversation_id}",
-    response_model=APIResponse[OpenAIConversation],
+    response_model=APIResponse[OpenAIConversationPublic],
     summary="Get a single conversation by its ID",
 )
 def get_conversation_route(
@@ -45,7 +45,7 @@ def get_conversation_route(
 
 @router.get(
     "/response/{response_id}",
-    response_model=APIResponse[OpenAIConversation],
+    response_model=APIResponse[OpenAIConversationPublic],
     summary="Get a conversation by its OpenAI response ID",
 )
 def get_conversation_by_response_id_route(
@@ -69,7 +69,7 @@ def get_conversation_by_response_id_route(
 
 @router.get(
     "/ancestor/{ancestor_response_id}",
-    response_model=APIResponse[OpenAIConversation],
+    response_model=APIResponse[OpenAIConversationPublic],
     summary="Get a conversation by its ancestor response ID",
 )
 def get_conversation_by_ancestor_id_route(
@@ -95,7 +95,7 @@ def get_conversation_by_ancestor_id_route(
 
 @router.get(
     "/",
-    response_model=APIResponse[list[OpenAIConversation]],
+    response_model=APIResponse[list[OpenAIConversationPublic]],
     summary="List all conversations in the current project",
 )
 def list_conversations_route(
