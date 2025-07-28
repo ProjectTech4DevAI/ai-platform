@@ -1,7 +1,7 @@
 """add fine tuning and model evaluation table
 
 Revision ID: a2f5ce7d32d8
-Revises: e8ee93526b37
+Revises: e9dd35eff62c
 Create Date: 2025-07-28 21:13:10.074816
 
 """

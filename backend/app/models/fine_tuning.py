@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional
 from uuid import UUID
 from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship
@@ -10,7 +10,7 @@ from app.core.util import now
 
 class FineTuningJobBase(SQLModel):
     base_model: str
-    split_ratio: List[float] = Field(sa_column=Column(JSON, nullable=False))
+    split_ratio: list[float] = Field(sa_column=Column(JSON, nullable=False))
 
     document_id: UUID = Field(
         foreign_key="document.id",
@@ -39,21 +39,21 @@ class Fine_Tuning(FineTuningJobBase, table=True):
 
     id: int = Field(primary_key=True)
 
-    openai_job_id: Optional[str] = Field(
+    openai_job_id: str | None = Field(
         default=None, description="Fine tuning Job ID returned by OpenAI"
     )
-    status: str = Field(default=None, description="Status of the fine-tuning job")
-    fine_tuned_model: Optional[str] = Field(
+    status: str = Field(default="pending", description="Status of the fine-tuning job")
+    fine_tuned_model: str | None = Field(
         default=None, description="Final fine tuned model name from OpenAI"
     )
 
     inserted_at: datetime = Field(default_factory=now, nullable=False)
     updated_at: datetime = Field(default_factory=now, nullable=False)
-    deleted_at: Optional[datetime] = Field(default=None, nullable=True)
+    deleted_at: datetime | None = Field(default=None, nullable=True)
 
     project: "Project" = Relationship(back_populates="fine_tuning")
     organization: "Organization" = Relationship(back_populates="fine_tuning")
-    model_evaluation: List["Model_Evaluation"] = Relationship(
+    model_evaluation: list["Model_Evaluation"] = Relationship(
         back_populates="fine_tuning"
     )
 
@@ -62,9 +62,9 @@ class FineTuningJobPublic(FineTuningJobBase):
     """Public response model with job status and metadata."""
 
     id: int
-    openai_job_id: Optional[str] = None
+    openai_job_id: str | None = None
     status: str
-    fine_tuned_model: Optional[str] = None
+    fine_tuned_model: str | None = None
     inserted_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime] = None
+    deleted_at: datetime | None = None

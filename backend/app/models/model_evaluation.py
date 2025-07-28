@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional
 from uuid import UUID
 from enum import Enum
 from datetime import datetime
@@ -30,7 +30,7 @@ class ModelEvaluationBase(SQLModel):
         foreign_key="organization.id", nullable=False, ondelete="CASCADE"
     )
 
-    eval_split_ratio: List[float] = Field(sa_column=Column(JSON, nullable=False))
+    eval_split_ratio: list[float] = Field(sa_column=Column(JSON, nullable=False))
     metric: str = Field(
         nullable=False, description="Metric used for evaluation (e.g., mcc)"
     )
@@ -41,7 +41,7 @@ class ModelEvaluationCreate(ModelEvaluationBase):
 
 
 class Model_Evaluation(ModelEvaluationBase, table=True):
-    """Database model for keep a record of model evaluation"""
+    """Database model for keeping a record of model evaluation"""
 
     id: int = Field(primary_key=True)
 
@@ -58,7 +58,7 @@ class Model_Evaluation(ModelEvaluationBase, table=True):
 
     inserted_at: datetime = Field(default_factory=now, nullable=False)
     updated_at: datetime = Field(default_factory=now, nullable=False)
-    deleted_at: Optional[datetime] = Field(default=None, nullable=True)
+    deleted_at: datetime | None = Field(default=None, nullable=True)
 
     project: "Project" = Relationship(back_populates="model_evaluation")
     organization: "Organization" = Relationship(back_populates="model_evaluation")
@@ -71,8 +71,8 @@ class ModelEvaluationPublic(ModelEvaluationBase):
     id: int
     fine_tuning_id: int
     metric: str
-    score: Optional[float] = None
+    score: float | None = None
     status: EvaluationStatus
     inserted_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime] = None
+    deleted_at: datetime | None = None
