@@ -1,5 +1,3 @@
-import re
-
 from datetime import datetime
 from typing import Optional
 import re
@@ -10,8 +8,30 @@ from sqlmodel import Field, Relationship, SQLModel
 from app.core.util import now
 
 
+def validate_response_id_pattern(v: str) -> str:
+    """Shared validation function for response ID patterns"""
+    if v is None:
+        return v
+    if not re.match(r"^resp_[a-zA-Z0-9]{10,}$", v):
+        raise ValueError(
+            "response_id fields must follow pattern: resp_ followed by at least 10 alphanumeric characters"
+        )
+    return v
+
+
+def validate_assistant_id_pattern(v: str) -> str:
+    """Shared validation function for assistant ID patterns"""
+    if v is None:
+        return v
+    if not re.match(r"^asst_[a-zA-Z0-9]{10,}$", v):
+        raise ValueError(
+            "assistant_id must follow pattern: asst_ followed by at least 10 alphanumeric characters"
+        )
+    return v
+
+
 class OpenAIConversationBase(SQLModel):
-    # usually follow the pattern of resp_688704e41190819db512c30568dcaebc0a42e02be2c2c49b
+    # usually follow the pattern of resp_688704e41190819db512c30568xxxxxxx
     response_id: str = Field(index=True, min_length=10)
     ancestor_response_id: Optional[str] = Field(
         default=None,
@@ -44,24 +64,12 @@ class OpenAIConversationBase(SQLModel):
     @field_validator("response_id", "ancestor_response_id", "previous_response_id")
     @classmethod
     def validate_response_ids(cls, v):
-        if v is None:
-            return v
-        if not re.match(r"^resp_[a-zA-Z0-9]{10,}$", v):
-            raise ValueError(
-                "response_id fields must follow pattern: resp_ followed by at least 10 alphanumeric characters"
-            )
-        return v
+        return validate_response_id_pattern(v)
 
     @field_validator("assistant_id")
     @classmethod
     def validate_assistant_id(cls, v):
-        if v is None:
-            return v
-        if not re.match(r"^asst_[a-zA-Z0-9]{10,}$", v):
-            raise ValueError(
-                "assistant_id must follow pattern: asst_ followed by at least 10 alphanumeric characters"
-            )
-        return v
+        return validate_assistant_id_pattern(v)
 
 
 class OpenAIConversation(OpenAIConversationBase, table=True):
@@ -104,21 +112,9 @@ class OpenAIConversationCreate(SQLModel):
     @field_validator("response_id", "ancestor_response_id", "previous_response_id")
     @classmethod
     def validate_response_ids(cls, v):
-        if v is None:
-            return v
-        if not re.match(r"^resp_[a-zA-Z0-9]{10,}$", v):
-            raise ValueError(
-                "response_id fields must follow pattern: resp_ followed by at least 10 alphanumeric characters"
-            )
-        return v
+        return validate_response_id_pattern(v)
 
     @field_validator("assistant_id")
     @classmethod
     def validate_assistant_id(cls, v):
-        if v is None:
-            return v
-        if not re.match(r"^asst_[a-zA-Z0-9]{10,}$", v):
-            raise ValueError(
-                "assistant_id must follow pattern: asst_ followed by at least 10 alphanumeric characters"
-            )
-        return v
+        return validate_assistant_id_pattern(v)

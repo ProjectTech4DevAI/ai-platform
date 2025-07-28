@@ -24,8 +24,8 @@ def generate_realistic_id(prefix: str, length: int = 40) -> str:
 
 def test_get_conversation_by_id_success(db: Session):
     """Test successful conversation retrieval by ID."""
-    conversation = get_conversation(db)
     project = get_project(db)
+    conversation = get_conversation(db, project_id=project.id)
 
     retrieved_conversation = get_conversation_by_id(
         session=db,
@@ -53,8 +53,8 @@ def test_get_conversation_by_id_not_found(db: Session):
 
 def test_get_conversation_by_response_id_success(db: Session):
     """Test successful conversation retrieval by response ID."""
-    conversation = get_conversation(db)
     project = get_project(db)
+    conversation = get_conversation(db, project_id=project.id)
 
     retrieved_conversation = get_conversation_by_response_id(
         session=db,
@@ -182,8 +182,8 @@ def test_get_conversations_by_project_with_pagination(db: Session):
 
 def test_delete_conversation_success(db: Session):
     """Test successful conversation deletion."""
-    conversation = get_conversation(db)
     project = get_project(db)
+    conversation = get_conversation(db, project_id=project.id)
 
     deleted_conversation = delete_conversation(
         session=db,
@@ -212,8 +212,8 @@ def test_delete_conversation_not_found(db: Session):
 
 def test_conversation_soft_delete_behavior(db: Session):
     """Test that deleted conversations are not returned by get functions."""
-    conversation = get_conversation(db)
     project = get_project(db)
+    conversation = get_conversation(db, project_id=project.id)
 
     # Delete the conversation
     delete_conversation(

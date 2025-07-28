@@ -16,7 +16,7 @@ def get_conversation_by_id(
     statement = select(OpenAIConversation).where(
         OpenAIConversation.id == conversation_id,
         OpenAIConversation.project_id == project_id,
-        not OpenAIConversation.is_deleted,
+        OpenAIConversation.is_deleted == False,
     )
     result = session.exec(statement).first()
     return result
@@ -31,7 +31,7 @@ def get_conversation_by_response_id(
     statement = select(OpenAIConversation).where(
         OpenAIConversation.response_id == response_id,
         OpenAIConversation.project_id == project_id,
-        not OpenAIConversation.is_deleted,
+        OpenAIConversation.is_deleted == False,
     )
     result = session.exec(statement).first()
     return result
@@ -46,7 +46,7 @@ def get_conversation_by_ancestor_id(
     statement = select(OpenAIConversation).where(
         OpenAIConversation.ancestor_response_id == ancestor_response_id,
         OpenAIConversation.project_id == project_id,
-        not OpenAIConversation.is_deleted,
+        OpenAIConversation.is_deleted == False,
     )
     result = session.exec(statement).first()
     return result
@@ -65,7 +65,7 @@ def get_conversations_by_project(
         select(OpenAIConversation)
         .where(
             OpenAIConversation.project_id == project_id,
-            not OpenAIConversation.is_deleted,
+            OpenAIConversation.is_deleted == False,
         )
         .order_by(OpenAIConversation.inserted_at.desc())
         .offset(skip)
