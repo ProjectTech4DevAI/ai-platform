@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from .api_key import APIKey
     from .assistants import Assistant
     from .collection import Collection
+    from .openai_conversation import OpenAIConversation
 
 
 # Shared properties for an Organization
@@ -50,6 +51,9 @@ class Organization(OrganizationBase, table=True):
         back_populates="organization", cascade_delete=True
     )
     collections: list["Collection"] = Relationship(
+        back_populates="organization", cascade_delete=True
+    )
+    openai_conversations: list["OpenAIConversation"] = Relationship(
         back_populates="organization", cascade_delete=True
     )
 
