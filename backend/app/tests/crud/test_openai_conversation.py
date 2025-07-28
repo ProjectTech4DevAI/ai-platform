@@ -1,5 +1,3 @@
-import secrets
-import string
 import pytest
 from sqlmodel import Session
 
@@ -14,13 +12,7 @@ from app.crud.openai_conversation import (
 )
 from app.models import OpenAIConversationCreate
 from app.tests.utils.utils import get_project, get_organization
-
-
-def generate_openai_id(prefix: str, length: int = 40) -> str:
-    """Generate a realistic ID similar to OpenAI's format (alphanumeric only)"""
-    chars = string.ascii_lowercase + string.digits
-    random_part = "".join(secrets.choice(chars) for _ in range(length))
-    return f"{prefix}{random_part}"
+from app.tests.utils.openai import generate_openai_id
 
 
 def test_get_conversation_by_id_success(db: Session):
