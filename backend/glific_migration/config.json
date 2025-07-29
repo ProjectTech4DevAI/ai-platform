@@ -1,0 +1,17 @@
+{
+  "base_url": "http://localhost:8000/api/v1",
+  "api_key": "SuperUserApiKey",
+  "openai_key": "openai_api_key_example",
+  "assistant_ingest": {
+    "input_csv": "sample_input.csv",
+    "output_csv": "assistants_output.csv"
+  },
+  "organization_onboarding": {
+    "input_csv": "sample_input.csv",
+    "output_csv": "orgs_output.csv"
+  },
+  "sync_credentials": {
+    "input_csv": "sample_input.csv",
+    "output_csv": "credentials_output.csv"
+  }
+}
