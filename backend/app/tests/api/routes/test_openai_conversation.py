@@ -100,7 +100,6 @@ def test_get_conversation_by_response_id_success(
 def test_get_conversation_by_response_id_not_found(
     client: TestClient,
     user_api_key: APIKeyPublic,
-
 ):
     """Test conversation retrieval with non-existent response ID."""
     response = client.get(
@@ -468,6 +467,7 @@ def test_delete_conversation_not_found(
     assert response.status_code == 404
     response_data = response.json()
     assert "not found" in response_data["error"]
+
 
 def test_get_conversation_unauthorized_no_api_key(
     client: TestClient,

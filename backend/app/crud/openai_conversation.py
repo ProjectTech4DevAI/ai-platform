@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import Optional
 from sqlmodel import Session, select, func
 
 from app.models import OpenAIConversation, OpenAIConversationCreate
@@ -57,6 +57,7 @@ def get_conversation_by_ancestor_id(
     result = session.exec(statement).first()
     return result
 
+
 def set_ancestor_response_id(
     session: Session,
     current_response_id: str,
@@ -96,6 +97,7 @@ def set_ancestor_response_id(
     else:
         # If not found, ancestor_response_id = previous_response_id
         return previous_response_id
+
 
 def get_conversations_count_by_project(
     session: Session,

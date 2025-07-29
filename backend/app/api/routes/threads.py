@@ -39,7 +39,7 @@ def send_callback(callback_url: str, data: dict):
     try:
         session = requests.Session()
         # uncomment this to run locally without SSL
-        session.verify = False
+        # session.verify = False
         response = session.post(callback_url, json=data)
         response.raise_for_status()
         return True
