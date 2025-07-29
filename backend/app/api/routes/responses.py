@@ -207,7 +207,7 @@ def process_response(
         # Create conversation record in database
         conversation_data = OpenAIConversationCreate(
             response_id=response.id,
-            previous_response_id=request.response_id,
+            previous_response_id=response.previous_response_id,
             ancestor_response_id=ancestor_response_id,
             user_question=request.question,
             response=response.output_text,
