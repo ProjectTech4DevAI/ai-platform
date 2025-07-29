@@ -202,7 +202,7 @@ def process_response(
             previous_response_id=response.previous_response_id,
             ancestor_response_id=latest_conversation.response_id
             if latest_conversation
-            else None,
+            else response.id,
             user_question=request.question,
             response=response.output_text,
             model=response.model,
@@ -380,20 +380,9 @@ async def responses_sync(
     )
 
     try:
-        # Get the latest conversation by ancestor ID to use as previous_response_id
-        previous_response_id = request.response_id
-        if request.response_id:
-            latest_conversation = get_conversation_by_ancestor_id(
-                session=_session,
-                ancestor_response_id=request.response_id,
-                project_id=project_id,
-            )
-            if latest_conversation:
-                previous_response_id = latest_conversation.response_id
-
         response = client.responses.create(
             model=request.model,
-            previous_response_id=previous_response_id,
+            previous_response_id=request.response_id,
             instructions=request.instructions,
             tools=[
                 {
@@ -431,40 +420,6 @@ async def responses_sync(
                 "error": None,
             },
         )
-
-        # Set ancestor_response_id using CRUD function for sync endpoint
-        ancestor_response_id = get_ancestor_id_from_response(
-            session=_session,
-            current_response_id=response.id,
-            previous_response_id=response.previous_response_id,
-            project_id=project_id,
-        )
-
-        # Create conversation record in database
-        conversation_data = OpenAIConversationCreate(
-            response_id=response.id,
-            previous_response_id=request.response_id,
-            ancestor_response_id=ancestor_response_id,
-            user_question=request.question,
-            response=response.output_text,
-            model=response.model,
-            assistant_id="sync_request",  # For sync requests, we don't have assistant_id
-        )
-
-        try:
-            create_conversation(
-                session=_session,
-                conversation=conversation_data,
-                project_id=project_id,
-                organization_id=organization_id,
-            )
-            logger.info(
-                f"Created conversation record for sync response_id={response.id}, project_id={project_id}"
-            )
-        except Exception as e:
-            logger.error(
-                f"Failed to create conversation record for sync response_id={response.id}, project_id={project_id}: {str(e)}"
-            )
 
         tracer.flush()
 
