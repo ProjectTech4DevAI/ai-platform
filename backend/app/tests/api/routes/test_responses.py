@@ -562,6 +562,7 @@ def test_responses_endpoint_with_ancestor_conversation_found(
     # Setup mock conversation found by ancestor ID
     mock_conversation = MagicMock()
     mock_conversation.response_id = "resp_latest1234567890abcdef1234567890"
+    mock_conversation.ancestor_response_id = "resp_ancestor1234567890abcdef1234567890"
     mock_get_conversation_by_ancestor_id.return_value = mock_conversation
 
     # Get the Dalgo project ID
