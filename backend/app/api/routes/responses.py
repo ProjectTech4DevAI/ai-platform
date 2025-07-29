@@ -215,20 +215,12 @@ def process_response(
             assistant_id=request.assistant_id,
         )
 
-        try:
-            create_conversation(
-                session=session,
-                conversation=conversation_data,
-                project_id=project_id,
-                organization_id=organization_id,
-            )
-            logger.info(
-                f"Created conversation record for response_id={response.id}, assistant_id={mask_string(request.assistant_id)}, project_id={project_id}"
-            )
-        except Exception as e:
-            logger.error(
-                f"Failed to create conversation record for response_id={response.id}, assistant_id={mask_string(request.assistant_id)}, project_id={project_id}: {str(e)}"
-            )
+        create_conversation(
+            session=session,
+            conversation=conversation_data,
+            project_id=project_id,
+            organization_id=organization_id,
+        )
 
         request_dict = request.model_dump()
         callback_response = ResponsesAPIResponse.success_response(
