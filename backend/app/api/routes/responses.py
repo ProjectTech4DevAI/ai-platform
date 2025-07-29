@@ -14,6 +14,7 @@ from app.crud.credentials import get_provider_credential
 from app.crud.openai_conversation import (
     create_conversation,
     set_ancestor_response_id,
+    get_conversation_by_ancestor_id,
 )
 from app.models import UserProjectOrg, OpenAIConversationCreate
 from app.utils import APIResponse, mask_string
@@ -135,9 +136,20 @@ def process_response(
     )
 
     try:
+        # Get the latest conversation by ancestor ID to use as previous_response_id
+        previous_response_id = request.response_id
+        if request.response_id:
+            latest_conversation = get_conversation_by_ancestor_id(
+                session=session,
+                ancestor_response_id=request.response_id,
+                project_id=project_id,
+            )
+            if latest_conversation:
+                previous_response_id = latest_conversation.response_id
+
         params = {
             "model": assistant.model,
-            "previous_response_id": request.response_id,
+            "previous_response_id": previous_response_id,
             "instructions": assistant.instructions,
             "temperature": assistant.temperature,
             "input": [{"role": "user", "content": request.question}],
@@ -382,9 +394,20 @@ async def responses_sync(
     )
 
     try:
+        # Get the latest conversation by ancestor ID to use as previous_response_id
+        previous_response_id = request.response_id
+        if request.response_id:
+            latest_conversation = get_conversation_by_ancestor_id(
+                session=_session,
+                ancestor_response_id=request.response_id,
+                project_id=project_id,
+            )
+            if latest_conversation:
+                previous_response_id = latest_conversation.response_id
+
         response = client.responses.create(
             model=request.model,
-            previous_response_id=request.response_id,
+            previous_response_id=previous_response_id,
             instructions=request.instructions,
             tools=[
                 {
