@@ -138,10 +138,11 @@ def process_response(
     try:
         # Get the latest conversation by ancestor ID to use as previous_response_id
         previous_response_id = request.response_id
-        if request.response_id:
+        latest_conversation = None
+        if previous_response_id:
             latest_conversation = get_conversation_by_ancestor_id(
                 session=session,
-                ancestor_response_id=request.response_id,
+                ancestor_response_id=previous_response_id,
                 project_id=project_id,
             )
             if latest_conversation:
@@ -195,14 +196,23 @@ def process_response(
                 "error": None,
             },
         )
+        # Set ancestor_response_id using CRUD function
+        ancestor_response_id = (
+            latest_conversation.ancestor_response_id
+            if latest_conversation
+            else get_ancestor_id_from_response(
+                session=session,
+                current_response_id=response.id,
+                previous_response_id=response.previous_response_id,
+                project_id=project_id,
+            )
+        )
 
         # Create conversation record in database
         conversation_data = OpenAIConversationCreate(
             response_id=response.id,
             previous_response_id=response.previous_response_id,
-            ancestor_response_id=latest_conversation.response_id
-            if latest_conversation
-            else response.id,
+            ancestor_response_id=ancestor_response_id,
             user_question=request.question,
             response=response.output_text,
             model=response.model,
