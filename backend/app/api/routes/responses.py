@@ -196,19 +196,13 @@ def process_response(
             },
         )
 
-        # Set ancestor_response_id using CRUD function
-        ancestor_response_id = get_ancestor_id_from_response(
-            session=session,
-            current_response_id=response.id,
-            previous_response_id=response.previous_response_id,
-            project_id=project_id,
-        )
-
         # Create conversation record in database
         conversation_data = OpenAIConversationCreate(
             response_id=response.id,
             previous_response_id=response.previous_response_id,
-            ancestor_response_id=ancestor_response_id,
+            ancestor_response_id=latest_conversation.response_id
+            if latest_conversation
+            else None,
             user_question=request.question,
             response=response.output_text,
             model=response.model,
