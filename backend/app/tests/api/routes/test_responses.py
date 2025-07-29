@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -6,8 +6,7 @@ from sqlmodel import select
 import openai
 
 from app.api.routes.responses import router
-from app.models import Project, Assistant
-from app.core.exception_handlers import HTTPException
+from app.models import Project
 
 # Wrap the router in a FastAPI app instance
 app = FastAPI()
@@ -23,7 +22,6 @@ client = TestClient(app)
 @patch("app.api.routes.responses.create_conversation")
 @patch("app.api.routes.responses.get_conversation_by_ancestor_id")
 def test_responses_endpoint_success(
-    mock_get_conversation_by_ancestor_id,
     mock_create_conversation,
     mock_get_ancestor_id_from_response,
     mock_tracer_class,
