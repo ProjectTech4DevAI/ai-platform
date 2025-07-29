@@ -61,7 +61,7 @@ def get_conversation_by_ancestor_id(
 def set_ancestor_response_id(
     session: Session,
     current_response_id: str,
-    previous_response_id: Optional[str],
+    previous_response_id: str | None,
     project_id: int,
 ) -> str:
     """

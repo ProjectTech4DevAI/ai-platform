@@ -1,7 +1,4 @@
-import pytest
-from uuid import uuid4
 from sqlmodel import Session
-from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.crud.openai_conversation import create_conversation
