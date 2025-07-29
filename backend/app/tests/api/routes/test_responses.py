@@ -35,7 +35,7 @@ def test_responses_endpoint_success(
     """Test the /responses endpoint for successful response creation."""
 
     # Setup mock credentials - configure to return different values based on provider
-    def mock_credential_side_effect(*args, **kwargs):
+    def mock_get_credentials_by_provider(*args, **kwargs):
         provider = kwargs.get("provider")
         if provider == "openai":
             return {"api_key": "test_api_key"}
@@ -47,7 +47,7 @@ def test_responses_endpoint_success(
             }
         return None
 
-    mock_get_credential.side_effect = mock_credential_side_effect
+    mock_get_credential.side_effect = mock_get_credentials_by_provider
 
     # Setup mock assistant
     mock_assistant = MagicMock()
@@ -58,10 +58,10 @@ def test_responses_endpoint_success(
     mock_assistant.max_num_results = 20
 
     # Configure mock to return the assistant for any call
-    def mock_assistant_side_effect(*args, **kwargs):
+    def return_mock_assistant(*args, **kwargs):
         return mock_assistant
 
-    mock_get_assistant.side_effect = mock_assistant_side_effect
+    mock_get_assistant.side_effect = return_mock_assistant
 
     # Setup mock OpenAI client
     mock_client = MagicMock()
