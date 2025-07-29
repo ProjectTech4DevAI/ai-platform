@@ -22,6 +22,7 @@ client = TestClient(app)
 @patch("app.api.routes.responses.create_conversation")
 @patch("app.api.routes.responses.get_conversation_by_ancestor_id")
 def test_responses_endpoint_success(
+    mock_get_conversation_by_ancestor_id,
     mock_create_conversation,
     mock_get_ancestor_id_from_response,
     mock_tracer_class,
@@ -32,8 +33,21 @@ def test_responses_endpoint_success(
     user_api_key_header: dict[str, str],
 ):
     """Test the /responses endpoint for successful response creation."""
-    # Setup mock credentials
-    mock_get_credential.return_value = {"api_key": "test_api_key"}
+
+    # Setup mock credentials - configure to return different values based on provider
+    def mock_credential_side_effect(*args, **kwargs):
+        provider = kwargs.get("provider")
+        if provider == "openai":
+            return {"api_key": "test_api_key"}
+        elif provider == "langfuse":
+            return {
+                "public_key": "test_public_key",
+                "secret_key": "test_secret_key",
+                "host": "https://cloud.langfuse.com",
+            }
+        return None
+
+    mock_get_credential.side_effect = mock_credential_side_effect
 
     # Setup mock assistant
     mock_assistant = MagicMock()
@@ -42,7 +56,12 @@ def test_responses_endpoint_success(
     mock_assistant.temperature = 0.1
     mock_assistant.vector_store_ids = ["vs_test"]
     mock_assistant.max_num_results = 20
-    mock_get_assistant.return_value = mock_assistant
+
+    # Configure mock to return the assistant for any call
+    def mock_assistant_side_effect(*args, **kwargs):
+        return mock_assistant
+
+    mock_get_assistant.side_effect = mock_assistant_side_effect
 
     # Setup mock OpenAI client
     mock_client = MagicMock()
