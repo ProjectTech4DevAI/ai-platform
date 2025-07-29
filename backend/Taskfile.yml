@@ -1,0 +1,21 @@
+version: '3'
+
+tasks:
+  eval:
+    desc: Run evaluation on kunji dataset
+    dotenv:
+      - ../.env
+    cmds:
+      - uv run ai-cli eval responses {{.CLI_ARGS}}
+
+  seed:
+    desc: Seed the database with initial data
+    dotenv:
+      - ../.env
+    cmds:
+      - uv run python -m app.seed_data.seed_data
+
+  logs:
+    desc: Show backend logs from docker compose
+    cmds:
+      - docker compose -f ../docker-compose.yml logs -f backend
