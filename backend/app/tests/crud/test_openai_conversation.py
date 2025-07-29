@@ -7,7 +7,7 @@ from app.crud.openai_conversation import (
     get_conversation_by_response_id,
     get_conversation_by_ancestor_id,
     get_conversations_by_project,
-    set_ancestor_response_id
+    set_ancestor_response_id,
     get_conversations_count_by_project,
     create_conversation,
     delete_conversation,
@@ -15,6 +15,7 @@ from app.crud.openai_conversation import (
 from app.models import OpenAIConversationCreate
 from app.tests.utils.utils import get_project, get_organization
 from app.tests.utils.openai import generate_openai_id
+
 
 def test_get_conversation_by_id_success(db: Session):
     """Test successful conversation retrieval by ID."""
@@ -38,7 +39,7 @@ def test_get_conversation_by_id_success(db: Session):
         project_id=project.id,
         organization_id=organization.id,
     )
-    
+
     retrieved_conversation = get_conversation_by_id(
         session=db,
         conversation_id=conversation.id,
@@ -246,7 +247,7 @@ def test_delete_conversation_success(db: Session):
         project_id=project.id,
         organization_id=organization.id,
     )
-    
+
     deleted_conversation = delete_conversation(
         session=db,
         conversation_id=conversation.id,
@@ -323,6 +324,7 @@ def test_conversation_soft_delete_behavior(db: Session):
     )
     assert conversation.id not in [c.id for c in conversations]
 
+
 def test_set_ancestor_response_id_no_previous_response(db: Session):
     """Test set_ancestor_response_id when previous_response_id is None."""
     project = get_project(db)
@@ -361,7 +363,7 @@ def test_set_ancestor_response_id_previous_found_with_ancestor(db: Session):
     organization = get_organization(db)
 
     # Create a conversation chain: ancestor -> previous -> current
-    ancestor_response_id = f"resp_{uuid4()}"
+    ancestor_response_id = generate_openai_id("resp_", 40)
 
     # Create the ancestor conversation
     ancestor_conversation_data = OpenAIConversationCreate(
@@ -371,7 +373,7 @@ def test_set_ancestor_response_id_previous_found_with_ancestor(db: Session):
         user_question="Original question",
         response="Original response",
         model="gpt-4o",
-        assistant_id=f"asst_{uuid4()}",
+        assistant_id=generate_openai_id("asst_", 20),
     )
 
     ancestor_conversation = create_conversation(
@@ -382,7 +384,7 @@ def test_set_ancestor_response_id_previous_found_with_ancestor(db: Session):
     )
 
     # Create the previous conversation
-    previous_response_id = f"resp_{uuid4()}"
+    previous_response_id = generate_openai_id("resp_", 40)
     previous_conversation_data = OpenAIConversationCreate(
         response_id=previous_response_id,
         ancestor_response_id=ancestor_response_id,
@@ -390,12 +392,28 @@ def test_set_ancestor_response_id_previous_found_with_ancestor(db: Session):
         user_question="Previous question",
         response="Previous response",
         model="gpt-4o",
-        assistant_id=f"asst_{uuid4()}",
+        assistant_id=generate_openai_id("asst_", 20),
     )
 
     previous_conversation = create_conversation(
         session=db,
         conversation=previous_conversation_data,
+        project_id=project.id,
+        organization_id=organization.id,
+    )
+
+    # Test the current conversation
+    current_response_id = f"resp_{uuid4()}"
+    ancestor_id = set_ancestor_response_id(
+        session=db,
+        current_response_id=current_response_id,
+        previous_response_id=previous_response_id,
+        project_id=project.id,
+    )
+
+    # Should return the ancestor_response_id from the previous conversation
+    assert ancestor_id == ancestor_response_id
+
 
 def test_get_conversations_count_by_project_success(db: Session):
     """Test successful conversation count retrieval by project."""
@@ -459,15 +477,15 @@ def test_get_conversations_count_by_project_excludes_deleted(db: Session):
     )
 
     # Test the current conversation
-    current_response_id = f"resp_{uuid4()}"
+    current_response_id = generate_openai_id("resp_", 40)
     ancestor_id = set_ancestor_response_id(
         session=db,
         current_response_id=current_response_id,
-        previous_response_id=previous_response_id,
+        previous_response_id=conversation.response_id,
         project_id=project.id,
     )
 
-    assert ancestor_id == ancestor_response_id
+    assert ancestor_id == conversation.ancestor_response_id
 
 
 def test_set_ancestor_response_id_previous_found_without_ancestor(db: Session):
@@ -476,15 +494,15 @@ def test_set_ancestor_response_id_previous_found_without_ancestor(db: Session):
     organization = get_organization(db)
 
     # Create a previous conversation without ancestor
-    previous_response_id = f"resp_{uuid4()}"
+    previous_response_id = generate_openai_id("resp_", 40)
     previous_conversation_data = OpenAIConversationCreate(
         response_id=previous_response_id,
-        ancestor_response_id=None,  # No ancestor
+        ancestor_response_id=previous_response_id,  # Self-referencing for root
         previous_response_id=None,
         user_question="Previous question",
         response="Previous response",
         model="gpt-4o",
-        assistant_id=f"asst_{uuid4()}",
+        assistant_id=generate_openai_id("asst_", 20),
     )
 
     previous_conversation = create_conversation(
@@ -495,7 +513,7 @@ def test_set_ancestor_response_id_previous_found_without_ancestor(db: Session):
     )
 
     # Test the current conversation
-    current_response_id = f"resp_{uuid4()}"
+    current_response_id = generate_openai_id("resp_", 40)
     ancestor_id = set_ancestor_response_id(
         session=db,
         current_response_id=current_response_id,
@@ -503,8 +521,8 @@ def test_set_ancestor_response_id_previous_found_without_ancestor(db: Session):
         project_id=project.id,
     )
 
-    # When previous conversation has no ancestor, should return None
-    assert ancestor_id is None
+    # When previous conversation is root (self-referencing), should return the previous_response_id
+    assert ancestor_id == previous_response_id
 
 
 def test_set_ancestor_response_id_different_project(db: Session):
@@ -526,15 +544,15 @@ def test_set_ancestor_response_id_different_project(db: Session):
     db.refresh(project2)
 
     # Create a conversation in project1
-    previous_response_id = f"resp_{uuid4()}"
+    previous_response_id = generate_openai_id("resp_", 40)
     previous_conversation_data = OpenAIConversationCreate(
         response_id=previous_response_id,
-        ancestor_response_id=f"ancestor_{uuid4()}",
+        ancestor_response_id=generate_openai_id("resp_", 40),
         previous_response_id=None,
         user_question="Previous question",
         response="Previous response",
         model="gpt-4o",
-        assistant_id=f"asst_{uuid4()}",
+        assistant_id=generate_openai_id("asst_", 20),
     )
 
     create_conversation(
@@ -545,7 +563,7 @@ def test_set_ancestor_response_id_different_project(db: Session):
     )
 
     # Test looking for it in project2 (should not find it)
-    current_response_id = f"resp_{uuid4()}"
+    current_response_id = generate_openai_id("resp_", 40)
     ancestor_id = set_ancestor_response_id(
         session=db,
         current_response_id=current_response_id,
@@ -564,7 +582,7 @@ def test_set_ancestor_response_id_complex_chain(db: Session):
 
     # Create a complex chain: A -> B -> C -> D
     # A is the root ancestor
-    response_a = f"resp_{uuid4()}"
+    response_a = generate_openai_id("resp_", 40)
     conversation_a_data = OpenAIConversationCreate(
         response_id=response_a,
         ancestor_response_id=response_a,  # Self-referencing
@@ -572,7 +590,7 @@ def test_set_ancestor_response_id_complex_chain(db: Session):
         user_question="Question A",
         response="Response A",
         model="gpt-4o",
-        assistant_id=f"asst_{uuid4()}",
+        assistant_id=generate_openai_id("asst_", 20),
     )
 
     create_conversation(
@@ -583,7 +601,7 @@ def test_set_ancestor_response_id_complex_chain(db: Session):
     )
 
     # B references A
-    response_b = f"resp_{uuid4()}"
+    response_b = generate_openai_id("resp_", 40)
     conversation_b_data = OpenAIConversationCreate(
         response_id=response_b,
         ancestor_response_id=response_a,
@@ -591,7 +609,7 @@ def test_set_ancestor_response_id_complex_chain(db: Session):
         user_question="Question B",
         response="Response B",
         model="gpt-4o",
-        assistant_id=f"asst_{uuid4()}",
+        assistant_id=generate_openai_id("asst_", 20),
     )
 
     create_conversation(
@@ -602,7 +620,7 @@ def test_set_ancestor_response_id_complex_chain(db: Session):
     )
 
     # C references B
-    response_c = f"resp_{uuid4()}"
+    response_c = generate_openai_id("resp_", 40)
     conversation_c_data = OpenAIConversationCreate(
         response_id=response_c,
         ancestor_response_id=response_a,  # Should inherit from B
@@ -610,7 +628,7 @@ def test_set_ancestor_response_id_complex_chain(db: Session):
         user_question="Question C",
         response="Response C",
         model="gpt-4o",
-        assistant_id=f"asst_{uuid4()}",
+        assistant_id=generate_openai_id("asst_", 20),
     )
 
     create_conversation(
@@ -621,7 +639,7 @@ def test_set_ancestor_response_id_complex_chain(db: Session):
     )
 
     # Test D referencing C
-    response_d = f"resp_{uuid4()}"
+    response_d = generate_openai_id("resp_", 40)
     ancestor_id = set_ancestor_response_id(
         session=db,
         current_response_id=response_d,
@@ -639,9 +657,54 @@ def test_create_conversation_success(db: Session):
     organization = get_organization(db)
 
     conversation_data = OpenAIConversationCreate(
-        response_id=f"resp_{uuid4()}",
-        ancestor_response_id=None,
-     
+        response_id=generate_openai_id("resp_", 40),
+        ancestor_response_id=generate_openai_id("resp_", 40),
+        previous_response_id=None,
+        user_question="Test question",
+        response="Test response",
+        model="gpt-4o",
+        assistant_id=generate_openai_id("asst_", 20),
+    )
+
+    conversation = create_conversation(
+        session=db,
+        conversation=conversation_data,
+        project_id=project.id,
+        organization_id=organization.id,
+    )
+
+    assert conversation is not None
+    assert conversation.response_id == conversation_data.response_id
+    assert conversation.user_question == conversation_data.user_question
+    assert conversation.response == conversation_data.response
+    assert conversation.model == conversation_data.model
+    assert conversation.project_id == project.id
+    assert conversation.organization_id == organization.id
+
+
+def test_delete_conversation_excludes_from_count(db: Session):
+    """Test that deleted conversations are excluded from count."""
+    project = get_project(db)
+    organization = get_organization(db)
+
+    # Create a conversation
+    conversation_data = OpenAIConversationCreate(
+        response_id=generate_openai_id("resp_", 40),
+        ancestor_response_id=generate_openai_id("resp_", 40),
+        previous_response_id=None,
+        user_question="Test question",
+        response="Test response",
+        model="gpt-4o",
+        assistant_id=generate_openai_id("asst_", 20),
+    )
+
+    conversation = create_conversation(
+        session=db,
+        conversation=conversation_data,
+        project_id=project.id,
+        organization_id=organization.id,
+    )
+
     # Get count before deletion
     count_before = get_conversations_count_by_project(
         session=db,
@@ -761,17 +824,17 @@ def test_create_conversation_with_ancestor(db: Session):
     project = get_project(db)
     organization = get_organization(db)
 
-    ancestor_response_id = f"resp_{uuid4()}"
-    previous_response_id = f"resp_{uuid4()}"
+    ancestor_response_id = generate_openai_id("resp_", 40)
+    previous_response_id = generate_openai_id("resp_", 40)
 
     conversation_data = OpenAIConversationCreate(
-        response_id=f"resp_{uuid4()}",
+        response_id=generate_openai_id("resp_", 40),
         ancestor_response_id=ancestor_response_id,
         previous_response_id=previous_response_id,
         user_question="Follow-up question",
         response="Follow-up response",
         model="gpt-4o",
-        assistant_id=f"asst_{uuid4()}",
+        assistant_id=generate_openai_id("asst_", 20),
     )
 
     conversation = create_conversation(
@@ -784,7 +847,7 @@ def test_create_conversation_with_ancestor(db: Session):
     assert conversation is not None
     assert conversation.ancestor_response_id == ancestor_response_id
     assert conversation.previous_response_id == previous_response_id
-    assert conversation.response_id == valid_response_id
+    assert conversation.response_id == conversation_data.response_id
 
     # Test invalid response ID (too short)
     invalid_response_id = "resp_123"

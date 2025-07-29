@@ -7,10 +7,6 @@ from sqlmodel import Field, Relationship, SQLModel
 
 from app.core.util import now
 
-class OpenAIConversationBase(SQLModel):
-    response_id: str = Field(index=True, description="OpenAI response ID")
-    ancestor_response_id: Optional[str] = Field(
-        default=None,
 
 def validate_response_id_pattern(v: str) -> str:
     """Shared validation function for response ID patterns"""
@@ -57,6 +53,7 @@ class OpenAIConversationBase(SQLModel):
     @classmethod
     def validate_response_ids(cls, v):
         return validate_response_id_pattern(v)
+
 
 class OpenAIConversation(OpenAIConversationBase, table=True):
     __tablename__ = "openai_conversation"
