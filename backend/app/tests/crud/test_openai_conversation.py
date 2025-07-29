@@ -7,7 +7,7 @@ from app.crud.openai_conversation import (
     get_conversation_by_response_id,
     get_conversation_by_ancestor_id,
     get_conversations_by_project,
-    set_ancestor_response_id,
+    get_ancestor_id_from_response,
     get_conversations_count_by_project,
     create_conversation,
     delete_conversation,
@@ -325,12 +325,12 @@ def test_conversation_soft_delete_behavior(db: Session):
     assert conversation.id not in [c.id for c in conversations]
 
 
-def test_set_ancestor_response_id_no_previous_response(db: Session):
-    """Test set_ancestor_response_id when previous_response_id is None."""
+def test_get_ancestor_id_from_response_no_previous_response(db: Session):
+    """Test get_ancestor_id_from_response when previous_response_id is None."""
     project = get_project(db)
     current_response_id = f"resp_{uuid4()}"
 
-    ancestor_id = set_ancestor_response_id(
+    ancestor_id = get_ancestor_id_from_response(
         session=db,
         current_response_id=current_response_id,
         previous_response_id=None,
@@ -340,13 +340,13 @@ def test_set_ancestor_response_id_no_previous_response(db: Session):
     assert ancestor_id == current_response_id
 
 
-def test_set_ancestor_response_id_previous_not_found(db: Session):
-    """Test set_ancestor_response_id when previous_response_id is not found in DB."""
+def test_get_ancestor_id_from_response_previous_not_found(db: Session):
+    """Test get_ancestor_id_from_response when previous_response_id is not found in DB."""
     project = get_project(db)
     current_response_id = f"resp_{uuid4()}"
     previous_response_id = f"resp_{uuid4()}"
 
-    ancestor_id = set_ancestor_response_id(
+    ancestor_id = get_ancestor_id_from_response(
         session=db,
         current_response_id=current_response_id,
         previous_response_id=previous_response_id,
@@ -357,8 +357,8 @@ def test_set_ancestor_response_id_previous_not_found(db: Session):
     assert ancestor_id == previous_response_id
 
 
-def test_set_ancestor_response_id_previous_found_with_ancestor(db: Session):
-    """Test set_ancestor_response_id when previous_response_id is found and has an ancestor."""
+def test_get_ancestor_id_from_response_previous_found_with_ancestor(db: Session):
+    """Test get_ancestor_id_from_response when previous_response_id is found and has an ancestor."""
     project = get_project(db)
     organization = get_organization(db)
 
@@ -404,7 +404,7 @@ def test_set_ancestor_response_id_previous_found_with_ancestor(db: Session):
 
     # Test the current conversation
     current_response_id = f"resp_{uuid4()}"
-    ancestor_id = set_ancestor_response_id(
+    ancestor_id = get_ancestor_id_from_response(
         session=db,
         current_response_id=current_response_id,
         previous_response_id=previous_response_id,
@@ -478,7 +478,7 @@ def test_get_conversations_count_by_project_excludes_deleted(db: Session):
 
     # Test the current conversation
     current_response_id = generate_openai_id("resp_", 40)
-    ancestor_id = set_ancestor_response_id(
+    ancestor_id = get_ancestor_id_from_response(
         session=db,
         current_response_id=current_response_id,
         previous_response_id=conversation.response_id,
@@ -488,8 +488,8 @@ def test_get_conversations_count_by_project_excludes_deleted(db: Session):
     assert ancestor_id == conversation.ancestor_response_id
 
 
-def test_set_ancestor_response_id_previous_found_without_ancestor(db: Session):
-    """Test set_ancestor_response_id when previous_response_id is found but has no ancestor."""
+def test_get_ancestor_id_from_response_previous_found_without_ancestor(db: Session):
+    """Test get_ancestor_id_from_response when previous_response_id is found but has no ancestor."""
     project = get_project(db)
     organization = get_organization(db)
 
@@ -514,7 +514,7 @@ def test_set_ancestor_response_id_previous_found_without_ancestor(db: Session):
 
     # Test the current conversation
     current_response_id = generate_openai_id("resp_", 40)
-    ancestor_id = set_ancestor_response_id(
+    ancestor_id = get_ancestor_id_from_response(
         session=db,
         current_response_id=current_response_id,
         previous_response_id=previous_response_id,
@@ -525,8 +525,8 @@ def test_set_ancestor_response_id_previous_found_without_ancestor(db: Session):
     assert ancestor_id == previous_response_id
 
 
-def test_set_ancestor_response_id_different_project(db: Session):
-    """Test set_ancestor_response_id respects project scoping."""
+def test_get_ancestor_id_from_response_different_project(db: Session):
+    """Test get_ancestor_id_from_response respects project scoping."""
     project1 = get_project(db)
     organization = get_organization(db)
 
@@ -564,7 +564,7 @@ def test_set_ancestor_response_id_different_project(db: Session):
 
     # Test looking for it in project2 (should not find it)
     current_response_id = generate_openai_id("resp_", 40)
-    ancestor_id = set_ancestor_response_id(
+    ancestor_id = get_ancestor_id_from_response(
         session=db,
         current_response_id=current_response_id,
         previous_response_id=previous_response_id,
@@ -575,8 +575,8 @@ def test_set_ancestor_response_id_different_project(db: Session):
     assert ancestor_id == previous_response_id
 
 
-def test_set_ancestor_response_id_complex_chain(db: Session):
-    """Test set_ancestor_response_id with a complex conversation chain."""
+def test_get_ancestor_id_from_response_complex_chain(db: Session):
+    """Test get_ancestor_id_from_response with a complex conversation chain."""
     project = get_project(db)
     organization = get_organization(db)
 
@@ -640,7 +640,7 @@ def test_set_ancestor_response_id_complex_chain(db: Session):
 
     # Test D referencing C
     response_d = generate_openai_id("resp_", 40)
-    ancestor_id = set_ancestor_response_id(
+    ancestor_id = get_ancestor_id_from_response(
         session=db,
         current_response_id=response_d,
         previous_response_id=response_c,

@@ -58,7 +58,7 @@ def get_conversation_by_ancestor_id(
     return result
 
 
-def set_ancestor_response_id(
+def get_ancestor_id_from_response(
     session: Session,
     current_response_id: str,
     previous_response_id: str | None,

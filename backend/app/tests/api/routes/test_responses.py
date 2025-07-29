@@ -19,13 +19,13 @@ client = TestClient(app)
 @patch("app.api.routes.responses.get_provider_credential")
 @patch("app.api.routes.responses.get_assistant_by_id")
 @patch("app.api.routes.responses.LangfuseTracer")
-@patch("app.api.routes.responses.set_ancestor_response_id")
+@patch("app.api.routes.responses.get_ancestor_id_from_response")
 @patch("app.api.routes.responses.create_conversation")
 @patch("app.api.routes.responses.get_conversation_by_ancestor_id")
 def test_responses_endpoint_success(
     mock_get_conversation_by_ancestor_id,
     mock_create_conversation,
-    mock_set_ancestor_response_id,
+    mock_get_ancestor_id_from_response,
     mock_tracer_class,
     mock_get_assistant,
     mock_get_credential,
@@ -67,7 +67,7 @@ def test_responses_endpoint_success(
     mock_tracer_class.return_value = mock_tracer
 
     # Setup mock CRUD functions
-    mock_set_ancestor_response_id.return_value = (
+    mock_get_ancestor_id_from_response.return_value = (
         "resp_ancestor1234567890abcdef1234567890"
     )
     mock_create_conversation.return_value = None
@@ -96,13 +96,13 @@ def test_responses_endpoint_success(
 @patch("app.api.routes.responses.get_provider_credential")
 @patch("app.api.routes.responses.get_assistant_by_id")
 @patch("app.api.routes.responses.LangfuseTracer")
-@patch("app.api.routes.responses.set_ancestor_response_id")
+@patch("app.api.routes.responses.get_ancestor_id_from_response")
 @patch("app.api.routes.responses.create_conversation")
 @patch("app.api.routes.responses.get_conversation_by_ancestor_id")
 def test_responses_endpoint_without_vector_store(
     mock_get_conversation_by_ancestor_id,
     mock_create_conversation,
-    mock_set_ancestor_response_id,
+    mock_get_ancestor_id_from_response,
     mock_tracer_class,
     mock_get_assistant,
     mock_get_credential,
@@ -144,7 +144,7 @@ def test_responses_endpoint_without_vector_store(
     mock_tracer_class.return_value = mock_tracer
 
     # Setup mock CRUD functions
-    mock_set_ancestor_response_id.return_value = (
+    mock_get_ancestor_id_from_response.return_value = (
         "resp_ancestor1234567890abcdef1234567890"
     )
     mock_create_conversation.return_value = None
@@ -268,13 +268,13 @@ def test_responses_endpoint_missing_api_key_in_credentials(
 @patch("app.api.routes.responses.OpenAI")
 @patch("app.api.routes.responses.get_provider_credential")
 @patch("app.api.routes.responses.LangfuseTracer")
-@patch("app.api.routes.responses.set_ancestor_response_id")
+@patch("app.api.routes.responses.get_ancestor_id_from_response")
 @patch("app.api.routes.responses.create_conversation")
 @patch("app.api.routes.responses.get_conversation_by_ancestor_id")
 def test_responses_sync_endpoint_success(
     mock_get_conversation_by_ancestor_id,
     mock_create_conversation,
-    mock_set_ancestor_response_id,
+    mock_get_ancestor_id_from_response,
     mock_tracer_class,
     mock_get_credential,
     mock_openai,
@@ -306,7 +306,7 @@ def test_responses_sync_endpoint_success(
     mock_tracer_class.return_value = mock_tracer
 
     # Setup mock CRUD functions
-    mock_set_ancestor_response_id.return_value = (
+    mock_get_ancestor_id_from_response.return_value = (
         "resp_ancestor1234567890abcdef1234567890"
     )
     mock_create_conversation.return_value = None
@@ -407,13 +407,13 @@ def test_responses_sync_endpoint_openai_error(
 @patch("app.api.routes.responses.get_provider_credential")
 @patch("app.api.routes.responses.get_assistant_by_id")
 @patch("app.api.routes.responses.LangfuseTracer")
-@patch("app.api.routes.responses.set_ancestor_response_id")
+@patch("app.api.routes.responses.get_ancestor_id_from_response")
 @patch("app.api.routes.responses.create_conversation")
 @patch("app.api.routes.responses.get_conversation_by_ancestor_id")
 def test_responses_endpoint_with_file_search_results(
     mock_get_conversation_by_ancestor_id,
     mock_create_conversation,
-    mock_set_ancestor_response_id,
+    mock_get_ancestor_id_from_response,
     mock_tracer_class,
     mock_get_assistant,
     mock_get_credential,
@@ -468,7 +468,7 @@ def test_responses_endpoint_with_file_search_results(
     mock_tracer_class.return_value = mock_tracer
 
     # Setup mock CRUD functions
-    mock_set_ancestor_response_id.return_value = (
+    mock_get_ancestor_id_from_response.return_value = (
         "resp_ancestor1234567890abcdef1234567890"
     )
     mock_create_conversation.return_value = None
@@ -506,13 +506,13 @@ def test_responses_endpoint_with_file_search_results(
 @patch("app.api.routes.responses.get_provider_credential")
 @patch("app.api.routes.responses.get_assistant_by_id")
 @patch("app.api.routes.responses.LangfuseTracer")
-@patch("app.api.routes.responses.set_ancestor_response_id")
+@patch("app.api.routes.responses.get_ancestor_id_from_response")
 @patch("app.api.routes.responses.create_conversation")
 @patch("app.api.routes.responses.get_conversation_by_ancestor_id")
 def test_responses_endpoint_with_ancestor_conversation_found(
     mock_get_conversation_by_ancestor_id,
     mock_create_conversation,
-    mock_set_ancestor_response_id,
+    mock_get_ancestor_id_from_response,
     mock_tracer_class,
     mock_get_assistant,
     mock_get_credential,
@@ -554,7 +554,7 @@ def test_responses_endpoint_with_ancestor_conversation_found(
     mock_tracer_class.return_value = mock_tracer
 
     # Setup mock CRUD functions
-    mock_set_ancestor_response_id.return_value = (
+    mock_get_ancestor_id_from_response.return_value = (
         "resp_ancestor1234567890abcdef1234567890"
     )
     mock_create_conversation.return_value = None
@@ -603,13 +603,13 @@ def test_responses_endpoint_with_ancestor_conversation_found(
 @patch("app.api.routes.responses.get_provider_credential")
 @patch("app.api.routes.responses.get_assistant_by_id")
 @patch("app.api.routes.responses.LangfuseTracer")
-@patch("app.api.routes.responses.set_ancestor_response_id")
+@patch("app.api.routes.responses.get_ancestor_id_from_response")
 @patch("app.api.routes.responses.create_conversation")
 @patch("app.api.routes.responses.get_conversation_by_ancestor_id")
 def test_responses_endpoint_with_ancestor_conversation_not_found(
     mock_get_conversation_by_ancestor_id,
     mock_create_conversation,
-    mock_set_ancestor_response_id,
+    mock_get_ancestor_id_from_response,
     mock_tracer_class,
     mock_get_assistant,
     mock_get_credential,
@@ -651,7 +651,7 @@ def test_responses_endpoint_with_ancestor_conversation_not_found(
     mock_tracer_class.return_value = mock_tracer
 
     # Setup mock CRUD functions
-    mock_set_ancestor_response_id.return_value = (
+    mock_get_ancestor_id_from_response.return_value = (
         "resp_ancestor1234567890abcdef1234567890"
     )
     mock_create_conversation.return_value = None
@@ -700,13 +700,13 @@ def test_responses_endpoint_with_ancestor_conversation_not_found(
 @patch("app.api.routes.responses.get_provider_credential")
 @patch("app.api.routes.responses.get_assistant_by_id")
 @patch("app.api.routes.responses.LangfuseTracer")
-@patch("app.api.routes.responses.set_ancestor_response_id")
+@patch("app.api.routes.responses.get_ancestor_id_from_response")
 @patch("app.api.routes.responses.create_conversation")
 @patch("app.api.routes.responses.get_conversation_by_ancestor_id")
 def test_responses_endpoint_without_response_id(
     mock_get_conversation_by_ancestor_id,
     mock_create_conversation,
-    mock_set_ancestor_response_id,
+    mock_get_ancestor_id_from_response,
     mock_tracer_class,
     mock_get_assistant,
     mock_get_credential,
@@ -748,7 +748,7 @@ def test_responses_endpoint_without_response_id(
     mock_tracer_class.return_value = mock_tracer
 
     # Setup mock CRUD functions
-    mock_set_ancestor_response_id.return_value = (
+    mock_get_ancestor_id_from_response.return_value = (
         "resp_1234567890abcdef1234567890abcdef1234567890"
     )
     mock_create_conversation.return_value = None
@@ -785,13 +785,13 @@ def test_responses_endpoint_without_response_id(
 @patch("app.api.routes.responses.OpenAI")
 @patch("app.api.routes.responses.get_provider_credential")
 @patch("app.api.routes.responses.LangfuseTracer")
-@patch("app.api.routes.responses.set_ancestor_response_id")
+@patch("app.api.routes.responses.get_ancestor_id_from_response")
 @patch("app.api.routes.responses.create_conversation")
 @patch("app.api.routes.responses.get_conversation_by_ancestor_id")
 def test_responses_sync_endpoint_with_ancestor_conversation_found(
     mock_get_conversation_by_ancestor_id,
     mock_create_conversation,
-    mock_set_ancestor_response_id,
+    mock_get_ancestor_id_from_response,
     mock_tracer_class,
     mock_get_credential,
     mock_openai,
@@ -823,7 +823,7 @@ def test_responses_sync_endpoint_with_ancestor_conversation_found(
     mock_tracer_class.return_value = mock_tracer
 
     # Setup mock CRUD functions
-    mock_set_ancestor_response_id.return_value = (
+    mock_get_ancestor_id_from_response.return_value = (
         "resp_ancestor1234567890abcdef1234567890"
     )
     mock_create_conversation.return_value = None
@@ -879,13 +879,13 @@ def test_responses_sync_endpoint_with_ancestor_conversation_found(
 @patch("app.api.routes.responses.OpenAI")
 @patch("app.api.routes.responses.get_provider_credential")
 @patch("app.api.routes.responses.LangfuseTracer")
-@patch("app.api.routes.responses.set_ancestor_response_id")
+@patch("app.api.routes.responses.get_ancestor_id_from_response")
 @patch("app.api.routes.responses.create_conversation")
 @patch("app.api.routes.responses.get_conversation_by_ancestor_id")
 def test_responses_sync_endpoint_with_ancestor_conversation_not_found(
     mock_get_conversation_by_ancestor_id,
     mock_create_conversation,
-    mock_set_ancestor_response_id,
+    mock_get_ancestor_id_from_response,
     mock_tracer_class,
     mock_get_credential,
     mock_openai,
@@ -917,7 +917,7 @@ def test_responses_sync_endpoint_with_ancestor_conversation_not_found(
     mock_tracer_class.return_value = mock_tracer
 
     # Setup mock CRUD functions
-    mock_set_ancestor_response_id.return_value = (
+    mock_get_ancestor_id_from_response.return_value = (
         "resp_ancestor1234567890abcdef1234567890"
     )
     mock_create_conversation.return_value = None
@@ -973,13 +973,13 @@ def test_responses_sync_endpoint_with_ancestor_conversation_not_found(
 @patch("app.api.routes.responses.OpenAI")
 @patch("app.api.routes.responses.get_provider_credential")
 @patch("app.api.routes.responses.LangfuseTracer")
-@patch("app.api.routes.responses.set_ancestor_response_id")
+@patch("app.api.routes.responses.get_ancestor_id_from_response")
 @patch("app.api.routes.responses.create_conversation")
 @patch("app.api.routes.responses.get_conversation_by_ancestor_id")
 def test_responses_sync_endpoint_without_response_id(
     mock_get_conversation_by_ancestor_id,
     mock_create_conversation,
-    mock_set_ancestor_response_id,
+    mock_get_ancestor_id_from_response,
     mock_tracer_class,
     mock_get_credential,
     mock_openai,
@@ -1011,7 +1011,7 @@ def test_responses_sync_endpoint_without_response_id(
     mock_tracer_class.return_value = mock_tracer
 
     # Setup mock CRUD functions
-    mock_set_ancestor_response_id.return_value = (
+    mock_get_ancestor_id_from_response.return_value = (
         "resp_1234567890abcdef1234567890abcdef1234567890"
     )
     mock_create_conversation.return_value = None

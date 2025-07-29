@@ -13,7 +13,7 @@ from app.crud.assistants import get_assistant_by_id
 from app.crud.credentials import get_provider_credential
 from app.crud.openai_conversation import (
     create_conversation,
-    set_ancestor_response_id,
+    get_ancestor_id_from_response,
     get_conversation_by_ancestor_id,
 )
 from app.models import UserProjectOrg, OpenAIConversationCreate
@@ -197,7 +197,7 @@ def process_response(
         )
 
         # Set ancestor_response_id using CRUD function
-        ancestor_response_id = set_ancestor_response_id(
+        ancestor_response_id = get_ancestor_id_from_response(
             session=session,
             current_response_id=response.id,
             previous_response_id=response.previous_response_id,
@@ -447,7 +447,7 @@ async def responses_sync(
         )
 
         # Set ancestor_response_id using CRUD function for sync endpoint
-        ancestor_response_id = set_ancestor_response_id(
+        ancestor_response_id = get_ancestor_id_from_response(
             session=_session,
             current_response_id=response.id,
             previous_response_id=response.previous_response_id,
