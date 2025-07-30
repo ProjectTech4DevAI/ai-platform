@@ -57,6 +57,9 @@ class Organization(OrganizationBase, table=True):
     fine_tuning: list["Fine_Tuning"] = Relationship(
         back_populates="organization", cascade_delete=True
     )
+    model_evaluation: list["Model_Evaluation"] = Relationship(
+        back_populates="organization", cascade_delete=True
+    )
     openai_conversations: list["OpenAIConversation"] = Relationship(
         back_populates="organization", cascade_delete=True
     )

@@ -17,22 +17,10 @@ class EvaluationStatus(str, Enum):
 
 
 class ModelEvaluationBase(SQLModel):
-    document_id: UUID = Field(
-        foreign_key="document.id",
+    fine_tuning_id: int = Field(
+        foreign_key="fine_tuning.id",
         nullable=False,
         ondelete="CASCADE",
-    )
-
-    project_id: int = Field(
-        foreign_key="project.id", nullable=False, ondelete="CASCADE"
-    )
-    organization_id: int = Field(
-        foreign_key="organization.id", nullable=False, ondelete="CASCADE"
-    )
-
-    eval_split_ratio: list[float] = Field(sa_column=Column(JSON, nullable=False))
-    metric: str = Field(
-        nullable=False, description="Metric used for evaluation (e.g., mcc)"
     )
 
 
@@ -45,15 +33,27 @@ class Model_Evaluation(ModelEvaluationBase, table=True):
 
     id: int = Field(primary_key=True)
 
-    fine_tuning_id: int = Field(
-        foreign_key="fine_tuning.id",
+    document_id: UUID = Field(
+        foreign_key="document.id",
         nullable=False,
-        ondelete="CASCADE",
     )
-
-    score: float = Field(nullable=True, description="Matthews Correlation Coefficient")
+    eval_split_ratio: float = (Field(nullable=False),)
+    metric: list[str] = Field(
+        sa_column=Column(JSON, nullable=False),
+        description="List of metrics used for evaluation (e.g., ['mcc', 'accuracy'])",
+    )
+    score: Optional[dict[str, float]] = Field(
+        sa_column=Column(JSON, nullable=True),
+        description="Evaluation scores per metric (e.g., {'mcc': 0.85})",
+    )
     status: EvaluationStatus = Field(
         default=EvaluationStatus.pending, description="Evaluation status"
+    )
+    project_id: int = Field(
+        foreign_key="project.id", nullable=False, ondelete="CASCADE"
+    )
+    organization_id: int = Field(
+        foreign_key="organization.id", nullable=False, ondelete="CASCADE"
     )
 
     inserted_at: datetime = Field(default_factory=now, nullable=False)
@@ -69,9 +69,7 @@ class ModelEvaluationPublic(ModelEvaluationBase):
     """Public response model for evaluation result."""
 
     id: int
-    fine_tuning_id: int
-    metric: str
-    score: float | None = None
+    score: dict[str, float] | None = None
     status: EvaluationStatus
     inserted_at: datetime
     updated_at: datetime
