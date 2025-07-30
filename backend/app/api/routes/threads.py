@@ -206,7 +206,7 @@ def process_run_core(
             return create_success_response(request, message).model_dump(), None
         else:
             error_msg = f"Run failed with status: {run.status}"
-            logger.warning(
+            logger.error(
                 f"[process_run_core] Run failed with error: {run.last_error} for thread ID: {mask_string(request.get('thread_id'))}"
             )
             tracer.log_error(error_msg)

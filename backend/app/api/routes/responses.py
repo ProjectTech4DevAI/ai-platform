@@ -371,7 +371,7 @@ async def responses_sync(
 
         tracer.flush()
         logger.info(
-            f"[response_sync] Successfully generated response: response_id={response.id}, assistant={mask_string(request.assistant_id)}, project_id={project_id}"
+            f"[response_sync] Successfully generated response: response_id={response.id}, project_id={project_id}"
         )
         return ResponsesAPIResponse.success_response(
             data=_APIResponse(
