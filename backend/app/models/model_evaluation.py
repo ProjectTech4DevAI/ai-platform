@@ -37,6 +37,7 @@ class Model_Evaluation(ModelEvaluationBase, table=True):
         foreign_key="document.id",
         nullable=False,
     )
+    model_name: str = Field(description="fine tuned model name from OpenAI")
     eval_split_ratio: float = (Field(nullable=False),)
     metric: list[str] = Field(
         sa_column=Column(JSON, nullable=False),
@@ -46,8 +47,13 @@ class Model_Evaluation(ModelEvaluationBase, table=True):
         sa_column=Column(JSON, nullable=True),
         description="Evaluation scores per metric (e.g., {'mcc': 0.85})",
     )
-    status: EvaluationStatus = Field(
-        default=EvaluationStatus.pending, description="Evaluation status"
+    status: EvaluationStatus = (
+        Field(default=EvaluationStatus.pending, description="Evaluation status"),
+    )
+    is_best_model: Optional[bool] = Field(
+        default=None,
+        nullable=True,
+        description="Flag to indicate whether this is the best model",
     )
     project_id: int = Field(
         foreign_key="project.id", nullable=False, ondelete="CASCADE"
@@ -60,8 +66,8 @@ class Model_Evaluation(ModelEvaluationBase, table=True):
     updated_at: datetime = Field(default_factory=now, nullable=False)
     deleted_at: datetime | None = Field(default=None, nullable=True)
 
-    project: "Project" = Relationship(back_populates="model_evaluation")
-    organization: "Organization" = Relationship(back_populates="model_evaluation")
+    project: "Project" = Relationship()
+    organization: "Organization" = Relationship()
     fine_tuning: "Fine_Tuning" = Relationship(back_populates="model_evaluation")
 
 
@@ -71,6 +77,7 @@ class ModelEvaluationPublic(ModelEvaluationBase):
     id: int
     score: dict[str, float] | None = None
     status: EvaluationStatus
+    is_best_model: bool | None = None
     inserted_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None

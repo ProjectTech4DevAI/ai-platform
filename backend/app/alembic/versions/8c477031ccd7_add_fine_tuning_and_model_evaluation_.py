@@ -62,6 +62,7 @@ def upgrade():
         "model_evaluation",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("fine_tuning_id", sa.Integer(), nullable=False),
+        sa.Column("model_name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("document_id", sa.Uuid(), nullable=False),
         sa.Column("eval_split_ratio", type_=sa.Float(), nullable=False),
         sa.Column("metric", postgresql.JSON(astext_type=sa.Text()), nullable=False),
@@ -69,6 +70,7 @@ def upgrade():
         sa.Column(
             "status", evaluation_status_enum, nullable=False, server_default="pending"
         ),
+        sa.Column("is_best_model", sa.Boolean, nullable=True),
         sa.Column("project_id", sa.Integer(), nullable=False),
         sa.Column("organization_id", sa.Integer(), nullable=False),
         sa.Column("inserted_at", sa.DateTime(), nullable=False),
