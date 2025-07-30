@@ -90,8 +90,12 @@ class VectorStoreCleaner(ResourceCleaner):
 
 
 class OpenAICrud:
-    def __init__(self, client=None):
-        self.client = client or OpenAI(api_key=settings.OPENAI_API_KEY)
+    def __init__(self, client):
+        if client is None:
+            logger.error("[OpenAICrud] OpenAI client is not configured")
+            raise ValueError("OpenAI client is not configured")
+
+        self.client = client
 
 
 class OpenAIVectorStoreCrud(OpenAICrud):

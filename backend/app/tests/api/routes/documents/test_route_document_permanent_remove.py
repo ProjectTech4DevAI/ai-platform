@@ -3,11 +3,14 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import pytest
+from unittest.mock import patch
 from botocore.exceptions import ClientError
 from moto import mock_aws
 from sqlmodel import Session, select
 
+from openai import OpenAI
 import openai_responses
+from openai_responses import OpenAIMock
 
 from app.core.cloud import AmazonCloudStorageClient
 from app.core.config import settings
@@ -19,7 +22,6 @@ from app.tests.utils.document import (
     WebCrawler,
     crawler,
 )
-from app.tests.utils.utils import openai_credentials
 
 
 @pytest.fixture
@@ -36,16 +38,23 @@ def aws_credentials():
     os.environ["AWS_DEFAULT_REGION"] = settings.AWS_DEFAULT_REGION
 
 
-@pytest.mark.usefixtures("openai_credentials", "aws_credentials")
+@pytest.mark.usefixtures("aws_credentials")
 @mock_aws
 class TestDocumentRoutePermanentRemove:
     @openai_responses.mock()
+    @patch("app.api.routes.documents.get_openai_client")
     def test_permanent_delete_document_from_s3(
         self,
+        mock_get_openai_client,
         db: Session,
         route: Route,
         crawler: WebCrawler,
     ):
+        openai_mock = OpenAIMock()
+        with openai_mock.router:
+            client = OpenAI(api_key="sk-test-key")
+            mock_get_openai_client.return_value = client
+
         # Setup AWS
         aws = AmazonCloudStorageClient()
         aws.create()
