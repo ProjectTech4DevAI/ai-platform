@@ -1,26 +1,28 @@
 import inspect
 import logging
 import time
-import warnings
 from uuid import UUID, uuid4
 from typing import Any, List, Optional
 from dataclasses import dataclass, field, fields, asdict, replace
 
-from openai import OpenAI, OpenAIError
+from openai import OpenAIError, OpenAI
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
 from fastapi import Path as FastPath
 from pydantic import BaseModel, Field, HttpUrl
-from sqlalchemy.exc import NoResultFound, MultipleResultsFound, SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
 from app.core.cloud import AmazonCloudStorage
-from app.core.config import settings
-from app.core.util import now, raise_from_unknown, post_callback
-from app.crud import DocumentCrud, CollectionCrud, DocumentCollectionCrud
+from app.core.util import now, post_callback
+from app.crud import (
+    DocumentCrud,
+    CollectionCrud,
+    DocumentCollectionCrud,
+)
 from app.crud.rag import OpenAIVectorStoreCrud, OpenAIAssistantCrud
 from app.models import Collection, Document
 from app.models.collection import CollectionStatus
-from app.utils import APIResponse, load_description
+from app.utils import APIResponse, load_description, get_openai_client
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/collections", tags=["collections"])
@@ -180,12 +182,13 @@ def _backout(crud: OpenAIAssistantCrud, assistant_id: str):
 
 def do_create_collection(
     session: SessionDep,
-    current_user: CurrentUser,
+    current_user: CurrentUserOrgProject,
     request: CreationRequest,
     payload: ResponsePayload,
+    client: OpenAI,
 ):
     start_time = time.time()
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
     callback = (
         SilentCallback(payload)
         if request.callback_url is None
@@ -226,7 +229,7 @@ def do_create_collection(
         collection_crud._update(collection)
 
         elapsed = time.time() - start_time
-        logging.info(
+        logger.info(
             f"[do_create_collection] Collection created: {collection.id} | Time: {elapsed:.2f}s | "
             f"Files: {len(flat_docs)} | Sizes: {file_sizes_kb} KB | Types: {list(file_exts)}"
         )
@@ -261,6 +264,10 @@ def create_collection(
     request: CreationRequest,
     background_tasks: BackgroundTasks,
 ):
+    client = get_openai_client(
+        session, current_user.organization_id, current_user.project_id
+    )
+
     this = inspect.currentframe()
     route = router.url_path_for(this.f_code.co_name)
     payload = ResponsePayload("processing", route)
@@ -278,11 +285,7 @@ def create_collection(
 
     # 2. Launch background task
     background_tasks.add_task(
-        do_create_collection,
-        session,
-        current_user,
-        request,
-        payload,
+        do_create_collection, session, current_user, request, payload, client
     )
 
     logger.info(
@@ -294,9 +297,10 @@ def create_collection(
 
 def do_delete_collection(
     session: SessionDep,
-    current_user: CurrentUser,
+    current_user: CurrentUserOrgProject,
     request: DeletionRequest,
     payload: ResponsePayload,
+    client: OpenAI,
 ):
     if request.callback_url is None:
         callback = SilentCallback(payload)
@@ -306,7 +310,7 @@ def do_delete_collection(
     collection_crud = CollectionCrud(session, current_user.id)
     try:
         collection = collection_crud.read_one(request.collection_id)
-        assistant = OpenAIAssistantCrud()
+        assistant = OpenAIAssistantCrud(client)
         data = collection_crud.delete(collection, assistant)
         logger.info(
             f"[do_delete_collection] Collection deleted successfully | {{'collection_id': '{collection.id}'}}"
@@ -332,20 +336,20 @@ def do_delete_collection(
 )
 def delete_collection(
     session: SessionDep,
-    current_user: CurrentUser,
+    current_user: CurrentUserOrgProject,
     request: DeletionRequest,
     background_tasks: BackgroundTasks,
 ):
+    client = get_openai_client(
+        session, current_user.organization_id, current_user.project_id
+    )
+
     this = inspect.currentframe()
     route = router.url_path_for(this.f_code.co_name)
     payload = ResponsePayload("processing", route)
 
     background_tasks.add_task(
-        do_delete_collection,
-        session,
-        current_user,
-        request,
-        payload,
+        do_delete_collection, session, current_user, request, payload, client
     )
 
     logger.info(
