@@ -137,20 +137,20 @@ def process_response(
 
     try:
         # Get the latest conversation by ancestor ID to use as previous_response_id
-        previous_response_id = request.response_id
+        ancestor_id = request.response_id
         latest_conversation = None
-        if previous_response_id:
+        if ancestor_id:
             latest_conversation = get_conversation_by_ancestor_id(
                 session=session,
-                ancestor_response_id=previous_response_id,
+                ancestor_response_id=ancestor_id,
                 project_id=project_id,
             )
             if latest_conversation:
-                previous_response_id = latest_conversation.response_id
+                ancestor_id = latest_conversation.response_id
 
         params = {
             "model": assistant.model,
-            "previous_response_id": previous_response_id,
+            "previous_response_id": ancestor_id,
             "instructions": assistant.instructions,
             "temperature": assistant.temperature,
             "input": [{"role": "user", "content": request.question}],
