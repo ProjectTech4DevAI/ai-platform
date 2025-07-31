@@ -66,6 +66,9 @@ def validate_thread(client: OpenAI, thread_id: str) -> tuple[bool, str]:
         if runs.data and len(runs.data) > 0:
             latest_run = runs.data[0]
             if latest_run.status in ["queued", "in_progress", "requires_action"]:
+                logger.error(
+                    f"[validate_thread] Thread ID {mask_string(thread_id)} is currently {latest_run.status}."
+                )
                 return (
                     False,
                     f"There is an active run on this thread (status: {latest_run.status}). Please wait for it to complete.",
@@ -300,7 +303,7 @@ async def threads(
     )
     client, success = configure_openai(credentials)
     if not success:
-        logger.warning(
+        logger.error(
             f"[threads] OpenAI API key not configured for this organization. | organization_id: {_current_user.organization_id}, project_id: {request.get('project_id')}"
         )
         return APIResponse.failure_response(
@@ -317,16 +320,10 @@ async def threads(
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
     if not is_valid:
-        logger.error(
-            f"[threads] Error processing thread ID {mask_string(request.get('thread_id'))}: {error_message} | organization_id: {_current_user.organization_id}, project_id: {request.get('project_id')}"
-        )
         raise Exception(error_message)
     # Setup thread
     is_success, error_message = setup_thread(client, request)
     if not is_success:
-        logger.error(
-            f"[threads] Error setting up thread ID {mask_string(request.get('thread_id'))}: {error_message} | organization_id: {_current_user.organization_id}, project_id: {request.get('project_id')}"
-        )
         raise Exception(error_message)
 
     # Send immediate response
@@ -395,10 +392,8 @@ async def threads_sync(
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
     if not is_valid:
-        logger.error(
-            f"[threads_sync] Error processing thread ID {mask_string(request.get('thread_id'))}: {error_message}"
-        )
         raise Exception(error_message)
+
     # Setup thread
     is_success, error_message = setup_thread(client, request)
     if not is_success:
@@ -495,7 +490,7 @@ async def get_thread(
     result = get_thread_result(db, thread_id)
 
     if not result:
-        logger.warning(
+        logger.error(
             f"[get_thread] Thread result not found for ID: {mask_string(thread_id)} | org_id: {_current_user.organization_id}"
         )
         raise HTTPException(404, "thread not found")
