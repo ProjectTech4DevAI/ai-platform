@@ -1,4 +1,4 @@
-organization_name,project_name,email,password,user_name
-Glific Foundation,Chatbot Project,onboard1@glific.org,TestPass123,admin1
-TestOrg,EducationBot,onboard2@test.org,TestPass456,edubot
-Acme NGO,SurveyBot,onboard3@acme.org,TestPass789,survey_lead
+organization_name,project_name,email,password,user_name,org_id,short_code
+Glific Foundation,Chatbot Project,onboard1@glific.org,TestPass123,admin1,1,chatbot
+TestOrg,EducationBot,onboard2@test.org,TestPass456,edubot,2,education
+Acme NGO,SurveyBot,onboard3@acme.org,TestPass789,survey_lead,3,survey

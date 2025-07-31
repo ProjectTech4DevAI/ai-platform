@@ -23,6 +23,8 @@ class OnboardProcessor(BaseCSVProcessor):
         "user_id",
         "api_key",
         "success",
+        "org_id",
+        "short_code",
         "response_from_endpoint",
     ]
     REQUIRED_FIELDS = {
@@ -31,6 +33,8 @@ class OnboardProcessor(BaseCSVProcessor):
         "email",
         "password",
         "user_name",
+        "org_id",
+        "short_code",
     }
 
     def __init__(self, input_file: str, output_file: str, api_url: str, api_key: str):

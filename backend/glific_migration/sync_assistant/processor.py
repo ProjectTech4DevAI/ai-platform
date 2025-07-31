@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 class AssistantIngestProcessor(BaseCSVProcessor):
     """Processor for handling assistant ingestion."""
 
-    HEADERS = ["assistant_id", "api_key", "success", "response_from_endpoint"]
-    REQUIRED_FIELDS = {"assistant_id", "api_key"}
+    HEADERS = ["assistant_id", "api_key", "org_id", "short_code", "success", "response_from_endpoint"]
+    REQUIRED_FIELDS = {"assistant_id", "api_key", "org_id", "short_code"}
 
     def __init__(self, input_file: str, output_file: str, base_url: str):
         super().__init__(input_file, output_file, self.HEADERS)
