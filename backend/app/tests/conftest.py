@@ -1,8 +1,10 @@
 from collections.abc import Generator
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, create_engine
 from sqlalchemy import event
+from collections.abc import Generator
 
 from app.api.deps import get_db
 from app.main import app

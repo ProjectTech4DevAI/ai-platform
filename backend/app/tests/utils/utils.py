@@ -5,6 +5,7 @@ from typing import Type, TypeVar
 import os
 from dotenv import load_dotenv
 
+
 import pytest
 from pydantic import EmailStr
 from fastapi.testclient import TestClient
@@ -13,15 +14,10 @@ from sqlmodel import Session, select
 from app.core.config import settings
 from app.crud.user import get_user_by_email
 from app.crud.api_key import get_api_key_by_value, get_api_key_by_user_id
-from app.models import APIKeyPublic, Project, Assistant
+from app.models import APIKeyPublic, Project, Assistant, Organization
 
 
 T = TypeVar("T")
-
-
-@pytest.fixture(scope="class")
-def openai_credentials():
-    settings.OPENAI_API_KEY = "sk-fake123"
 
 
 def random_lower_string() -> str:
@@ -161,6 +157,30 @@ def get_assistant(session: Session, name: str | None = None) -> Assistant:
         raise ValueError("No active assistants found")
 
     return assistant
+
+
+def get_organization(session: Session, name: str | None = None) -> Organization:
+    """
+    Retrieve an active organization from the database.
+
+    If an organization name is provided, fetch the active organization with that name.
+    If no name is provided, fetch any random organization.
+    """
+    if name:
+        statement = (
+            select(Organization)
+            .where(Organization.name == name, Organization.is_active)
+            .limit(1)
+        )
+    else:
+        statement = select(Organization).where(Organization.is_active).limit(1)
+
+    organization = session.exec(statement).first()
+
+    if not organization:
+        raise ValueError("No active organizations found")
+
+    return organization
 
 
 class SequentialUuidGenerator:
