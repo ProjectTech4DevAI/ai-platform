@@ -63,12 +63,6 @@ from .fine_tuning import (
     FineTuningJobPublic,
 )
 
-from .model_evaluation import (
-    Model_Evaluation,
-    ModelEvaluationBase,
-    ModelEvaluationCreate,
-    ModelEvaluationPublic,
-)
 from .openai_conversation import (
     OpenAIConversationPublic,
     OpenAIConversation,

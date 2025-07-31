@@ -50,9 +50,6 @@ class Fine_Tuning(FineTuningJobBase, table=True):
 
     project: "Project" = Relationship(back_populates="fine_tuning")
     organization: "Organization" = Relationship(back_populates="fine_tuning")
-    model_evaluation: list["Model_Evaluation"] = Relationship(
-        back_populates="fine_tuning"
-    )
 
 
 class FineTuningJobPublic(SQLModel):
