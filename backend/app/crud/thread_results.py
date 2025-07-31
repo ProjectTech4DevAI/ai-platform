@@ -24,7 +24,7 @@ def upsert_thread_result(session: Session, data: OpenAIThreadCreate):
         new_thread = OpenAI_Thread(**data.dict())
         session.add(new_thread)
         logger.info(
-            f"[upsert_thread_result] Created new thread result with ID: {mask_string(data.thread_id)}"
+            f"[upsert_thread_result] Created new thread result with ID: {mask_string(new_thread.thread_id)}"
         )
     session.commit()
 

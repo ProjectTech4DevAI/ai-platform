@@ -71,7 +71,11 @@ def validate_thread(client: OpenAI, thread_id: str) -> tuple[bool, str]:
                     f"There is an active run on this thread (status: {latest_run.status}). Please wait for it to complete.",
                 )
         return True, None
-    except openai.OpenAIError:
+    except openai.OpenAIError as e:
+        logger.error(
+            f"[validate_thread] Failed to validate thread ID {mask_string(thread_id)}: {str(e)}",
+            exc_info=True,
+        )
         return False, f"Invalid thread ID provided {thread_id}"
 
 
@@ -82,6 +86,9 @@ def setup_thread(client: OpenAI, request: dict) -> tuple[bool, str]:
         try:
             client.beta.threads.messages.create(
                 thread_id=thread_id, role="user", content=request["question"]
+            )
+            logger.info(
+                f"[setup_thread] Added message to existing thread {mask_string(thread_id)}"
             )
             return True, None
         except openai.OpenAIError as e:
@@ -97,6 +104,9 @@ def setup_thread(client: OpenAI, request: dict) -> tuple[bool, str]:
                 thread_id=thread.id, role="user", content=request["question"]
             )
             request["thread_id"] = thread.id
+            logger.info(
+                f"[setup_thread] Created new thread with ID: {mask_string(thread.id)}"
+            )
             return True, None
         except openai.OpenAIError as e:
             logger.error(
