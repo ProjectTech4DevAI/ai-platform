@@ -70,5 +70,5 @@ from .fine_tuning import (
     fetch_by_id,
     fetch_by_openai_job_id,
     fetch_by_document_id,
-    update_finetune_status,
+    update_finetune_job,
 )
