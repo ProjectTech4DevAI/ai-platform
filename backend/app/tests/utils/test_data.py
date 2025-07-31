@@ -1,21 +1,27 @@
 from sqlmodel import Session
+from uuid import uuid4
 
 from app.models import (
     Organization,
     Project,
     APIKey,
+    Document,
     Credential,
     OrganizationCreate,
     ProjectCreate,
     CredsCreate,
+    FineTuningJobCreate,
+    Fine_Tuning,
 )
 from app.crud import (
     create_organization,
     create_project,
     create_api_key,
     set_creds_for_org,
+    create_fine_tuning_job,
 )
 from app.core.providers import Provider
+from app.core.util import now
 from app.tests.utils.user import create_random_user
 from app.tests.utils.utils import random_lower_string, generate_random_string
 
@@ -112,3 +118,46 @@ def create_test_credential(db: Session) -> tuple[list[Credential], Project]:
         },
     )
     return set_creds_for_org(session=db, creds_add=creds_data), project
+
+
+def create_test_document(db: Session) -> Document:
+    user = create_random_user(db)
+    document = Document(
+        id=uuid4(),
+        fname="test_document.json",
+        object_store_url="s3://bucket/test_document.json",
+        inserted_at=now(),
+        updated_at=now(),
+        owner_id=user.id,
+    )
+    db.add(document)
+    db.commit()
+    db.refresh(document)
+    return document
+
+
+def create_test_fine_tuning_jobs(
+    db: Session, count: int = 1
+) -> tuple[list[Fine_Tuning], Project]:
+    project = create_test_project(db)
+    jobs = []
+
+    for _ in range(count):
+        document = create_test_document(db)
+
+        job_request = FineTuningJobCreate(
+            document_id=document.id,
+            base_model="gpt-4",
+            split_ratio=[0.8, 0.2],
+        )
+        job = create_fine_tuning_job(
+            session=db,
+            request=job_request,
+            split_ratio=0.8,
+            openai_job_id="job_" + generate_random_string(6),
+            project_id=project.id,
+            organization_id=project.organization_id,
+        )
+        jobs.append(job)
+
+    return jobs, project
