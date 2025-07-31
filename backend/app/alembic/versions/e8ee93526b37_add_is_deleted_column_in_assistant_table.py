@@ -18,7 +18,8 @@ depends_on = None
 
 def upgrade():
     op.add_column(
-        "openai_assistant", sa.Column("is_deleted", sa.Boolean(), nullable=False)
+        "openai_assistant",
+        sa.Column("is_deleted", sa.Boolean(), nullable=False, server_default="false"),
     )
     op.add_column(
         "openai_assistant", sa.Column("deleted_at", sa.DateTime(), nullable=True)
