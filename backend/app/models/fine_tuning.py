@@ -43,6 +43,7 @@ class Fine_Tuning(FineTuningJobBase, table=True):
     organization_id: int = Field(
         foreign_key="organization.id", nullable=False, ondelete="CASCADE"
     )
+    is_deleted: bool = Field(default=False, nullable=False)
 
     inserted_at: datetime = Field(default_factory=now, nullable=False)
     updated_at: datetime = Field(default_factory=now, nullable=False)
