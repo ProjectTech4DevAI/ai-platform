@@ -37,6 +37,9 @@ class Fine_Tuning(FineTuningJobBase, table=True):
     fine_tuned_model: str | None = Field(
         default=None, description="Final fine tuned model name from OpenAI"
     )
+    error_message: str | None = Field(
+        default=None, description="error message for when something failed"
+    )
     project_id: int = Field(
         foreign_key="project.id", nullable=False, ondelete="CASCADE"
     )
@@ -53,6 +56,16 @@ class Fine_Tuning(FineTuningJobBase, table=True):
     organization: "Organization" = Relationship(back_populates="fine_tuning")
 
 
+class FineTuningUpdate(SQLModel):
+    training_file_id: Optional[str] = None
+    testing_file_id: Optional[str] = None
+    split_ratio: Optional[float] = None
+    openai_job_id: Optional[str] = None
+    fine_tuned_model: Optional[str] = None
+    status: Optional[str] = None
+    error_message: Optional[str] = None
+
+
 class FineTuningJobPublic(SQLModel):
     """Public response model with job status and metadata."""
 
@@ -62,6 +75,7 @@ class FineTuningJobPublic(SQLModel):
     document_id: UUID
     openai_job_id: str | None = None
     status: str
+    error_message: str | None = None
     fine_tuned_model: str | None = None
     training_file_id: str | None = None
     testing_file_id: str | None = None
