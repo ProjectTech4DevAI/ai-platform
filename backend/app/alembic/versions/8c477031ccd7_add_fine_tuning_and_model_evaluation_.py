@@ -23,6 +23,10 @@ def upgrade():
         sa.Column("base_model", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("split_ratio", type_=sa.Float(), nullable=False),
         sa.Column("document_id", sa.Uuid(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["document_id"],
+            ["document.id"],
+        ),
         sa.Column(
             "training_file_id", sqlmodel.sql.sqltypes.AutoString(), nullable=True
         ),
@@ -33,21 +37,17 @@ def upgrade():
             "fine_tuned_model", sqlmodel.sql.sqltypes.AutoString(), nullable=True
         ),
         sa.Column("project_id", sa.Integer(), nullable=False),
+        sa.ForeignKeyConstraint(["project_id"], ["project.id"], ondelete="CASCADE"),
         sa.Column("organization_id", sa.Integer(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["organization_id"], ["organization.id"], ondelete="CASCADE"
+        ),
         sa.Column(
             "is_deleted", sa.Boolean, nullable=False, server_default=sa.text("false")
         ),
         sa.Column("inserted_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.Column("deleted_at", sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["document_id"],
-            ["document.id"],
-        ),
-        sa.ForeignKeyConstraint(
-            ["organization_id"], ["organization.id"], ondelete="CASCADE"
-        ),
-        sa.ForeignKeyConstraint(["project_id"], ["project.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
 
