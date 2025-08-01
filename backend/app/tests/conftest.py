@@ -30,6 +30,14 @@ def seed_baseline():
         yield
 
 
+@pytest.fixture(scope="function", autouse=True)
+def cleanup_sessions():
+    """Clean up any lingering sessions after each test."""
+    yield
+    # Force cleanup of any remaining connections in the pool
+    engine.dispose()
+
+
 @pytest.fixture(scope="function")
 def db() -> Generator[Session, None, None]:
     connection = engine.connect()
@@ -46,6 +54,7 @@ def db() -> Generator[Session, None, None]:
     finally:
         session.close()
         transaction.rollback()
+        connection.close()  # Explicitly close the connection
 
 
 @pytest.fixture(scope="function")

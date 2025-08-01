@@ -4,7 +4,18 @@ from app import crud
 from app.core.config import settings
 from app.models import User, UserCreate
 
-engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
+# Configure connection pool settings
+# For testing, we need more connections since tests run in parallel
+pool_size = 20 if settings.ENVIRONMENT == "local" else 5
+max_overflow = 30 if settings.ENVIRONMENT == "local" else 10
+
+engine = create_engine(
+    str(settings.SQLALCHEMY_DATABASE_URI),
+    pool_size=pool_size,
+    max_overflow=max_overflow,
+    pool_pre_ping=True,
+    pool_recycle=300,  # Recycle connections after 5 minutes
+)
 
 
 # make sure all SQLModel models are imported (app.models) before initializing DB

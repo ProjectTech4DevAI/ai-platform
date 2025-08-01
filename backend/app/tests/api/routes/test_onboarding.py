@@ -1,11 +1,7 @@
-import pytest
 from fastapi.testclient import TestClient
 from app.main import app  # Assuming your FastAPI app is in app/main.py
 from app.models import Organization, Project, User, APIKey
-from app.crud import create_organization, create_project, create_user, create_api_key
-from app.api.deps import SessionDep
-from sqlalchemy import create_engine
-from sqlmodel import Session, SQLModel
+from sqlmodel import Session
 from app.core.config import settings
 from app.tests.utils.utils import random_email, random_lower_string
 from app.core.security import decrypt_api_key
