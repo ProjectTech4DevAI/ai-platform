@@ -2,6 +2,8 @@ import random
 import string
 from uuid import UUID
 from typing import Type, TypeVar
+import os
+from dotenv import load_dotenv
 
 
 import pytest
@@ -87,6 +89,50 @@ def get_project(session: Session, name: str | None = None) -> Project:
         raise ValueError("No active projects found")
 
     return project
+
+
+from sqlalchemy.engine.url import make_url
+from sqlalchemy import create_engine
+
+
+def load_environment(env_test_path: str = "../.env.test"):
+    """Loads the test environment variables if the .env.test file exists.
+
+    Raises an error if any required PostgreSQL credentials are missing or if the
+    POSTGRES_DB value does not contain the word 'test', to ensure a safe test database is used.
+    """
+
+    if os.path.exists(env_test_path):
+        load_dotenv(dotenv_path=env_test_path, override=True)
+        settings.__init__()
+
+        required_vars = [
+            "POSTGRES_USER",
+            "POSTGRES_PASSWORD",
+            "POSTGRES_SERVER",
+            "POSTGRES_PORT",
+            "POSTGRES_DB",
+        ]
+
+        missing_vars = [var for var in required_vars if not os.getenv(var)]
+
+        if missing_vars:
+            raise ValueError(
+                f"Missing the following PostgreSQL credentials in {env_test_path}: {', '.join(missing_vars)}"
+            )
+
+        db_name = os.getenv("POSTGRES_DB", "").lower()
+        if "test" not in db_name:
+            raise RuntimeError(
+                f"Connected to database '{db_name}', which doesn't appear to be a test database"
+            )
+
+    else:
+        raise FileNotFoundError(
+            f"{env_test_path} not found. No environment variables loaded."
+        )
+
+    return settings
 
 
 def get_assistant(session: Session, name: str | None = None) -> Assistant:
