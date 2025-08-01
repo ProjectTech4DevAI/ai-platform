@@ -3,6 +3,7 @@ from collections.abc import Generator
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 from sqlalchemy import event
+from collections.abc import Generator
 
 from app.api.deps import get_db
 from app.main import app

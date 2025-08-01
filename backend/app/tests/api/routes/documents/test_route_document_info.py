@@ -44,10 +44,7 @@ class TestDocumentRouteInfo:
         assert source == target.data
 
     def test_cannot_info_unknown_document(
-        self,
-        db: Session,
-        route: Route,
-        crawler: Route,
+        self, db: Session, route: Route, crawler: Route
     ):
         DocumentStore.clear(db)
         maker = DocumentMaker(db)
