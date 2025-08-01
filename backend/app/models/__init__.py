@@ -62,3 +62,11 @@ from .openai_conversation import (
     OpenAIConversationBase,
     OpenAIConversationCreate,
 )
+
+from .prompt import (
+    Prompt,
+    PromptBase,
+    PromptCreate,
+    PromptPublic,
+    PromptUpdate,
+)
