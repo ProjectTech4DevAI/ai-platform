@@ -50,6 +50,17 @@ def count_prompts_by_project(session: Session, project_id: int) -> int:
 
 
 def create_prompt(session: Session, prompt_in: PromptCreate, project_id: int) -> Prompt:
+    existing = get_prompt_by_name_in_project(
+        session=session,
+        name=prompt_in.name,
+        project_id=project_id,
+    )
+    if existing:
+        logger.error(
+            f"[create_prompt] Prompt with this name already exists. | project_id={project_id}, name={prompt_in.name}"
+        )
+        raise HTTPException(status_code=409, detail="Prompt with this name already exists.")
+
     prompt = Prompt(
         **prompt_in.model_dump(),
         project_id=project_id,

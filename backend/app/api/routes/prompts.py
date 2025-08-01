@@ -36,22 +36,6 @@ def create_new_prompt(
     """
     Create a new prompt under the specified organization and project.
     """
-
-    existing_prompt = get_prompt_by_name_in_project(
-        session=session,
-        name=prompt_in.name,
-        project_id=current_user.project_id,
-    )
-
-    if existing_prompt:
-        logger.error(
-            f"[create_prompt] Prompt already exists | project_id={current_user.project_id}, name={prompt_in.name}"
-        )
-        raise HTTPException(
-            status_code=409,
-            detail="Prompt with this name already exists in this project.",
-        )
-
     prompt = create_prompt(session=session, prompt_in=prompt_in, project_id=current_user.project_id)
 
     return APIResponse.success_response(prompt)
