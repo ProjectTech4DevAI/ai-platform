@@ -17,6 +17,7 @@ from app.tests.utils.document import (
     WebCrawler,
     httpx_to_standard,
 )
+from app.tests.utils.utils import load_environment
 
 
 class WebUploader(WebCrawler):
@@ -51,6 +52,10 @@ def uploader(client: TestClient, user_api_key_header: dict[str, str]):
 
 @pytest.fixture(scope="class")
 def aws_credentials():
+    # Load test environment to ensure correct bucket name
+    load_environment("../.env.test")
+
+    # Set AWS credentials for moto mock
     os.environ["AWS_ACCESS_KEY_ID"] = "testing"
     os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
     os.environ["AWS_SECURITY_TOKEN"] = "testing"
@@ -58,8 +63,8 @@ def aws_credentials():
     os.environ["AWS_DEFAULT_REGION"] = settings.AWS_DEFAULT_REGION
 
 
-@mock_aws
 @pytest.mark.usefixtures("aws_credentials")
+@mock_aws
 class TestDocumentRouteUpload:
     def test_adds_to_database(
         self,
