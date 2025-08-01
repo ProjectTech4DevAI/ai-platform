@@ -8,9 +8,9 @@ from app.crud.prompt import (
     get_prompt_by_project,
     create_prompt,
     update_prompt,
-    delete_prompt
+    delete_prompt,
 )
-from app.models import PromptCreate,  PromptUpdate, Prompt
+from app.models import PromptCreate, PromptUpdate, Prompt
 from app.tests.utils.utils import get_project, get_non_existent_id
 
 
@@ -44,7 +44,9 @@ def test_create_prompt_duplicate_name(db: Session):
     create_prompt(db, prompt_data, project_id=project.id)
 
     with pytest.raises(Exception) as exc_info:
-        create_prompt(db, prompt_data, project_id=project.id)  # Should raise an error due to duplicate name
+        create_prompt(
+            db, prompt_data, project_id=project.id
+        )  # Should raise an error due to duplicate name
 
     assert exc_info.value.status_code == 409
 
@@ -52,12 +54,12 @@ def test_create_prompt_duplicate_name(db: Session):
 def test_update_prompt_success(db: Session):
     """Prompt is updated successfully with valid new name and description"""
     project = get_project(db)
-    
+
     # Create original prompt
     prompt = create_prompt(
         db,
         PromptCreate(name="original_name", description="original description"),
-        project_id=project.id
+        project_id=project.id,
     )
 
     update_data = PromptUpdate(name="updated_name", description="updated_description")
@@ -75,7 +77,12 @@ def test_update_prompt_not_found(db: Session):
 
     with pytest.raises(HTTPException) as exc_info:
         non_existing_id = get_non_existent_id(db, Prompt)
-        update_prompt(db, prompt_id=non_existing_id, project_id=project.id, prompt_update=update_data)
+        update_prompt(
+            db,
+            prompt_id=non_existing_id,
+            project_id=project.id,
+            prompt_update=update_data,
+        )
 
     assert exc_info.value.status_code == 404
     assert "not found" in exc_info.value.detail.lower()
@@ -88,15 +95,23 @@ def test_update_prompt_duplicate_name(db: Session):
     # Create first prompt
     create_prompt(
         db,
-        PromptCreate(name="existing_name", description="desc1", organization_id=project.organization_id),
-        project_id=project.id
+        PromptCreate(
+            name="existing_name",
+            description="desc1",
+            organization_id=project.organization_id,
+        ),
+        project_id=project.id,
     )
 
     # Create second prompt to try renaming it to the same name
     prompt2 = create_prompt(
         db,
-        PromptCreate(name="to_rename", description="desc2", organization_id=project.organization_id),
-        project_id=project.id
+        PromptCreate(
+            name="to_rename",
+            description="desc2",
+            organization_id=project.organization_id,
+        ),
+        project_id=project.id,
     )
 
     update_data = PromptUpdate(name="existing_name")
@@ -112,9 +127,7 @@ def test_get_prompt_by_id_success(db: Session):
     """Successfully retrieves a prompt by ID within a project"""
     project = get_project(db)
     prompt = create_prompt(
-        db,
-        PromptCreate(name="prompt_by_id", description="desc"),
-        project_id=project.id
+        db, PromptCreate(name="prompt_by_id", description="desc"), project_id=project.id
     )
 
     fetched = get_prompt_by_id(db, prompt_id=prompt.id, project_id=project.id)
@@ -139,9 +152,7 @@ def test_get_prompt_by_name_in_project_success(db: Session):
     project = get_project(db)
     name = "prompt_by_name"
     create_prompt(
-        db,
-        PromptCreate(name=name, description="desc"),
-        project_id=project.id
+        db, PromptCreate(name=name, description="desc"), project_id=project.id
     )
 
     result = get_prompt_by_name_in_project(db, name=name, project_id=project.id)
@@ -153,24 +164,22 @@ def test_get_prompt_by_name_in_project_success(db: Session):
 def test_get_prompt_by_name_in_project_not_found(db: Session):
     """Returns None if no prompt matches the name in the project"""
     project = get_project(db)
-    result = get_prompt_by_name_in_project(db, name="non_existent_name", project_id=project.id)
+    result = get_prompt_by_name_in_project(
+        db, name="non_existent_name", project_id=project.id
+    )
     assert result is None
 
 
 def test_get_prompt_by_project_returns_all(db: Session):
     """Returns all prompts for a given project"""
     project = get_project(db)
-    
+
     # Create two prompts
     create_prompt(
-        db,
-        PromptCreate(name="p1", description="desc"),
-        project_id=project.id
+        db, PromptCreate(name="p1", description="desc"), project_id=project.id
     )
     create_prompt(
-        db,
-        PromptCreate(name="p2", description="desc"),
-        project_id=project.id
+        db, PromptCreate(name="p2", description="desc"), project_id=project.id
     )
 
     prompts = get_prompt_by_project(db, project_id=project.id)
@@ -184,11 +193,11 @@ def test_get_prompt_by_project_returns_all(db: Session):
 def test_get_prompt_by_project_excludes_deleted(db: Session):
     """Deleted prompts should not appear in get_prompt_by_project results"""
     project = get_project(db)
-    
+
     prompt = create_prompt(
         db,
         PromptCreate(name="active_prompt", description="desc"),
-        project_id=project.id
+        project_id=project.id,
     )
 
     # Soft-delete the prompt
@@ -201,14 +210,15 @@ def test_get_prompt_by_project_excludes_deleted(db: Session):
 
     assert "active_prompt" not in names
 
+
 def test_delete_prompt_success(db: Session):
     """Successfully soft-deletes an existing prompt"""
     project = get_project(db)
-    
+
     prompt = create_prompt(
         db,
         PromptCreate(name="prompt_to_delete", description="desc"),
-        project_id=project.id
+        project_id=project.id,
     )
 
     delete_prompt(db, prompt_id=prompt.id, project_id=project.id)

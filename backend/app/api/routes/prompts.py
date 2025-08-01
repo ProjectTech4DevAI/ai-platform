@@ -36,7 +36,9 @@ def create_new_prompt(
     """
     Create a new prompt under the specified organization and project.
     """
-    prompt = create_prompt(session=session, prompt_in=prompt_in, project_id=current_user.project_id)
+    prompt = create_prompt(
+        session=session, prompt_in=prompt_in, project_id=current_user.project_id
+    )
 
     return APIResponse.success_response(prompt)
 
@@ -56,7 +58,7 @@ def update_prompt_route(
         session=session,
         prompt_id=prompt_id,
         project_id=current_user.project_id,
-        prompt_update=prompt_update
+        prompt_update=prompt_update,
     )
     return APIResponse.success_response(prompt)
 
@@ -71,7 +73,9 @@ def get_prompt_route(
     Retrieve a single prompt by ID.
     """
 
-    prompt = get_prompt_by_id(session=session, prompt_id=prompt_id, project_id=current_user.project_id)
+    prompt = get_prompt_by_id(
+        session=session, prompt_id=prompt_id, project_id=current_user.project_id
+    )
 
     if not prompt:
         logger.error(
@@ -92,8 +96,12 @@ def get_prompts_route(
     """
     Retrieve all prompts for the current project.
     """
-    prompts = get_prompt_by_project(session=session, project_id=current_user.project_id, skip=skip, limit=limit)
-    total = count_prompts_by_project(session=session, project_id=current_user.project_id)
+    prompts = get_prompt_by_project(
+        session=session, project_id=current_user.project_id, skip=skip, limit=limit
+    )
+    total = count_prompts_by_project(
+        session=session, project_id=current_user.project_id
+    )
     metadata = {
         "total": total,
         "skip": skip,
@@ -112,8 +120,8 @@ def delete_prompt_route(
     Delete a prompt by ID.
     """
     delete_prompt(
-        session=session,
-        prompt_id=prompt_id,
-        project_id=current_user.project_id
+        session=session, prompt_id=prompt_id, project_id=current_user.project_id
     )
-    return APIResponse.success_response(data={"message": "Prompt deleted successfully."})
+    return APIResponse.success_response(
+        data={"message": "Prompt deleted successfully."}
+    )

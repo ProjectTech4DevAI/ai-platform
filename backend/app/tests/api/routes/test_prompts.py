@@ -242,7 +242,9 @@ def test_delete_prompt_success(
 
     # Confirm soft-delete in DB
     deleted_prompt = db.exec(
-        select(Prompt).where(Prompt.id == prompt_id, Prompt.project_id == user_api_key.project_id)
+        select(Prompt).where(
+            Prompt.id == prompt_id, Prompt.project_id == user_api_key.project_id
+        )
     ).first()
     assert deleted_prompt is not None
     assert deleted_prompt.is_deleted is True

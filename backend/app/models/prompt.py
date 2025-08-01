@@ -5,7 +5,7 @@ from app.core.util import now
 
 class PromptBase(SQLModel):
     name: str = Field(index=True, nullable=False, min_length=1, max_length=50)
-    description: str | None = Field(default=None, min_length=1,max_length=500)
+    description: str | None = Field(default=None, min_length=1, max_length=500)
 
 
 class Prompt(PromptBase, table=True):

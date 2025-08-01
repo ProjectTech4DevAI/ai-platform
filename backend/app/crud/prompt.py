@@ -10,17 +10,21 @@ from app.models import Prompt, PromptCreate, PromptUpdate
 logger = logging.getLogger(__name__)
 
 
-def get_prompt_by_name_in_project(session: Session, name: str, project_id: int) -> Prompt | None:
+def get_prompt_by_name_in_project(
+    session: Session, name: str, project_id: int
+) -> Prompt | None:
     return session.exec(
         select(Prompt).where(
             Prompt.name == name,
             Prompt.project_id == project_id,
-            Prompt.is_deleted == False
+            Prompt.is_deleted == False,
         )
     ).first()
 
 
-def get_prompt_by_id(session: Session, prompt_id: int, project_id: int) -> Prompt | None:
+def get_prompt_by_id(
+    session: Session, prompt_id: int, project_id: int
+) -> Prompt | None:
     return session.exec(
         select(Prompt).where(
             Prompt.id == prompt_id,
@@ -30,12 +34,14 @@ def get_prompt_by_id(session: Session, prompt_id: int, project_id: int) -> Promp
     ).first()
 
 
-def get_prompt_by_project(session: Session, project_id: int, skip: int = 0, limit: int = 100) -> list[Prompt]:
+def get_prompt_by_project(
+    session: Session, project_id: int, skip: int = 0, limit: int = 100
+) -> list[Prompt]:
     return session.exec(
-        select(Prompt).where(
-            Prompt.project_id == project_id,
-            Prompt.is_deleted == False
-        ).offset(skip).limit(limit)
+        select(Prompt)
+        .where(Prompt.project_id == project_id, Prompt.is_deleted == False)
+        .offset(skip)
+        .limit(limit)
     ).all()
 
 
@@ -59,7 +65,9 @@ def create_prompt(session: Session, prompt_in: PromptCreate, project_id: int) ->
         logger.error(
             f"[create_prompt] Prompt with this name already exists. | project_id={project_id}, name={prompt_in.name}"
         )
-        raise HTTPException(status_code=409, detail="Prompt with this name already exists.")
+        raise HTTPException(
+            status_code=409, detail="Prompt with this name already exists."
+        )
 
     prompt = Prompt(
         **prompt_in.model_dump(),
@@ -68,14 +76,22 @@ def create_prompt(session: Session, prompt_in: PromptCreate, project_id: int) ->
     session.add(prompt)
     session.commit()
     session.refresh(prompt)
-    logger.info(f"[create_prompt] Prompt created | id={prompt.id}, name={prompt.name}, project_id={project_id}")
+    logger.info(
+        f"[create_prompt] Prompt created | id={prompt.id}, name={prompt.name}, project_id={project_id}"
+    )
     return prompt
 
 
-def update_prompt(session: Session, prompt_id: int, project_id: int, prompt_update: PromptUpdate) -> Prompt:
-    prompt = get_prompt_by_id(session=session, prompt_id=prompt_id, project_id=project_id)
+def update_prompt(
+    session: Session, prompt_id: int, project_id: int, prompt_update: PromptUpdate
+) -> Prompt:
+    prompt = get_prompt_by_id(
+        session=session, prompt_id=prompt_id, project_id=project_id
+    )
     if not prompt:
-        logger.error(f"[update_prompt] Prompt not found | prompt_id={prompt_id}, project_id={project_id}")
+        logger.error(
+            f"[update_prompt] Prompt not found | prompt_id={prompt_id}, project_id={project_id}"
+        )
         raise HTTPException(status_code=404, detail="Prompt not found.")
 
     if prompt_update.name and prompt_update.name != prompt.name:
@@ -88,13 +104,15 @@ def update_prompt(session: Session, prompt_id: int, project_id: int, prompt_upda
             logger.error(
                 f"[update_prompt] Prompt with this name already exists. | prompt_id={prompt_id}, project_id={project_id}, name={prompt_update.name}"
             )
-            raise HTTPException(status_code=409, detail="Prompt with this name already exists.")
+            raise HTTPException(
+                status_code=409, detail="Prompt with this name already exists."
+            )
 
     update_fields = False
     if prompt_update.name:
         prompt.name = prompt_update.name
         update_fields = True
-    if prompt_update.description :
+    if prompt_update.description:
         prompt.description = prompt_update.description
         update_fields = True
 
@@ -104,14 +122,20 @@ def update_prompt(session: Session, prompt_id: int, project_id: int, prompt_upda
         session.commit()
         session.refresh(prompt)
 
-    logger.info(f"[update_prompt] Prompt updated | id={prompt.id}, name={prompt.name}, project_id={project_id}")
+    logger.info(
+        f"[update_prompt] Prompt updated | id={prompt.id}, name={prompt.name}, project_id={project_id}"
+    )
     return prompt
 
 
 def delete_prompt(session: Session, prompt_id: int, project_id: int) -> None:
-    prompt = get_prompt_by_id(session=session, prompt_id=prompt_id, project_id=project_id)
+    prompt = get_prompt_by_id(
+        session=session, prompt_id=prompt_id, project_id=project_id
+    )
     if not prompt:
-        logger.error(f"[delete_prompt] Prompt not found | prompt_id={prompt_id}, project_id={project_id}")
+        logger.error(
+            f"[delete_prompt] Prompt not found | prompt_id={prompt_id}, project_id={project_id}"
+        )
         raise HTTPException(status_code=404, detail="Prompt not found.")
 
     prompt.is_deleted = True
@@ -119,4 +143,6 @@ def delete_prompt(session: Session, prompt_id: int, project_id: int) -> None:
     session.add(prompt)
     session.commit()
     session.refresh(prompt)
-    logger.info(f"[delete_prompt] Prompt deleted | id={prompt.id}, name={prompt.name}, project_id={project_id}")
+    logger.info(
+        f"[delete_prompt] Prompt deleted | id={prompt.id}, name={prompt.name}, project_id={project_id}"
+    )
