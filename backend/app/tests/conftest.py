@@ -1,9 +1,9 @@
 import pytest
+import logging
 from collections.abc import Generator
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 from sqlalchemy import event
-from collections.abc import Generator
 
 from app.api.deps import get_db
 from app.main import app
@@ -18,26 +18,14 @@ from app.tests.utils.utils import (
 )
 from app.seed_data.seed_data import seed_database
 
-
-@pytest.fixture(scope="session", autouse=True)
-def load_test_env():
-    load_environment("../.env.test")
-
-
-from app.core.config import settings
-from app.tests.utils.utils import (
-    get_superuser_token_headers,
-    get_api_key_by_email,
-    load_environment,
-)
-from app.seed_data.seed_data import seed_database
-from app.core.db import engine
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="session", autouse=True)
 def seed_baseline():
+    load_environment("../.env.test")
     with Session(engine) as session:
-        print("Seeding baseline data...")
+        logger.info("Seeding baseline data...")
         seed_database(session)  # deterministic baseline
         yield
 
