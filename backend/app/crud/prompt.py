@@ -118,4 +118,5 @@ def delete_prompt(session: Session, prompt_id: int, project_id: int) -> None:
     prompt.deleted_at = now()
     session.add(prompt)
     session.commit()
+    session.refresh(prompt)
     logger.info(f"[delete_prompt] Prompt deleted | id={prompt.id}, name={prompt.name}, project_id={project_id}")

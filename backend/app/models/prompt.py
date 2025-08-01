@@ -19,6 +19,7 @@ class Prompt(PromptBase, table=True):
 
 class PromptPublic(PromptBase):
     id: int
+    project_id: int
     inserted_at: datetime
     updated_at: datetime
 
