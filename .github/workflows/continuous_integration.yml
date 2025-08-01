@@ -35,7 +35,7 @@ jobs:
 
       - name: Making env file
         run: |
-          cp .env.example .env
+          cp .env.test.example .env
           cp .env.test.example .env.test
 
       - name: Install uv
