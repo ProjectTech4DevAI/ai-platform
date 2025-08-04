@@ -1,20 +1,24 @@
 import random
 import string
+import logging
+
 from uuid import UUID
 from typing import Type, TypeVar
 import os
 from dotenv import load_dotenv
 
-
-import pytest
 from pydantic import EmailStr
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
+from dotenv import load_dotenv
+
 
 from app.core.config import settings
 from app.crud.user import get_user_by_email
 from app.crud.api_key import get_api_key_by_value, get_api_key_by_user_id
 from app.models import APIKeyPublic, Project, Assistant, Organization
+
+logger = logging.getLogger(__name__)
 
 
 T = TypeVar("T")
@@ -91,10 +95,7 @@ def get_project(session: Session, name: str | None = None) -> Project:
     return project
 
 
-from dotenv import load_dotenv, find_dotenv
-
-
-def load_environment(env_test_path: str):
+def load_environment(env_test_path: str = "../.env.test"):
     """Loads the test environment variables if the .env.test file exists.
 
     Raises an error if any required PostgreSQL credentials are missing or if the
@@ -103,7 +104,6 @@ def load_environment(env_test_path: str):
 
     if os.path.exists(env_test_path):
         load_dotenv(env_test_path, override=True)
-        settings.__init__()
 
         required_vars = [
             "POSTGRES_USER",
@@ -127,8 +127,8 @@ def load_environment(env_test_path: str):
             )
 
     else:
-        raise FileNotFoundError(
-            f"{env_test_path} not found. No environment variables loaded."
+        logger.warning(
+            f"{env_test_path} not found. Using default environment settings."
         )
 
     return settings
