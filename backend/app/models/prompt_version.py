@@ -15,11 +15,13 @@ class PromptVersionBase(SQLModel):
 
 
 class PromptVersion(PromptVersionBase, table=True):
+    __tablename__ = "prompt_version"
+
     id: int | None = Field(default=None, primary_key=True)
     prompt_id: int = Field(foreign_key="prompt.id")
     
     version: int
-    label: PromptVersionLabel = Field(default=PromptVersionLabel.staging, nullable=False)
+    label: PromptVersionLabel = Field(default=PromptVersionLabel.STAGING, nullable=False)
 
     inserted_at: datetime = Field(default_factory=now)
     updated_at: datetime = Field(default_factory=now)
@@ -43,5 +45,5 @@ class PromptVersionCreate(PromptVersionBase):
     pass
 
 
-class PromptVersionUpdate(PromptVersionBase):
+class PromptVersionUpdate(SQLModel):
     label: PromptVersionLabel | None = None

@@ -95,14 +95,11 @@ def update_prompt_version_route(
         session=session,
         prompt_id=prompt_id,
         prompt_version_in=prompt_version_update,
-        current_user=current_user,
+        project_id=current_user.project_id,
         version=version,
     )
     return APIResponse.success_response(updated_version)
     
-
-
-
 
 @router.delete(
     "/{prompt_id}/version/{version}",
@@ -123,4 +120,4 @@ def delete_prompt_version_route(
         version=version,
         current_user=current_user,
     )
-    return APIResponse.success_response(metadata={"message": "Prompt version deleted successfully"})
+    return APIResponse.success_response(data={"message": "Prompt version deleted successfully"})

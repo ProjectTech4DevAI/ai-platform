@@ -177,6 +177,10 @@ def update_prompt_version(
         project_id=project_id,
         version=version,
     )
+    if not prompt_version:
+        logger.error(f"[update_prompt_version] Prompt version not found | Prompt ID: {prompt_id}, Version ID: {version}, Project ID: {project_id}")
+        raise HTTPException(status_code=404, detail="Prompt version not found")
+    
     if prompt_version_in.label == PromptVersionLabel.PRODUCTION:
         # Ensure only one production version exists
         existing_production_version = get_production_prompt_version(
