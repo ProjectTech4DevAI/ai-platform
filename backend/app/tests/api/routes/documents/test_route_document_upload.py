@@ -8,15 +8,12 @@ import pytest
 from moto import mock_aws
 from sqlmodel import Session, select
 from fastapi.testclient import TestClient
+from dotenv import find_dotenv
 
 from app.core.cloud import AmazonCloudStorageClient
 from app.core.config import settings
 from app.models import Document
-from app.tests.utils.document import (
-    Route,
-    WebCrawler,
-    httpx_to_standard,
-)
+from app.tests.utils.document import Route, WebCrawler, httpx_to_standard
 from app.tests.utils.utils import load_environment
 
 
@@ -53,7 +50,8 @@ def uploader(client: TestClient, user_api_key_header: dict[str, str]):
 @pytest.fixture(scope="class")
 def aws_credentials():
     # Load test environment to ensure correct bucket name
-    load_environment("../.env.test")
+    path = find_dotenv(".env.test")
+    load_environment(path)
 
     # Set AWS credentials for moto mock
     os.environ["AWS_ACCESS_KEY_ID"] = "testing"

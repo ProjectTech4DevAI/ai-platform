@@ -91,11 +91,10 @@ def get_project(session: Session, name: str | None = None) -> Project:
     return project
 
 
-from sqlalchemy.engine.url import make_url
-from sqlalchemy import create_engine
+from dotenv import load_dotenv, find_dotenv
 
 
-def load_environment(env_test_path: str = "../.env.test"):
+def load_environment(env_test_path: str):
     """Loads the test environment variables if the .env.test file exists.
 
     Raises an error if any required PostgreSQL credentials are missing or if the
@@ -103,7 +102,7 @@ def load_environment(env_test_path: str = "../.env.test"):
     """
 
     if os.path.exists(env_test_path):
-        load_dotenv(dotenv_path=env_test_path, override=True)
+        load_dotenv(env_test_path, override=True)
         settings.__init__()
 
         required_vars = [
