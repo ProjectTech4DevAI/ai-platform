@@ -80,5 +80,6 @@ from .prompt_version import (
     create_prompt_version,
     get_prompt_version_by_id,
     get_prompt_versions,
+    update_prompt_version,
     delete_prompt_version,
 )

@@ -5,8 +5,8 @@ from app.core.util import now
 
 
 class PromptVersionLabel(str, Enum):
-    staging = "staging"
-    production = "production"
+    STAGING = "staging"
+    PRODUCTION = "production"
 
 
 class PromptVersionBase(SQLModel):
@@ -41,3 +41,7 @@ class PromptVersionPublic(PromptVersionBase):
 
 class PromptVersionCreate(PromptVersionBase):
     pass
+
+
+class PromptVersionUpdate(PromptVersionBase):
+    label: PromptVersionLabel | None = None

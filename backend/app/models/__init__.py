@@ -77,4 +77,5 @@ from .prompt_version import (
     PromptVersionCreate,
     PromptVersionLabel,
     PromptVersionPublic,
+    PromptVersionUpdate,
 )

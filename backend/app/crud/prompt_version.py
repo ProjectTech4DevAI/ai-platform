@@ -1,7 +1,7 @@
 import logging
 from sqlmodel import Session, select, and_
 from fastapi import HTTPException
-from app.models import Prompt, PromptVersion, PromptVersionCreate
+from app.models import Prompt, PromptVersion, PromptVersionCreate, PromptVersionUpdate, PromptVersionLabel
 from app.models import UserProjectOrg
 from app.crud import get_prompt_by_id
 from app.core.util import now
@@ -64,7 +64,7 @@ def create_prompt_version(
 
 
 def get_prompt_version_by_id(
-    session: Session, prompt_id: int, project_id: int, prompt_version_id: int
+    session: Session, prompt_id: int, project_id: int, version: int
 ) -> PromptVersion | None:
     """
     Fetch a prompt version by its ID.
@@ -75,7 +75,7 @@ def get_prompt_version_by_id(
             PromptVersion,
             and_(
                 Prompt.id == PromptVersion.prompt_id,
-                PromptVersion.version == prompt_version_id,
+                PromptVersion.version == version,
                 PromptVersion.is_deleted == False
             )
         )
@@ -88,10 +88,14 @@ def get_prompt_version_by_id(
     
     result = session.exec(stmt).first()
     if result is None:
-        return None
+        logger.error(f"[get_prompt_version_by_id] Prompt not found | Prompt ID: {prompt_id}, Project ID: {project_id}")
+        raise HTTPException(
+            status_code=404,
+            detail="Prompt not found"
+        )
 
     prompt, prompt_version = result
-    return prompt, prompt_version
+    return prompt_version
 
 
 def get_prompt_versions(
@@ -122,8 +126,78 @@ def get_prompt_versions(
     return session.exec(stmt).all()
 
 
+def get_production_prompt_version(
+    session: Session, prompt_id: int, project_id: int
+) -> PromptVersion | None:
+    """
+    Fetch the production prompt version for a given prompt ID.
+    If no production version exists, returns None.
+    """
+    stmt = (
+        select(Prompt, PromptVersion)
+        .outerjoin(
+            PromptVersion,
+            and_(
+                Prompt.id == PromptVersion.prompt_id,
+                PromptVersion.label == PromptVersionLabel.PRODUCTION,
+                PromptVersion.is_deleted == False
+            )
+        )
+        .where(
+            Prompt.id == prompt_id,
+            Prompt.project_id == project_id,
+            Prompt.is_deleted == False
+        )
+    )
+    result = session.exec(stmt).first()
+    if result is None:
+        logger.error(f"[get_production_prompt_version] Prompt not found | Prompt ID: {prompt_id}, Project ID: {project_id}")
+        raise HTTPException(
+            status_code=404,
+            detail="Prompt not found"
+        )
+
+    prompt, prompt_version = result
+    return prompt_version
+
+
+def update_prompt_version(
+    session: Session,
+    prompt_id: int,
+    project_id: int,
+    version: int,
+    prompt_version_in: PromptVersionUpdate,
+) -> PromptVersion:
+    """
+    Update a prompt version by its ID.
+    """
+    prompt_version = get_prompt_version_by_id(
+        session=session,
+        prompt_id=prompt_id,
+        project_id=project_id,
+        version=version,
+    )
+    if prompt_version_in.label == PromptVersionLabel.PRODUCTION:
+        # Ensure only one production version exists
+        existing_production_version = get_production_prompt_version(
+            session=session, prompt_id=prompt_id, project_id=project_id
+        )
+        if existing_production_version:
+            existing_production_version.label = PromptVersionLabel.STAGING
+            session.add(existing_production_version)
+            logger.info(f"[update_prompt_version] Updated existing production version to staging | Prompt ID: {prompt_id}, Version: {existing_production_version.version}")
+    
+    prompt_version.label = prompt_version_in.label or prompt_version.label
+
+    session.add(prompt_version)
+    session.commit()
+    session.refresh(prompt_version)
+    logger.info(f"[update_prompt_version] Updated prompt version | Prompt ID: {prompt_id}, Version: {prompt_version.version}")
+    return prompt_version
+
+
 def delete_prompt_version(
-    session: Session, prompt_id: int, prompt_version_id: int, current_user: UserProjectOrg
+    session: Session, prompt_id: int, version: int, current_user: UserProjectOrg
 ) -> None:
     """
     Soft delete a prompt version by its ID.
@@ -142,7 +216,7 @@ def delete_prompt_version(
         select(PromptVersion)
         .where(
             PromptVersion.prompt_id == prompt_id,
-            PromptVersion.id == prompt_version_id,
+            PromptVersion.version == version,
             PromptVersion.is_deleted == False
         )
     )
@@ -150,9 +224,10 @@ def delete_prompt_version(
     prompt_version = session.exec(stmt).first()
     
     if not prompt_version:
-        logger.error(f"[delete_prompt_version] Prompt version not found | Prompt ID: {prompt_id}, Version ID: {prompt_version_id}, Project ID: {current_user.project_id}")
+        logger.error(f"[delete_prompt_version] Prompt version not found | Prompt ID: {prompt_id}, Version ID: {version}, Project ID: {current_user.project_id}")
         raise HTTPException(status_code=404, detail="Prompt version not found")
     
+    prompt_version.label = PromptVersionLabel.STAGING  # Reset label to staging if it was production
     prompt_version.is_deleted = True
     prompt_version.deleted_at = now()
     session.add(prompt_version)
