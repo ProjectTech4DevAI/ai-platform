@@ -10,8 +10,6 @@ if TYPE_CHECKING:
     from .api_key import APIKey
     from .assistants import Assistant
     from .collection import Collection
-    from .fine_tuning import Fine_Tuning
-    from .model_evaluation import Model_Evaluation
     from .openai_conversation import OpenAIConversation
 
 
