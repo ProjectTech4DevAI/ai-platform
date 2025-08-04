@@ -248,7 +248,11 @@ def process_response(
             f"OpenAI API error during response processing: {error_message}, project_id={project_id}"
         )
         tracer.log_error(error_message, response_id=request.response_id)
-        callback_response = ResponsesAPIResponse.failure_response(error=error_message)
+
+        request_dict = request.model_dump()
+        callback_response = ResponsesAPIResponse.failure_response(
+            error=error_message, **get_additional_data(request_dict)
+        )
 
     tracer.flush()
 
