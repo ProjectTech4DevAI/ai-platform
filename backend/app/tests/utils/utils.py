@@ -1,17 +1,14 @@
 import random
 import string
 import logging
+import os
 
 from uuid import UUID
-from typing import Type, TypeVar
-import os
-from dotenv import load_dotenv
-
+from typing import TypeVar
 from pydantic import EmailStr
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 from dotenv import load_dotenv
-
 
 from app.core.config import settings
 from app.crud.user import get_user_by_email
@@ -68,7 +65,7 @@ def get_user_from_api_key(db: Session, api_key_headers: dict[str, str]) -> APIKe
     return api_key
 
 
-def get_non_existent_id(session: Session, model: Type[T]) -> int:
+def get_non_existent_id(session: Session, model: type[T]) -> int:
     result = session.exec(select(model.id).order_by(model.id.desc())).first()
     return (result or 0) + 1
 
