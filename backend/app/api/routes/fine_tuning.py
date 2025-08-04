@@ -4,10 +4,11 @@ import logging
 import time
 import openai
 from uuid import UUID
+from openai import OpenAI
 from app.models import FineTuningJobCreate, FineTuningJobPublic, FineTuningUpdate
 from app.core.cloud import AmazonCloudStorage
 from app.crud.document import DocumentCrud
-from app.utils import get_openai_client, APIResponse, mask_string
+from app.utils import get_openai_client, APIResponse, mask_string, load_description
 from app.crud import (
     create_fine_tuning_job,
     fetch_by_id,
@@ -37,48 +38,44 @@ def process_fine_tuning_job(
     session: Session,
     current_user: CurrentUserOrgProject,
     request: FineTuningJobCreate,
+    client: OpenAI,
 ):
+    start_time = time.time()
     project_id = current_user.project_id
-    organization_id = current_user.organization_id
     fine_tune = None
 
     logger.info(
-        f"Starting fine-tuning job processing: job_id={job_id}, project_id={project_id}"
+        f"[process_fine_tuning_job]Starting fine-tuning job processing | job_id={job_id}, project_id={project_id}|"
     )
 
     try:
-        client = get_openai_client(session, organization_id, project_id)
         fine_tune = fetch_by_id(session, job_id, project_id)
-
         if (
             fine_tune.training_file_id
             and fine_tune.testing_file_id
             and not fine_tune.openai_job_id
         ):
             logger.info(
-                f"[Job {job_id}] Skipping preprocessing, using existing file IDs, project_id={project_id}"
+                f"[process_fine_tuning_job] Skipping preprocessing, using existing file IDs | job_id={job_id}, project_id={project_id}|"
             )
             training_file_id = fine_tune.training_file_id
             testing_file_id = fine_tune.testing_file_id
         else:
             storage = AmazonCloudStorage(current_user)
-            document_crud = DocumentCrud(session=session, owner_id=organization_id)
+            document_crud = DocumentCrud(session=session, owner_id=current_user.id)
             document = document_crud.read_one(request.document_id)
-
             preprocessor = DataPreprocessor(document, storage, ratio)
 
             try:
                 result = preprocessor.process()
             except ValueError as ve:
                 logger.error(
-                    f"[Job {job_id}] Data preprocessing error: {ve}, project_id={project_id}"
+                    f"[process_fine_tuning_job]Failed at Data preprocessing:{ve} | job_id={job_id}, project_id={project_id}|"
                 )
                 update_finetune_job(
                     session=session,
                     job=fine_tune,
-                    update=FineTuningUpdate(
-                        status="failed", error_message=f"Data preprocessing error: {ve}"
-                    ),
+                    update=FineTuningUpdate(status="failed"),
                 )
                 return
 
@@ -95,20 +92,17 @@ def process_fine_tuning_job(
                         file=test_f, purpose="fine-tune"
                     )
                 logger.info(
-                    f"[Job {job_id}] Files uploaded to OpenAI successfully, project_id={project_id}"
+                    f"[process_fine_tuning_job] Files uploaded to OpenAI successfully | job_id={job_id},project_id={project_id}|"
                 )
             except openai.OpenAIError as e:
                 error_msg = handle_openai_error(e)
                 logger.error(
-                    f"[Job {job_id}] Failed to upload files to OpenAI: {error_msg}, project_id={project_id}"
+                    f"[process_fine_tuning_job]Failed to upload to OpenAI: {error_msg} | job_id={job_id},project_id={project_id}|"
                 )
                 update_finetune_job(
                     session=session,
                     job=fine_tune,
-                    update=FineTuningUpdate(
-                        status="failed",
-                        error_message=f"File upload to OpenAI error: {error_msg}",
-                    ),
+                    update=FineTuningUpdate(status="failed"),
                 )
                 return
             finally:
@@ -116,26 +110,20 @@ def process_fine_tuning_job(
 
             training_file_id = uploaded_train.id
             testing_file_id = uploaded_test.id
-
         try:
             job = client.fine_tuning.jobs.create(
                 training_file=training_file_id, model=request.base_model
             )
             logger.info(
-                f"[Job {job_id}] OpenAI fine-tuning job created: openai_job_id={mask_string(job.id)}, project_id={project_id}"
+                f"[process_fine_tuning_job] OpenAI fine-tuning job created | openai_job_id={mask_string(job.id)},job_id={job_id},project_id={project_id}|"
             )
         except openai.OpenAIError as e:
             error_msg = handle_openai_error(e)
             logger.error(
-                f"[Job {job_id}] Failed to create OpenAI fine-tuning job: {error_msg}, project_id={project_id}"
+                f"[process_fine_tuning_job] Failed to create OpenAI fine-tuning job: {error_msg} | job_id={job_id},project_id={project_id}|"
             )
             update_finetune_job(
-                session=session,
-                job=fine_tune,
-                update=FineTuningUpdate(
-                    status="failed",
-                    error_message=f"Create OpenAI fine-tune job error: {error_msg}",
-                ),
+                session=session, job=fine_tune, update=FineTuningUpdate(status="failed")
             )
             return
 
@@ -150,28 +138,38 @@ def process_fine_tuning_job(
                 status=job.status,
             ),
         )
+        end_time = time.time()
+        duration = end_time - start_time
+
+        logger.info(
+            f"[process_fine_tuning_job]fine-tuning job processed successfully | time_taken={duration:.2f}s, job_id={job_id}, project_id={project_id}|"
+        )
 
     except Exception as e:
-        logger.exception(
-            f"[Job {job_id}] Unhandled error during processing: {e}, project_id={project_id}"
+        logger.error(
+            f"[process_fine_tuning_job] Background job failure: {e} | job_id={job_id}, project_id={project_id}|"
         )
-        if fine_tune:
-            update_finetune_job(
-                session=session,
-                job=fine_tune,
-                update=FineTuningUpdate(
-                    status="failed", error_message=f"Background job error: {error_msg}"
-                ),
-            )
+        update_finetune_job(
+            session=session,
+            job=fine_tune,
+            update=FineTuningUpdate(status="failed"),
+        )
 
 
-@router.post("/fine-tune", response_model=APIResponse)
+@router.post(
+    "/fine-tune",
+    description=load_description("fine_tuning/create.md"),
+    response_model=APIResponse,
+)
 def fine_tune_from_CSV(
     session: SessionDep,
     current_user: CurrentUserOrgProject,
     request: FineTuningJobCreate,
     background_tasks: BackgroundTasks,
 ):
+    client = get_openai_client(
+        session, current_user.organization_id, current_user.project_id
+    )
     created_jobs = []
 
     for ratio in request.split_ratio:
@@ -185,12 +183,18 @@ def fine_tune_from_CSV(
         created_jobs.append(job)
 
         background_tasks.add_task(
-            process_fine_tuning_job, job.id, ratio, session, current_user, request
+            process_fine_tuning_job,
+            job.id,
+            ratio,
+            session,
+            current_user,
+            request,
+            client,
         )
 
     if not created_jobs:
         logger.error(
-            f"All fine-tuning job creations failed for document_id={request.document_id}, project_id={current_user.project_id}"
+            f"All fine-tuning job creations failed for document_id={request.document_id}, project_id={current_user.project_id}|"
         )
         raise HTTPException(
             status_code=500, detail="Failed to create any fine-tuning jobs."
@@ -202,7 +206,6 @@ def fine_tune_from_CSV(
             "document_id": job.document_id,
             "split_ratio": job.split_ratio,
             "status": job.status,
-            "openai_job_id": job.openai_job_id,
         }
         for job in created_jobs
     ]
@@ -213,7 +216,9 @@ def fine_tune_from_CSV(
 
 
 @router.get(
-    "/fine-tune/{job_id}/refresh", response_model=APIResponse[FineTuningJobPublic]
+    "/{job_id}/refresh",
+    description=load_description("fine_tuning/retrieve.md"),
+    response_model=APIResponse[FineTuningJobPublic],
 )
 def refresh_fine_tune_status(
     job_id: int, session: SessionDep, current_user: CurrentUserOrgProject
@@ -227,14 +232,12 @@ def refresh_fine_tune_status(
     except openai.OpenAIError as e:
         error_msg = handle_openai_error(e)
         logger.error(
-            f"Failed to retrieve OpenAI job: openai_job_id={mask_string(job.openai_job_id)}, error={error_msg}, project_id={project_id}"
+            f"[Retrieve_fine_tune_status]Failed to retrieve OpenAI job | openai_job_id={mask_string(job.openai_job_id)}, error={error_msg},job_id={job_id}, project_id={project_id}|"
         )
         raise HTTPException(status_code=502, detail=f"OpenAI API error: {error_msg}")
 
     openai_error_msg = (
-        f"OpenAI fine-tune job error: {openai_job.error.message}"
-        if getattr(openai_job, "error", None)
-        else None
+        f"{openai_job.error.message}" if getattr(openai_job, "error", None) else None
     )
 
     update_payload = FineTuningUpdate(
@@ -257,7 +260,9 @@ def refresh_fine_tune_status(
 
 
 @router.get(
-    "/fine-tune/{document_id}", response_model=APIResponse[list[FineTuningJobPublic]]
+    "/{document_id}",
+    description="Retrieves all fine-tuning jobs associated with the given document ID for the current project",
+    response_model=APIResponse[list[FineTuningJobPublic]],
 )
 def retrive_job_by_document(
     document_id: UUID, session: SessionDep, current_user: CurrentUserOrgProject
@@ -266,7 +271,7 @@ def retrive_job_by_document(
     jobs = fetch_by_document_id(session, document_id, project_id)
     if not jobs:
         logger.warning(
-            f"No fine-tuning jobs found for document_id={document_id}, project_id={project_id}"
+            f"[retrive_job_by_document]No fine-tuning jobs found for document_id={document_id}, project_id={project_id}"
         )
         raise HTTPException(
             status_code=404,

@@ -18,7 +18,7 @@ class DataPreprocessor:
     def __init__(self, document, storage, split_ratio: float):
         if not (0 < split_ratio < 1):
             raise ValueError(
-                f"Invalid split ratio: {split_ratio}. Must be between 0 and 1 (exclusive)."
+                f"Invalid split ratio: {split_ratio}. Must be between 0 and 1"
             )
 
         self.document = document

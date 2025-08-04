@@ -17,9 +17,9 @@ def create_fine_tuning_job(
     request: FineTuningJobCreate,
     split_ratio: float,
     openai_job_id: Optional[str] = None,
-    status: Optional[str] = "pending",
-    project_id: int = None,
-    organization_id: int = None,
+    status: str = "pending",
+    project_id: int | None = None,
+    organization_id: int | None = None,
 ) -> Fine_Tuning:
     existing_jobs = fetch_by_document_id(
         session=session,
@@ -30,24 +30,16 @@ def create_fine_tuning_job(
     )
 
     if existing_jobs:
-        job = existing_jobs[0]
-        if job.openai_job_id:
-            logger.warning(
-                f"fine-tune job with OpenAI ID already exists: job_id={job.id}, "
-                f"document_id={request.document_id}, split_ratio={split_ratio}, base_model={request.base_model}, "
-                f"project_id={project_id}"
-            )
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Fine-tuning job already exists for document={request.document_id}, "
-                    f"split_ratio={split_ratio}, base_model={request.base_model}"
-                ),
-            )
-        logger.info(
-            f"Reusing existing fine-tune job ID={job.id}, project_id={project_id}"
+        logger.warning(
+            f"fine-tune job already exists: document_id={request.document_id}, split_ratio={split_ratio}, base_model={request.base_model}, project_id={project_id}"
         )
-        return job
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Fine-tuning job already exists for document={request.document_id}, "
+                f"split_ratio={split_ratio}, base_model={request.base_model}"
+            ),
+        )
 
     fine_tune_data = request.model_dump(exclude_unset=True)
     base_data = {
@@ -57,7 +49,6 @@ def create_fine_tuning_job(
         "organization_id": organization_id,
         "status": status,
     }
-
     if openai_job_id is not None:
         base_data["openai_job_id"] = openai_job_id
 
