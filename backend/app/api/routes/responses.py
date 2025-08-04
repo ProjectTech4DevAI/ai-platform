@@ -102,11 +102,26 @@ def get_file_search_results(response):
 
 def get_additional_data(request: dict) -> dict:
     """Extract additional data from request, excluding specific keys."""
-    return {
-        k: v
-        for k, v in request.items()
-        if k not in {"assistant_id", "callback_url", "response_id", "question"}
+    # Keys to exclude for async request (ResponsesAPIRequest)
+    async_exclude_keys = {"assistant_id", "callback_url", "response_id", "question"}
+    # Keys to exclude for sync request (ResponsesSyncAPIRequest)
+    sync_exclude_keys = {
+        "model",
+        "instructions",
+        "vector_store_ids",
+        "max_num_results",
+        "temperature",
+        "response_id",
+        "question",
     }
+
+    # Determine which keys to exclude based on the request structure
+    if "assistant_id" in request:
+        exclude_keys = async_exclude_keys
+    else:
+        exclude_keys = sync_exclude_keys
+
+    return {k: v for k, v in request.items() if k not in exclude_keys}
 
 
 def process_response(
@@ -251,7 +266,7 @@ def process_response(
 
         request_dict = request.model_dump()
         callback_response = ResponsesAPIResponse.failure_response(
-            error=error_message, **get_additional_data(request_dict)
+            error=error_message, metadata=get_additional_data(request_dict)
         )
 
     tracer.flush()
@@ -367,8 +382,10 @@ async def responses_sync(
         project_id=project_id,
     )
     if not credentials or "api_key" not in credentials:
+        request_dict = request.model_dump()
         return APIResponse.failure_response(
-            error="OpenAI API key not configured for this organization."
+            error="OpenAI API key not configured for this organization.",
+            metadata=get_additional_data(request_dict),
         )
 
     client = OpenAI(api_key=credentials["api_key"])
@@ -455,4 +472,8 @@ async def responses_sync(
         error_message = handle_openai_error(e)
         tracer.log_error(error_message, response_id=request.response_id)
         tracer.flush()
-        return ResponsesAPIResponse.failure_response(error=error_message)
+
+        request_dict = request.model_dump()
+        return ResponsesAPIResponse.failure_response(
+            error=error_message, metadata=get_additional_data(request_dict)
+        )
