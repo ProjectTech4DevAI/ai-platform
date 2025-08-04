@@ -1,17 +1,21 @@
 from typing import Optional
 from uuid import UUID
+from enum import Enum
 from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship
-from sqlalchemy import Column
-from sqlalchemy.dialects.postgresql import JSON
 
 from app.core.util import now
 
 
+class FineTuningStatus(str, Enum):
+    pending = "pending"
+    running = "running"
+    completed = "completed"
+    failed = "failed"
+
+
 class FineTuningJobBase(SQLModel):
-    base_model: str = Field(
-        default="gpt-4.1-nano-2025-04-14", description="Base model for fine-tuning"
-    )
+    base_model: str = Field(nullable=False, description="Base model for fine-tuning")
     split_ratio: float = Field(nullable=False)
     document_id: UUID = Field(foreign_key="document.id", nullable=False)
     training_file_id: Optional[str] = Field(default=None)
@@ -19,9 +23,7 @@ class FineTuningJobBase(SQLModel):
 
 
 class FineTuningJobCreate(SQLModel):
-    base_model: str = Field(
-        default="gpt-4.1-nano-2025-04-14", description="Base model for fine-tuning"
-    )
+    base_model: str
     split_ratio: list[float]
     document_id: UUID
 
@@ -30,10 +32,12 @@ class Fine_Tuning(FineTuningJobBase, table=True):
     """Database model for tracking fine-tuning jobs."""
 
     id: int = Field(primary_key=True)
-    openai_job_id: str | None = Field(
+    provider_job_id: str | None = Field(
         default=None, description="Fine tuning Job ID returned by OpenAI"
     )
-    status: str = Field(default="pending", description="Status of the fine-tuning job")
+    status: FineTuningStatus = (
+        Field(default=FineTuningStatus.pending, description="Fine tuning status"),
+    )
     fine_tuned_model: str | None = Field(
         default=None, description="Final fine tuned model name from OpenAI"
     )
@@ -53,14 +57,13 @@ class Fine_Tuning(FineTuningJobBase, table=True):
     deleted_at: datetime | None = Field(default=None, nullable=True)
 
     project: "Project" = Relationship(back_populates="fine_tuning")
-    organization: "Organization" = Relationship(back_populates="fine_tuning")
 
 
 class FineTuningUpdate(SQLModel):
     training_file_id: Optional[str] = None
     testing_file_id: Optional[str] = None
     split_ratio: Optional[float] = None
-    openai_job_id: Optional[str] = None
+    provider_job_id: Optional[str] = None
     fine_tuned_model: Optional[str] = None
     status: Optional[str] = None
     error_message: Optional[str] = None
@@ -73,7 +76,7 @@ class FineTuningJobPublic(SQLModel):
     split_ratio: float
     base_model: str
     document_id: UUID
-    openai_job_id: str | None = None
+    provider_job_id: str | None = None
     status: str
     error_message: str | None = None
     fine_tuned_model: str | None = None
