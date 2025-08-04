@@ -45,7 +45,7 @@ def upgrade():
             "status",
             finetuning_status_enum,
             nullable=False,
-            server_default="processing",
+            server_default="pending",
         ),
         sa.Column(
             "fine_tuned_model", sqlmodel.sql.sqltypes.AutoString(), nullable=True
