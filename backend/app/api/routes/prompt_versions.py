@@ -1,9 +1,22 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Path, logger
 from sqlalchemy.orm import Session
-from app.models import Prompt, PromptVersion, PromptVersionCreate, PromptVersionPublic, PromptVersionLabel, PromptVersionUpdate
+from app.models import (
+    Prompt,
+    PromptVersion,
+    PromptVersionCreate,
+    PromptVersionPublic,
+    PromptVersionLabel,
+    PromptVersionUpdate,
+)
 from app.utils import APIResponse
-from app.crud import create_prompt_version, get_prompt_version_by_id, get_prompt_versions, delete_prompt_version, update_prompt_version
+from app.crud import (
+    create_prompt_version,
+    get_prompt_version_by_id,
+    get_prompt_versions,
+    delete_prompt_version,
+    update_prompt_version,
+)
 from app.api.deps import get_db, get_current_user_org_project, UserProjectOrg
 
 
@@ -50,7 +63,9 @@ def get_prompt_version_by_id_route(
         project_id=current_user.project_id,
     )
     if not prompt_version:
-        logger.error(f"[get_prompt_version_by_id_route] Prompt version not found | Prompt ID: {prompt_id}, Version ID: {version}, Project ID: {current_user.project_id}")
+        logger.error(
+            f"[get_prompt_version_by_id_route] Prompt version not found | Prompt ID: {prompt_id}, Version ID: {version}, Project ID: {current_user.project_id}"
+        )
         raise HTTPException(status_code=404, detail="Prompt version not found")
 
     return APIResponse.success_response(prompt_version)
@@ -99,7 +114,7 @@ def update_prompt_version_route(
         version=version,
     )
     return APIResponse.success_response(updated_version)
-    
+
 
 @router.delete(
     "/{prompt_id}/version/{version}",
@@ -120,4 +135,6 @@ def delete_prompt_version_route(
         version=version,
         current_user=current_user,
     )
-    return APIResponse.success_response(data={"message": "Prompt version deleted successfully"})
+    return APIResponse.success_response(
+        data={"message": "Prompt version deleted successfully"}
+    )
