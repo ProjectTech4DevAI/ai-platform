@@ -70,3 +70,11 @@ from .prompt import (
     PromptPublic,
     PromptUpdate,
 )
+
+from .prompt_version import (
+    PromptVersion,
+    PromptVersionBase,
+    PromptVersionCreate,
+    PromptVersionLabel,
+    PromptVersionPublic,
+)

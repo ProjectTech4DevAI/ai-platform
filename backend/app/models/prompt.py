@@ -1,4 +1,4 @@
-from sqlmodel import SQLModel, Field
+from sqlmodel import SQLModel, Field, Relationship
 from datetime import datetime
 from app.core.util import now
 
@@ -15,6 +15,8 @@ class Prompt(PromptBase, table=True):
     updated_at: datetime = Field(default_factory=now, nullable=False)
     is_deleted: bool = Field(default=False)
     deleted_at: datetime | None = None
+
+    versions: list["PromptVersion"] = Relationship(back_populates="prompt")
 
 
 class PromptPublic(PromptBase):

@@ -1,0 +1,104 @@
+import logging
+from fastapi import APIRouter, Depends, HTTPException, Path, logger
+from sqlalchemy.orm import Session
+from app.models import Prompt, PromptVersion, PromptVersionCreate, PromptVersionPublic, PromptVersionLabel
+from app.utils import APIResponse
+from app.crud import create_prompt_version, get_prompt_version_by_id, get_prompt_versions, delete_prompt_version
+from app.api.deps import get_db, get_current_user_org_project, UserProjectOrg
+
+
+logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/prompt", tags=["Prompt Versions"])
+
+
+@router.post(
+    "/{prompt_id}/version",
+    response_model=APIResponse[PromptVersionPublic],
+)
+def create_prompt_version_route(
+    prompt_version_in: PromptVersionCreate,
+    prompt_id: int = Path(..., gt=0),
+    session: Session = Depends(get_db),
+    current_user: UserProjectOrg = Depends(get_current_user_org_project),
+):
+    version = create_prompt_version(
+        session=session,
+        prompt_id=prompt_id,
+        prompt_version_in=prompt_version_in,
+        current_user=current_user,
+    )
+    return APIResponse.success_response(version)
+
+
+@router.get(
+    "/{prompt_id}/version/{prompt_version_id}",
+    response_model=APIResponse[PromptVersionPublic],
+)
+def get_prompt_version_by_id_route(
+    prompt_id: int = Path(..., gt=0),
+    prompt_version_id: int = Path(..., gt=0),
+    session: Session = Depends(get_db),
+    current_user: UserProjectOrg = Depends(get_current_user_org_project),
+):
+    """
+    Fetch a specific prompt version by its ID.
+    """
+    prompt, prompt_version = get_prompt_version_by_id(
+        session=session,
+        prompt_id=prompt_id,
+        prompt_version_id=prompt_version_id,
+        project_id=current_user.project_id,
+    )
+    
+    if not prompt:
+        logger.error(f"[get_prompt_version_by_id_route] Prompt not found | Prompt ID: {prompt_id}, Project ID: {current_user.project_id}")
+        raise HTTPException(status_code=404, detail="Prompt not found")
+
+    if not prompt_version:
+        logger.error(f"[get_prompt_version_by_id_route] Prompt version not found | Prompt ID: {prompt_id}, Version ID: {prompt_version_id}, Project ID: {current_user.project_id}")
+        raise HTTPException(status_code=404, detail="Prompt version not found")
+
+    return APIResponse.success_response(prompt_version)
+
+
+@router.get(
+    "/{prompt_id}/versions",
+    response_model=APIResponse[list[PromptVersionPublic]],
+)
+def get_prompt_versions_route(
+    prompt_id: int = Path(..., gt=0),
+    session: Session = Depends(get_db),
+    current_user: UserProjectOrg = Depends(get_current_user_org_project),
+):
+    """
+    Fetch all prompt versions for a given prompt ID.
+    """
+    prompt_versions = get_prompt_versions(
+        session=session,
+        prompt_id=prompt_id,
+        project_id=current_user.project_id,
+    )
+
+    return APIResponse.success_response(prompt_versions)
+
+
+@router.delete(
+    "/{prompt_id}/version/{prompt_version_id}",
+    response_model=APIResponse,
+)
+def delete_prompt_version_route(
+    prompt_id: int = Path(..., gt=0),
+    prompt_version_id: int = Path(..., gt=0),
+    session: Session = Depends(get_db),
+    current_user: UserProjectOrg = Depends(get_current_user_org_project),
+):
+    """
+    Delete a specific prompt version by its ID.
+    """
+    delete_prompt_version(
+        session=session,
+        prompt_id=prompt_id,
+        prompt_version_id=prompt_version_id,
+        current_user=current_user,
+    )
+    return APIResponse.success_response(metadata={"message": "Prompt version deleted successfully"})

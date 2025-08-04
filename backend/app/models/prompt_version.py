@@ -1,0 +1,43 @@
+from sqlmodel import SQLModel, Field, Relationship
+from enum import Enum
+from datetime import datetime
+from app.core.util import now
+
+
+class PromptVersionLabel(str, Enum):
+    staging = "staging"
+    production = "production"
+
+
+class PromptVersionBase(SQLModel):
+    instruction: str = Field(nullable=False, min_length=1)
+    commit_message: str | None = Field(default=None, max_length=512)
+
+
+class PromptVersion(PromptVersionBase, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    prompt_id: int = Field(foreign_key="prompt.id")
+    
+    version: int
+    label: PromptVersionLabel = Field(default=PromptVersionLabel.staging, nullable=False)
+
+    inserted_at: datetime = Field(default_factory=now)
+    updated_at: datetime = Field(default_factory=now)
+
+    is_deleted: bool = Field(default=False)
+    deleted_at: datetime | None = Field(default=None)
+
+    prompt: "Prompt" = Relationship(back_populates="versions")
+
+
+class PromptVersionPublic(PromptVersionBase):
+    id: int
+    prompt_id: int
+    label: PromptVersionLabel
+    version: int
+    inserted_at: datetime
+    updated_at: datetime
+
+
+class PromptVersionCreate(PromptVersionBase):
+    pass
