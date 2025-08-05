@@ -102,11 +102,7 @@ def get_prompts_route(
     total = count_prompts_by_project(
         session=session, project_id=current_user.project_id
     )
-    metadata = Pagination.build(
-        total=total,
-        skip=skip,
-        limit=limit
-    )
+    metadata = Pagination.build(total=total, skip=skip, limit=limit)
     return APIResponse.success_response(data=prompts, metadata=metadata)
 
 

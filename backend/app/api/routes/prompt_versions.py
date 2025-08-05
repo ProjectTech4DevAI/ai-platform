@@ -17,7 +17,7 @@ from app.models import (
     PromptVersionPublic,
     PromptVersionUpdate,
     UserProjectOrg,
-    Pagination
+    Pagination,
 )
 from app.utils import APIResponse
 

@@ -2,7 +2,14 @@ import pytest
 from fastapi import HTTPException
 from sqlmodel import Session
 
-from app.models import PromptVersionCreate, PromptVersion, Prompt, PromptCreate, PromptVersionLabel, PromptVersionUpdate
+from app.models import (
+    PromptVersionCreate,
+    PromptVersion,
+    Prompt,
+    PromptCreate,
+    PromptVersionLabel,
+    PromptVersionUpdate,
+)
 from app.crud import (
     create_prompt_version,
     get_prompt_version_by_id,
@@ -71,13 +78,13 @@ def test_create_prompt_version_for_nonexistent_prompt(db: Session):
     assert "not found" in exc_info.value.detail.lower()
 
 
-def test_create_multiple_prompt_versions_increments_version(db: Session, prompt: Prompt):
+def test_create_multiple_prompt_versions_increments_version(
+    db: Session, prompt: Prompt
+):
     v1 = create_prompt_version(
         session=db,
         prompt_id=prompt.id,
-        prompt_version_in=PromptVersionCreate(
-            instruction="v1", commit_message="init"
-        ),
+        prompt_version_in=PromptVersionCreate(instruction="v1", commit_message="init"),
         project_id=prompt.project_id,
     )
 
@@ -99,9 +106,7 @@ def test_deleted_version_does_not_reset_version_number(db: Session, prompt: Prom
     create_prompt_version(
         session=db,
         prompt_id=prompt.id,
-        prompt_version_in=PromptVersionCreate(
-            instruction="v1", commit_message="init"
-        ),
+        prompt_version_in=PromptVersionCreate(instruction="v1", commit_message="init"),
         project_id=prompt.project_id,
     )
 
@@ -125,9 +130,7 @@ def test_deleted_version_does_not_reset_version_number(db: Session, prompt: Prom
     v3 = create_prompt_version(
         session=db,
         prompt_id=prompt.id,
-        prompt_version_in=PromptVersionCreate(
-            instruction="v3", commit_message="third"
-        ),
+        prompt_version_in=PromptVersionCreate(instruction="v3", commit_message="third"),
         project_id=prompt.project_id,
     )
 
@@ -263,9 +266,7 @@ def test_get_prompt_versions_success(db: Session, prompt: Prompt):
     create_prompt_version(
         session=db,
         prompt_id=prompt.id,
-        prompt_version_in=PromptVersionCreate(
-            instruction="v1", commit_message="init"
-        ),
+        prompt_version_in=PromptVersionCreate(instruction="v1", commit_message="init"),
         project_id=prompt.project_id,
     )
 
@@ -294,9 +295,7 @@ def test_get_prompt_versions_excludes_deleted(db: Session, prompt: Prompt):
     v1 = create_prompt_version(
         session=db,
         prompt_id=prompt.id,
-        prompt_version_in=PromptVersionCreate(
-            instruction="v1", commit_message="init"
-        ),
+        prompt_version_in=PromptVersionCreate(instruction="v1", commit_message="init"),
         project_id=prompt.project_id,
     )
 
@@ -365,7 +364,9 @@ def test_get_production_prompt_version_success(db: Session, prompt: Prompt):
     assert result.label == PromptVersionLabel.PRODUCTION
 
 
-def test_get_production_prompt_version_returns_none_if_not_set(db: Session, prompt: Prompt):
+def test_get_production_prompt_version_returns_none_if_not_set(
+    db: Session, prompt: Prompt
+):
     """Returns None if no production-labeled version exists"""
     create_prompt_version(
         session=db,
@@ -401,6 +402,7 @@ def test_get_production_prompt_version_prompt_not_found(db: Session):
     assert exc_info.value.status_code == 404
     assert "not found" in exc_info.value.detail.lower()
 
+
 def test_get_prompt_versions_count(db: Session, prompt: Prompt):
     """Counts only non-deleted prompt versions"""
 
@@ -409,8 +411,7 @@ def test_get_prompt_versions_count(db: Session, prompt: Prompt):
             session=db,
             prompt_id=prompt.id,
             prompt_version_in=PromptVersionCreate(
-                instruction=f"Instruction {i+1}",
-                commit_message=f"Commit {i+1}"
+                instruction=f"Instruction {i+1}", commit_message=f"Commit {i+1}"
             ),
             project_id=prompt.project_id,
         )
@@ -461,7 +462,9 @@ def test_update_prompt_version_successfully_changes_label(db: Session, prompt: P
     assert updated.label == PromptVersionLabel.STAGING
 
 
-def test_update_prompt_version_promotes_to_production_and_demotes_old(db: Session, prompt: Prompt):
+def test_update_prompt_version_promotes_to_production_and_demotes_old(
+    db: Session, prompt: Prompt
+):
     """When promoting to PRODUCTION, existing PRODUCTION becomes STAGING"""
     # Create v1 and label as PRODUCTION
     v1 = create_prompt_version(
@@ -510,7 +513,9 @@ def test_update_prompt_version_promotes_to_production_and_demotes_old(db: Sessio
     assert v1_updated.label == PromptVersionLabel.STAGING
 
 
-def test_update_prompt_version_returns_same_if_label_unchanged(db: Session, prompt: Prompt):
+def test_update_prompt_version_returns_same_if_label_unchanged(
+    db: Session, prompt: Prompt
+):
     """If the label is unchanged, the update should return early"""
     version = create_prompt_version(
         session=db,

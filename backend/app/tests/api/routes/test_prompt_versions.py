@@ -98,8 +98,6 @@ def test_get_prompt_version_by_id_failure(
     prompt_in = PromptCreate(name="get-version-prompt", description="desc")
     prompt = create_prompt(db, prompt_in=prompt_in, project_id=user_api_key.project_id)
 
-
-
     # Call the API route
     response = client.get(
         f"/api/v1/prompt/{prompt.id}/version/9999",
@@ -117,7 +115,9 @@ def test_get_prompt_versions_with_pagination(
 ):
     prompt = create_prompt(
         db,
-        prompt_in=PromptCreate(name="versioned-prompt", description="Prompt with versions"),
+        prompt_in=PromptCreate(
+            name="versioned-prompt", description="Prompt with versions"
+        ),
         project_id=user_api_key.project_id,
     )
 
@@ -126,8 +126,7 @@ def test_get_prompt_versions_with_pagination(
             session=db,
             prompt_id=prompt.id,
             prompt_version_in=PromptVersionCreate(
-                instruction=f"Instruction {i + 1}",
-                commit_message=f"Commit {i + 1}"
+                instruction=f"Instruction {i + 1}", commit_message=f"Commit {i + 1}"
             ),
             project_id=user_api_key.project_id,
         )

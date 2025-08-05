@@ -131,17 +131,14 @@ def get_prompt_versions(
     return session.exec(stmt).all()
 
 
-def get_prompt_versions_count(
-    session: Session, prompt_id: int, project_id: int
-) -> int:
+def get_prompt_versions_count(session: Session, prompt_id: int, project_id: int) -> int:
     """
     Get the count of prompt versions for a given prompt ID.
     """
 
     # make sure to prompt_id is valid and not deleted
-    stmt = (
-        select(func.count())
-        .where(PromptVersion.prompt_id == prompt_id, PromptVersion.is_deleted == False)
+    stmt = select(func.count()).where(
+        PromptVersion.prompt_id == prompt_id, PromptVersion.is_deleted == False
     )
 
     result = session.exec(stmt).one()
