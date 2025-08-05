@@ -37,7 +37,7 @@ def create_prompt_version_route(
         session=session,
         prompt_id=prompt_id,
         prompt_version_in=prompt_version_in,
-        current_user=current_user,
+        project_id=current_user.project_id,
     )
     return APIResponse.success_response(version)
 

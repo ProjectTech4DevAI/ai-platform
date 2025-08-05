@@ -11,7 +11,6 @@ from app.models import (
     PromptVersionCreate,
     PromptVersionLabel,
     PromptVersionUpdate,
-    UserProjectOrg,
 )
 
 logger = logging.getLogger(__name__)
@@ -38,17 +37,17 @@ def create_prompt_version(
     session: Session,
     prompt_id: int,
     prompt_version_in: PromptVersionCreate,
-    current_user: UserProjectOrg,
+    project_id: int,
 ) -> PromptVersion:
     prompt = get_prompt_by_id(
         session=session,
         prompt_id=prompt_id,
-        project_id=current_user.project_id,
+        project_id=project_id,
     )
 
     if not prompt:
         logger.error(
-            f"[create_prompt_version] Prompt not found | Prompt ID: {prompt_id}, Project ID: {current_user.project_id}"
+            f"[create_prompt_version] Prompt not found | Prompt ID: {prompt_id}, Project ID: {project_id}"
         )
         raise HTTPException(status_code=404, detail="Prompt not found")
 
