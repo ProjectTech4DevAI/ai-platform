@@ -128,10 +128,11 @@ def create_test_credential(db: Session) -> tuple[list[Credential], Project]:
 def create_test_fine_tuning_jobs(
     db: Session,
     ratios: list[float],
-) -> tuple[list[Fine_Tuning], Project]:
+) -> tuple[list[Fine_Tuning], bool]:
     project = get_project(db, "Dalgo")
     document = get_document(db)
     jobs = []
+    any_created = False
 
     for ratio in ratios:
         job_request = FineTuningJobCreate(
@@ -139,7 +140,7 @@ def create_test_fine_tuning_jobs(
             base_model="gpt-4",
             split_ratio=[ratio],
         )
-        job = create_fine_tuning_job(
+        job, created = create_fine_tuning_job(
             session=db,
             request=job_request,
             split_ratio=ratio,
@@ -147,5 +148,7 @@ def create_test_fine_tuning_jobs(
             organization_id=project.organization_id,
         )
         jobs.append(job)
+        if created:
+            any_created = True
 
-    return jobs, project
+    return jobs, any_created

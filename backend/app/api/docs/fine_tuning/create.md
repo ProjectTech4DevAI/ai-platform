@@ -1,6 +1,9 @@
-This endpoint initiates the fine-tuning of an OpenAI model using your custom dataset that you would have uploaded using the upload document endpoint. You can either specify a base model that you want to finetune, or leave it blank to use the default base model (currently "gpt-4.1-nano-2025-04-14" unless otherwise specified).
+This endpoint initiates the fine-tuning of an OpenAI model using your custom dataset that you would have uploaded using the upload document endpoint. The uploaded dataset must include:
 
-The split_ratio in the request body determines how your data is divided between training and testing. For example, a split ratio of 0.5 means 50% of your data will be used for training, and the remaining 50% for testing. You can also provide multiple split ratios—for instance, [0.7, 0.9]. This will trigger multiple fine-tuning jobs, one for each ratio, effectively training multiple models on different portions of your dataset.
+- A column named `query`, `question`, or `message` containing user inputs or messages.
+- A column named `label` indicating whether a given message is a genuine query or not (e.g., casual conversation or small talk).
+
+The split_ratio in the request body determines how your data is divided between training and testing. For example, a split ratio of 0.5 means 50% of your data will be used for training, and the remaining 50% for testing. You can also provide multiple split ratios—for instance, [0.7, 0.9]. This will trigger multiple fine-tuning jobs, one for each ratio, effectively training multiple models on different portions of your dataset. You would also need to specify a base model that you want to finetune
 
 The system handles the fine-tuning process by interacting with OpenAI's APIs under the hood. These include:
 

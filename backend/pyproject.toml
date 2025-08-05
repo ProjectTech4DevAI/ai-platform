@@ -30,6 +30,7 @@ dependencies = [
     "langfuse>=2.60.3",
     "asgi-correlation-id>=4.3.4",
     "scikit-learn>=1.7.1",
+    "pandas>=2.3.1",
 ]
 
 [tool.uv]

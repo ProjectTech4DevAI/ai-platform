@@ -61,6 +61,8 @@ from .fine_tuning import (
     Fine_Tuning,
     FineTuningJobCreate,
     FineTuningJobPublic,
+    FineTuningUpdate,
+    FineTuningStatus,
 )
 
 from .openai_conversation import (

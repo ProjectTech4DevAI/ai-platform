@@ -70,7 +70,7 @@ class TestCreateFineTuningJobAPI:
 
         json_data = response.json()
         assert json_data["success"] is True
-        assert json_data["data"]["message"] == "Fine-tuning jobs started."
+        assert json_data["data"]["message"] == "Fine-tuning job(s) started."
         assert json_data["metadata"] is None
 
         for job in json_data["data"]["jobs"]:
@@ -78,7 +78,7 @@ class TestCreateFineTuningJobAPI:
             job_db = fetch_by_id(db, job_id=job_id, project_id=user.project_id)
             assert job_db.training_file_id.startswith("file")
             assert job_db.testing_file_id.startswith("file")
-            assert job_db.openai_job_id.startswith("ft_mock_job")
+            assert job_db.provider_job_id.startswith("ft_mock_job")
             assert job_db.status == "running"
 
     def test_data_preprocessing_failure(
@@ -150,6 +150,7 @@ class TestCreateFineTuningJobAPI:
         response = client.post(
             "/api/v1/fine_tuning/fine-tune", json=body, headers=user_api_key_header
         )
+        print("resposneee=", response)
         assert response.status_code == 200
 
         job_id = response.json()["data"]["jobs"][0]["id"]
@@ -165,7 +166,7 @@ class TestRetriveFineTuningJobAPI:
     ):
         jobs, _ = create_test_fine_tuning_jobs(db, [0.3])
         job = jobs[0]
-        job.openai_job_id = "ft_mock_job_123"
+        job.provider_job_id = "ft_mock_job_123"
         db.flush()
 
         mock_openai_job = MagicMock(
@@ -185,7 +186,7 @@ class TestRetriveFineTuningJobAPI:
         assert response.status_code == 200
         json_data = response.json()
 
-        assert json_data["data"]["status"] == "succeeded"
+        assert json_data["data"]["status"] == "completed"
         assert json_data["data"]["fine_tuned_model"] == "ft:gpt-4:custom-model"
         assert json_data["data"]["id"] == job.id
 
@@ -194,7 +195,7 @@ class TestRetriveFineTuningJobAPI:
     ):
         jobs, _ = create_test_fine_tuning_jobs(db, [0.3])
         job = jobs[0]
-        job.openai_job_id = "ft_mock_job_123"
+        job.provider_job_id = "ft_mock_job_123"
         db.flush()
 
         mock_openai_job = MagicMock(

@@ -12,11 +12,14 @@ logger = logging.getLogger(__name__)
 class DataPreprocessor:
     system_message = {
         "role": "system",
-        "content": "You are an assistant that is good at categorizing if what user is saying is a query or just acknowledgment",
+        "content": "You are an assistant that is good at categorizing if what user is saying is a query or just small talk",
     }
 
     def __init__(self, document, storage, split_ratio: float):
         if not (0 < split_ratio < 1):
+            logger.error(
+                f"[DataPreprocessor] Rejected invalid split_ratio={split_ratio}"
+            )
             raise ValueError(
                 f"Invalid split ratio: {split_ratio}. Must be between 0 and 1"
             )
@@ -70,12 +73,15 @@ class DataPreprocessor:
             self.label_col = "label" if "label" in df.columns else None
 
             if not self.query_col or not self.label_col:
+                logger.error(
+                    f"[DataPreprocessor] Dataset does not contai a 'label' column and one of: {possible_query_columns} "
+                )
                 raise ValueError(
                     f"CSV must contain a 'label' column and one of: {possible_query_columns}"
                 )
 
             logger.info(
-                f"Identified columns - query_col={self.query_col}, label_col={self.label_col}"
+                f"[DataPreprocessor]Identified columns - query_col={self.query_col}, label_col={self.label_col}"
             )
             return df
         finally:
@@ -93,7 +99,7 @@ class DataPreprocessor:
         )
 
         logger.info(
-            f"Data split complete: train_size={len(train_data)}, test_size={len(test_data)}"
+            f"[DataPreprocessor]Data split complete: train_size={len(train_data)}, test_size={len(test_data)}"
         )
 
         train_dict = train_data.to_dict(orient="records")
