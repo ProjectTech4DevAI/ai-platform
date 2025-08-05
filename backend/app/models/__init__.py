@@ -63,6 +63,8 @@ from .openai_conversation import (
     OpenAIConversationCreate,
 )
 
+from .pagination import Pagination
+
 from .prompt import (
     Prompt,
     PromptBase,

@@ -1,20 +1,23 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, get_current_user_org_project, UserProjectOrg
+from app.api.deps import get_db, get_current_user_org_project
 from app.crud import (
     create_prompt_version,
     delete_prompt_version,
     get_prompt_version_by_id,
     get_prompt_versions,
+    get_prompt_versions_count,
     update_prompt_version,
 )
 from app.models import (
     PromptVersionCreate,
     PromptVersionPublic,
     PromptVersionUpdate,
+    UserProjectOrg,
+    Pagination
 )
 from app.utils import APIResponse
 
@@ -78,6 +81,8 @@ def get_prompt_versions_route(
     prompt_id: int = Path(..., gt=0),
     session: Session = Depends(get_db),
     current_user: UserProjectOrg = Depends(get_current_user_org_project),
+    skip: int = Query(0, ge=0, description="How many items to skip"),
+    limit: int = Query(100, ge=1, le=100, description="Maximum items to return"),
 ):
     """
     Fetch all prompt versions for a given prompt ID.
@@ -86,9 +91,22 @@ def get_prompt_versions_route(
         session=session,
         prompt_id=prompt_id,
         project_id=current_user.project_id,
+        skip=skip,
+        limit=limit,
     )
 
-    return APIResponse.success_response(prompt_versions)
+    total = get_prompt_versions_count(
+        session=session,
+        prompt_id=prompt_id,
+        project_id=current_user.project_id,
+    )
+
+    metadata = Pagination.build(
+        total=total,
+        skip=skip,
+        limit=limit,
+    )
+    return APIResponse.success_response(data=prompt_versions, metadata=metadata)
 
 
 @router.patch(

@@ -210,7 +210,7 @@ def test_list_prompts_success(
 
     # Check metadata
     assert "metadata" in res
-    assert "total" in res["metadata"]
+    assert "total" in res["metadata"]["pagination"]
 
 
 def test_delete_prompt_success(
