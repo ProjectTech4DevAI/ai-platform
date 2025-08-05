@@ -47,7 +47,6 @@ def uploader(client: TestClient, user_api_key_header: dict[str, str]):
 
 @pytest.fixture(scope="class")
 def aws_credentials():
-    # Set AWS credentials for moto mock
     os.environ["AWS_ACCESS_KEY_ID"] = "testing"
     os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
     os.environ["AWS_SECURITY_TOKEN"] = "testing"
@@ -55,8 +54,8 @@ def aws_credentials():
     os.environ["AWS_DEFAULT_REGION"] = settings.AWS_DEFAULT_REGION
 
 
-@pytest.mark.usefixtures("aws_credentials")
 @mock_aws
+@pytest.mark.usefixtures("aws_credentials")
 class TestDocumentRouteUpload:
     def test_adds_to_database(
         self,

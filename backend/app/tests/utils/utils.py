@@ -141,6 +141,7 @@ def load_environment(env_test_path: str) -> None:
         importlib.reload(config)
 
         # Recreate the engine with the updated settings
+        # need import here to avoid circular imports & ensures proper timing of engine creation
         from app.core.db import engine
 
         # Dispose of the old engine
