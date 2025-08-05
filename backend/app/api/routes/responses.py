@@ -11,7 +11,12 @@ from app.api.deps import get_db, get_current_user_org_project
 from app.api.routes.threads import send_callback
 from app.crud.assistants import get_assistant_by_id
 from app.crud.credentials import get_provider_credential
-from app.models import UserProjectOrg
+from app.crud.openai_conversation import (
+    create_conversation,
+    get_ancestor_id_from_response,
+    get_conversation_by_ancestor_id,
+)
+from app.models import UserProjectOrg, OpenAIConversationCreate
 from app.utils import APIResponse, mask_string
 from app.core.langfuse.langfuse import LangfuseTracer
 
@@ -21,8 +26,20 @@ router = APIRouter(tags=["responses"])
 
 def handle_openai_error(e: openai.OpenAIError) -> str:
     """Extract error message from OpenAI error."""
-    if isinstance(e.body, dict) and "message" in e.body:
+    # Try to get error message from different possible attributes
+    if hasattr(e, "body") and isinstance(e.body, dict) and "message" in e.body:
         return e.body["message"]
+    elif hasattr(e, "message"):
+        return e.message
+    elif hasattr(e, "response") and hasattr(e.response, "json"):
+        try:
+            error_data = e.response.json()
+            if isinstance(error_data, dict) and "error" in error_data:
+                error_info = error_data["error"]
+                if isinstance(error_info, dict) and "message" in error_info:
+                    return error_info["message"]
+        except:
+            pass
     return str(e)
 
 
@@ -98,6 +115,8 @@ def process_response(
     assistant,
     tracer: LangfuseTracer,
     project_id: int,
+    organization_id: int,
+    session: Session,
 ):
     """Process a response and send callback with results, with Langfuse tracing."""
     logger.info(
@@ -117,9 +136,21 @@ def process_response(
     )
 
     try:
+        # Get the latest conversation by ancestor ID to use as previous_response_id
+        ancestor_id = request.response_id
+        latest_conversation = None
+        if ancestor_id:
+            latest_conversation = get_conversation_by_ancestor_id(
+                session=session,
+                ancestor_response_id=ancestor_id,
+                project_id=project_id,
+            )
+            if latest_conversation:
+                ancestor_id = latest_conversation.response_id
+
         params = {
             "model": assistant.model,
-            "previous_response_id": request.response_id,
+            "previous_response_id": ancestor_id,
             "instructions": assistant.instructions,
             "temperature": assistant.temperature,
             "input": [{"role": "user", "content": request.question}],
@@ -164,6 +195,35 @@ def process_response(
                 "message": response.output_text,
                 "error": None,
             },
+        )
+        # Set ancestor_response_id using CRUD function
+        ancestor_response_id = (
+            latest_conversation.ancestor_response_id
+            if latest_conversation
+            else get_ancestor_id_from_response(
+                session=session,
+                current_response_id=response.id,
+                previous_response_id=response.previous_response_id,
+                project_id=project_id,
+            )
+        )
+
+        # Create conversation record in database
+        conversation_data = OpenAIConversationCreate(
+            response_id=response.id,
+            previous_response_id=response.previous_response_id,
+            ancestor_response_id=ancestor_response_id,
+            user_question=request.question,
+            response=response.output_text,
+            model=response.model,
+            assistant_id=request.assistant_id,
+        )
+
+        create_conversation(
+            session=session,
+            conversation=conversation_data,
+            project_id=project_id,
+            organization_id=organization_id,
         )
 
         request_dict = request.model_dump()
@@ -261,6 +321,8 @@ async def responses(
         assistant,
         tracer,
         project_id,
+        organization_id,
+        _session,
     )
 
     logger.info(

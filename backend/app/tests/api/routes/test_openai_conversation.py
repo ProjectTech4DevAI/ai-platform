@@ -1,8 +1,8 @@
 from sqlmodel import Session
 from fastapi.testclient import TestClient
 
-from app.models import APIKeyPublic
 from app.crud.openai_conversation import create_conversation
+from app.models import APIKeyPublic
 from app.models import OpenAIConversationCreate
 from app.tests.utils.openai import generate_openai_id
 
@@ -431,7 +431,6 @@ def test_delete_conversation_success(
         project_id=user_api_key.project_id,
         organization_id=user_api_key.organization_id,
     )
-
     conversation_id = conversation.id
 
     response = client.delete(
