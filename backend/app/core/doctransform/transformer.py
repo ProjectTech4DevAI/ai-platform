@@ -5,8 +5,8 @@ class Transformer(ABC):
     """Abstract base for document transformers."""
 
     @abstractmethod
-    def transform(self, input_path: Path, output_path: Path) -> None:
+    def transform(self, input_path: Path) -> str:
         """
-        Transform the document at input_path and write the result to output_path.
+        Transform the document at input_path and return the result as text.
         """
         pass
