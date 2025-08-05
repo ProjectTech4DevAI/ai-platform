@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import List, TYPE_CHECKING
 from sqlmodel import Field, Relationship, SQLModel
-from sqlalchemy.orm import relationship
 
 from app.core.util import now
 
