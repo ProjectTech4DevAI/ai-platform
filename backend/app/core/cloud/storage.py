@@ -83,11 +83,7 @@ class AmazonCloudStorageClient:
 @dataclass(frozen=True)
 class SimpleStorageName:
     Key: str
-    Bucket: str = None
-
-    def __post_init__(self):
-        if self.Bucket is None:
-            object.__setattr__(self, "Bucket", settings.AWS_S3_BUCKET)
+    Bucket: str = settings.AWS_S3_BUCKET
 
     def __str__(self):
         return urlunparse(self.to_url())
