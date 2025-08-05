@@ -2,6 +2,7 @@ import random
 import string
 import logging
 import os
+import importlib
 
 from uuid import UUID
 from typing import TypeVar
@@ -10,6 +11,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 from dotenv import load_dotenv
 
+from app.core import config
 from app.core.config import settings
 from app.crud.user import get_user_by_email
 from app.crud.api_key import get_api_key_by_value, get_api_key_by_user_id
@@ -92,7 +94,7 @@ def get_project(session: Session, name: str | None = None) -> Project:
     return project
 
 
-def load_environment(env_test_path: str = "../.env.test") -> None:
+def load_environment(env_test_path: str) -> None:
     """Loads the test environment variables if the .env.test file exists.
 
     Raises an error if any required PostgreSQL credentials are missing or if the
@@ -122,6 +124,30 @@ def load_environment(env_test_path: str = "../.env.test") -> None:
             raise RuntimeError(
                 f"Connected to database '{db_name}', which doesn't appear to be a test database"
             )
+
+        # Reload settings to reflect the new environment variables
+        importlib.reload(config)
+
+        # Recreate the engine with the updated settings
+        from sqlmodel import create_engine
+        from app.core.db import engine
+
+        # Dispose of the old engine
+        engine.dispose()
+
+        # Create a new engine with updated settings
+        new_engine = create_engine(
+            str(config.settings.SQLALCHEMY_DATABASE_URI),
+            pool_size=20 if config.settings.ENVIRONMENT == "local" else 5,
+            max_overflow=30 if config.settings.ENVIRONMENT == "local" else 10,
+            pool_pre_ping=True,
+            pool_recycle=300,
+        )
+
+        # Replace the engine in the db module
+        import app.core.db
+
+        app.core.db.engine = new_engine
 
     else:
         logger.warning(

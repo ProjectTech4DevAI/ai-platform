@@ -1,9 +1,17 @@
 import logging
 
+from dotenv import find_dotenv
 from sqlalchemy import Engine
 from sqlmodel import Session, select
 from tenacity import after_log, before_log, retry, stop_after_attempt, wait_fixed
 
+from app.tests.utils.utils import load_environment
+
+# Load test environment before importing engine
+path = find_dotenv(".env.test")
+load_environment(path)
+
+# Import engine after environment is loaded
 from app.core.db import engine
 
 logging.basicConfig(level=logging.INFO)

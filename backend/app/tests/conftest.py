@@ -1,24 +1,23 @@
-import pytest
 import logging
-
 from collections.abc import Generator
-from fastapi.testclient import TestClient
-from sqlmodel import Session
-from sqlalchemy import event
+
+import pytest
 from dotenv import find_dotenv
+from fastapi.testclient import TestClient
+from sqlalchemy import event
+from sqlmodel import Session
 
 from app.api.deps import get_db
+from app.core.config import settings
 from app.main import app
 from app.models import APIKeyPublic
-from app.core.config import settings
-from app.core.db import engine
+from app.seed_data.seed_data import seed_database
 from app.tests.utils.user import authentication_token_from_email
 from app.tests.utils.utils import (
     get_superuser_token_headers,
     get_api_key_by_email,
     load_environment,
 )
-from app.seed_data.seed_data import seed_database
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +27,9 @@ def seed_baseline():
     # Load test environment to ensure correct bucket name
     path = find_dotenv(".env.test")
     load_environment(path)
+
+    # Import engine after environment is loaded
+    from app.core.db import engine
 
     with Session(engine) as session:
         logger.info("Seeding baseline data...")
@@ -40,11 +42,15 @@ def cleanup_sessions():
     """Clean up any lingering sessions after each test."""
     yield
     # Force cleanup of any remaining connections in the pool
+    from app.core.db import engine
+
     engine.dispose()
 
 
 @pytest.fixture(scope="function")
 def db() -> Generator[Session, None, None]:
+    from app.core.db import engine
+
     connection = engine.connect()
     transaction = connection.begin()
     session = Session(bind=connection)
