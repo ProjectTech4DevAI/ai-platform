@@ -14,15 +14,12 @@ from app.models import (
     UserProjectOrg,
 )
 
-
-
 logger = logging.getLogger(__name__)
 
 
 def get_next_prompt_version(session: Session, prompt_id: int) -> int:
     """
     fetch the next prompt version for a given prompt_id and project_id
-    if no next version exists, returns None
     """
 
     # Not filtering is_deleted here because we want to get the next version even if the latest version is deleted
@@ -189,6 +186,9 @@ def update_prompt_version(
         )
         raise HTTPException(status_code=404, detail="Prompt version not found")
 
+    if prompt_version.label == prompt_version_in.label:
+        return prompt_version
+
     if prompt_version_in.label == PromptVersionLabel.PRODUCTION:
         # Ensure only one production version exists
         existing_production_version = get_production_prompt_version(
@@ -201,11 +201,13 @@ def update_prompt_version(
                 f"[update_prompt_version] Updated existing production version to staging | Prompt ID: {prompt_id}, Version: {existing_production_version.version}"
             )
 
-    prompt_version.label = prompt_version_in.label or prompt_version.label
+    prompt_version.label = prompt_version_in.label
+    prompt_version.updated_at = now()
 
     session.add(prompt_version)
     session.commit()
     session.refresh(prompt_version)
+
     logger.info(
         f"[update_prompt_version] Updated prompt version | Prompt ID: {prompt_id}, Version: {prompt_version.version}"
     )
@@ -213,42 +215,31 @@ def update_prompt_version(
 
 
 def delete_prompt_version(
-    session: Session, prompt_id: int, version: int, current_user: UserProjectOrg
+    session: Session, prompt_id: int, version: int, project_id: int
 ) -> None:
     """
     Soft delete a prompt version by its ID.
     """
-    prompt = get_prompt_by_id(
+    prompt_version = get_prompt_version_by_id(
         session=session,
         prompt_id=prompt_id,
-        project_id=current_user.project_id,
+        project_id=project_id,
+        version=version,
     )
-
-    if not prompt:
-        logger.error(
-            f"[delete_prompt_version] Prompt not found | Prompt ID: {prompt_id}, Project ID: {current_user.project_id}"
-        )
-        raise HTTPException(status_code=404, detail="Prompt not found")
-
-    stmt = select(PromptVersion).where(
-        PromptVersion.prompt_id == prompt_id,
-        PromptVersion.version == version,
-        PromptVersion.is_deleted == False,
-    )
-
-    prompt_version = session.exec(stmt).first()
 
     if not prompt_version:
         logger.error(
-            f"[delete_prompt_version] Prompt version not found | Prompt ID: {prompt_id}, Version ID: {version}, Project ID: {current_user.project_id}"
+            f"[delete_prompt_version] Prompt version not found | Prompt ID: {prompt_id}, Version ID: {version}, Project ID: {project_id}"
         )
         raise HTTPException(status_code=404, detail="Prompt version not found")
 
     prompt_version.label = (
         PromptVersionLabel.STAGING
     )  # Reset label to staging if it was production
+
     prompt_version.is_deleted = True
     prompt_version.deleted_at = now()
+
     session.add(prompt_version)
     session.commit()
     session.refresh(prompt_version)
