@@ -92,7 +92,7 @@ def get_project(session: Session, name: str | None = None) -> Project:
     return project
 
 
-def load_environment(env_test_path: str = "../.env.test"):
+def load_environment(env_test_path: str = "../.env.test") -> None:
     """Loads the test environment variables if the .env.test file exists.
 
     Raises an error if any required PostgreSQL credentials are missing or if the
@@ -127,8 +127,6 @@ def load_environment(env_test_path: str = "../.env.test"):
         logger.warning(
             f"{env_test_path} not found. Using default environment settings."
         )
-
-    return settings
 
 
 def get_assistant(session: Session, name: str | None = None) -> Assistant:

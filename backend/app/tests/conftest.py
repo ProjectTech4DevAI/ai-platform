@@ -1,9 +1,11 @@
 import pytest
 import logging
+
 from collections.abc import Generator
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 from sqlalchemy import event
+from dotenv import find_dotenv
 
 from app.api.deps import get_db
 from app.main import app
@@ -23,7 +25,10 @@ logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope="session", autouse=True)
 def seed_baseline():
-    load_environment("../.env.test")
+    # Load test environment to ensure correct bucket name
+    path = find_dotenv(".env.test")
+    load_environment(path)
+
     with Session(engine) as session:
         logger.info("Seeding baseline data...")
         seed_database(session)  # deterministic baseline
