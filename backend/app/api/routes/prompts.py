@@ -5,22 +5,21 @@ from sqlmodel import Session
 
 from app.api.deps import get_db, get_current_user_org_project
 from app.core.exception_handlers import HTTPException
-from app.utils import APIResponse
+from app.crud import (
+    count_prompts_by_project,
+    create_prompt,
+    delete_prompt,
+    get_prompt_by_id,
+    get_prompt_by_project,
+    update_prompt,
+)
 from app.models import (
     PromptCreate,
     PromptPublic,
     PromptUpdate,
     UserProjectOrg,
 )
-from app.crud import (
-    create_prompt,
-    count_prompts_by_project,
-    delete_prompt,
-    get_prompt_by_id,
-    get_prompt_by_name_in_project,
-    get_prompt_by_project,
-    update_prompt,
-)
+from app.utils import APIResponse
 
 
 logger = logging.getLogger(__name__)

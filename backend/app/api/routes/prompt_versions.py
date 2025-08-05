@@ -1,23 +1,22 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Path, logger
+
+from fastapi import APIRouter, Depends, HTTPException, Path
 from sqlalchemy.orm import Session
+
+from app.api.deps import get_db, get_current_user_org_project, UserProjectOrg
+from app.crud import (
+    create_prompt_version,
+    delete_prompt_version,
+    get_prompt_version_by_id,
+    get_prompt_versions,
+    update_prompt_version,
+)
 from app.models import (
-    Prompt,
-    PromptVersion,
     PromptVersionCreate,
     PromptVersionPublic,
-    PromptVersionLabel,
     PromptVersionUpdate,
 )
 from app.utils import APIResponse
-from app.crud import (
-    create_prompt_version,
-    get_prompt_version_by_id,
-    get_prompt_versions,
-    delete_prompt_version,
-    update_prompt_version,
-)
-from app.api.deps import get_db, get_current_user_org_project, UserProjectOrg
 
 
 logger = logging.getLogger(__name__)
