@@ -1,7 +1,7 @@
 import logging
 
 from fastapi import HTTPException
-from sqlmodel import Session, and_, select
+from sqlmodel import Session, and_, select, func
 
 from app.core.util import now
 from app.crud import get_prompt_by_id
@@ -103,7 +103,7 @@ def get_prompt_version_by_id(
 
 
 def get_prompt_versions(
-    session: Session, prompt_id: int, project_id: int
+    session: Session, prompt_id: int, project_id: int, skip: int = 0, limit: int = 100
 ) -> list[PromptVersion]:
     """
     Fetch all prompt versions for a given prompt ID.
@@ -124,9 +124,28 @@ def get_prompt_versions(
         select(PromptVersion)
         .where(PromptVersion.prompt_id == prompt_id, PromptVersion.is_deleted == False)
         .order_by(PromptVersion.version.desc())
+        .offset(skip)
+        .limit(limit)
     )
 
     return session.exec(stmt).all()
+
+
+def get_prompt_versions_count(
+    session: Session, prompt_id: int, project_id: int
+) -> int:
+    """
+    Get the count of prompt versions for a given prompt ID.
+    """
+
+    # make sure to prompt_id is valid and not deleted
+    stmt = (
+        select(func.count())
+        .where(PromptVersion.prompt_id == prompt_id, PromptVersion.is_deleted == False)
+    )
+
+    result = session.exec(stmt).one()
+    return result or 0
 
 
 def get_production_prompt_version(
