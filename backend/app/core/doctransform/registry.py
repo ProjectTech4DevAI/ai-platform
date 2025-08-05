@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Type
+from typing import Type, Dict
 
 from .transformer import Transformer
 from .noop_transformer import NoOpTransformer
@@ -15,9 +15,9 @@ TRANSFORMERS: Dict[str, Type[Transformer]] = {
     "zerox": ZeroxTransformer,
 }
 
-def convert_document(input_path: Path, output_path: Path, transformer_name: str = "default") -> None:
+def convert_document(input_path: Path, transformer_name: str = "default") -> str:
     """
-    Select and run the specified transformer on the input_path, writing to output_path.
+    Select and run the specified transformer on the input_path, returning text.
     """
     try:
         transformer_cls = TRANSFORMERS[transformer_name]
@@ -27,7 +27,7 @@ def convert_document(input_path: Path, output_path: Path, transformer_name: str 
 
     transformer = transformer_cls()
     try:
-        transformer.transform(input_path, output_path)
+        return transformer.transform(input_path)
     except Exception as e:
         raise TransformationError(
             f"Error applying transformer '{transformer_name}': {e}"

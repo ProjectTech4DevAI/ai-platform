@@ -3,9 +3,9 @@ from .transformer import Transformer
 
 class NoOpTransformer(Transformer):
     """
-    A no-op transformer that just reads and writes the file contents.
-    TODO: remove once real transformer is in place; used for plumbing tests.
+    A no-op transformer that just returns the file contents.
     """
 
-    def transform(self, input_path: Path, output_path: Path) -> None:
+    def transform(self, input_path: Path) -> str:
+        return input_path.read_text()
         output_path.write_text(input_path.read_text())
