@@ -10,26 +10,17 @@ logger = logging.getLogger(__name__)
 
 
 class DataPreprocessor:
-    system_message = {
-        "role": "system",
-        "content": "You are an assistant that is good at categorizing if what user is saying is a query or just small talk",
-    }
+    RANDOM_STATE = 42
 
-    def __init__(self, document, storage, split_ratio: float):
-        if not (0 < split_ratio < 1):
-            logger.error(
-                f"[DataPreprocessor] Rejected invalid split_ratio={split_ratio}"
-            )
-            raise ValueError(
-                f"Invalid split ratio: {split_ratio}. Must be between 0 and 1"
-            )
-
+    def __init__(self, document, storage, split_ratio: float, system_message: str):
         self.document = document
         self.storage = storage
         self.split_ratio = split_ratio
         self.query_col = None
         self.label_col = None
         self.generated_files = []
+
+        self.system_message = {"role": "system", "content": system_message.strip()}
 
     def _save_to_jsonl(self, data, filename):
         temp_dir = tempfile.gettempdir()
@@ -95,7 +86,7 @@ class DataPreprocessor:
             df,
             test_size=1 - self.split_ratio,
             stratify=df[self.label_col],
-            random_state=42,
+            random_state=self.RANDOM_STATE,
         )
 
         logger.info(

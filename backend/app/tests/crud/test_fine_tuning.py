@@ -23,6 +23,7 @@ def test_create_fine_tuning_job(db: Session):
         document_id=document.id,
         base_model="gpt-4",
         split_ratio=[0.8, 0.2],
+        system_prompt="you are a model able to classify",
     )
 
     created_job, created = create_fine_tuning_job(
@@ -102,7 +103,10 @@ def test_fetch_active_jobs_by_document_id(db: Session):
     document = get_document(db)
 
     job_request = FineTuningJobCreate(
-        document_id=document.id, base_model="gpt-4", split_ratio=[0.3, 0.5, 0.7, 0.9]
+        document_id=document.id,
+        base_model="gpt-4",
+        split_ratio=[0.3, 0.5, 0.7, 0.9],
+        system_prompt="you are a model good at classification",
     )
     active_job, _ = create_fine_tuning_job(
         db,

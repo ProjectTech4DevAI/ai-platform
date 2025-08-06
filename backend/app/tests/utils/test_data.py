@@ -136,7 +136,8 @@ def create_test_fine_tuning_jobs(
         job_request = FineTuningJobCreate(
             document_id=document.id,
             base_model="gpt-4",
-            split_ratio=[ratio],
+            split_ratio=[0.5],
+            system_prompt="str",
         )
         job, created = create_fine_tuning_job(
             session=db,

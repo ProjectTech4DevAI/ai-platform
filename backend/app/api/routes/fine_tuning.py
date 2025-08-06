@@ -70,7 +70,7 @@ def process_fine_tuning_job(
         storage = AmazonCloudStorage(current_user)
         document_crud = DocumentCrud(session=session, owner_id=current_user.id)
         document = document_crud.read_one(request.document_id)
-        preprocessor = DataPreprocessor(document, storage, ratio)
+        preprocessor = DataPreprocessor(document, storage, ratio, request.system_prompt)
         result = preprocessor.process()
         train_path = result["train_file"]
         test_path = result["test_file"]
@@ -225,9 +225,9 @@ def fine_tune_from_CSV(
     message = (
         "Fine-tuning job(s) started."
         if created_count == total
-        else "Fine-tuning job(s) already in progress or completed."
+        else "Active fine-tuning job(s) already exists."
         if created_count == 0
-        else f"Started {created_count} job(s); {total - created_count} job(s) already in progress or completed."
+        else f"Started {created_count} job(s); {total - created_count} active fine-tuning job(s) already exists."
     )
 
     return APIResponse.success_response({"message": message, "jobs": job_infos})
@@ -245,36 +245,44 @@ def refresh_fine_tune_status(
     job = fetch_by_id(session, job_id, project_id)
     client = get_openai_client(session, current_user.organization_id, project_id)
 
-    try:
-        openai_job = client.fine_tuning.jobs.retrieve(job.provider_job_id)
-    except openai.OpenAIError as e:
-        error_msg = handle_openai_error(e)
-        logger.error(
-            f"[Retrieve_fine_tune_status] Failed to retrieve OpenAI job | "
-            f"provider_job_id={mask_string(job.provider_job_id)}, "
-            f"error={error_msg}, job_id={job_id}, project_id={project_id}"
+    if job.provider_job_id is None:
+        return APIResponse.success_response(job)
+
+    else:
+        try:
+            openai_job = client.fine_tuning.jobs.retrieve(job.provider_job_id)
+        except openai.OpenAIError as e:
+            error_msg = handle_openai_error(e)
+            logger.error(
+                f"[Retrieve_fine_tune_status] Failed to retrieve OpenAI job | "
+                f"provider_job_id={mask_string(job.provider_job_id)}, "
+                f"error={error_msg}, job_id={job_id}, project_id={project_id}"
+            )
+            raise HTTPException(
+                status_code=502, detail=f"OpenAI API error: {error_msg}"
+            )
+
+        mapped_status: Optional[str] = OPENAI_TO_INTERNAL_STATUS.get(
+            getattr(openai_job, "status", None)
         )
-        raise HTTPException(status_code=502, detail=f"OpenAI API error: {error_msg}")
 
-    mapped_status: Optional[str] = OPENAI_TO_INTERNAL_STATUS.get(
-        getattr(openai_job, "status", None)
-    )
+        openai_error = getattr(openai_job, "error", None)
+        openai_error_msg = (
+            getattr(openai_error, "message", None) if openai_error else None
+        )
 
-    openai_error = getattr(openai_job, "error", None)
-    openai_error_msg = getattr(openai_error, "message", None) if openai_error else None
+        update_payload = FineTuningUpdate(
+            status=mapped_status or job.status,
+            fine_tuned_model=getattr(openai_job, "fine_tuned_model", None),
+            error_message=openai_error_msg,
+        )
 
-    update_payload = FineTuningUpdate(
-        status=mapped_status or job.status,
-        fine_tuned_model=getattr(openai_job, "fine_tuned_model", None),
-        error_message=openai_error_msg,
-    )
-
-    if (
-        job.status != update_payload.status
-        or job.fine_tuned_model != update_payload.fine_tuned_model
-        or job.error_message != update_payload.error_message
-    ):
-        job = update_finetune_job(session=session, job=job, update=update_payload)
+        if (
+            job.status != update_payload.status
+            or job.fine_tuned_model != update_payload.fine_tuned_model
+            or job.error_message != update_payload.error_message
+        ):
+            job = update_finetune_job(session=session, job=job, update=update_payload)
 
     return APIResponse.success_response(job)
 
@@ -284,7 +292,7 @@ def refresh_fine_tune_status(
     description="Retrieves all fine-tuning jobs associated with the given document ID for the current project",
     response_model=APIResponse[list[FineTuningJobPublic]],
 )
-def retrive_job_by_document(
+def retrieve_jobs_by_document(
     document_id: UUID, session: SessionDep, current_user: CurrentUserOrgProject
 ):
     project_id = current_user.project_id

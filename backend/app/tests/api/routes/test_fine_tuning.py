@@ -61,8 +61,10 @@ class TestCreateFineTuningJobAPI:
             "document_id": str(document.id),
             "base_model": "gpt-4",
             "split_ratio": [0.5, 0.7, 0.9],
+            "system_prompt": "you are a model able to classify",
         }
 
+        print("autssh=", user_api_key_header)
         response = client.post(
             "/api/v1/fine_tuning/fine-tune", json=body, headers=user_api_key_header
         )
@@ -102,6 +104,7 @@ class TestCreateFineTuningJobAPI:
             "document_id": str(document.id),
             "base_model": "gpt-4",
             "split_ratio": [0.8],
+            "system_prompt": "you are a model able to classify",
         }
 
         response = client.post(
@@ -145,6 +148,7 @@ class TestCreateFineTuningJobAPI:
             "document_id": str(document.id),
             "base_model": "gpt-4",
             "split_ratio": [0.8],
+            "system_prompt": "you are a model able to classify",
         }
 
         response = client.post(
