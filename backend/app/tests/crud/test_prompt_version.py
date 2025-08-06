@@ -597,10 +597,14 @@ def test_delete_prompt_version_resets_label_if_production(db: Session, prompt: P
         prompt_version_in=PromptVersionCreate(
             instruction="prod version",
             commit_message="commit",
-            label=PromptVersionLabel.PRODUCTION,
         ),
         project_id=prompt.project_id,
     )
+
+    version.label = PromptVersionLabel.PRODUCTION
+    db.add(version)
+    db.commit()
+    db.refresh(version)
 
     delete_prompt_version(
         session=db,
