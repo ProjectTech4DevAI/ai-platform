@@ -1,12 +1,12 @@
 from typing import Optional
 import logging
 import time
-import openai
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from sqlmodel import Session
+import openai
 from openai import OpenAI
+from sqlmodel import Session
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 
 from app.models import (
     FineTuningJobCreate,

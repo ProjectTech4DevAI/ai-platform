@@ -1,5 +1,4 @@
 from sqlmodel import Session
-from uuid import uuid4
 
 from app.models import (
     Organization,
@@ -21,7 +20,6 @@ from app.crud import (
     create_fine_tuning_job,
 )
 from app.core.providers import Provider
-from app.core.util import now
 from app.tests.utils.user import create_random_user
 from app.tests.utils.utils import (
     random_lower_string,

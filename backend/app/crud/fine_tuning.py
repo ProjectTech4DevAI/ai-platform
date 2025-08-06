@@ -1,12 +1,11 @@
-from datetime import datetime
 from uuid import UUID
 import logging
 from typing import Optional
+
 from sqlmodel import Session, select
 from fastapi import HTTPException
+
 from app.core.util import now
-from sqlalchemy import cast, String
-import json
 from app.models import (
     Fine_Tuning,
     FineTuningJobCreate,
