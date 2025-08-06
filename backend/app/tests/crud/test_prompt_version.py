@@ -18,7 +18,7 @@ from app.crud import (
     create_prompt,
     get_prompt_versions,
     get_production_prompt_version,
-    get_prompt_versions_count,
+    get_prompt_versions_with_count,
     update_prompt_version,
     delete_prompt_version,
 )
@@ -404,19 +404,22 @@ def test_get_production_prompt_version_prompt_not_found(db: Session):
     assert "not found" in exc_info.value.detail.lower()
 
 
-def test_get_prompt_versions_count(db: Session, prompt: Prompt):
-    """Counts only non-deleted prompt versions"""
+def test_get_prompt_versions_with_count(db: Session, prompt: Prompt):
+    """Test get_prompt_versions_with_count returns correct versions and count (excluding deleted)"""
 
+    # Create 2 valid (non-deleted) versions
     for i in range(2):
         create_prompt_version(
             session=db,
             prompt_id=prompt.id,
             prompt_version_in=PromptVersionCreate(
-                instruction=f"Instruction {i+1}", commit_message=f"Commit {i+1}"
+                instruction=f"Instruction {i+1}",
+                commit_message=f"Commit {i+1}",
             ),
             project_id=prompt.project_id,
         )
 
+    # Create 1 deleted version
     deleted_version = create_prompt_version(
         session=db,
         prompt_id=prompt.id,
@@ -430,14 +433,16 @@ def test_get_prompt_versions_count(db: Session, prompt: Prompt):
     db.add(deleted_version)
     db.commit()
 
-    count = get_prompt_versions_count(
+    versions, total = get_prompt_versions_with_count(
         session=db,
         prompt_id=prompt.id,
         project_id=prompt.project_id,
+        skip=0,
+        limit=10,
     )
 
-    # Step 4: Assert only non-deleted versions are counted
-    assert count == 2
+    assert total == 2
+    assert len(versions) == 2
 
 
 def test_update_prompt_version_successfully_changes_label(db: Session, prompt: Prompt):

@@ -82,7 +82,7 @@ from .prompt_version import (
     get_next_prompt_version,
     get_prompt_version_by_id,
     get_prompt_versions,
-    get_prompt_versions_count,
+    get_prompt_versions_with_count,
     get_production_prompt_version,
     update_prompt_version,
 )

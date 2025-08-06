@@ -8,8 +8,7 @@ from app.crud import (
     create_prompt_version,
     delete_prompt_version,
     get_prompt_version_by_id,
-    get_prompt_versions,
-    get_prompt_versions_count,
+    get_prompt_versions_with_count,
     update_prompt_version,
 )
 from app.models import (
@@ -87,18 +86,12 @@ def get_prompt_versions_route(
     """
     Fetch all prompt versions for a given prompt ID.
     """
-    prompt_versions = get_prompt_versions(
+    prompt_versions, total = get_prompt_versions_with_count(
         session=session,
         prompt_id=prompt_id,
         project_id=current_user.project_id,
         skip=skip,
         limit=limit,
-    )
-
-    total = get_prompt_versions_count(
-        session=session,
-        prompt_id=prompt_id,
-        project_id=current_user.project_id,
     )
 
     metadata = Pagination.build(

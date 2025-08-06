@@ -40,6 +40,7 @@ def get_prompt_by_project(
     return session.exec(
         select(Prompt)
         .where(Prompt.project_id == project_id, Prompt.is_deleted == False)
+        .order_by(Prompt.updated_at.desc())
         .offset(skip)
         .limit(limit)
     ).all()

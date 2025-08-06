@@ -131,18 +131,28 @@ def get_prompt_versions(
     return session.exec(stmt).all()
 
 
-def get_prompt_versions_count(session: Session, prompt_id: int, project_id: int) -> int:
+def get_prompt_versions_with_count(
+    session: Session, prompt_id: int, project_id: int, skip: int, limit: int
+) -> tuple[list[PromptVersion], int]:
     """
-    Get the count of prompt versions for a given prompt ID.
+    Fetch all prompt versions for a given prompt ID and also return the count.
+    Returns a tuple: (list of versions, total count)
     """
+    prompt_versions = get_prompt_versions(
+        session=session,
+        prompt_id=prompt_id,
+        project_id=project_id,
+        skip=skip,
+        limit=limit,
+    )
 
     # make sure to prompt_id is valid and not deleted
     stmt = select(func.count()).where(
         PromptVersion.prompt_id == prompt_id, PromptVersion.is_deleted == False
     )
 
-    result = session.exec(stmt).one()
-    return result or 0
+    total = session.exec(stmt).one()
+    return prompt_versions, total or 0
 
 
 def get_production_prompt_version(
