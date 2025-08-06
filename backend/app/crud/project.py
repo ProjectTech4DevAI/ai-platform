@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional
 from datetime import datetime, timezone
 from sqlmodel import Session, select
@@ -5,6 +6,8 @@ from fastapi import HTTPException
 
 from app.models import Project, ProjectCreate, Organization
 from app.core.util import now
+
+logger = logging.getLogger(__name__)
 
 
 def create_project(*, session: Session, project_create: ProjectCreate) -> Project:
@@ -14,6 +17,9 @@ def create_project(*, session: Session, project_create: ProjectCreate) -> Projec
     session.add(db_project)
     session.commit()
     session.refresh(db_project)
+    logger.info(
+        f"[create_project] Project Created Successfully | 'project_id': {db_project.id}, 'name': {db_project.name}"
+    )
     return db_project
 
 
@@ -33,9 +39,15 @@ def validate_project(session: Session, project_id: int) -> Project:
     """
     project = get_project_by_id(session=session, project_id=project_id)
     if not project:
+        logger.error(
+            f"[validate_project] Project not found | 'project_id': {project_id}"
+        )
         raise HTTPException(404, "Project not found")
 
     if not project.is_active:
+        logger.error(
+            f"[validate_project] Project is not active | 'project_id': {project_id}"
+        )
         raise HTTPException(404, "Project is not active")
 
     return project
