@@ -103,6 +103,9 @@ def get_project(session: Session, name: str | None = None) -> Project:
 def load_environment(env_test_path: str) -> None:
     """
     Load test environment variables from the specified file.
+    1. Application starts
+    2. .env file (loaded by Settings class)
+    3. for testcases only .env.test file (loaded by load_environment_file function)
 
     Args:
         env_test_path: Path to the test environment file.
