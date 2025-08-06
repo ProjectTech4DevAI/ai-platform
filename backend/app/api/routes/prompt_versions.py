@@ -1,7 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
-from sqlalchemy.orm import Session
+from sqlmodel import Session
 
 from app.api.deps import get_db, get_current_user_org_project
 from app.crud import (

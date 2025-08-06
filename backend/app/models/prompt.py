@@ -1,6 +1,12 @@
-from sqlmodel import SQLModel, Field, Relationship
 from datetime import datetime
+from typing import TYPE_CHECKING
+
+from sqlmodel import SQLModel, Field, Relationship
+
 from app.core.util import now
+
+if TYPE_CHECKING:
+    from app.models.prompt_version import PromptVersion
 
 
 class PromptBase(SQLModel):

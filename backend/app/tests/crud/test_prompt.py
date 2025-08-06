@@ -99,7 +99,6 @@ def test_update_prompt_duplicate_name(db: Session):
         PromptCreate(
             name="existing_name",
             description="desc1",
-            organization_id=project.organization_id,
         ),
         project_id=project.id,
     )
@@ -110,7 +109,6 @@ def test_update_prompt_duplicate_name(db: Session):
         PromptCreate(
             name="to_rename",
             description="desc2",
-            organization_id=project.organization_id,
         ),
         project_id=project.id,
     )

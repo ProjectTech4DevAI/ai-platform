@@ -1,7 +1,13 @@
-from sqlmodel import SQLModel, Field, Relationship
-from enum import Enum
 from datetime import datetime
+from enum import Enum
+from typing import TYPE_CHECKING
+
+from sqlmodel import SQLModel, Field, Relationship
+
 from app.core.util import now
+
+if TYPE_CHECKING:
+    from app.models.prompt import Prompt
 
 
 class PromptVersionLabel(str, Enum):
