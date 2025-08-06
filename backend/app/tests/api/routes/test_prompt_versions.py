@@ -1,18 +1,14 @@
-import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.models import (
-    Prompt,
     PromptCreate,
     PromptVersionCreate,
-    PromptVersion,
     APIKeyPublic,
     PromptVersionLabel,
     PromptVersionUpdate,
 )
 from app.crud import create_prompt, create_prompt_version
-from app.tests.utils.utils import get_project
 
 
 def test_create_prompt_version_route_success(
