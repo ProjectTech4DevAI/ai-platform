@@ -1,10 +1,12 @@
 import logging
 from uuid import UUID, uuid4
-from typing import List
+from typing import List, Optional
 from pathlib import Path
 
-from fastapi import APIRouter, File, UploadFile, Query
+from fastapi import APIRouter, File, UploadFile, Query, Form, BackgroundTasks
 from fastapi import Path as FastPath
+from fastapi.responses import JSONResponse
+from fastapi import HTTPException
 
 from app.crud import DocumentCrud, CollectionCrud
 from app.models import Document
@@ -12,6 +14,7 @@ from app.utils import APIResponse, load_description, get_openai_client
 from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
 from app.core.cloud import AmazonCloudStorage
 from app.crud.rag import OpenAIAssistantCrud
+from app.core.doctransform import service as transformation_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -38,24 +41,55 @@ def list_docs(
     description=load_description("documents/upload.md"),
     response_model=APIResponse[Document],
 )
-def upload_doc(
+async def upload_doc(
     session: SessionDep,
     current_user: CurrentUser,
     src: UploadFile = File(...),
+    background_tasks: BackgroundTasks = None,
+    target_format: Optional[str] = Form(None),
+    transformer: Optional[str] = Form("default"),
 ):
     storage = AmazonCloudStorage(current_user)
     document_id = uuid4()
-
     object_store_url = storage.put(src, Path(str(document_id)))
-
     crud = DocumentCrud(session, current_user.id)
     document = Document(
         id=document_id,
         fname=src.filename,
         object_store_url=str(object_store_url),
     )
-    data = crud.update(document)
-    return APIResponse.success_response(data)
+    # Use update to insert or update as per existing logic
+    source_document = crud.update(document)
+
+    if not target_format:
+        return APIResponse.success_response(source_document)
+
+    if target_format.lower() != "markdown":
+        raise HTTPException(
+            status_code=400,
+            detail="Only 'markdown' target_format is supported at this time."
+        )
+
+    job_id = transformation_service.start_job(
+        db=session,
+        current_user=current_user,
+        source_document_id=source_document.id,
+        transformer_name=transformer,
+        background_tasks=background_tasks,
+    )
+
+    # Compose response with full document metadata and job info
+    response_data = {
+        "message": "Document accepted for transformation.",
+        "original_document": APIResponse.success_response(source_document).data,
+        "transformation_job_id": str(job_id),
+        "status_check_url": f"/api/v1/documents/transformations/{job_id}"
+    }
+
+    return JSONResponse(
+        status_code=202,
+        content=APIResponse.success_response(response_data).model_dump()
+    )
 
 
 @router.get(
