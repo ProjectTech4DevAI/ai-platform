@@ -21,8 +21,8 @@ def create_fine_tuning_job(
     request: FineTuningJobCreate,
     split_ratio: float,
     status: FineTuningStatus = FineTuningStatus.pending,
-    project_id: Optional[int] = None,
-    organization_id: Optional[int] = None,
+    project_id: int = None,
+    organization_id: int = None,
 ) -> tuple[Fine_Tuning, bool]:
     active_jobs = fetch_active_jobs_by_document_id(
         session=session,
