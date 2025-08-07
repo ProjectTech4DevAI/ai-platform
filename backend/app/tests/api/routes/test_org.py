@@ -16,6 +16,20 @@ def test_organization(db: Session):
     return create_test_organization(db)
 
 
+import os
+
+
+def test_secret_key_env():
+    # Get the value of the SECRET_KEY environment variable
+    secret_key = os.getenv("POSTGRES_DB")
+
+    # Print the value of SECRET_KEY
+    print(f"SECRET_KEY: {secret_key}")
+
+    # Optionally, you can assert it if needed
+    assert secret_key == "hello"
+
+
 # Test creating an organization
 def test_create_organization(db: Session, superuser_token_headers: dict[str, str]):
     org_name = "Test-Org"

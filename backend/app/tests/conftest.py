@@ -1,4 +1,5 @@
 import pytest
+import os
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 from sqlalchemy import event
@@ -12,6 +13,15 @@ from app.models import APIKeyPublic
 from app.tests.utils.user import authentication_token_from_email
 from app.tests.utils.utils import get_superuser_token_headers, get_api_key_by_email
 from app.seed_data.seed_data import seed_database
+
+
+def pytest_configure():
+    os.environ.setdefault("APP_ENV", "testing")
+    # Force reload of settings after setting environment
+    import app.core.config
+
+    app.core.config.SettingsSingleton.reset()
+    app.core.config.settings = app.core.config.SettingsSingleton()
 
 
 @pytest.fixture(scope="function")

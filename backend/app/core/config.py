@@ -1,7 +1,7 @@
 import secrets
 import warnings
 import os
-from typing import Annotated, Any, Literal
+from typing import Any, Literal
 
 from pydantic import (
     EmailStr,
@@ -15,34 +15,61 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 
 
-def parse_cors(v: Any) -> list[str] | str:
-    if isinstance(v, str) and not v.startswith("["):
-        return [i.strip() for i in v.split(",")]
-    elif isinstance(v, list | str):
-        return v
-    raise ValueError(v)
-
-
 class Settings(BaseSettings):
+    env: str = "development"  # Default value, will be overridden in __init__
+
+    def __init__(self, **kwargs):
+        # Determine env_file based on current environment at instantiation time
+        env = os.getenv("APP_ENV", "development")
+        # Use absolute path to ensure the file is found correctly
+        # config.py is in backend/app/core/, so we need to go up 3 levels to reach project root
+        base_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        )
+        env_file = (
+            os.path.join(base_dir, ".env.test")
+            if env == "testing"
+            else os.path.join(base_dir, ".env")
+        )
+
+        # Load the environment file manually to ensure it's loaded correctly
+        if os.path.exists(env_file):
+            from dotenv import load_dotenv
+
+            load_dotenv(env_file, override=True)
+
+        # Pass env as a keyword argument to override the default
+        kwargs["env"] = env
+        super().__init__(**kwargs)
+
     model_config = SettingsConfigDict(
-        # Use top level .env file (one level above ./backend/)
-        env_file="../.env",
         env_ignore_empty=True,
         extra="ignore",
     )
+
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = secrets.token_urlsafe(32)
     # 60 minutes * 24 hours * 1 days = 1 days
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 1
-    ENVIRONMENT: Literal["local", "staging", "production"] = "local"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def ENV(self) -> Literal["testing", "development", "staging", "production"]:
+        return self.env  # type: ignore
 
     PROJECT_NAME: str
-    SENTRY_DSN: HttpUrl | None = None
+    SENTRY_DSN: str = ""
     POSTGRES_SERVER: str
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str = ""
     POSTGRES_DB: str = ""
+
+    # Additional fields from .env files
+    ENVIRONMENT: str = "development"  # This is different from the env field
+    STACK_NAME: str = ""
+    DOCKER_IMAGE_BACKEND: str = ""
+    DOCKER_IMAGE_FRONTEND: str = ""
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -70,7 +97,7 @@ class Settings(BaseSettings):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def AWS_S3_BUCKET(self) -> str:
-        return f"{self.AWS_S3_BUCKET_PREFIX}-{self.ENVIRONMENT}"
+        return f"{self.AWS_S3_BUCKET_PREFIX}-{self.ENV}"
 
     LOG_DIR: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
 
@@ -80,7 +107,7 @@ class Settings(BaseSettings):
                 f'The value of {var_name} is "changethis", '
                 "for security, please change it, at least for deployments."
             )
-            if self.ENVIRONMENT == "local":
+            if self.ENV == "development":
                 warnings.warn(message, stacklevel=1)
             else:
                 raise ValueError(message)
@@ -96,4 +123,22 @@ class Settings(BaseSettings):
         return self
 
 
-settings = Settings()  # type: ignore
+class SettingsSingleton:
+    _instance: Settings | None = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = Settings()
+        return cls._instance
+
+    def __getattr__(self, name):
+        return getattr(self._instance, name)
+
+    @classmethod
+    def reset(cls):
+        """Reset the singleton instance to force recreation."""
+        cls._instance = None
+
+
+# Create settings instance with lazy loading
+settings = SettingsSingleton()  # type: ignore

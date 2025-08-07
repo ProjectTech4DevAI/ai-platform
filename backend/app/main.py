@@ -1,19 +1,25 @@
+import os
 import sentry_sdk
+
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from asgi_correlation_id.middleware import CorrelationIdMiddleware
 from app.api.main import api_router
 from app.core.config import settings
-import app.core.logger
 from app.core.exception_handlers import register_exception_handlers
 from app.core.middleware import http_request_logger
+
+from app.load_env import load_environment
+
+# Load environment variables
+load_environment()
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
     return f"{route.tags[0]}-{route.name}"
 
 
-if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
+if settings.SENTRY_DSN and settings.ENVIRONMENT != "development":
     sentry_sdk.init(dsn=str(settings.SENTRY_DSN), enable_tracing=True)
 
 app = FastAPI(
