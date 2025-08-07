@@ -9,7 +9,18 @@ def get_engine():
     # Import settings dynamically to get the current instance
     from app.core.config import settings
 
-    return create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
+    # Configure connection pool settings
+    # For testing, we need more connections since tests run in parallel
+    pool_size = 20 if settings.ENVIRONMENT == "development" else 5
+    max_overflow = 30 if settings.ENVIRONMENT == "development" else 10
+
+    return create_engine(
+        str(settings.SQLALCHEMY_DATABASE_URI),
+        pool_size=pool_size,
+        max_overflow=max_overflow,
+        pool_pre_ping=True,
+        pool_recycle=300,  # Recycle connections after 5 minutes
+    )
 
 
 # Create a default engine for backward compatibility
