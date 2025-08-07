@@ -20,14 +20,11 @@ import os
 
 
 def test_secret_key_env():
-    # Get the value of the SECRET_KEY environment variable
-    secret_key = os.getenv("POSTGRES_DB")
+    # Get the value of the POSTGRES_DB environment variable
+    postgres_db = os.getenv("POSTGRES_DB")
 
-    # Print the value of SECRET_KEY
-    print(f"SECRET_KEY: {secret_key}")
-
-    # Optionally, you can assert it if needed
-    assert secret_key == "hello"
+    # Verify it's using the test database
+    assert postgres_db == "ai_platform_test"
 
 
 # Test creating an organization

@@ -6,7 +6,7 @@ from sqlalchemy import event
 from collections.abc import Generator
 
 from app.core.config import settings
-from app.core.db import engine
+from app.core.db import get_engine
 from app.api.deps import get_db
 from app.main import app
 from app.models import APIKeyPublic
@@ -26,6 +26,8 @@ def pytest_configure():
 
 @pytest.fixture(scope="function")
 def db() -> Generator[Session, None, None]:
+    # Use dynamic engine to get the correct database
+    engine = get_engine()
     connection = engine.connect()
     transaction = connection.begin()
     session = Session(bind=connection)
@@ -47,6 +49,8 @@ def db() -> Generator[Session, None, None]:
 
 @pytest.fixture(scope="session", autouse=True)
 def seed_baseline():
+    # Use dynamic engine to get the correct database
+    engine = get_engine()
     with Session(engine) as session:
         seed_database(session)  # deterministic baseline
         yield

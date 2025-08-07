@@ -1,10 +1,19 @@
 from sqlmodel import Session, create_engine, select
 
 from app import crud
-from app.core.config import settings
 from app.models import User, UserCreate
 
-engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
+
+def get_engine():
+    """Get database engine with current settings."""
+    # Import settings dynamically to get the current instance
+    from app.core.config import settings
+
+    return create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
+
+
+# Create a default engine for backward compatibility
+engine = get_engine()
 
 
 # make sure all SQLModel models are imported (app.models) before initializing DB
