@@ -62,3 +62,22 @@ from .openai_conversation import (
     OpenAIConversationBase,
     OpenAIConversationCreate,
 )
+
+from .pagination import Pagination
+
+from .prompt import (
+    Prompt,
+    PromptBase,
+    PromptCreate,
+    PromptPublic,
+    PromptUpdate,
+)
+
+from .prompt_version import (
+    PromptVersion,
+    PromptVersionBase,
+    PromptVersionCreate,
+    PromptVersionLabel,
+    PromptVersionPublic,
+    PromptVersionUpdate,
+)
