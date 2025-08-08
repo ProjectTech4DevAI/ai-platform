@@ -14,7 +14,7 @@ from app.api.routes.threads import (
     handle_openai_error,
     poll_run_and_prepare_response,
 )
-from app.models import APIKey, OpenAI_Thread
+from app.models import OpenAI_Thread
 from app.crud import get_thread_result
 from app.core.langfuse.langfuse import LangfuseTracer
 import openai
@@ -26,8 +26,12 @@ app.include_router(router)
 client = TestClient(app)
 
 
+@patch("app.api.routes.threads.get_provider_credential")
+@patch("app.api.routes.threads.configure_openai")
 @patch("app.api.routes.threads.OpenAI")
-def test_threads_endpoint(mock_openai, db):
+def test_threads_endpoint(
+    mock_openai, mock_configure_openai, mock_get_credential, db, user_api_key_header
+):
     """
     Test the /threads endpoint when creating a new thread.
     The patched OpenAI client simulates:
@@ -36,40 +40,38 @@ def test_threads_endpoint(mock_openai, db):
     - No existing runs.
     The expected response should have status "processing" and include a thread_id.
     """
+    # Mock credential retrieval
+    mock_get_credential.return_value = {"api_key": "test-api-key"}
+
     # Create a dummy client to simulate OpenAI API behavior.
-    dummy_client = MagicMock()
+    mock_client = MagicMock()
     # Simulate a valid assistant ID by ensuring retrieve doesn't raise an error.
-    dummy_client.beta.assistants.retrieve.return_value = None
+    mock_client.beta.assistants.retrieve.return_value = None
     # Simulate thread creation.
-    dummy_thread = MagicMock()
-    dummy_thread.id = "dummy_thread_id"
-    dummy_client.beta.threads.create.return_value = dummy_thread
+    mock_thread = MagicMock()
+    mock_thread.id = "mock_thread_id"
+    mock_client.beta.threads.create.return_value = mock_thread
     # Simulate message creation.
-    dummy_client.beta.threads.messages.create.return_value = None
+    mock_client.beta.threads.messages.create.return_value = None
     # Simulate that no active run exists.
-    dummy_client.beta.threads.runs.list.return_value = MagicMock(data=[])
+    mock_client.beta.threads.runs.list.return_value = MagicMock(data=[])
 
-    mock_openai.return_value = dummy_client
-
-    # Get an API key from the database
-    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
-    if not api_key_record:
-        pytest.skip("No API key found in the database for testing")
-
-    headers = {"X-API-KEY": api_key_record.key}
+    # Mock OpenAI client configuration
+    mock_configure_openai.return_value = (mock_client, True)
+    mock_openai.return_value = mock_client
 
     request_data = {
         "question": "What is Glific?",
         "assistant_id": "assistant_123",
         "callback_url": "http://example.com/callback",
     }
-    response = client.post("/threads", json=request_data, headers=headers)
+    response = client.post("/threads", json=request_data, headers=user_api_key_header)
     assert response.status_code == 200
     response_json = response.json()
     assert response_json["success"] is True
     assert response_json["data"]["status"] == "processing"
     assert response_json["data"]["message"] == "Run started"
-    assert response_json["data"]["thread_id"] == "dummy_thread_id"
+    assert response_json["data"]["thread_id"] == "mock_thread_id"
 
 
 @patch("app.api.routes.threads.OpenAI")
@@ -115,9 +117,9 @@ def test_process_run_variants(mock_openai, remove_citation, expected_message):
     citation_message = (
         base_message if remove_citation else f"{base_message}【1:2†citation】"
     )
-    dummy_message = MagicMock()
-    dummy_message.content = [MagicMock(text=MagicMock(value=citation_message))]
-    mock_client.beta.threads.messages.list.return_value.data = [dummy_message]
+    mock_message = MagicMock()
+    mock_message.content = [MagicMock(text=MagicMock(value=citation_message))]
+    mock_client.beta.threads.messages.list.return_value.data = [mock_message]
 
     tracer = LangfuseTracer()
     # Patch send_callback and invoke process_run.
@@ -132,46 +134,47 @@ def test_process_run_variants(mock_openai, remove_citation, expected_message):
         assert payload["success"] is True
 
 
+@patch("app.api.routes.threads.get_provider_credential")
+@patch("app.api.routes.threads.configure_openai")
 @patch("app.api.routes.threads.OpenAI")
-def test_threads_sync_endpoint_success(mock_openai, db):
+def test_threads_sync_endpoint_success(
+    mock_openai, mock_configure_openai, mock_get_credential, db, user_api_key_header
+):
     """Test the /threads/sync endpoint for successful completion."""
-    # Setup mock client
-    mock_client = MagicMock()
-    mock_openai.return_value = mock_client
+    # Mock credential retrieval
+    mock_get_credential.return_value = {"api_key": "test-api-key"}
 
+    # Create a dummy client to simulate OpenAI API behavior.
+    mock_client = MagicMock()
     # Simulate thread validation
     mock_client.beta.threads.runs.list.return_value = MagicMock(data=[])
-
     # Simulate thread creation
-    dummy_thread = MagicMock()
-    dummy_thread.id = "sync_thread_id"
-    mock_client.beta.threads.create.return_value = dummy_thread
-
+    mock_thread = MagicMock()
+    mock_thread.id = "sync_thread_id"
+    mock_client.beta.threads.create.return_value = mock_thread
     # Simulate message creation
     mock_client.beta.threads.messages.create.return_value = None
-
     # Simulate successful run
     mock_run = MagicMock()
     mock_run.status = "completed"
     mock_client.beta.threads.runs.create_and_poll.return_value = mock_run
-
     # Simulate message retrieval
-    dummy_message = MagicMock()
-    dummy_message.content = [MagicMock(text=MagicMock(value="Test response"))]
-    mock_client.beta.threads.messages.list.return_value.data = [dummy_message]
+    mock_message = MagicMock()
+    mock_message.content = [MagicMock(text=MagicMock(value="Test response"))]
+    mock_client.beta.threads.messages.list.return_value.data = [mock_message]
 
-    # Get API key
-    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
-    if not api_key_record:
-        pytest.skip("No API key found in the database for testing")
+    # Mock OpenAI client configuration
+    mock_configure_openai.return_value = (mock_client, True)
+    mock_openai.return_value = mock_client
 
-    headers = {"X-API-KEY": api_key_record.key}
     request_data = {
         "question": "Test question",
         "assistant_id": "assistant_123",
     }
 
-    response = client.post("/threads/sync", json=request_data, headers=headers)
+    response = client.post(
+        "/threads/sync", json=request_data, headers=user_api_key_header
+    )
     assert response.status_code == 200
     response_json = response.json()
     assert response_json["success"] is True
@@ -180,31 +183,36 @@ def test_threads_sync_endpoint_success(mock_openai, db):
     assert response_json["data"]["thread_id"] == "sync_thread_id"
 
 
+@patch("app.api.routes.threads.get_provider_credential")
+@patch("app.api.routes.threads.configure_openai")
 @patch("app.api.routes.threads.OpenAI")
-def test_threads_sync_endpoint_active_run(mock_openai, db):
+def test_threads_sync_endpoint_active_run(
+    mock_openai, mock_configure_openai, mock_get_credential, db, user_api_key_header
+):
     """Test the /threads/sync endpoint when there's an active run."""
-    # Setup mock client
-    mock_client = MagicMock()
-    mock_openai.return_value = mock_client
+    # Mock credential retrieval
+    mock_get_credential.return_value = {"api_key": "test-api-key"}
 
+    # Create a dummy client to simulate OpenAI API behavior.
+    mock_client = MagicMock()
     # Simulate active run
     mock_run = MagicMock()
     mock_run.status = "in_progress"
     mock_client.beta.threads.runs.list.return_value = MagicMock(data=[mock_run])
 
-    # Get API key
-    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
-    if not api_key_record:
-        pytest.skip("No API key found in the database for testing")
+    # Mock OpenAI client configuration
+    mock_configure_openai.return_value = (mock_client, True)
+    mock_openai.return_value = mock_client
 
-    headers = {"X-API-KEY": api_key_record.key}
     request_data = {
         "question": "Test question",
         "assistant_id": "assistant_123",
         "thread_id": "existing_thread",
     }
 
-    response = client.post("/threads/sync", json=request_data, headers=headers)
+    response = client.post(
+        "/threads/sync", json=request_data, headers=user_api_key_header
+    )
     assert response.status_code == 200
     response_json = response.json()
     assert response_json["success"] is False
@@ -471,24 +479,30 @@ def test_poll_run_and_prepare_response_non_completed(mock_openai, db):
     assert result.status == "failed"
 
 
+@patch("app.api.routes.threads.get_provider_credential")
+@patch("app.api.routes.threads.configure_openai")
 @patch("app.api.routes.threads.OpenAI")
-def test_threads_start_endpoint_creates_thread(mock_openai, db):
+def test_threads_start_endpoint_creates_thread(
+    mock_openai, mock_configure_openai, mock_get_credential, db, user_api_key_header
+):
     """Test /threads/start creates thread and schedules background task."""
+    # Mock credential retrieval
+    mock_get_credential.return_value = {"api_key": "test-api-key"}
+
+    # Create a dummy client to simulate OpenAI API behavior.
     mock_client = MagicMock()
     mock_thread = MagicMock()
     mock_thread.id = "mock_thread_001"
     mock_client.beta.threads.create.return_value = mock_thread
     mock_client.beta.threads.messages.create.return_value = None
+
+    # Mock OpenAI client configuration
+    mock_configure_openai.return_value = (mock_client, True)
     mock_openai.return_value = mock_client
 
-    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
-    if not api_key_record:
-        pytest.skip("No API key found in the database for testing")
-
-    headers = {"X-API-KEY": api_key_record.key}
     data = {"question": "What's 2+2?", "assistant_id": "assist_123"}
 
-    response = client.post("/threads/start", json=data, headers=headers)
+    response = client.post("/threads/start", json=data, headers=user_api_key_header)
     assert response.status_code == 200
     res_json = response.json()
     assert res_json["success"]
@@ -497,21 +511,26 @@ def test_threads_start_endpoint_creates_thread(mock_openai, db):
     assert res_json["data"]["prompt"] == "What's 2+2?"
 
 
-def test_threads_result_endpoint_success(db):
+def test_threads_result_endpoint_success(db, user_api_key_header):
     """Test /threads/result/{thread_id} returns completed thread."""
     thread_id = f"test_processing_{uuid.uuid4()}"
     question = "Capital of France?"
     message = "Paris."
 
-    db.add(OpenAI_Thread(thread_id=thread_id, prompt=question, response=message))
+    # Get the organization ID from the seeded data
+    from app.models import Organization
+
+    org = db.exec(select(Organization)).first()
+
+    # Create the thread with the correct organization_id
+    thread = OpenAI_Thread(
+        thread_id=thread_id, prompt=question, response=message, organization_id=org.id
+    )
+    db.add(thread)
     db.commit()
+    db.refresh(thread)
 
-    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
-    if not api_key_record:
-        pytest.skip("No API key found in the database for testing")
-
-    headers = {"X-API-KEY": api_key_record.key}
-    response = client.get(f"/threads/result/{thread_id}", headers=headers)
+    response = client.get(f"/threads/result/{thread_id}", headers=user_api_key_header)
 
     assert response.status_code == 200
     data = response.json()["data"]
@@ -521,20 +540,25 @@ def test_threads_result_endpoint_success(db):
     assert data["prompt"] == question
 
 
-def test_threads_result_endpoint_processing(db):
+def test_threads_result_endpoint_processing(db, user_api_key_header):
     """Test /threads/result/{thread_id} returns processing status if no message yet."""
     thread_id = f"test_processing_{uuid.uuid4()}"
     question = "What is Glific?"
 
-    db.add(OpenAI_Thread(thread_id=thread_id, prompt=question, response=None))
+    # Get the organization ID from the seeded data
+    from app.models import Organization
+
+    org = db.exec(select(Organization)).first()
+
+    # Create the thread with the correct organization_id
+    thread = OpenAI_Thread(
+        thread_id=thread_id, prompt=question, response=None, organization_id=org.id
+    )
+    db.add(thread)
     db.commit()
+    db.refresh(thread)
 
-    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
-    if not api_key_record:
-        pytest.skip("No API key found in the database for testing")
-
-    headers = {"X-API-KEY": api_key_record.key}
-    response = client.get(f"/threads/result/{thread_id}", headers=headers)
+    response = client.get(f"/threads/result/{thread_id}", headers=user_api_key_header)
 
     assert response.status_code == 200
     data = response.json()["data"]
@@ -544,34 +568,35 @@ def test_threads_result_endpoint_processing(db):
     assert data["prompt"] == question
 
 
-def test_threads_result_not_found(db):
+def test_threads_result_not_found(db, user_api_key_header):
     """Test /threads/result/{thread_id} returns error for nonexistent thread."""
-    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
-    if not api_key_record:
-        pytest.skip("No API key found in the database for testing")
-
-    headers = {"X-API-KEY": api_key_record.key}
-    response = client.get("/threads/result/nonexistent_thread", headers=headers)
+    response = client.get(
+        "/threads/result/nonexistent_thread", headers=user_api_key_header
+    )
 
     assert response.status_code == 200
     assert response.json()["success"] is False
     assert "not found" in response.json()["error"].lower()
 
 
+@patch("app.api.routes.threads.get_provider_credential")
+@patch("app.api.routes.threads.configure_openai")
 @patch("app.api.routes.threads.OpenAI")
-def test_threads_start_missing_question(mock_openai, db):
+def test_threads_start_missing_question(
+    mock_openai, mock_configure_openai, mock_get_credential, db, user_api_key_header
+):
     """Test /threads/start with missing 'question' key in request."""
-    mock_openai.return_value = MagicMock()
+    # Mock credential retrieval
+    mock_get_credential.return_value = {"api_key": "test-api-key"}
 
-    api_key_record = db.exec(select(APIKey).where(APIKey.is_deleted is False)).first()
-    if not api_key_record:
-        pytest.skip("No API key found in the database for testing")
-
-    headers = {"X-API-KEY": api_key_record.key}
+    # Mock OpenAI client configuration
+    mock_client = MagicMock()
+    mock_configure_openai.return_value = (mock_client, True)
+    mock_openai.return_value = mock_client
 
     bad_data = {"assistant_id": "assist_123"}  # no "question" key
 
-    response = client.post("/threads/start", json=bad_data, headers=headers)
+    response = client.post("/threads/start", json=bad_data, headers=user_api_key_header)
 
     assert response.status_code == 422  # Unprocessable Entity (FastAPI will raise 422)
     error_response = response.json()
