@@ -1,24 +1,24 @@
+import openai
+import pytest
+
+from fastapi import BackgroundTasks, FastAPI
+from fastapi.testclient import TestClient
+from openai import OpenAIError
+from sqlmodel import select
 from unittest.mock import MagicMock, patch
 
-import pytest, uuid
-from fastapi import FastAPI, BackgroundTasks
-from fastapi.testclient import TestClient
-from sqlmodel import select
-
 from app.api.routes.threads import (
-    process_run,
-    router,
-    validate_thread,
-    setup_thread,
-    process_message_content,
     handle_openai_error,
     poll_run_and_prepare_response,
+    process_message_content,
+    process_run,
+    router,
+    setup_thread,
+    validate_thread,
 )
-from app.models import OpenAI_Thread
-from app.crud import get_thread_result
 from app.core.langfuse.langfuse import LangfuseTracer
-import openai
-from openai import OpenAIError
+from app.crud import get_thread_result
+from app.models import OpenAI_Thread
 
 # Create a minimal test app
 app = FastAPI()
@@ -302,11 +302,13 @@ def test_poll_run_and_prepare_response_non_completed(mock_openai, db):
     [
         (
             True,
-            "Glific is an open-source, two-way messaging platform designed for nonprofits to scale their outreach via WhatsApp",
+            "Glific is an open-source, two-way messaging platform designed for "
+            "nonprofits to scale their outreach via WhatsApp",
         ),
         (
             False,
-            "Glific is an open-source, two-way messaging platform designed for nonprofits to scale their outreach via WhatsApp【1:2†citation】",
+            "Glific is an open-source, two-way messaging platform designed for "
+            "nonprofits to scale their outreach via WhatsApp【1:2†citation】",
         ),
     ],
 )
@@ -314,7 +316,8 @@ def test_process_run_variants(mock_openai, remove_citation, expected_message):
     """
     Test process_run for both remove_citation variants:
     - Mocks the OpenAI client to simulate a completed run.
-    - Verifies that send_callback is called with the expected message based on the remove_citation flag.
+    - Verifies that send_callback is called with the expected message based on
+      the remove_citation flag.
     """
     # Setup the mock client.
     mock_client = MagicMock()
@@ -335,7 +338,10 @@ def test_process_run_variants(mock_openai, remove_citation, expected_message):
     mock_client.beta.threads.runs.create_and_poll.return_value = mock_run
 
     # Set up the dummy message based on the remove_citation flag.
-    base_message = "Glific is an open-source, two-way messaging platform designed for nonprofits to scale their outreach via WhatsApp"
+    base_message = (
+        "Glific is an open-source, two-way messaging platform designed for "
+        "nonprofits to scale their outreach via WhatsApp"
+    )
     citation_message = (
         base_message if remove_citation else f"{base_message}【1:2†citation】"
     )
