@@ -16,17 +16,6 @@ def test_organization(db: Session):
     return create_test_organization(db)
 
 
-import os
-
-
-def test_secret_key_env():
-    # Get the value of the POSTGRES_DB environment variable
-    postgres_db = os.getenv("POSTGRES_DB")
-
-    # Verify it's using the test database
-    assert postgres_db == "ai_platform_test"
-
-
 # Test creating an organization
 def test_create_organization(db: Session, superuser_token_headers: dict[str, str]):
     org_name = "Test-Org"

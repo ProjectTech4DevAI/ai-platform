@@ -1,4 +1,3 @@
-import os
 import sentry_sdk
 
 from fastapi import FastAPI
