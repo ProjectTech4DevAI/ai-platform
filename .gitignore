@@ -6,7 +6,7 @@ node_modules/
 /playwright/.cache/
 
 # Environments
-.env*
+.env
 .venv
 env/
 venv/
