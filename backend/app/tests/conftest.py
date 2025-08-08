@@ -16,7 +16,7 @@ from app.seed_data.seed_data import seed_database
 
 
 def pytest_configure():
-    os.environ.setdefault("APP_ENV", "testing")
+    os.environ.setdefault("ENVIRONMENT", "testing")
     # Force reload of settings after setting environment
     import app.core.config
 
