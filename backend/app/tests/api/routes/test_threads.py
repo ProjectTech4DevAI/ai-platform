@@ -1,8 +1,7 @@
+import uuid
 from unittest.mock import MagicMock, patch
 
-import pytest, uuid
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
+import pytest
 from sqlmodel import select
 
 from app.api.routes.threads import (
@@ -14,11 +13,12 @@ from app.api.routes.threads import (
     handle_openai_error,
     poll_run_and_prepare_response,
 )
-from app.models import APIKey, OpenAI_Thread, APIKeyPublic
+from app.models import OpenAI_Thread
 from app.crud import get_thread_result
 from app.core.langfuse.langfuse import LangfuseTracer
 import openai
 from openai import OpenAIError
+
 
 # The client fixture from conftest.py will be used instead of creating a standalone app
 
