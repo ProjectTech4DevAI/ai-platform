@@ -20,14 +20,11 @@ from app.core.langfuse.langfuse import LangfuseTracer
 import openai
 from openai import OpenAIError
 
-# Wrap the router in a FastAPI app instance.
-app = FastAPI()
-app.include_router(router)
-client = TestClient(app)
+# The client fixture from conftest.py will be used instead of creating a standalone app
 
 
 @patch("app.api.routes.threads.OpenAI")
-def test_threads_endpoint(mock_openai, db, user_api_key_header):
+def test_threads_endpoint(mock_openai, client, db, user_api_key_header):
     """
     Test the /threads endpoint when creating a new thread.
     The patched OpenAI client simulates:
@@ -56,7 +53,9 @@ def test_threads_endpoint(mock_openai, db, user_api_key_header):
         "assistant_id": "assistant_123",
         "callback_url": "http://example.com/callback",
     }
-    response = client.post("/threads", json=request_data, headers=user_api_key_header)
+    response = client.post(
+        "/api/v1/threads", json=request_data, headers=user_api_key_header
+    )
     assert response.status_code == 200
     response_json = response.json()
     assert response_json["success"] is True
@@ -126,7 +125,7 @@ def test_process_run_variants(mock_openai, remove_citation, expected_message):
 
 
 @patch("app.api.routes.threads.OpenAI")
-def test_threads_sync_endpoint_success(mock_openai, db, user_api_key_header):
+def test_threads_sync_endpoint_success(mock_openai, client, db, user_api_key_header):
     """Test the /threads/sync endpoint for successful completion."""
     # Setup mock client
     mock_client = MagicMock()
@@ -159,7 +158,7 @@ def test_threads_sync_endpoint_success(mock_openai, db, user_api_key_header):
     }
 
     response = client.post(
-        "/threads/sync", json=request_data, headers=user_api_key_header
+        "/api/v1/threads/sync", json=request_data, headers=user_api_key_header
     )
     assert response.status_code == 200
     response_json = response.json()
@@ -170,7 +169,7 @@ def test_threads_sync_endpoint_success(mock_openai, db, user_api_key_header):
 
 
 @patch("app.api.routes.threads.OpenAI")
-def test_threads_sync_endpoint_active_run(mock_openai, db, user_api_key_header):
+def test_threads_sync_endpoint_active_run(mock_openai, client, db, user_api_key_header):
     """Test the /threads/sync endpoint when there's an active run."""
     # Setup mock client
     mock_client = MagicMock()
@@ -188,7 +187,7 @@ def test_threads_sync_endpoint_active_run(mock_openai, db, user_api_key_header):
     }
 
     response = client.post(
-        "/threads/sync", json=request_data, headers=user_api_key_header
+        "/api/v1/threads/sync", json=request_data, headers=user_api_key_header
     )
     assert response.status_code == 200
     response_json = response.json()
@@ -457,7 +456,9 @@ def test_poll_run_and_prepare_response_non_completed(mock_openai, db):
 
 
 @patch("app.api.routes.threads.OpenAI")
-def test_threads_start_endpoint_creates_thread(mock_openai, db, user_api_key_header):
+def test_threads_start_endpoint_creates_thread(
+    mock_openai, client, db, user_api_key_header
+):
     """Test /threads/start creates thread and schedules background task."""
     mock_client = MagicMock()
     mock_thread = MagicMock()
@@ -468,7 +469,9 @@ def test_threads_start_endpoint_creates_thread(mock_openai, db, user_api_key_hea
 
     data = {"question": "What's 2+2?", "assistant_id": "assist_123"}
 
-    response = client.post("/threads/start", json=data, headers=user_api_key_header)
+    response = client.post(
+        "/api/v1/threads/start", json=data, headers=user_api_key_header
+    )
     assert response.status_code == 200
     res_json = response.json()
     assert res_json["success"]
@@ -477,7 +480,7 @@ def test_threads_start_endpoint_creates_thread(mock_openai, db, user_api_key_hea
     assert res_json["data"]["prompt"] == "What's 2+2?"
 
 
-def test_threads_result_endpoint_success(db, user_api_key_header):
+def test_threads_result_endpoint_success(client, db, user_api_key_header):
     """Test /threads/result/{thread_id} returns completed thread."""
     thread_id = f"test_processing_{uuid.uuid4()}"
     question = "Capital of France?"
@@ -486,7 +489,9 @@ def test_threads_result_endpoint_success(db, user_api_key_header):
     db.add(OpenAI_Thread(thread_id=thread_id, prompt=question, response=message))
     db.commit()
 
-    response = client.get(f"/threads/result/{thread_id}", headers=user_api_key_header)
+    response = client.get(
+        f"/api/v1/threads/result/{thread_id}", headers=user_api_key_header
+    )
 
     assert response.status_code == 200
     data = response.json()["data"]
@@ -496,7 +501,7 @@ def test_threads_result_endpoint_success(db, user_api_key_header):
     assert data["prompt"] == question
 
 
-def test_threads_result_endpoint_processing(db, user_api_key_header):
+def test_threads_result_endpoint_processing(client, db, user_api_key_header):
     """Test /threads/result/{thread_id} returns processing status if no message yet."""
     thread_id = f"test_processing_{uuid.uuid4()}"
     question = "What is Glific?"
@@ -504,36 +509,41 @@ def test_threads_result_endpoint_processing(db, user_api_key_header):
     db.add(OpenAI_Thread(thread_id=thread_id, prompt=question, response=None))
     db.commit()
 
-    response = client.get(f"/threads/result/{thread_id}", headers=user_api_key_header)
+    response = client.get(
+        f"/api/v1/threads/result/{thread_id}", headers=user_api_key_header
+    )
 
     assert response.status_code == 200
     data = response.json()["data"]
     assert data["status"] == "processing"
-    assert data["message"] is None
+    assert data["response"] is None
     assert data["thread_id"] == thread_id
     assert data["prompt"] == question
 
 
-def test_threads_result_not_found(user_api_key_header):
+def test_threads_result_not_found(client, user_api_key_header):
     """Test /threads/result/{thread_id} returns error for nonexistent thread."""
     response = client.get(
-        "/threads/result/nonexistent_thread", headers=user_api_key_header
+        "/api/v1/threads/result/nonexistent_thread", headers=user_api_key_header
     )
-
-    assert response.status_code == 200
-    assert response.json()["success"] is False
-    assert "not found" in response.json()["error"].lower()
+    assert response.status_code == 404
+    response_data = response.json()
+    assert response_data["success"] is False
+    assert "thread not found" in response_data["error"].lower()
 
 
 @patch("app.api.routes.threads.OpenAI")
-def test_threads_start_missing_question(mock_openai, user_api_key_header):
+def test_threads_start_missing_question(mock_openai, client, user_api_key_header):
     """Test /threads/start with missing 'question' key in request."""
     mock_openai.return_value = MagicMock()
 
     bad_data = {"assistant_id": "assist_123"}  # no "question" key
 
-    response = client.post("/threads/start", json=bad_data, headers=user_api_key_header)
+    response = client.post(
+        "/api/v1/threads/start", json=bad_data, headers=user_api_key_header
+    )
 
     assert response.status_code == 422  # Unprocessable Entity (FastAPI will raise 422)
     error_response = response.json()
-    assert "detail" in error_response
+    assert error_response["success"] is False
+    assert "question" in error_response["error"]
