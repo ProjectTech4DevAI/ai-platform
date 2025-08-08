@@ -1,11 +1,10 @@
+import os
 import secrets
 import warnings
-import os
-from typing import Any, Literal
 
+from typing import Literal
 from pydantic import (
     EmailStr,
-    HttpUrl,
     PostgresDsn,
     computed_field,
     model_validator,
@@ -20,7 +19,7 @@ class Settings(BaseSettings):
 
     def __init__(self, **kwargs):
         # Determine env_file based on current environment at instantiation time
-        env = os.getenv("APP_ENV", "development")
+        env = os.getenv("ENVIRONMENT", "development")
         # Use absolute path to ensure the file is found correctly
         # config.py is in backend/app/core/, so we need to go up 3 levels to reach project root
         base_dir = os.path.dirname(
