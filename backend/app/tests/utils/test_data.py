@@ -4,20 +4,29 @@ from app.models import (
     Organization,
     Project,
     APIKey,
+    Document,
     Credential,
     OrganizationCreate,
     ProjectCreate,
     CredsCreate,
+    FineTuningJobCreate,
+    Fine_Tuning,
 )
 from app.crud import (
     create_organization,
     create_project,
     create_api_key,
     set_creds_for_org,
+    create_fine_tuning_job,
 )
 from app.core.providers import Provider
 from app.tests.utils.user import create_random_user
-from app.tests.utils.utils import random_lower_string, generate_random_string
+from app.tests.utils.utils import (
+    random_lower_string,
+    generate_random_string,
+    get_document,
+    get_project,
+)
 
 
 def create_test_organization(db: Session) -> Organization:
@@ -112,3 +121,33 @@ def create_test_credential(db: Session) -> tuple[list[Credential], Project]:
         },
     )
     return set_creds_for_org(session=db, creds_add=creds_data), project
+
+
+def create_test_fine_tuning_jobs(
+    db: Session,
+    ratios: list[float],
+) -> tuple[list[Fine_Tuning], bool]:
+    project = get_project(db, "Dalgo")
+    document = get_document(db)
+    jobs = []
+    any_created = False
+
+    for ratio in ratios:
+        job_request = FineTuningJobCreate(
+            document_id=document.id,
+            base_model="gpt-4",
+            split_ratio=[0.5],
+            system_prompt="str",
+        )
+        job, created = create_fine_tuning_job(
+            session=db,
+            request=job_request,
+            split_ratio=ratio,
+            project_id=project.id,
+            organization_id=project.organization_id,
+        )
+        jobs.append(job)
+        if created:
+            any_created = True
+
+    return jobs, any_created

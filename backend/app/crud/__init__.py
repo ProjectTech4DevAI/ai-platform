@@ -64,3 +64,12 @@ from .openai_conversation import (
     create_conversation,
     delete_conversation,
 )
+
+from .fine_tuning import (
+    create_fine_tuning_job,
+    fetch_by_id,
+    fetch_by_provider_job_id,
+    fetch_by_document_id,
+    update_finetune_job,
+    fetch_active_jobs_by_document_id,
+)

@@ -94,5 +94,19 @@
       "project_name": "Dalgo",
       "organization_name": "Project Tech4dev"
     }
-  ]
+  ],
+  "documents": [
+      {
+        "fname": "glific_sample.json",
+        "object_store_url": "s3://test-bucket/glific_sample.json",
+        "project_name": "Glific",
+        "organization_name": "Project Tech4dev"
+      },
+      {
+        "fname": "dalgo_sample.json",
+        "object_store_url": "s3://test-bucket/dalgo_sample.json",
+        "project_name": "Dalgo",
+        "organization_name": "Project Tech4dev"
+      }
+    ]
 }

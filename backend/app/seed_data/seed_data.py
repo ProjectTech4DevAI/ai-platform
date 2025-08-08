@@ -10,7 +10,15 @@ from sqlmodel import Session, delete, select
 from app.core.db import engine
 from app.core import settings
 from app.core.security import encrypt_api_key, get_password_hash
-from app.models import APIKey, Organization, Project, User, Credential, Assistant
+from app.models import (
+    APIKey,
+    Organization,
+    Project,
+    User,
+    Credential,
+    Assistant,
+    Document,
+)
 
 
 # Pydantic models for data validation
@@ -63,6 +71,13 @@ class AssistantData(BaseModel):
     max_num_results: int
     project_name: str
     organization_name: str
+
+
+class DocumentData(BaseModel):
+    fname: str
+    object_store_url: str
+    organization_name: str
+    project_name: str
 
 
 def load_seed_data() -> dict:
@@ -276,6 +291,62 @@ def create_assistant(session: Session, assistant_data_raw: dict) -> Assistant:
         raise
 
 
+def create_document(session: Session, document_data_raw: dict) -> Document:
+    """Create a document from seed data."""
+    try:
+        document_data = DocumentData.model_validate(document_data_raw)
+        logging.info(f"Creating document: {document_data.fname}")
+
+        # Get the organization
+        organization = session.exec(
+            select(Organization).where(
+                Organization.name == document_data.organization_name
+            )
+        ).first()
+
+        if not organization:
+            raise ValueError(
+                f"Organization '{document_data.organization_name}' not found"
+            )
+
+        # Get the project
+        project = session.exec(
+            select(Project).where(
+                Project.name == document_data.project_name,
+                Project.organization_id == organization.id,
+            )
+        ).first()
+        if not project:
+            raise ValueError(
+                f"Project '{document_data.project_name}' not found in organization '{organization.name}'"
+            )
+
+        users = session.exec(
+            select(User)
+            .join(APIKey, APIKey.user_id == User.id)
+            .where(APIKey.organization_id == organization.id)
+        ).all()
+
+        user = users[1]
+        if not user:
+            raise ValueError(f"No user found in organization '{organization.name}'")
+
+        # Create and store document
+        document = Document(
+            fname=document_data.fname,
+            object_store_url=document_data.object_store_url,
+            owner_id=user.id,
+        )
+
+        session.add(document)
+        session.flush()
+        return document
+
+    except Exception as e:
+        logging.error(f"Error creating document: {e}")
+        raise
+
+
 def clear_database(session: Session) -> None:
     """Clear all seeded data from the database."""
     logging.info("Clearing existing data...")
@@ -357,6 +428,12 @@ def seed_database(session: Session) -> None:
             assistant = create_assistant(session, assistant_data)
             assistants.append(assistant)
             logging.info(f"Created assistant: {assistant.name} (ID: {assistant.id})")
+
+        documents = []
+        for document_data in seed_data.get("documents", []):
+            document = create_document(session, document_data)
+            documents.append(document)
+            logging.info(f"Created document: {document.fname} (ID: {document.id})")
 
         logging.info("Database seeding completed successfully!")
         session.commit()
