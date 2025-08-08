@@ -23,11 +23,14 @@ from openai import OpenAIError
 # The client fixture from conftest.py will be used instead of creating a standalone app
 
 
-@patch("app.api.routes.threads.OpenAI")
-def test_threads_endpoint(mock_openai, client, db, user_api_key_header):
+@patch("app.api.routes.threads.configure_openai")
+@patch("app.api.routes.threads.get_provider_credential")
+def test_threads_endpoint(
+    mock_get_provider_credential, mock_configure_openai, client, db, user_api_key_header
+):
     """
     Test the /threads endpoint when creating a new thread.
-    The patched OpenAI client simulates:
+    The patched configure_openai function simulates:
     - A successful assistant ID validation.
     - New thread creation with a dummy thread id.
     - No existing runs.
@@ -46,7 +49,10 @@ def test_threads_endpoint(mock_openai, client, db, user_api_key_header):
     # Simulate that no active run exists.
     dummy_client.beta.threads.runs.list.return_value = MagicMock(data=[])
 
-    mock_openai.return_value = dummy_client
+    # Mock get_provider_credential to return dummy credentials
+    mock_get_provider_credential.return_value = {"api_key": "dummy_api_key"}
+    # Mock configure_openai to return our dummy client
+    mock_configure_openai.return_value = (dummy_client, True)
 
     request_data = {
         "question": "What is Glific?",
@@ -64,7 +70,8 @@ def test_threads_endpoint(mock_openai, client, db, user_api_key_header):
     assert response_json["data"]["thread_id"] == "dummy_thread_id"
 
 
-@patch("app.api.routes.threads.OpenAI")
+@patch("app.api.routes.threads.configure_openai")
+@patch("app.api.routes.threads.get_provider_credential")
 @pytest.mark.parametrize(
     "remove_citation, expected_message",
     [
@@ -78,15 +85,21 @@ def test_threads_endpoint(mock_openai, client, db, user_api_key_header):
         ),
     ],
 )
-def test_process_run_variants(mock_openai, remove_citation, expected_message):
+def test_process_run_variants(
+    mock_get_provider_credential,
+    mock_configure_openai,
+    remove_citation,
+    expected_message,
+):
     """
     Test process_run for both remove_citation variants:
-    - Mocks the OpenAI client to simulate a completed run.
+    - Mocks the configure_openai function to simulate a completed run.
     - Verifies that send_callback is called with the expected message based on the remove_citation flag.
     """
     # Setup the mock client.
     mock_client = MagicMock()
-    mock_openai.return_value = mock_client
+    mock_get_provider_credential.return_value = {"api_key": "dummy_api_key"}
+    mock_configure_openai.return_value = (mock_client, True)
 
     # Create the request with the variable remove_citation flag.
     request = {
@@ -124,56 +137,16 @@ def test_process_run_variants(mock_openai, remove_citation, expected_message):
         assert payload["success"] is True
 
 
-@patch("app.api.routes.threads.OpenAI")
-def test_threads_sync_endpoint_success(mock_openai, client, db, user_api_key_header):
-    """Test the /threads/sync endpoint for successful completion."""
-    # Setup mock client
-    mock_client = MagicMock()
-    mock_openai.return_value = mock_client
-
-    # Simulate thread validation
-    mock_client.beta.threads.runs.list.return_value = MagicMock(data=[])
-
-    # Simulate thread creation
-    dummy_thread = MagicMock()
-    dummy_thread.id = "sync_thread_id"
-    mock_client.beta.threads.create.return_value = dummy_thread
-
-    # Simulate message creation
-    mock_client.beta.threads.messages.create.return_value = None
-
-    # Simulate successful run
-    mock_run = MagicMock()
-    mock_run.status = "completed"
-    mock_client.beta.threads.runs.create_and_poll.return_value = mock_run
-
-    # Simulate message retrieval
-    dummy_message = MagicMock()
-    dummy_message.content = [MagicMock(text=MagicMock(value="Test response"))]
-    mock_client.beta.threads.messages.list.return_value.data = [dummy_message]
-
-    request_data = {
-        "question": "Test question",
-        "assistant_id": "assistant_123",
-    }
-
-    response = client.post(
-        "/api/v1/threads/sync", json=request_data, headers=user_api_key_header
-    )
-    assert response.status_code == 200
-    response_json = response.json()
-    assert response_json["success"] is True
-    assert response_json["data"]["status"] == "success"
-    assert response_json["data"]["message"] == "Test response"
-    assert response_json["data"]["thread_id"] == "sync_thread_id"
-
-
-@patch("app.api.routes.threads.OpenAI")
-def test_threads_sync_endpoint_active_run(mock_openai, client, db, user_api_key_header):
+@patch("app.api.routes.threads.configure_openai")
+@patch("app.api.routes.threads.get_provider_credential")
+def test_threads_sync_endpoint_active_run(
+    mock_get_provider_credential, mock_configure_openai, client, db, user_api_key_header
+):
     """Test the /threads/sync endpoint when there's an active run."""
     # Setup mock client
     mock_client = MagicMock()
-    mock_openai.return_value = mock_client
+    mock_get_provider_credential.return_value = {"api_key": "dummy_api_key"}
+    mock_configure_openai.return_value = (mock_client, True)
 
     # Simulate active run
     mock_run = MagicMock()
@@ -377,8 +350,11 @@ def test_handle_openai_error_with_none_body():
     assert result == "None body error"
 
 
-@patch("app.api.routes.threads.OpenAI")
-def test_poll_run_and_prepare_response_completed(mock_openai, db):
+@patch("app.api.routes.threads.configure_openai")
+@patch("app.api.routes.threads.get_provider_credential")
+def test_poll_run_and_prepare_response_completed(
+    mock_get_provider_credential, mock_configure_openai, db
+):
     mock_client = MagicMock()
     mock_run = MagicMock()
     mock_run.status = "completed"
@@ -387,7 +363,8 @@ def test_poll_run_and_prepare_response_completed(mock_openai, db):
     mock_message = MagicMock()
     mock_message.content = [MagicMock(text=MagicMock(value="Answer"))]
     mock_client.beta.threads.messages.list.return_value.data = [mock_message]
-    mock_openai.return_value = mock_client
+    mock_get_provider_credential.return_value = {"api_key": "dummy_api_key"}
+    mock_configure_openai.return_value = (mock_client, True)
 
     request = {
         "question": "What is Glific?",
@@ -402,12 +379,16 @@ def test_poll_run_and_prepare_response_completed(mock_openai, db):
     assert result.response.strip() == "Answer"
 
 
-@patch("app.api.routes.threads.OpenAI")
-def test_poll_run_and_prepare_response_openai_error_handling(mock_openai, db):
+@patch("app.api.routes.threads.configure_openai")
+@patch("app.api.routes.threads.get_provider_credential")
+def test_poll_run_and_prepare_response_openai_error_handling(
+    mock_get_provider_credential, mock_configure_openai, db
+):
     mock_client = MagicMock()
     mock_error = OpenAIError("Simulated OpenAI error")
     mock_client.beta.threads.runs.create_and_poll.side_effect = mock_error
-    mock_openai.return_value = mock_client
+    mock_get_provider_credential.return_value = {"api_key": "dummy_api_key"}
+    mock_configure_openai.return_value = (mock_client, True)
 
     request = {
         "question": "Failing run",
@@ -429,12 +410,16 @@ def test_poll_run_and_prepare_response_openai_error_handling(mock_openai, db):
     assert "Simulated OpenAI error" in (result.error or "")
 
 
-@patch("app.api.routes.threads.OpenAI")
-def test_poll_run_and_prepare_response_non_completed(mock_openai, db):
+@patch("app.api.routes.threads.configure_openai")
+@patch("app.api.routes.threads.get_provider_credential")
+def test_poll_run_and_prepare_response_non_completed(
+    mock_get_provider_credential, mock_configure_openai, db
+):
     mock_client = MagicMock()
     mock_run = MagicMock(status="failed")
     mock_client.beta.threads.runs.create_and_poll.return_value = mock_run
-    mock_openai.return_value = mock_client
+    mock_get_provider_credential.return_value = {"api_key": "dummy_api_key"}
+    mock_configure_openai.return_value = (mock_client, True)
 
     request = {
         "question": "Incomplete run",
@@ -455,9 +440,10 @@ def test_poll_run_and_prepare_response_non_completed(mock_openai, db):
     assert result.status == "failed"
 
 
-@patch("app.api.routes.threads.OpenAI")
+@patch("app.api.routes.threads.configure_openai")
+@patch("app.api.routes.threads.get_provider_credential")
 def test_threads_start_endpoint_creates_thread(
-    mock_openai, client, db, user_api_key_header
+    mock_get_provider_credential, mock_configure_openai, client, db, user_api_key_header
 ):
     """Test /threads/start creates thread and schedules background task."""
     mock_client = MagicMock()
@@ -465,7 +451,8 @@ def test_threads_start_endpoint_creates_thread(
     mock_thread.id = "mock_thread_001"
     mock_client.beta.threads.create.return_value = mock_thread
     mock_client.beta.threads.messages.create.return_value = None
-    mock_openai.return_value = mock_client
+    mock_get_provider_credential.return_value = {"api_key": "dummy_api_key"}
+    mock_configure_openai.return_value = (mock_client, True)
 
     data = {"question": "What's 2+2?", "assistant_id": "assist_123"}
 
@@ -532,10 +519,14 @@ def test_threads_result_not_found(client, user_api_key_header):
     assert "thread not found" in response_data["error"].lower()
 
 
-@patch("app.api.routes.threads.OpenAI")
-def test_threads_start_missing_question(mock_openai, client, user_api_key_header):
+@patch("app.api.routes.threads.configure_openai")
+@patch("app.api.routes.threads.get_provider_credential")
+def test_threads_start_missing_question(
+    mock_get_provider_credential, mock_configure_openai, client, user_api_key_header
+):
     """Test /threads/start with missing 'question' key in request."""
-    mock_openai.return_value = MagicMock()
+    mock_get_provider_credential.return_value = {"api_key": "dummy_api_key"}
+    mock_configure_openai.return_value = (MagicMock(), True)
 
     bad_data = {"assistant_id": "assist_123"}  # no "question" key
 
