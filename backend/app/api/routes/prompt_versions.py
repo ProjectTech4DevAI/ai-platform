@@ -28,6 +28,7 @@ router = APIRouter(prefix="/prompt", tags=["Prompt Versions"])
 @router.post(
     "/{prompt_id}/version",
     response_model=APIResponse[PromptVersionPublic],
+    status_code=201,
 )
 def create_prompt_version_route(
     prompt_version_in: PromptVersionCreate,

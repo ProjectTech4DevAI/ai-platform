@@ -45,8 +45,8 @@ def create_new_prompt(
 
 @router.patch("/{prompt_id}", response_model=APIResponse[PromptPublic])
 def update_prompt_route(
+    prompt_update: PromptUpdate,
     prompt_id: int = Path(..., gt=0),
-    prompt_update: PromptUpdate = Depends(),
     session: Session = Depends(get_db),
     current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
