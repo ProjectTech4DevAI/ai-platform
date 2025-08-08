@@ -392,12 +392,12 @@ async def threads_sync(
     # Validate thread
     is_valid, error_message = validate_thread(client, request.get("thread_id"))
     if not is_valid:
-        raise Exception(error_message)
+        return APIResponse.failure_response(error=error_message)
 
     # Setup thread
     is_success, error_message = setup_thread(client, request)
     if not is_success:
-        raise Exception(error_message)
+        return APIResponse.failure_response(error=error_message)
 
     tracer = LangfuseTracer(
         credentials=langfuse_credentials,
