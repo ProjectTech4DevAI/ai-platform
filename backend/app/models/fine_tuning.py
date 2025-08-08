@@ -2,6 +2,9 @@ from typing import Optional
 from uuid import UUID
 from enum import Enum
 from datetime import datetime
+
+from sqlalchemy import Column, Text
+from pydantic import field_validator
 from sqlmodel import SQLModel, Field, Relationship
 
 from app.core.util import now
@@ -20,12 +23,33 @@ class FineTuningJobBase(SQLModel):
     document_id: UUID = Field(foreign_key="document.id", nullable=False)
     training_file_id: Optional[str] = Field(default=None)
     testing_file_id: Optional[str] = Field(default=None)
+    system_prompt: str = Field(sa_column=Column(Text, nullable=False))
 
 
 class FineTuningJobCreate(SQLModel):
+    document_id: UUID
     base_model: str
     split_ratio: list[float]
-    document_id: UUID
+    system_prompt: str
+
+    @field_validator("split_ratio")
+    @classmethod
+    def check_ratios(cls, v):
+        if not v:
+            raise ValueError("split_ratio cannot be empty")
+        for ratio in v:
+            if not (0 < ratio < 1):
+                raise ValueError(
+                    f"Invalid split_ratio: {ratio}. Must be between 0 and 1."
+                )
+        return v
+
+    @field_validator("system_prompt")
+    @classmethod
+    def check_prompt(cls, v):
+        if not v.strip():
+            raise ValueError("system_prompt must be a non-empty string")
+        return v.strip()
 
 
 class Fine_Tuning(FineTuningJobBase, table=True):
