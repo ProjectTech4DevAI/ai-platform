@@ -177,7 +177,7 @@ def get_openai_client(session: Session, org_id: int, project_id: int) -> OpenAI:
     )
 
     if not credentials or "api_key" not in credentials:
-        logger.warning(
+        logger.error(
             f"[get_openai_client] OpenAI credentials not found. | project_id: {project_id}"
         )
         raise HTTPException(

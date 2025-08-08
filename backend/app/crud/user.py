@@ -1,10 +1,13 @@
-import uuid
+import logging
 from typing import Any
 
 from sqlmodel import Session, select
 
 from app.core.security import get_password_hash, verify_password
+
 from app.models import User, UserCreate, UserUpdate
+
+logger = logging.getLogger(__name__)
 
 
 def create_user(*, session: Session, user_create: UserCreate) -> User:
@@ -14,6 +17,7 @@ def create_user(*, session: Session, user_create: UserCreate) -> User:
     session.add(db_obj)
     session.commit()
     session.refresh(db_obj)
+    logger.info(f"[create_user] User created with email: {db_obj.email}")
     return db_obj
 
 
@@ -28,6 +32,9 @@ def update_user(*, session: Session, db_user: User, user_in: UserUpdate) -> Any:
     session.add(db_user)
     session.commit()
     session.refresh(db_user)
+    logger.info(
+        f"[update_user] User updated with email: {db_user.email}, updated fields: {user_data.keys()}"
+    )
     return db_user
 
 
