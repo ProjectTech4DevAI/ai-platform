@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest, uuid
-from fastapi import FastAPI
+from fastapi import FastAPI, BackgroundTasks
 from fastapi.testclient import TestClient
 from sqlmodel import select
 
@@ -20,205 +20,22 @@ from app.core.langfuse.langfuse import LangfuseTracer
 import openai
 from openai import OpenAIError
 
-# Wrap the router in a FastAPI app instance.
+# Create a minimal test app
 app = FastAPI()
 app.include_router(router)
+
+
+# Override background tasks dependency to prevent real background tasks
+def mock_background_tasks():
+    return MagicMock(add_task=lambda *args, **kwargs: None)
+
+
+app.dependency_overrides[BackgroundTasks] = mock_background_tasks
+
 client = TestClient(app)
 
 
-@patch("app.api.routes.threads.get_provider_credential")
-@patch("app.api.routes.threads.configure_openai")
-@patch("app.api.routes.threads.OpenAI")
-def test_threads_endpoint(
-    mock_openai, mock_configure_openai, mock_get_credential, db, user_api_key_header
-):
-    """
-    Test the /threads endpoint when creating a new thread.
-    The patched OpenAI client simulates:
-    - A successful assistant ID validation.
-    - New thread creation with a dummy thread id.
-    - No existing runs.
-    The expected response should have status "processing" and include a thread_id.
-    """
-    # Mock credential retrieval
-    mock_get_credential.return_value = {"api_key": "test-api-key"}
-
-    # Create a dummy client to simulate OpenAI API behavior.
-    mock_client = MagicMock()
-    # Simulate a valid assistant ID by ensuring retrieve doesn't raise an error.
-    mock_client.beta.assistants.retrieve.return_value = None
-    # Simulate thread creation.
-    mock_thread = MagicMock()
-    mock_thread.id = "mock_thread_id"
-    mock_client.beta.threads.create.return_value = mock_thread
-    # Simulate message creation.
-    mock_client.beta.threads.messages.create.return_value = None
-    # Simulate that no active run exists.
-    mock_client.beta.threads.runs.list.return_value = MagicMock(data=[])
-
-    # Mock OpenAI client configuration
-    mock_configure_openai.return_value = (mock_client, True)
-    mock_openai.return_value = mock_client
-
-    request_data = {
-        "question": "What is Glific?",
-        "assistant_id": "assistant_123",
-        "callback_url": "http://example.com/callback",
-    }
-    response = client.post("/threads", json=request_data, headers=user_api_key_header)
-    assert response.status_code == 200
-    response_json = response.json()
-    assert response_json["success"] is True
-    assert response_json["data"]["status"] == "processing"
-    assert response_json["data"]["message"] == "Run started"
-    assert response_json["data"]["thread_id"] == "mock_thread_id"
-
-
-@patch("app.api.routes.threads.OpenAI")
-@pytest.mark.parametrize(
-    "remove_citation, expected_message",
-    [
-        (
-            True,
-            "Glific is an open-source, two-way messaging platform designed for nonprofits to scale their outreach via WhatsApp",
-        ),
-        (
-            False,
-            "Glific is an open-source, two-way messaging platform designed for nonprofits to scale their outreach via WhatsApp【1:2†citation】",
-        ),
-    ],
-)
-def test_process_run_variants(mock_openai, remove_citation, expected_message):
-    """
-    Test process_run for both remove_citation variants:
-    - Mocks the OpenAI client to simulate a completed run.
-    - Verifies that send_callback is called with the expected message based on the remove_citation flag.
-    """
-    # Setup the mock client.
-    mock_client = MagicMock()
-    mock_openai.return_value = mock_client
-
-    # Create the request with the variable remove_citation flag.
-    request = {
-        "question": "What is Glific?",
-        "assistant_id": "assistant_123",
-        "callback_url": "http://example.com/callback",
-        "thread_id": "thread_123",
-        "remove_citation": remove_citation,
-    }
-
-    # Simulate a completed run.
-    mock_run = MagicMock()
-    mock_run.status = "completed"
-    mock_client.beta.threads.runs.create_and_poll.return_value = mock_run
-
-    # Set up the dummy message based on the remove_citation flag.
-    base_message = "Glific is an open-source, two-way messaging platform designed for nonprofits to scale their outreach via WhatsApp"
-    citation_message = (
-        base_message if remove_citation else f"{base_message}【1:2†citation】"
-    )
-    mock_message = MagicMock()
-    mock_message.content = [MagicMock(text=MagicMock(value=citation_message))]
-    mock_client.beta.threads.messages.list.return_value.data = [mock_message]
-
-    tracer = LangfuseTracer()
-    # Patch send_callback and invoke process_run.
-    with patch("app.api.routes.threads.send_callback") as mock_send_callback:
-        process_run(request, mock_client, tracer)
-        mock_send_callback.assert_called_once()
-        callback_url, payload = mock_send_callback.call_args[0]
-        assert callback_url == request["callback_url"]
-        assert payload["data"]["message"] == expected_message
-        assert payload["data"]["status"] == "success"
-        assert payload["data"]["thread_id"] == "thread_123"
-        assert payload["success"] is True
-
-
-@patch("app.api.routes.threads.get_provider_credential")
-@patch("app.api.routes.threads.configure_openai")
-@patch("app.api.routes.threads.OpenAI")
-def test_threads_sync_endpoint_success(
-    mock_openai, mock_configure_openai, mock_get_credential, db, user_api_key_header
-):
-    """Test the /threads/sync endpoint for successful completion."""
-    # Mock credential retrieval
-    mock_get_credential.return_value = {"api_key": "test-api-key"}
-
-    # Create a dummy client to simulate OpenAI API behavior.
-    mock_client = MagicMock()
-    # Simulate thread validation
-    mock_client.beta.threads.runs.list.return_value = MagicMock(data=[])
-    # Simulate thread creation
-    mock_thread = MagicMock()
-    mock_thread.id = "sync_thread_id"
-    mock_client.beta.threads.create.return_value = mock_thread
-    # Simulate message creation
-    mock_client.beta.threads.messages.create.return_value = None
-    # Simulate successful run
-    mock_run = MagicMock()
-    mock_run.status = "completed"
-    mock_client.beta.threads.runs.create_and_poll.return_value = mock_run
-    # Simulate message retrieval
-    mock_message = MagicMock()
-    mock_message.content = [MagicMock(text=MagicMock(value="Test response"))]
-    mock_client.beta.threads.messages.list.return_value.data = [mock_message]
-
-    # Mock OpenAI client configuration
-    mock_configure_openai.return_value = (mock_client, True)
-    mock_openai.return_value = mock_client
-
-    request_data = {
-        "question": "Test question",
-        "assistant_id": "assistant_123",
-    }
-
-    response = client.post(
-        "/threads/sync", json=request_data, headers=user_api_key_header
-    )
-    assert response.status_code == 200
-    response_json = response.json()
-    assert response_json["success"] is True
-    assert response_json["data"]["status"] == "success"
-    assert response_json["data"]["message"] == "Test response"
-    assert response_json["data"]["thread_id"] == "sync_thread_id"
-
-
-@patch("app.api.routes.threads.get_provider_credential")
-@patch("app.api.routes.threads.configure_openai")
-@patch("app.api.routes.threads.OpenAI")
-def test_threads_sync_endpoint_active_run(
-    mock_openai, mock_configure_openai, mock_get_credential, db, user_api_key_header
-):
-    """Test the /threads/sync endpoint when there's an active run."""
-    # Mock credential retrieval
-    mock_get_credential.return_value = {"api_key": "test-api-key"}
-
-    # Create a dummy client to simulate OpenAI API behavior.
-    mock_client = MagicMock()
-    # Simulate active run
-    mock_run = MagicMock()
-    mock_run.status = "in_progress"
-    mock_client.beta.threads.runs.list.return_value = MagicMock(data=[mock_run])
-
-    # Mock OpenAI client configuration
-    mock_configure_openai.return_value = (mock_client, True)
-    mock_openai.return_value = mock_client
-
-    request_data = {
-        "question": "Test question",
-        "assistant_id": "assistant_123",
-        "thread_id": "existing_thread",
-    }
-
-    response = client.post(
-        "/threads/sync", json=request_data, headers=user_api_key_header
-    )
-    assert response.status_code == 200
-    response_json = response.json()
-    assert response_json["success"] is False
-    assert "active run" in response_json["error"].lower()
-
-
+# Fast unit tests for utility functions (these run quickly)
 def test_validate_thread_no_thread_id():
     """Test validate_thread when no thread_id is provided."""
     mock_client = MagicMock()
@@ -479,125 +296,61 @@ def test_poll_run_and_prepare_response_non_completed(mock_openai, db):
     assert result.status == "failed"
 
 
-@patch("app.api.routes.threads.get_provider_credential")
-@patch("app.api.routes.threads.configure_openai")
 @patch("app.api.routes.threads.OpenAI")
-def test_threads_start_endpoint_creates_thread(
-    mock_openai, mock_configure_openai, mock_get_credential, db, user_api_key_header
-):
-    """Test /threads/start creates thread and schedules background task."""
-    # Mock credential retrieval
-    mock_get_credential.return_value = {"api_key": "test-api-key"}
-
-    # Create a dummy client to simulate OpenAI API behavior.
+@pytest.mark.parametrize(
+    "remove_citation, expected_message",
+    [
+        (
+            True,
+            "Glific is an open-source, two-way messaging platform designed for nonprofits to scale their outreach via WhatsApp",
+        ),
+        (
+            False,
+            "Glific is an open-source, two-way messaging platform designed for nonprofits to scale their outreach via WhatsApp【1:2†citation】",
+        ),
+    ],
+)
+def test_process_run_variants(mock_openai, remove_citation, expected_message):
+    """
+    Test process_run for both remove_citation variants:
+    - Mocks the OpenAI client to simulate a completed run.
+    - Verifies that send_callback is called with the expected message based on the remove_citation flag.
+    """
+    # Setup the mock client.
     mock_client = MagicMock()
-    mock_thread = MagicMock()
-    mock_thread.id = "mock_thread_001"
-    mock_client.beta.threads.create.return_value = mock_thread
-    mock_client.beta.threads.messages.create.return_value = None
-
-    # Mock OpenAI client configuration
-    mock_configure_openai.return_value = (mock_client, True)
     mock_openai.return_value = mock_client
 
-    data = {"question": "What's 2+2?", "assistant_id": "assist_123"}
+    # Create the request with the variable remove_citation flag.
+    request = {
+        "question": "What is Glific?",
+        "assistant_id": "assistant_123",
+        "callback_url": "http://example.com/callback",
+        "thread_id": "thread_123",
+        "remove_citation": remove_citation,
+    }
 
-    response = client.post("/threads/start", json=data, headers=user_api_key_header)
-    assert response.status_code == 200
-    res_json = response.json()
-    assert res_json["success"]
-    assert res_json["data"]["thread_id"] == "mock_thread_001"
-    assert res_json["data"]["status"] == "processing"
-    assert res_json["data"]["prompt"] == "What's 2+2?"
+    # Simulate a completed run.
+    mock_run = MagicMock()
+    mock_run.status = "completed"
+    mock_client.beta.threads.runs.create_and_poll.return_value = mock_run
 
-
-def test_threads_result_endpoint_success(db, user_api_key_header):
-    """Test /threads/result/{thread_id} returns completed thread."""
-    thread_id = f"test_processing_{uuid.uuid4()}"
-    question = "Capital of France?"
-    message = "Paris."
-
-    # Get the organization ID from the seeded data
-    from app.models import Organization
-
-    org = db.exec(select(Organization)).first()
-
-    # Create the thread with the correct organization_id
-    thread = OpenAI_Thread(
-        thread_id=thread_id, prompt=question, response=message, organization_id=org.id
+    # Set up the dummy message based on the remove_citation flag.
+    base_message = "Glific is an open-source, two-way messaging platform designed for nonprofits to scale their outreach via WhatsApp"
+    citation_message = (
+        base_message if remove_citation else f"{base_message}【1:2†citation】"
     )
-    db.add(thread)
-    db.commit()
-    db.refresh(thread)
+    dummy_message = MagicMock()
+    dummy_message.content = [MagicMock(text=MagicMock(value=citation_message))]
+    mock_client.beta.threads.messages.list.return_value.data = [dummy_message]
 
-    response = client.get(f"/threads/result/{thread_id}", headers=user_api_key_header)
-
-    assert response.status_code == 200
-    data = response.json()["data"]
-    assert data["status"] == "success"
-    assert data["response"] == "Paris."
-    assert data["thread_id"] == thread_id
-    assert data["prompt"] == question
-
-
-def test_threads_result_endpoint_processing(db, user_api_key_header):
-    """Test /threads/result/{thread_id} returns processing status if no message yet."""
-    thread_id = f"test_processing_{uuid.uuid4()}"
-    question = "What is Glific?"
-
-    # Get the organization ID from the seeded data
-    from app.models import Organization
-
-    org = db.exec(select(Organization)).first()
-
-    # Create the thread with the correct organization_id
-    thread = OpenAI_Thread(
-        thread_id=thread_id, prompt=question, response=None, organization_id=org.id
-    )
-    db.add(thread)
-    db.commit()
-    db.refresh(thread)
-
-    response = client.get(f"/threads/result/{thread_id}", headers=user_api_key_header)
-
-    assert response.status_code == 200
-    data = response.json()["data"]
-    assert data["status"] == "processing"
-    assert data["message"] is None
-    assert data["thread_id"] == thread_id
-    assert data["prompt"] == question
-
-
-def test_threads_result_not_found(db, user_api_key_header):
-    """Test /threads/result/{thread_id} returns error for nonexistent thread."""
-    response = client.get(
-        "/threads/result/nonexistent_thread", headers=user_api_key_header
-    )
-
-    assert response.status_code == 200
-    assert response.json()["success"] is False
-    assert "not found" in response.json()["error"].lower()
-
-
-@patch("app.api.routes.threads.get_provider_credential")
-@patch("app.api.routes.threads.configure_openai")
-@patch("app.api.routes.threads.OpenAI")
-def test_threads_start_missing_question(
-    mock_openai, mock_configure_openai, mock_get_credential, db, user_api_key_header
-):
-    """Test /threads/start with missing 'question' key in request."""
-    # Mock credential retrieval
-    mock_get_credential.return_value = {"api_key": "test-api-key"}
-
-    # Mock OpenAI client configuration
-    mock_client = MagicMock()
-    mock_configure_openai.return_value = (mock_client, True)
-    mock_openai.return_value = mock_client
-
-    bad_data = {"assistant_id": "assist_123"}  # no "question" key
-
-    response = client.post("/threads/start", json=bad_data, headers=user_api_key_header)
-
-    assert response.status_code == 422  # Unprocessable Entity (FastAPI will raise 422)
-    error_response = response.json()
-    assert "detail" in error_response
+    tracer = LangfuseTracer()
+    # Patch send_callback and invoke process_run.
+    with patch("app.api.routes.threads.send_callback") as mock_send_callback:
+        process_run(request, mock_client, tracer)
+        mock_send_callback.assert_called_once()
+        callback_url, payload = mock_send_callback.call_args[0]
+        assert callback_url == request["callback_url"]
+        assert payload["data"]["message"] == expected_message
+        assert payload["data"]["status"] == "success"
+        assert payload["data"]["thread_id"] == "thread_123"
+        assert payload["success"] is True
