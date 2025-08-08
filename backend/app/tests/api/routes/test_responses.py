@@ -3,9 +3,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlmodel import select
-import openai
 
-from app.api.routes.responses import router
+from app.api.routes.responses import router, process_response
 from app.models import Project
 
 # Wrap the router in a FastAPI app instance
@@ -14,6 +13,7 @@ app.include_router(router)
 client = TestClient(app)
 
 
+@patch("app.api.routes.responses.process_response")
 @patch("app.api.routes.responses.OpenAI")
 @patch("app.api.routes.responses.get_provider_credential")
 @patch("app.api.routes.responses.get_assistant_by_id")
@@ -29,10 +29,14 @@ def test_responses_endpoint_success(
     mock_get_assistant,
     mock_get_credential,
     mock_openai,
+    mock_process_response,
     db,
     user_api_key_header: dict[str, str],
 ):
     """Test the /responses endpoint for successful response creation."""
+
+    # Mock the background task to prevent actual execution
+    mock_process_response.return_value = None
 
     # Setup mock credentials - configure to return different values based on provider
     def mock_get_credentials_by_provider(*args, **kwargs):
@@ -108,7 +112,16 @@ def test_responses_endpoint_success(
     assert response_json["data"]["status"] == "processing"
     assert response_json["data"]["message"] == "Response creation started"
 
+    # Verify that the background task was scheduled with correct parameters
+    mock_process_response.assert_called_once()
+    call_args = mock_process_response.call_args
+    assert call_args[0][0].assistant_id == "assistant_dalgo"
+    assert call_args[0][0].question == "What is Dalgo?"
+    assert call_args[0][0].callback_url == "http://example.com/callback"
+    assert call_args[0][0].response_id is None
 
+
+@patch("app.api.routes.responses.process_response")
 @patch("app.api.routes.responses.OpenAI")
 @patch("app.api.routes.responses.get_provider_credential")
 @patch("app.api.routes.responses.get_assistant_by_id")
@@ -124,10 +137,14 @@ def test_responses_endpoint_without_vector_store(
     mock_get_assistant,
     mock_get_credential,
     mock_openai,
+    mock_process_response,
     db,
     user_api_key_header,
 ):
     """Test the /responses endpoint when assistant has no vector store configured."""
+    # Mock the background task to prevent actual execution
+    mock_process_response.return_value = None
+
     # Setup mock credentials
     mock_get_credential.return_value = {"api_key": "test_api_key"}
 
@@ -184,14 +201,13 @@ def test_responses_endpoint_without_vector_store(
     assert response_json["data"]["status"] == "processing"
     assert response_json["data"]["message"] == "Response creation started"
 
-    # Verify OpenAI client was called without tools
-    mock_client.responses.create.assert_called_once_with(
-        model=mock_assistant.model,
-        previous_response_id=None,
-        instructions=mock_assistant.instructions,
-        temperature=mock_assistant.temperature,
-        input=[{"role": "user", "content": "What is Glific?"}],
-    )
+    # Verify that the background task was scheduled with correct parameters
+    mock_process_response.assert_called_once()
+    call_args = mock_process_response.call_args
+    assert call_args[0][0].assistant_id == "assistant_123"
+    assert call_args[0][0].question == "What is Glific?"
+    assert call_args[0][0].callback_url == "http://example.com/callback"
+    assert call_args[0][0].response_id is None
 
 
 @patch("app.api.routes.responses.get_assistant_by_id")
@@ -282,6 +298,7 @@ def test_responses_endpoint_missing_api_key_in_credentials(
     assert "OpenAI API key not configured" in response_json["error"]
 
 
+@patch("app.api.routes.responses.process_response")
 @patch("app.api.routes.responses.OpenAI")
 @patch("app.api.routes.responses.get_provider_credential")
 @patch("app.api.routes.responses.get_assistant_by_id")
@@ -297,10 +314,14 @@ def test_responses_endpoint_with_file_search_results(
     mock_get_assistant,
     mock_get_credential,
     mock_openai,
+    mock_process_response,
     db,
     user_api_key_header,
 ):
     """Test the /responses endpoint with file search results in the response."""
+    # Mock the background task to prevent actual execution
+    mock_process_response.return_value = None
+
     # Setup mock credentials
     mock_get_credential.return_value = {"api_key": "test_api_key"}
 
@@ -330,7 +351,8 @@ def test_responses_endpoint_with_file_search_results(
     mock_file_search_call.type = "file_search_call"
     mock_file_search_call.results = [mock_hit1, mock_hit2]
 
-    # Setup the mock response object with file search results and proper response ID format
+    # Setup the mock response object with file search results and proper response ID
+    # format
     mock_response = MagicMock()
     mock_response.id = "resp_1234567890abcdef1234567890abcdef1234567890"
     mock_response.output_text = "Test output with search results"
@@ -371,16 +393,16 @@ def test_responses_endpoint_with_file_search_results(
     assert response_json["data"]["status"] == "processing"
     assert response_json["data"]["message"] == "Response creation started"
 
-    # Verify OpenAI client was called with tools
-    mock_client.responses.create.assert_called_once()
-    call_args = mock_client.responses.create.call_args[1]
-    assert "tools" in call_args
-    assert call_args["tools"][0]["type"] == "file_search"
-    assert call_args["tools"][0]["vector_store_ids"] == ["vs_test"]
-    assert "include" in call_args
-    assert "file_search_call.results" in call_args["include"]
+    # Verify that the background task was scheduled with correct parameters
+    mock_process_response.assert_called_once()
+    call_args = mock_process_response.call_args
+    assert call_args[0][0].assistant_id == "assistant_dalgo"
+    assert call_args[0][0].question == "What is Dalgo?"
+    assert call_args[0][0].callback_url == "http://example.com/callback"
+    assert call_args[0][0].response_id is None
 
 
+@patch("app.api.routes.responses.process_response")
 @patch("app.api.routes.responses.OpenAI")
 @patch("app.api.routes.responses.get_provider_credential")
 @patch("app.api.routes.responses.get_assistant_by_id")
@@ -396,10 +418,14 @@ def test_responses_endpoint_with_ancestor_conversation_found(
     mock_get_assistant,
     mock_get_credential,
     mock_openai,
+    mock_process_response,
     db,
     user_api_key_header: dict[str, str],
 ):
     """Test the /responses endpoint when a conversation is found by ancestor ID."""
+    # Mock the background task to prevent actual execution
+    mock_process_response.return_value = None
+
     # Setup mock credentials
     mock_get_credential.return_value = {"api_key": "test_api_key"}
 
@@ -464,21 +490,16 @@ def test_responses_endpoint_with_ancestor_conversation_found(
     assert response_json["data"]["status"] == "processing"
     assert response_json["data"]["message"] == "Response creation started"
 
-    # Verify get_conversation_by_ancestor_id was called with correct parameters
-    mock_get_conversation_by_ancestor_id.assert_called_once()
-    call_args = mock_get_conversation_by_ancestor_id.call_args
-    assert (
-        call_args[1]["ancestor_response_id"]
-        == "resp_ancestor1234567890abcdef1234567890"
-    )
-    assert call_args[1]["project_id"] == dalgo_project.id
-
-    # Verify OpenAI client was called with the conversation's response_id as previous_response_id
-    mock_client.responses.create.assert_called_once()
-    call_args = mock_client.responses.create.call_args[1]
-    assert call_args["previous_response_id"] == "resp_latest1234567890abcdef1234567890"
+    # Verify that the background task was scheduled with correct parameters
+    mock_process_response.assert_called_once()
+    call_args = mock_process_response.call_args
+    assert call_args[0][0].assistant_id == "assistant_dalgo"
+    assert call_args[0][0].question == "What is Dalgo?"
+    assert call_args[0][0].callback_url == "http://example.com/callback"
+    assert call_args[0][0].response_id == "resp_ancestor1234567890abcdef1234567890"
 
 
+@patch("app.api.routes.responses.process_response")
 @patch("app.api.routes.responses.OpenAI")
 @patch("app.api.routes.responses.get_provider_credential")
 @patch("app.api.routes.responses.get_assistant_by_id")
@@ -494,10 +515,14 @@ def test_responses_endpoint_with_ancestor_conversation_not_found(
     mock_get_assistant,
     mock_get_credential,
     mock_openai,
+    mock_process_response,
     db,
     user_api_key_header: dict[str, str],
 ):
     """Test the /responses endpoint when no conversation is found by ancestor ID."""
+    # Mock the background task to prevent actual execution
+    mock_process_response.return_value = None
+
     # Setup mock credentials
     mock_get_credential.return_value = {"api_key": "test_api_key"}
 
@@ -559,23 +584,16 @@ def test_responses_endpoint_with_ancestor_conversation_not_found(
     assert response_json["data"]["status"] == "processing"
     assert response_json["data"]["message"] == "Response creation started"
 
-    # Verify get_conversation_by_ancestor_id was called with correct parameters
-    mock_get_conversation_by_ancestor_id.assert_called_once()
-    call_args = mock_get_conversation_by_ancestor_id.call_args
-    assert (
-        call_args[1]["ancestor_response_id"]
-        == "resp_ancestor1234567890abcdef1234567890"
-    )
-    assert call_args[1]["project_id"] == dalgo_project.id
-
-    # Verify OpenAI client was called with the original response_id as previous_response_id
-    mock_client.responses.create.assert_called_once()
-    call_args = mock_client.responses.create.call_args[1]
-    assert (
-        call_args["previous_response_id"] == "resp_ancestor1234567890abcdef1234567890"
-    )
+    # Verify that the background task was scheduled with correct parameters
+    mock_process_response.assert_called_once()
+    call_args = mock_process_response.call_args
+    assert call_args[0][0].assistant_id == "assistant_dalgo"
+    assert call_args[0][0].question == "What is Dalgo?"
+    assert call_args[0][0].callback_url == "http://example.com/callback"
+    assert call_args[0][0].response_id == "resp_ancestor1234567890abcdef1234567890"
 
 
+@patch("app.api.routes.responses.process_response")
 @patch("app.api.routes.responses.OpenAI")
 @patch("app.api.routes.responses.get_provider_credential")
 @patch("app.api.routes.responses.get_assistant_by_id")
@@ -591,10 +609,14 @@ def test_responses_endpoint_without_response_id(
     mock_get_assistant,
     mock_get_credential,
     mock_openai,
+    mock_process_response,
     db,
     user_api_key_header: dict[str, str],
 ):
     """Test the /responses endpoint when no response_id is provided."""
+    # Mock the background task to prevent actual execution
+    mock_process_response.return_value = None
+
     # Setup mock credentials
     mock_get_credential.return_value = {"api_key": "test_api_key"}
 
@@ -653,10 +675,199 @@ def test_responses_endpoint_without_response_id(
     assert response_json["data"]["status"] == "processing"
     assert response_json["data"]["message"] == "Response creation started"
 
-    # Verify get_conversation_by_ancestor_id was not called since response_id is None
-    mock_get_conversation_by_ancestor_id.assert_not_called()
+    # Verify that the background task was scheduled with correct parameters
+    mock_process_response.assert_called_once()
+    call_args = mock_process_response.call_args
+    assert call_args[0][0].assistant_id == "assistant_dalgo"
+    assert call_args[0][0].question == "What is Dalgo?"
+    assert call_args[0][0].callback_url == "http://example.com/callback"
+    assert call_args[0][0].response_id is None
 
-    # Verify OpenAI client was called with None as previous_response_id
+
+@patch("app.api.routes.responses.get_conversation_by_ancestor_id")
+@patch("app.api.routes.responses.create_conversation")
+@patch("app.api.routes.responses.get_ancestor_id_from_response")
+@patch("app.api.routes.responses.send_callback")
+def test_process_response_ancestor_conversation_found(
+    mock_send_callback,
+    mock_get_ancestor_id_from_response,
+    mock_create_conversation,
+    mock_get_conversation_by_ancestor_id,
+    db,
+):
+    """Test process_response function when ancestor conversation is found."""
+    from app.api.routes.responses import ResponsesAPIRequest
+
+    # Setup mock request
+    request = ResponsesAPIRequest(
+        assistant_id="assistant_dalgo",
+        question="What is Dalgo?",
+        callback_url="http://example.com/callback",
+        response_id="resp_ancestor1234567890abcdef1234567890",
+    )
+
+    # Setup mock assistant
+    mock_assistant = MagicMock()
+    mock_assistant.model = "gpt-4o"
+    mock_assistant.instructions = "Test instructions"
+    mock_assistant.temperature = 0.1
+    mock_assistant.vector_store_ids = ["vs_test"]
+    mock_assistant.max_num_results = 20
+
+    # Setup mock OpenAI client
+    mock_client = MagicMock()
+    mock_response = MagicMock()
+    mock_response.id = "resp_new1234567890abcdef1234567890abcdef"
+    mock_response.output_text = "Test response"
+    mock_response.model = "gpt-4o"
+    mock_response.usage.input_tokens = 10
+    mock_response.usage.output_tokens = 5
+    mock_response.usage.total_tokens = 15
+    mock_response.output = []
+    mock_response.previous_response_id = "resp_latest1234567890abcdef1234567890"
+    mock_client.responses.create.return_value = mock_response
+
+    # Setup mock tracer
+    mock_tracer = MagicMock()
+
+    # Setup mock conversation found by ancestor ID
+    mock_conversation = MagicMock()
+    mock_conversation.response_id = "resp_latest1234567890abcdef1234567890"
+    mock_conversation.ancestor_response_id = "resp_ancestor1234567890abcdef1234567890"
+    mock_get_conversation_by_ancestor_id.return_value = mock_conversation
+
+    # Setup mock CRUD functions
+    mock_get_ancestor_id_from_response.return_value = (
+        "resp_ancestor1234567890abcdef1234567890"
+    )
+    mock_create_conversation.return_value = None
+
+    # Get the Dalgo project ID
+    dalgo_project = db.exec(select(Project).where(Project.name == "Dalgo")).first()
+    if not dalgo_project:
+        pytest.skip("Dalgo project not found in the database")
+
+    # Call process_response
+    process_response(
+        request=request,
+        client=mock_client,
+        assistant=mock_assistant,
+        tracer=mock_tracer,
+        project_id=dalgo_project.id,
+        organization_id=1,
+        session=db,
+    )
+
+    # Verify get_conversation_by_ancestor_id was called with correct parameters
+    mock_get_conversation_by_ancestor_id.assert_called_once_with(
+        session=db,
+        ancestor_response_id="resp_ancestor1234567890abcdef1234567890",
+        project_id=dalgo_project.id,
+    )
+
+    # Verify OpenAI client was called with the conversation's response_id as
+    # previous_response_id
     mock_client.responses.create.assert_called_once()
     call_args = mock_client.responses.create.call_args[1]
-    assert call_args["previous_response_id"] is None
+    assert call_args["previous_response_id"] == (
+        "resp_latest1234567890abcdef1234567890"
+    )
+
+    # Verify create_conversation was called
+    mock_create_conversation.assert_called_once()
+
+    # Verify send_callback was called
+    mock_send_callback.assert_called_once()
+
+
+@patch("app.api.routes.responses.get_conversation_by_ancestor_id")
+@patch("app.api.routes.responses.create_conversation")
+@patch("app.api.routes.responses.get_ancestor_id_from_response")
+@patch("app.api.routes.responses.send_callback")
+def test_process_response_ancestor_conversation_not_found(
+    mock_send_callback,
+    mock_get_ancestor_id_from_response,
+    mock_create_conversation,
+    mock_get_conversation_by_ancestor_id,
+    db,
+):
+    """Test process_response function when no ancestor conversation is found."""
+    from app.api.routes.responses import ResponsesAPIRequest
+
+    # Setup mock request
+    request = ResponsesAPIRequest(
+        assistant_id="assistant_dalgo",
+        question="What is Dalgo?",
+        callback_url="http://example.com/callback",
+        response_id="resp_ancestor1234567890abcdef1234567890",
+    )
+
+    # Setup mock assistant
+    mock_assistant = MagicMock()
+    mock_assistant.model = "gpt-4o"
+    mock_assistant.instructions = "Test instructions"
+    mock_assistant.temperature = 0.1
+    mock_assistant.vector_store_ids = ["vs_test"]
+    mock_assistant.max_num_results = 20
+
+    # Setup mock OpenAI client
+    mock_client = MagicMock()
+    mock_response = MagicMock()
+    mock_response.id = "resp_new1234567890abcdef1234567890abcdef"
+    mock_response.output_text = "Test response"
+    mock_response.model = "gpt-4o"
+    mock_response.usage.input_tokens = 10
+    mock_response.usage.output_tokens = 5
+    mock_response.usage.total_tokens = 15
+    mock_response.output = []
+    mock_response.previous_response_id = "resp_ancestor1234567890abcdef1234567890"
+    mock_client.responses.create.return_value = mock_response
+
+    # Setup mock tracer
+    mock_tracer = MagicMock()
+
+    # Setup mock conversation not found by ancestor ID
+    mock_get_conversation_by_ancestor_id.return_value = None
+
+    # Setup mock CRUD functions
+    mock_get_ancestor_id_from_response.return_value = (
+        "resp_ancestor1234567890abcdef1234567890"
+    )
+    mock_create_conversation.return_value = None
+
+    # Get the Dalgo project ID
+    dalgo_project = db.exec(select(Project).where(Project.name == "Dalgo")).first()
+    if not dalgo_project:
+        pytest.skip("Dalgo project not found in the database")
+
+    # Call process_response
+    process_response(
+        request=request,
+        client=mock_client,
+        assistant=mock_assistant,
+        tracer=mock_tracer,
+        project_id=dalgo_project.id,
+        organization_id=1,
+        session=db,
+    )
+
+    # Verify get_conversation_by_ancestor_id was called with correct parameters
+    mock_get_conversation_by_ancestor_id.assert_called_once_with(
+        session=db,
+        ancestor_response_id="resp_ancestor1234567890abcdef1234567890",
+        project_id=dalgo_project.id,
+    )
+
+    # Verify OpenAI client was called with the original response_id as
+    # previous_response_id
+    mock_client.responses.create.assert_called_once()
+    call_args = mock_client.responses.create.call_args[1]
+    assert call_args["previous_response_id"] == (
+        "resp_ancestor1234567890abcdef1234567890"
+    )
+
+    # Verify create_conversation was called
+    mock_create_conversation.assert_called_once()
+
+    # Verify send_callback was called
+    mock_send_callback.assert_called_once()
