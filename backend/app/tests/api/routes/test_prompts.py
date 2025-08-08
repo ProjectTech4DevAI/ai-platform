@@ -62,7 +62,7 @@ def test_update_prompt_success(
     response = client.patch(
         f"/api/v1/prompt/{prompt_id}",
         headers={"X-API-KEY": user_api_key.key},
-        params=update_data.model_dump(),
+        json=update_data.model_dump(),
     )
 
     assert response.status_code == 200
@@ -101,7 +101,7 @@ def test_update_prompt_duplicate_name(
     response = client.patch(
         f"/api/v1/prompt/{prompt_b_id}",
         headers={"X-API-KEY": user_api_key.key},
-        params={"name": "prompt_a"},
+        json={"name": "prompt_a"},
     )
 
     assert response.status_code == 409
@@ -119,7 +119,7 @@ def test_update_prompt_not_found(
     response = client.patch(
         f"/api/v1/prompt/{non_existing_id}",
         headers={"X-API-KEY": user_api_key.key},
-        params={"name": "new_name"},
+        json={"name": "new_name"},
     )
 
     assert response.status_code == 404

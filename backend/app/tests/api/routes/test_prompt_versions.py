@@ -37,7 +37,7 @@ def test_create_prompt_version_route_success(
     )
 
     # Assertions
-    assert response.status_code == 200
+    assert response.status_code == 201
     response_data = response.json()
 
     assert response_data["success"] is True

@@ -95,37 +95,37 @@ def update_prompt(
         )
         raise HTTPException(status_code=404, detail="Prompt not found.")
 
-    if prompt_update.name and prompt_update.name != prompt.name:
-        existing = get_prompt_by_name_in_project(
+    # Check for duplicate name in the same project
+    if (
+        prompt_update.name
+        and prompt_update.name != prompt.name
+        and get_prompt_by_name_in_project(
             session=session,
             name=prompt_update.name,
             project_id=project_id,
         )
-        if existing:
-            logger.error(
-                f"[update_prompt] Prompt with this name already exists. | prompt_id={prompt_id}, project_id={project_id}, name={prompt_update.name}"
-            )
-            raise HTTPException(
-                status_code=409, detail="Prompt with this name already exists."
-            )
+    ):
+        logger.error(
+            f"[update_prompt] Prompt with this name already exists. "
+            f"| prompt_id={prompt_id}, project_id={project_id}, name={prompt_update.name}"
+        )
+        raise HTTPException(
+            status_code=409, detail="Prompt with this name already exists."
+        )
 
-    update_fields = False
-    if prompt_update.name:
-        prompt.name = prompt_update.name
-        update_fields = True
-    if prompt_update.description:
-        prompt.description = prompt_update.description
-        update_fields = True
-
-    if update_fields:
+    update_prompt = prompt_update.model_dump(exclude_unset=True)
+    if update_prompt:
+        for field, value in update_prompt.items():
+            setattr(prompt, field, value)
         prompt.updated_at = now()
         session.add(prompt)
         session.commit()
         session.refresh(prompt)
 
-    logger.info(
-        f"[update_prompt] Prompt updated | id={prompt.id}, name={prompt.name}, project_id={project_id}"
-    )
+        logger.info(
+            f"[update_prompt] Prompt updated | id={prompt.id}, name={prompt.name}, project_id={project_id}"
+        )
+
     return prompt
 
 
