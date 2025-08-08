@@ -168,6 +168,61 @@ def test_threads_sync_endpoint_active_run(
     assert "active run" in response_json["error"].lower()
 
 
+@patch("app.api.routes.threads.configure_openai")
+@patch("app.api.routes.threads.get_provider_credential")
+def test_threads_sync_endpoint_success(
+    mock_get_provider_credential, mock_configure_openai, client, db, user_api_key_header
+):
+    """Test the /threads/sync endpoint for successful completion."""
+    # Setup mock client
+    mock_client = MagicMock()
+    mock_get_provider_credential.return_value = {"api_key": "dummy_api_key"}
+    mock_configure_openai.return_value = (mock_client, True)
+
+    # Simulate thread validation (no active runs)
+    mock_client.beta.threads.runs.list.return_value = MagicMock(data=[])
+
+    # Simulate thread creation
+    dummy_thread = MagicMock()
+    dummy_thread.id = "sync_thread_id"
+    mock_client.beta.threads.create.return_value = dummy_thread
+
+    # Simulate message creation
+    mock_client.beta.threads.messages.create.return_value = None
+
+    # Simulate successful run
+    mock_run = MagicMock()
+    mock_run.status = "completed"
+    mock_run.usage.prompt_tokens = 10
+    mock_run.usage.completion_tokens = 20
+    mock_run.usage.total_tokens = 30
+    mock_run.model = "gpt-4"
+    mock_client.beta.threads.runs.create_and_poll.return_value = mock_run
+
+    # Simulate message retrieval
+    dummy_message = MagicMock()
+    dummy_message.content = [MagicMock(text=MagicMock(value="Test response"))]
+    mock_client.beta.threads.messages.list.return_value.data = [dummy_message]
+
+    request_data = {
+        "question": "Test question",
+        "assistant_id": "assistant_123",
+    }
+
+    response = client.post(
+        "/api/v1/threads/sync", json=request_data, headers=user_api_key_header
+    )
+
+    assert response.status_code == 200
+    response_json = response.json()
+    assert response_json["success"] is True
+    assert response_json["data"]["status"] == "success"
+    assert response_json["data"]["message"] == "Test response"
+    assert response_json["data"]["thread_id"] == "sync_thread_id"
+    assert "diagnostics" in response_json["data"]
+    assert response_json["data"]["diagnostics"]["total_tokens"] == 30
+
+
 def test_validate_thread_no_thread_id():
     """Test validate_thread when no thread_id is provided."""
     mock_client = MagicMock()
