@@ -71,3 +71,12 @@ from .openai_conversation import (
     OpenAIConversationBase,
     OpenAIConversationCreate,
 )
+
+from .model_evaluation import (
+    Model_Evaluation,
+    ModelEvaluationBase,
+    ModelEvaluationCreate,
+    ModelEvaluationPublic,
+    ModelEvaluationStatus,
+    ModelEvaluationUpdate,
+)
