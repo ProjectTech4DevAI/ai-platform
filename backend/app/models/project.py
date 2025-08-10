@@ -52,7 +52,7 @@ class Project(ProjectBase, table=True):
     fine_tuning: list["Fine_Tuning"] = Relationship(
         back_populates="project", cascade_delete=True
     )
-    model_evalutaion: list["Model_Evaluation"] = Relationship(
+    model_evaluation: list["Model_Evaluation"] = Relationship(
         back_populates="project", cascade_delete=True
     )
     openai_conversations: list["OpenAIConversation"] = Relationship(
