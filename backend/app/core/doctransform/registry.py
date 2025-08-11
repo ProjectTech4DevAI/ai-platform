@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Type, Dict
 
 from .transformer import Transformer
-from .noop_transformer import NoOpTransformer
+from .test_transformer import TestTransformer
 from .zerox_transformer import ZeroxTransformer
 
 class TransformationError(Exception):
@@ -10,8 +10,8 @@ class TransformationError(Exception):
 
 # Map transformer names to their classes
 TRANSFORMERS: Dict[str, Type[Transformer]] = {
-    "default": NoOpTransformer,
-    "noop": NoOpTransformer,
+    "default": ZeroxTransformer,
+    "test": TestTransformer,
     "zerox": ZeroxTransformer,
 }
 
