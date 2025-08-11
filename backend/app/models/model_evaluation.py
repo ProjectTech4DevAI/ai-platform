@@ -90,6 +90,8 @@ class ModelEvaluationPublic(ModelEvaluationBase):
     id: int
     document_id: UUID
     model_name: str
+    split_ratio: float
+    base_model: str
     score: dict[str, float] | None = None
     status: ModelEvaluationStatus
     is_best_model: bool | None = None

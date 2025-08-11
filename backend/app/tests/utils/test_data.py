@@ -4,13 +4,15 @@ from app.models import (
     Organization,
     Project,
     APIKey,
-    Document,
     Credential,
     OrganizationCreate,
     ProjectCreate,
     CredsCreate,
     FineTuningJobCreate,
     Fine_Tuning,
+    Model_Evaluation,
+    ModelEvaluationBase,
+    ModelEvaluationStatus,
 )
 from app.crud import (
     create_organization,
@@ -18,6 +20,7 @@ from app.crud import (
     create_api_key,
     set_creds_for_org,
     create_fine_tuning_job,
+    create_model_evaluation,
 )
 from app.core.providers import Provider
 from app.tests.utils.user import create_random_user
@@ -136,7 +139,7 @@ def create_test_fine_tuning_jobs(
         job_request = FineTuningJobCreate(
             document_id=document.id,
             base_model="gpt-4",
-            split_ratio=[0.5],
+            split_ratio=[ratio],
             system_prompt="str",
         )
         job, created = create_fine_tuning_job(
@@ -151,3 +154,50 @@ def create_test_fine_tuning_jobs(
             any_created = True
 
     return jobs, any_created
+
+
+def create_test_finetuning_job_with_extra_fields(
+    db: Session,
+    ratios: list[float],
+) -> tuple[list[Fine_Tuning], bool]:
+    jobs, _ = create_test_fine_tuning_jobs(db, [0.5, 0.7])
+
+    if jobs:
+        for job in jobs:
+            job.testing_file_id = "testing_file_id_example"
+            job.fine_tuned_model = "fine_tuned_model_name"
+
+    return jobs, True
+
+
+def create_test_model_evaluation(db) -> list[Model_Evaluation]:
+    fine_tune_jobs, any_created = create_test_finetuning_job_with_extra_fields(
+        db, [0.5, 0.7]
+    )
+
+    model_evaluations = []
+
+    for fine_tune in fine_tune_jobs:
+        request = ModelEvaluationBase(
+            fine_tuning_id=fine_tune.id,
+            system_prompt=fine_tune.system_prompt,
+            base_model=fine_tune.base_model,
+            model_name=fine_tune.fine_tuned_model,
+            document_id=fine_tune.document_id,
+            testing_file_id=fine_tune.testing_file_id
+            if fine_tune.testing_file_id
+            else None,
+            metric=["mcc", "f1", "accuracy"],
+        )
+
+        model_eval = create_model_evaluation(
+            session=db,
+            request=request,
+            project_id=fine_tune.project_id,
+            organization_id=fine_tune.organization_id,
+            status=ModelEvaluationStatus.pending,
+        )
+
+        model_evaluations.append(model_eval)
+
+    return model_evaluations
