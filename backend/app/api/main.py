@@ -18,6 +18,7 @@ from app.api.routes import (
     onboarding,
     credentials,
     fine_tuning,
+    model_evaluation,
 )
 from app.core.config import settings
 
@@ -38,6 +39,7 @@ api_router.include_router(threads.router)
 api_router.include_router(users.router)
 api_router.include_router(utils.router)
 api_router.include_router(fine_tuning.router)
+api_router.include_router(model_evaluation.router)
 
 
 if settings.ENVIRONMENT == "local":
