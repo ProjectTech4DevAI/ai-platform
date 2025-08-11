@@ -1,3 +1,4 @@
+import os
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
@@ -33,6 +34,13 @@ def db() -> Generator[Session, None, None]:
         session.close()
         transaction.rollback()
         connection.close()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def run_after_tests():
+    # set the environment variable back to local after tests
+    yield
+    os.environ["ENVIRONMENT"] = "local" 
 
 
 @pytest.fixture(scope="session", autouse=True)
