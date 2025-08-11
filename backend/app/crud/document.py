@@ -84,7 +84,7 @@ class DocumentCrud:
         (m, n) = map(len, (results, doc_ids))
         if m != n:
             try:
-                raise ValueError(f"Requested {n} retrieved {m}")
+                raise ValueError(f"Requested atleast {n} document retrieved {m}")
             except ValueError as err:
                 logger.error(
                     f"[DocumentCrud.read_each] Mismatch in retrieved documents | {{'owner_id': {self.owner_id}, 'requested_count': {n}, 'retrieved_count': {m}}}",
