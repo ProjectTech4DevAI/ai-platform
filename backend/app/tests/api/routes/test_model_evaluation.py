@@ -20,7 +20,7 @@ def test_evaluate_model(
     body = {"fine_tuning_ids": [fine_tuned[0].id]}
 
     response = client.post(
-        "/api/v1/model_evaluation/evaluate-model/",
+        "/api/v1/model_evaluation/evaluate_models/",
         json=body,
         headers=user_api_key_header,
     )
@@ -61,12 +61,13 @@ def test_run_model_evaluation_evaluator_run_failure(
     mock_ModelEvaluator.return_value = mock_evaluator
 
     response = client.post(
-        "/api/v1/model_evaluation/evaluate-model/",
+        "/api/v1/model_evaluation/evaluate_models/",
         json={"fine_tuning_ids": [fine_tune.id]},
         headers=user_api_key_header,
     )
 
     json_data = response.json()
+    print("jonnn", json_data)
     model_eval_id = json_data["data"]["data"][0]["id"]
 
     updated_model_eval = fetch_by_eval_id(db, model_eval_id, user_api_key.project_id)
@@ -80,7 +81,7 @@ def test_evaluate_model_finetuning_not_found(client, db, user_api_key_header):
     body = {"fine_tuning_ids": [invalid_fine_tune_id]}
 
     response = client.post(
-        "/api/v1/model_evaluation/evaluate-model/",
+        "/api/v1/model_evaluation/evaluate_models/",
         json=body,
         headers=user_api_key_header,
     )

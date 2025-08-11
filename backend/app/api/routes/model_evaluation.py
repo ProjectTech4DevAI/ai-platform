@@ -100,8 +100,8 @@ def run_model_evaluation(
         )
 
 
-@router.post("/evaluate-model/", response_model=APIResponse)
-def evaluate_model(
+@router.post("/evaluate_models/", response_model=APIResponse)
+def evaluate_models(
     request: ModelEvaluationCreate,
     background_tasks: BackgroundTasks,
     session: SessionDep,
@@ -120,7 +120,7 @@ def evaluate_model(
     evals: list[ModelEvaluationPublic] = []
 
     for job_id in request.fine_tuning_ids:
-        fine_tune = fetch_by_id(session, job_id, current_user.project_id)
+        fine_tuning_job = fetch_by_id(session, job_id, current_user.project_id)
         active_evals = fetch_active_model_evals(
             session, job_id, current_user.project_id
         )
@@ -136,7 +136,7 @@ def evaluate_model(
 
         model_eval = create_model_evaluation(
             session=session,
-            request=ModelEvaluationBase(fine_tuning_id=fine_tune.id),
+            request=ModelEvaluationBase(fine_tuning_id=fine_tuning_job.id),
             project_id=current_user.project_id,
             organization_id=current_user.organization_id,
             metric=metric,
