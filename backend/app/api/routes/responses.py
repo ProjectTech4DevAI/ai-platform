@@ -266,8 +266,13 @@ def process_response(
         tracer.log_error(error_message, response_id=request.response_id)
 
         request_dict = request.model_dump()
-        callback_response = ResponsesAPIResponse.failure_response(
-            error=error_message, metadata=get_additional_data(request_dict)
+        # Create a custom error response with additional data in data field
+        additional_data = get_additional_data(request_dict)
+        callback_response = ResponsesAPIResponse(
+            success=False,
+            data=additional_data if additional_data else None,
+            error=error_message,
+            metadata=None,
         )
 
     tracer.flush()
@@ -313,10 +318,12 @@ async def responses(
         logger.error(
             f"[response] OpenAI API key not configured for org_id={organization_id}, project_id={project_id}"
         )
+        request_dict = request.model_dump()
+        additional_data = get_additional_data(request_dict)
         return {
             "success": False,
             "error": "OpenAI API key not configured for this organization.",
-            "data": None,
+            "data": additional_data if additional_data else None,
             "metadata": None,
         }
 
@@ -348,12 +355,15 @@ async def responses(
         f"[response] Background task scheduled for response processing: assistant_id={mask_string(request.assistant_id)}, project_id={project_id}, organization_id={organization_id}"
     )
 
+    request_dict = request.model_dump()
+    additional_data = get_additional_data(request_dict)
+
     return {
         "success": True,
         "data": {
             "status": "processing",
             "message": "Response creation started",
-            "success": True,
+            **additional_data,
         },
         "error": None,
         "metadata": None,
@@ -383,9 +393,13 @@ async def responses_sync(
         logger.error(
             f"[response_sync] OpenAI API key not configured for org_id={organization_id}, project_id={project_id}"
         )
-        return APIResponse.failure_response(
+        # Create a custom error response with additional data in data field
+        additional_data = get_additional_data(request_dict)
+        return APIResponse(
+            success=False,
+            data=additional_data if additional_data else None,
             error="OpenAI API key not configured for this organization.",
-            metadata=get_additional_data(request_dict),
+            metadata=None,
         )
 
     client = OpenAI(api_key=credentials["api_key"])
@@ -456,6 +470,10 @@ async def responses_sync(
         logger.info(
             f"[response_sync] Successfully generated response: response_id={response.id}, project_id={project_id}"
         )
+
+        request_dict = request.model_dump()
+        additional_data = get_additional_data(request_dict)
+
         return ResponsesAPIResponse.success_response(
             data=_APIResponse(
                 status="success",
@@ -468,6 +486,7 @@ async def responses_sync(
                     total_tokens=response.usage.total_tokens,
                     model=response.model,
                 ),
+                **additional_data,
             )
         )
     except openai.OpenAIError as e:
@@ -480,6 +499,11 @@ async def responses_sync(
         tracer.flush()
 
         request_dict = request.model_dump()
-        return ResponsesAPIResponse.failure_response(
-            error=error_message, metadata=get_additional_data(request_dict)
+        # Create a custom error response with additional data in data field
+        additional_data = get_additional_data(request_dict)
+        return ResponsesAPIResponse(
+            success=False,
+            data=additional_data if additional_data else None,
+            error=error_message,
+            metadata=None,
         )
