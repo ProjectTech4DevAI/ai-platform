@@ -2,7 +2,7 @@ import json
 import difflib
 import time
 import logging
-from typing import List, Tuple, Set
+from typing import Set
 
 import openai
 from openai import OpenAI
@@ -23,7 +23,7 @@ class ModelEvaluator:
         model_name: str,
         testing_file_id: str,
         system_prompt: str,
-        client: openai.OpenAI,
+        client: OpenAI,
     ):
         self.model_name = model_name
         self.testing_file_id = testing_file_id
@@ -31,8 +31,8 @@ class ModelEvaluator:
         self.client = client
 
         self.allowed_labels: Set[str] = set()
-        self.y_true: List[str] = []
-        self.prompts: List[str] = []
+        self.y_true: list[str] = []
+        self.prompts: list[str] = []
 
         logger.info(f"ModelEvaluator initialized with model: {model_name}")
 
@@ -115,7 +115,7 @@ class ModelEvaluator:
         )
         return next(iter(self.allowed_labels))
 
-    def generate_predictions(self) -> List[str]:
+    def generate_predictions(self) -> list[str]:
         logger.info(
             f"[generate_predictions] Generating predictions for {len(self.prompts)} prompts."
         )
@@ -154,7 +154,7 @@ class ModelEvaluator:
                     break
 
                 except openai.OpenAIError as e:
-                    error_msg = str(e)
+                    error_msg = handle_openai_error(e)
                     logger.error(
                         f"[generate_predictions] OpenAI API error at prompt {idx}/{total_prompts}: {error_msg}"
                     )
@@ -176,7 +176,7 @@ class ModelEvaluator:
         )
         return predictions
 
-    def evaluate(self, y_pred: List[str]) -> dict:
+    def evaluate(self, y_pred: list[str]) -> dict:
         """Evaluate the predictions against the true labels."""
         logger.info(f"[evaluate] Starting evaluation with {len(y_pred)} predictions.")
 

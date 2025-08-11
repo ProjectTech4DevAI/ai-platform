@@ -1,9 +1,10 @@
-import pytest
 from uuid import UUID
+
+import pytest
 from sqlmodel import Session
 from fastapi import HTTPException
 
-from app.tests.utils.utils import get_document, get_project
+from app.tests.utils.utils import get_project
 from app.tests.utils.test_data import (
     create_test_model_evaluation,
     create_test_finetuning_job_with_extra_fields,
@@ -21,14 +22,14 @@ from app.crud import (
 
 def test_create_model_evaluation(db: Session):
     project = get_project(db, "Dalgo")
-    document = get_document(db)
 
     fine_tune_jobs, _ = create_test_finetuning_job_with_extra_fields(db, [0.5])
     fine_tune = fine_tune_jobs[0]
 
+    metric = ["mcc", "f1", "accuracy"]
+
     job_request = ModelEvaluationBase(
         fine_tuning_id=fine_tune.id,
-        metric=["mcc", "f1", "accuracy"],
         system_prompt=fine_tune.system_prompt,
         base_model=fine_tune.base_model,
         model_name=fine_tune.fine_tuned_model,
@@ -42,6 +43,7 @@ def test_create_model_evaluation(db: Session):
         request=job_request,
         project_id=project.id,
         organization_id=project.organization_id,
+        metric=metric,
     )
 
     assert created_eval.id is not None

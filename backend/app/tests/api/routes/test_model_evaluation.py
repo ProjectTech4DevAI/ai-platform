@@ -1,6 +1,5 @@
-import pytest
 from unittest.mock import MagicMock, patch
-from app.models import Model_Evaluation
+
 from app.crud import fetch_by_eval_id
 from app.tests.utils.test_data import (
     create_test_finetuning_job_with_extra_fields,

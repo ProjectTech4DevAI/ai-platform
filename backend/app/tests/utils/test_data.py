@@ -177,6 +177,8 @@ def create_test_model_evaluation(db) -> list[Model_Evaluation]:
 
     model_evaluations = []
 
+    metric = ["mcc", "f1", "accuracy"]
+
     for fine_tune in fine_tune_jobs:
         request = ModelEvaluationBase(
             fine_tuning_id=fine_tune.id,
@@ -187,7 +189,6 @@ def create_test_model_evaluation(db) -> list[Model_Evaluation]:
             testing_file_id=fine_tune.testing_file_id
             if fine_tune.testing_file_id
             else None,
-            metric=["mcc", "f1", "accuracy"],
         )
 
         model_eval = create_model_evaluation(
@@ -195,6 +196,7 @@ def create_test_model_evaluation(db) -> list[Model_Evaluation]:
             request=request,
             project_id=fine_tune.project_id,
             organization_id=fine_tune.organization_id,
+            metric=metric,
             status=ModelEvaluationStatus.pending,
         )
 

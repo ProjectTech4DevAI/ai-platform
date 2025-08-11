@@ -1,10 +1,8 @@
-from typing import Optional
 import logging
 from uuid import UUID
 
 from fastapi import HTTPException
 from sqlmodel import Session, select
-from sqlalchemy import func
 
 from app.crud import fetch_by_id
 from app.models import (
