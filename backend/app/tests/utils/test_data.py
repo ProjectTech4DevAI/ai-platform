@@ -10,7 +10,7 @@ from app.models import (
     CredsCreate,
     FineTuningJobCreate,
     Fine_Tuning,
-    Model_Evaluation,
+    ModelEvaluation,
     ModelEvaluationBase,
     ModelEvaluationStatus,
 )
@@ -170,14 +170,12 @@ def create_test_finetuning_job_with_extra_fields(
     return jobs, True
 
 
-def create_test_model_evaluation(db) -> list[Model_Evaluation]:
+def create_test_model_evaluation(db) -> list[ModelEvaluation]:
     fine_tune_jobs, any_created = create_test_finetuning_job_with_extra_fields(
         db, [0.5, 0.7]
     )
 
     model_evaluations = []
-
-    metric = ["mcc", "f1", "accuracy"]
 
     for fine_tune in fine_tune_jobs:
         request = ModelEvaluationBase(
@@ -196,7 +194,6 @@ def create_test_model_evaluation(db) -> list[Model_Evaluation]:
             request=request,
             project_id=fine_tune.project_id,
             organization_id=fine_tune.organization_id,
-            metric=metric,
             status=ModelEvaluationStatus.pending,
         )
 

@@ -1,4 +1,4 @@
-"""add evaluation table
+"""add model evaluation table
 
 Revision ID: e317d05f49e4
 Revises: db9b5413d3ce
@@ -46,7 +46,6 @@ def upgrade():
         sa.Column("base_model", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("split_ratio", sa.Float(), nullable=False),
         sa.Column("system_prompt", sa.Text(), nullable=False),
-        sa.Column("metric", postgresql.JSON(astext_type=sa.Text()), nullable=False),
         sa.Column("score", postgresql.JSON(astext_type=sa.Text()), nullable=True),
         sa.Column(
             "status",

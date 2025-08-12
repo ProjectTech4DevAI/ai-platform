@@ -37,7 +37,25 @@ class ModelEvaluator:
         logger.info(f"ModelEvaluator initialized with model: {model_name}")
 
     def load_labels_and_prompts(self) -> None:
-        """Loads labels and prompts directly from OpenAI file content using the file ID."""
+        """
+        Loads labels and prompts directly from OpenAI NDJSON file content using the testing file ID.
+
+        Example data format:
+        {
+            "messages": [
+                {"role": "system", "content": "You are an assistant that is good at categorizing if what user is saying is a query or non-query"},
+                {"role": "user", "content": "what is the colour of the apple"},
+                {"role": "assistant", "content": "query"}
+            ]
+        }
+        {
+            "messages": [
+                {"role": "system", "content": "You are an assistant that is good at categorizing if what user is saying is a query or non-query"},
+                {"role": "user", "content": "i like apples"},
+                {"role": "assistant", "content": "non-query"}
+            ]
+        }
+        """
         logger.info(
             f"[load_labels_and_prompts] Loading labels and prompts from file ID: {self.testing_file_id}"
         )
@@ -75,8 +93,9 @@ class ModelEvaluator:
                             f"Line {ln}: missing user or assistant message"
                         )
 
-                    prompt = user_msgs[-1]["content"]
-                    label = model_msgs[-1]["content"].strip().lower()
+                    prompt = user_msgs[0]["content"]
+                    label = (model_msgs[0]["content"] or "").strip().lower()
+
                     self.prompts.append(prompt)
                     self.y_true.append(label)
                     self.allowed_labels.add(label)
@@ -119,6 +138,7 @@ class ModelEvaluator:
         logger.info(
             f"[generate_predictions] Generating predictions for {len(self.prompts)} prompts."
         )
+        start_preds = time.time()
         predictions = []
         total_prompts = len(self.prompts)
 
@@ -160,9 +180,7 @@ class ModelEvaluator:
                     )
                     attempt += 1
                     if attempt == self.retries:
-                        predictions.append(
-                            "openai_error"
-                        )  # Placeholder for failed predictions
+                        predictions.append("openai_error")
                         logger.error(
                             f"[generate_predictions] Maximum retries reached for prompt {idx}/{total_prompts}. Appending 'openai_error'."
                         )
@@ -171,8 +189,9 @@ class ModelEvaluator:
                             f"[generate_predictions] Retrying prompt {idx}/{total_prompts} after OpenAI error ({attempt}/{self.retries})."
                         )
 
+        total_elapsed = time.time() - start_preds
         logger.info(
-            f"[generate_predictions] Generated predictions for {len(predictions)} prompts."
+            f"[generate_predictions] Finished {total_prompts} prompts in {total_elapsed:.2f}s | Generated {len(predictions)} predictions."
         )
         return predictions
 

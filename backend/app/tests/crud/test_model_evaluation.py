@@ -4,12 +4,17 @@ import pytest
 from sqlmodel import Session
 from fastapi import HTTPException
 
-from app.tests.utils.utils import get_project
+from app.tests.utils.utils import get_project, get_non_existent_id
 from app.tests.utils.test_data import (
     create_test_model_evaluation,
     create_test_finetuning_job_with_extra_fields,
 )
-from app.models import ModelEvaluationBase, ModelEvaluationUpdate, ModelEvaluationStatus
+from app.models import (
+    ModelEvaluation,
+    ModelEvaluationBase,
+    ModelEvaluationUpdate,
+    ModelEvaluationStatus,
+)
 from app.crud import (
     create_model_evaluation,
     fetch_by_eval_id,
@@ -26,8 +31,6 @@ def test_create_model_evaluation(db: Session):
     fine_tune_jobs, _ = create_test_finetuning_job_with_extra_fields(db, [0.5])
     fine_tune = fine_tune_jobs[0]
 
-    metric = ["mcc", "f1", "accuracy"]
-
     job_request = ModelEvaluationBase(
         fine_tuning_id=fine_tune.id,
         system_prompt=fine_tune.system_prompt,
@@ -43,7 +46,6 @@ def test_create_model_evaluation(db: Session):
         request=job_request,
         project_id=project.id,
         organization_id=project.organization_id,
-        metric=metric,
     )
 
     assert created_eval.id is not None
@@ -64,7 +66,9 @@ def test_fetch_by_eval_id_success(db: Session):
 
 def test_fetch_by_eval_id_not_found(db: Session):
     with pytest.raises(HTTPException) as exc:
-        fetch_by_eval_id(db, eval_id=9999, project_id=1)
+        fetch_by_eval_id(
+            db, eval_id=get_non_existent_id(db, ModelEvaluation), project_id=1
+        )
     assert exc.value.status_code == 404
 
 
@@ -122,17 +126,22 @@ def test_update_model_eval_success(db: Session):
     model_eval = model_evals[0]
 
     update = ModelEvaluationUpdate(status="completed")
-    updated_eval = update_model_eval(db, model_eval=model_eval, update=update)
+    updated_eval = update_model_eval(
+        db, eval_id=model_eval.id, project_id=model_eval.project_id, update=update
+    )
 
     assert updated_eval.status == "completed"
     assert updated_eval.updated_at is not None
 
 
 def test_update_model_eval_not_found(db: Session):
+    project = get_project(db)
+
     with pytest.raises(HTTPException) as exc:
         update_model_eval(
             db,
-            model_eval=None,
+            eval_id=get_non_existent_id(db, ModelEvaluation),
+            project_id=project.id,
             update=ModelEvaluationUpdate(status=ModelEvaluationStatus.completed),
         )
 

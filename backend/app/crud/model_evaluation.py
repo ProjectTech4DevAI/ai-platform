@@ -6,7 +6,7 @@ from sqlmodel import Session, select
 
 from app.crud import fetch_by_id
 from app.models import (
-    Model_Evaluation,
+    ModelEvaluation,
     ModelEvaluationStatus,
     ModelEvaluationBase,
     ModelEvaluationUpdate,
@@ -22,12 +22,11 @@ def create_model_evaluation(
     request: ModelEvaluationBase,
     project_id: int,
     organization_id: int,
-    metric: list[str],
     status: ModelEvaluationStatus = ModelEvaluationStatus.pending,
-) -> Model_Evaluation:
-    fine_tune = fetch_by_id(session, request.fine_tuning_id, project_id)
+) -> ModelEvaluation:
+    fine_tuning_job = fetch_by_id(session, request.fine_tuning_id, project_id)
 
-    if fine_tune.fine_tuned_model is None:
+    if fine_tuning_job.fine_tuned_model is None:
         logger.error(
             f"[create_model_evaluation] No fine tuned model found for the given fine tuning ID | fine_tuning_id={request.fine_tuning_id}, project_id={project_id}"
         )
@@ -35,19 +34,18 @@ def create_model_evaluation(
 
     base_data = {
         "fine_tuning_id": request.fine_tuning_id,
-        "metric": metric,
-        "system_prompt": fine_tune.system_prompt,
-        "base_model": fine_tune.base_model,
-        "split_ratio": fine_tune.split_ratio,
-        "model_name": fine_tune.fine_tuned_model,
-        "document_id": fine_tune.document_id,
-        "testing_file_id": fine_tune.testing_file_id,
+        "system_prompt": fine_tuning_job.system_prompt,
+        "base_model": fine_tuning_job.base_model,
+        "split_ratio": fine_tuning_job.split_ratio,
+        "model_name": fine_tuning_job.fine_tuned_model,
+        "document_id": fine_tuning_job.document_id,
+        "testing_file_id": fine_tuning_job.testing_file_id,
         "project_id": project_id,
         "organization_id": organization_id,
         "status": status,
     }
 
-    model_eval = Model_Evaluation(**base_data)
+    model_eval = ModelEvaluation(**base_data)
     model_eval.updated_at = now()
 
     session.add(model_eval)
@@ -55,17 +53,17 @@ def create_model_evaluation(
     session.refresh(model_eval)
 
     logger.info(
-        f"[Create_fine_tuning_job]Created new model evaluation from job ID={fine_tune.id}, project_id={project_id}"
+        f"[Create_fine_tuning_job]Created new model evaluation from fine tuning job ID={fine_tuning_job.id}, project_id={project_id}"
     )
     return model_eval
 
 
 def fetch_by_eval_id(
     session: Session, eval_id: int, project_id: int
-) -> Model_Evaluation:
+) -> ModelEvaluation:
     model_eval = session.exec(
-        select(Model_Evaluation).where(
-            Model_Evaluation.id == eval_id, Model_Evaluation.project_id == project_id
+        select(ModelEvaluation).where(
+            ModelEvaluation.id == eval_id, ModelEvaluation.project_id == project_id
         )
     ).one_or_none()
 
@@ -73,7 +71,7 @@ def fetch_by_eval_id(
         logger.error(
             f"[fetch_by_id]Model evaluation not found for eval_id={eval_id}, project_id={project_id}"
         )
-        raise HTTPException(status_code=404, detail="model eval not found")
+        raise HTTPException(status_code=404, detail="Model evaluation not found")
 
     logger.info(
         f"[fetch_by_id]Fetched model evaluation for eval ID={model_eval.id}, project_id={project_id}"
@@ -85,14 +83,14 @@ def fetch_eval_by_doc_id(
     session: Session,
     document_id: UUID,
     project_id: int,
-) -> list[Model_Evaluation]:
+) -> list[ModelEvaluation]:
     query = (
-        select(Model_Evaluation)
+        select(ModelEvaluation)
         .where(
-            Model_Evaluation.document_id == document_id,
-            Model_Evaluation.project_id == project_id,
+            ModelEvaluation.document_id == document_id,
+            ModelEvaluation.project_id == project_id,
         )
-        .order_by(Model_Evaluation.updated_at.desc())
+        .order_by(ModelEvaluation.updated_at.desc())
     )
 
     model_evals = session.exec(query).all()
@@ -105,7 +103,7 @@ def fetch_eval_by_doc_id(
 
     logger.info(
         f"[fetch_eval_by_doc_id]Found {len(model_evals)} model evaluation(s) for document_id={document_id}, "
-        f"project_id={project_id}, sorted by MCC"
+        f"project_id={project_id}"
     )
 
     return model_evals
@@ -113,14 +111,14 @@ def fetch_eval_by_doc_id(
 
 def fetch_top_model_by_doc_id(
     session: Session, document_id: UUID, project_id: int
-) -> Model_Evaluation:
+) -> ModelEvaluation:
     query = (
-        select(Model_Evaluation)
+        select(ModelEvaluation)
         .where(
-            Model_Evaluation.document_id == document_id,
-            Model_Evaluation.project_id == project_id,
+            ModelEvaluation.document_id == document_id,
+            ModelEvaluation.project_id == project_id,
         )
-        .order_by(Model_Evaluation.updated_at.desc())
+        .order_by(ModelEvaluation.updated_at.desc())
     )
 
     model_evals = session.exec(query).all()
@@ -153,28 +151,29 @@ def fetch_active_model_evals(
     session: Session,
     fine_tuning_id: int,
     project_id: int,
-) -> list["Model_Evaluation"]:
+) -> list["ModelEvaluation"]:
     """
     Return all ACTIVE model evaluations for the given document & project.
     Active = status != failed AND is_deleted is false.
     """
     stmt = (
-        select(Model_Evaluation)
+        select(ModelEvaluation)
         .where(
-            Model_Evaluation.fine_tuning_id == fine_tuning_id,
-            Model_Evaluation.project_id == project_id,
-            Model_Evaluation.is_deleted.is_(False),
-            Model_Evaluation.status != "failed",
+            ModelEvaluation.fine_tuning_id == fine_tuning_id,
+            ModelEvaluation.project_id == project_id,
+            ModelEvaluation.is_deleted.is_(False),
+            ModelEvaluation.status != "failed",
         )
-        .order_by(Model_Evaluation.inserted_at.desc())
+        .order_by(ModelEvaluation.inserted_at.desc())
     )
 
     return session.exec(stmt).all()
 
 
 def update_model_eval(
-    session: Session, model_eval: Model_Evaluation, update: ModelEvaluationUpdate
-) -> Model_Evaluation:
+    session: Session, eval_id: int, project_id: int, update: ModelEvaluationUpdate
+) -> ModelEvaluation:
+    model_eval = fetch_by_eval_id(session, eval_id, project_id)
     if model_eval is None:
         raise HTTPException(status_code=404, detail="Model evaluation not found")
 

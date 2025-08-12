@@ -73,7 +73,7 @@ from .openai_conversation import (
 )
 
 from .model_evaluation import (
-    Model_Evaluation,
+    ModelEvaluation,
     ModelEvaluationBase,
     ModelEvaluationCreate,
     ModelEvaluationPublic,

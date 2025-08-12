@@ -9,7 +9,6 @@ from openai import OpenAI
 from app.crud import (
     fetch_by_id,
     create_model_evaluation,
-    fetch_by_eval_id,
     fetch_active_model_evals,
     fetch_eval_by_doc_id,
     update_model_eval,
@@ -22,6 +21,7 @@ from app.models import (
     ModelEvaluationUpdate,
     ModelEvaluationPublic,
 )
+from app.core.db import engine
 from app.core.finetune.evaluation import ModelEvaluator
 from app.utils import get_openai_client, APIResponse
 from app.api.deps import CurrentUserOrgProject, SessionDep
@@ -32,72 +32,61 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/model_evaluation", tags=["model_evaluation"])
 
 
-metric = ["mcc", "f1", "accuracy"]
-
-
 def run_model_evaluation(
     eval_id: int,
-    session: Session,
     current_user: CurrentUserOrgProject,
     client: OpenAI,
 ):
     start_time = time.time()
-
     logger.info(
-        f"[run_model_evaluation] Starting evaluation | eval ID={eval_id}, project_id={current_user.project_id}"
+        f"[run_model_evaluation] Starting | eval_id={eval_id}, project_id={current_user.project_id}"
     )
 
-    model_eval = fetch_by_eval_id(session, eval_id, current_user.project_id)
-    update_model_eval(
-        session=session,
-        model_eval=model_eval,
-        update=ModelEvaluationUpdate(status=ModelEvaluationStatus.running),
-    )
+    with Session(engine) as db:
+        try:
+            model_eval = update_model_eval(
+                session=db,
+                eval_id=eval_id,
+                project_id=current_user.project_id,
+                update=ModelEvaluationUpdate(status=ModelEvaluationStatus.running),
+            )
 
-    try:
-        evaluator = ModelEvaluator(
-            model_name=model_eval.model_name,
-            testing_file_id=model_eval.testing_file_id,
-            system_prompt=model_eval.system_prompt,
-            client=client,
-        )
-        result = evaluator.run()
-        end_time = time.time()
-        elapsed_time = end_time - start_time
+            evaluator = ModelEvaluator(
+                model_name=model_eval.model_name,
+                testing_file_id=model_eval.testing_file_id,
+                system_prompt=model_eval.system_prompt,
+                client=client,
+            )
+            result = evaluator.run()
 
-        logger.info(
-            f"[run_model_evaluation] Evaluation completed successfully | eval ID={eval_id}, "
-            f"model_name={model_eval.model_name}, project_id={current_user.project_id}. "
-            f"Elapsed time: {elapsed_time:.2f} seconds"
-        )
+            update_model_eval(
+                session=db,
+                eval_id=eval_id,
+                project_id=current_user.project_id,
+                update=ModelEvaluationUpdate(
+                    score=result, status=ModelEvaluationStatus.completed
+                ),
+            )
 
-        update_data = ModelEvaluationUpdate(
-            score=result,
-            metric=list(result.keys()),
-            status=ModelEvaluationStatus.completed,
-        )
-        update_model_eval(
-            session=session,
-            model_eval=model_eval,
-            update=update_data,
-        )
-    except Exception as e:
-        end_time = time.time()
-        elapsed_time = end_time - start_time
+            elapsed = time.time() - start_time
+            logger.info(
+                f"[run_model_evaluation] Completed | eval_id={eval_id}, project_id={current_user.project_id}, elapsed={elapsed:.2f}s"
+            )
 
-        logger.error(
-            f"[run_model_evaluation] Evaluation failed | eval ID={eval_id}, project_id={current_user.project_id}: "
-            f"{str(e)}. Elapsed time: {elapsed_time:.2f} seconds"
-        )
-
-        update_model_eval(
-            session=session,
-            model_eval=model_eval,
-            update=ModelEvaluationUpdate(
-                status=ModelEvaluationStatus.failed,
-                error_message="failed during background job processing",
-            ),
-        )
+        except Exception as e:
+            logger.error(
+                f"[run_model_evaluation] Failed | eval_id={eval_id}, project_id={current_user.project_id}: {e}"
+            )
+            db.rollback()
+            update_model_eval(
+                session=db,
+                eval_id=eval_id,
+                project_id=current_user.project_id,
+                update=ModelEvaluationUpdate(
+                    status=ModelEvaluationStatus.failed,
+                    error_message="failed during background job processing",
+                ),
+            )
 
 
 @router.post("/evaluate_models/", response_model=APIResponse)
@@ -107,6 +96,19 @@ def evaluate_models(
     session: SessionDep,
     current_user: CurrentUserOrgProject,
 ):
+    """
+    Start evaluations for one or more fine-tuning jobs.
+
+    Request:{ fine_tuning_ids: list[int] } (one or many).
+
+    Process:
+        For each ID, it fetches the fine-tuned model and its testing file from fine tuning table,
+        then queues a background task that runs predictions on the test set
+        and computes evaluation scores.
+
+    Response:
+        APIResponse with the created/active evaluation records and a success message.
+    """
     client = get_openai_client(
         session, current_user.organization_id, current_user.project_id
     )
@@ -139,7 +141,6 @@ def evaluate_models(
             request=ModelEvaluationBase(fine_tuning_id=fine_tuning_job.id),
             project_id=current_user.project_id,
             organization_id=current_user.organization_id,
-            metric=metric,
             status=ModelEvaluationStatus.pending,
         )
 
@@ -150,7 +151,7 @@ def evaluate_models(
         )
 
         background_tasks.add_task(
-            run_model_evaluation, model_eval.id, session, current_user, client
+            run_model_evaluation, model_eval.id, current_user, client
         )
 
     return APIResponse.success_response(
@@ -159,16 +160,23 @@ def evaluate_models(
 
 
 @router.get(
-    "/{document_id}/top_model", response_model=APIResponse[ModelEvaluationPublic]
+    "/{document_id}/top_model",
+    response_model=APIResponse[ModelEvaluationPublic],
 )
 def get_top_model_by_doc_id(
-    document_id: UUID, session: SessionDep, current_user: CurrentUserOrgProject
+    document_id: UUID,
+    session: SessionDep,
+    current_user: CurrentUserOrgProject,
 ):
+    """
+    Return the top model trained on the given document_id, ranked by
+    Matthews correlation coefficient (MCC) across all evaluations.
+    """
     logger.info(
-        f"[get_top_model_by_doc_id]Fetching top model for document_id: {document_id}, project_id: {current_user.project_id}"
+        f"[get_top_model_by_doc_id] Fetching top model for document_id={document_id}, "
+        f"project_id={current_user.project_id}"
     )
     top_model = fetch_top_model_by_doc_id(session, document_id, current_user.project_id)
-
     return APIResponse.success_response(top_model)
 
 
@@ -176,6 +184,9 @@ def get_top_model_by_doc_id(
 def get_evals_by_doc_id(
     document_id: UUID, session: SessionDep, current_user: CurrentUserOrgProject
 ):
+    """
+    Return all model evaluations for the given document_id within the current project.
+    """
     logger.info(
         f"[get_evals_by_doc_id]Fetching evaluations for document_id: {document_id}, project_id: {current_user.project_id}"
     )

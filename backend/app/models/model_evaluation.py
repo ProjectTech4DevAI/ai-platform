@@ -6,6 +6,7 @@ from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, Text
 from sqlalchemy.dialects.postgresql import JSON
+from pydantic import field_validator
 
 from app.core.util import now
 
@@ -28,9 +29,16 @@ class ModelEvaluationBase(SQLModel):
 class ModelEvaluationCreate(SQLModel):
     fine_tuning_ids: list[int]
 
+    @field_validator("fine_tuning_ids")
+    @classmethod
+    def dedupe_ids(cls, v: list[int]) -> list[int]:
+        return list(dict.fromkeys(v))
 
-class Model_Evaluation(ModelEvaluationBase, table=True):
+
+class ModelEvaluation(ModelEvaluationBase, table=True):
     """Database model for keeping a record of model evaluation"""
+
+    __tablename__ = "model_evaluation"
 
     id: int = Field(primary_key=True)
 
@@ -47,10 +55,6 @@ class Model_Evaluation(ModelEvaluationBase, table=True):
         nullable=False, description="the ratio the dataset was divided in"
     )
     system_prompt: str = Field(sa_column=Column(Text, nullable=False))
-    metric: list[str] = Field(
-        sa_column=Column(JSON, nullable=False),
-        description="List of metrics used for evaluation (e.g., ['mcc', 'accuracy'])",
-    )
     score: Optional[dict[str, float]] = Field(
         sa_column=Column(JSON, nullable=True),
         description="Evaluation scores per metric (e.g., {'mcc': 0.85})",
@@ -78,7 +82,6 @@ class Model_Evaluation(ModelEvaluationBase, table=True):
 
 
 class ModelEvaluationUpdate(SQLModel):
-    metric: Optional[list[str]] = None
     score: Optional[dict[str, float]] = None
     status: Optional[ModelEvaluationStatus] = None
     error_message: Optional[str] = None
@@ -94,7 +97,6 @@ class ModelEvaluationPublic(ModelEvaluationBase):
     base_model: str
     score: dict[str, float] | None = None
     status: ModelEvaluationStatus
-    is_best_model: bool | None = None
     inserted_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None
