@@ -256,7 +256,6 @@ def process_response(
                 ),
             )
         )
-
     except openai.OpenAIError as e:
         error_message = handle_openai_error(e)
         logger.error(
