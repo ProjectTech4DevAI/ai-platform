@@ -254,9 +254,9 @@ def process_response(
                     total_tokens=response.usage.total_tokens,
                     model=response.model,
                 ),
-                **get_additional_data(request_dict),
             )
         )
+
     except openai.OpenAIError as e:
         error_message = handle_openai_error(e)
         logger.error(
@@ -266,6 +266,8 @@ def process_response(
         tracer.log_error(error_message, response_id=request.response_id)
 
         request_dict = request.model_dump()
+        callback_response = ResponsesAPIResponse.failure_response(error=error_message)
+
     tracer.flush()
 
     if request.callback_url:
@@ -274,12 +276,16 @@ def process_response(
         )
 
         # Send callback with webhook-specific response format
+        callback_data = callback_response.model_dump()
         send_callback(
             request.callback_url,
             {
-                "success": False,
-                "data": get_additional_data(request_dict),
-                "error": error_message,
+                "success": callback_data.get("success", False),
+                "data": {
+                    **(callback_data.get("data") or {}),
+                    **get_additional_data(request_dict),
+                },
+                "error": callback_data.get("error"),
                 "metadata": None,
             },
         )
@@ -320,10 +326,11 @@ async def responses(
             f"[response] OpenAI API key not configured for org_id={organization_id}, project_id={project_id}"
         )
         request_dict = request.model_dump()
+        additional_data = get_additional_data(request_dict)
         return {
             "success": False,
             "error": "OpenAI API key not configured for this organization.",
-            "data": get_additional_data(request_dict),
+            "data": additional_data if additional_data else None,
             "metadata": None,
         }
 
