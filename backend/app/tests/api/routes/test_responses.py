@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import select
 
 from app.api.routes.responses import router, process_response
-from app.models import Project
+
 
 # Wrap the router in a FastAPI app instance
 app = FastAPI()
@@ -32,6 +32,7 @@ def test_responses_endpoint_success(
     mock_process_response,
     db,
     user_api_key_header: dict[str, str],
+    user_api_key,
 ):
     """Test the /responses endpoint for successful response creation."""
 
@@ -93,11 +94,6 @@ def test_responses_endpoint_success(
     )
     mock_create_conversation.return_value = None
 
-    # Get the Dalgo project ID
-    dalgo_project = db.exec(select(Project).where(Project.name == "Dalgo")).first()
-    if not dalgo_project:
-        pytest.skip("Dalgo project not found in the database")
-
     request_data = {
         "assistant_id": "assistant_dalgo",
         "question": "What is Dalgo?",
@@ -140,6 +136,7 @@ def test_responses_endpoint_without_vector_store(
     mock_process_response,
     db,
     user_api_key_header,
+    user_api_key,
 ):
     """Test the /responses endpoint when assistant has no vector store configured."""
     # Mock the background task to prevent actual execution
@@ -182,11 +179,6 @@ def test_responses_endpoint_without_vector_store(
         "resp_ancestor1234567890abcdef1234567890"
     )
     mock_create_conversation.return_value = None
-
-    # Get the Glific project ID
-    glific_project = db.exec(select(Project).where(Project.name == "Glific")).first()
-    if not glific_project:
-        pytest.skip("Glific project not found in the database")
 
     request_data = {
         "assistant_id": "assistant_123",
@@ -317,6 +309,7 @@ def test_responses_endpoint_with_file_search_results(
     mock_process_response,
     db,
     user_api_key_header,
+    user_api_key,
 ):
     """Test the /responses endpoint with file search results in the response."""
     # Mock the background task to prevent actual execution
@@ -374,11 +367,6 @@ def test_responses_endpoint_with_file_search_results(
     )
     mock_create_conversation.return_value = None
 
-    # Get the Dalgo project ID
-    dalgo_project = db.exec(select(Project).where(Project.name == "Dalgo")).first()
-    if not dalgo_project:
-        pytest.skip("Dalgo project not found in the database")
-
     request_data = {
         "assistant_id": "assistant_dalgo",
         "question": "What is Dalgo?",
@@ -421,6 +409,7 @@ def test_responses_endpoint_with_ancestor_conversation_found(
     mock_process_response,
     db,
     user_api_key_header: dict[str, str],
+    user_api_key,
 ):
     """Test the /responses endpoint when a conversation is found by ancestor ID."""
     # Mock the background task to prevent actual execution
@@ -470,11 +459,6 @@ def test_responses_endpoint_with_ancestor_conversation_found(
     mock_conversation.ancestor_response_id = "resp_ancestor1234567890abcdef1234567890"
     mock_get_conversation_by_ancestor_id.return_value = mock_conversation
 
-    # Get the Dalgo project ID
-    dalgo_project = db.exec(select(Project).where(Project.name == "Dalgo")).first()
-    if not dalgo_project:
-        pytest.skip("Dalgo project not found in the database")
-
     request_data = {
         "assistant_id": "assistant_dalgo",
         "question": "What is Dalgo?",
@@ -518,6 +502,7 @@ def test_responses_endpoint_with_ancestor_conversation_not_found(
     mock_process_response,
     db,
     user_api_key_header: dict[str, str],
+    user_api_key,
 ):
     """Test the /responses endpoint when no conversation is found by ancestor ID."""
     # Mock the background task to prevent actual execution
@@ -564,11 +549,6 @@ def test_responses_endpoint_with_ancestor_conversation_not_found(
     # Setup mock conversation not found by ancestor ID
     mock_get_conversation_by_ancestor_id.return_value = None
 
-    # Get the Dalgo project ID
-    dalgo_project = db.exec(select(Project).where(Project.name == "Dalgo")).first()
-    if not dalgo_project:
-        pytest.skip("Dalgo project not found in the database")
-
     request_data = {
         "assistant_id": "assistant_dalgo",
         "question": "What is Dalgo?",
@@ -612,6 +592,7 @@ def test_responses_endpoint_without_response_id(
     mock_process_response,
     db,
     user_api_key_header: dict[str, str],
+    user_api_key,
 ):
     """Test the /responses endpoint when no response_id is provided."""
     # Mock the background task to prevent actual execution
@@ -655,11 +636,6 @@ def test_responses_endpoint_without_response_id(
     )
     mock_create_conversation.return_value = None
 
-    # Get the Dalgo project ID
-    dalgo_project = db.exec(select(Project).where(Project.name == "Dalgo")).first()
-    if not dalgo_project:
-        pytest.skip("Dalgo project not found in the database")
-
     request_data = {
         "assistant_id": "assistant_dalgo",
         "question": "What is Dalgo?",
@@ -694,6 +670,7 @@ def test_process_response_ancestor_conversation_found(
     mock_create_conversation,
     mock_get_conversation_by_ancestor_id,
     db,
+    user_api_key,
 ):
     """Test process_response function when ancestor conversation is found."""
     from app.api.routes.responses import ResponsesAPIRequest
@@ -742,19 +719,14 @@ def test_process_response_ancestor_conversation_found(
     )
     mock_create_conversation.return_value = None
 
-    # Get the Dalgo project ID
-    dalgo_project = db.exec(select(Project).where(Project.name == "Dalgo")).first()
-    if not dalgo_project:
-        pytest.skip("Dalgo project not found in the database")
-
     # Call process_response
     process_response(
         request=request,
         client=mock_client,
         assistant=mock_assistant,
         tracer=mock_tracer,
-        project_id=dalgo_project.id,
-        organization_id=1,
+        project_id=user_api_key.project_id,
+        organization_id=user_api_key.organization_id,
         session=db,
     )
 
@@ -762,7 +734,7 @@ def test_process_response_ancestor_conversation_found(
     mock_get_conversation_by_ancestor_id.assert_called_once_with(
         session=db,
         ancestor_response_id="resp_ancestor1234567890abcdef1234567890",
-        project_id=dalgo_project.id,
+        project_id=user_api_key.project_id,
     )
 
     # Verify OpenAI client was called with the conversation's response_id as
@@ -790,6 +762,7 @@ def test_process_response_ancestor_conversation_not_found(
     mock_create_conversation,
     mock_get_conversation_by_ancestor_id,
     db,
+    user_api_key,
 ):
     """Test process_response function when no ancestor conversation is found."""
     from app.api.routes.responses import ResponsesAPIRequest
@@ -835,19 +808,14 @@ def test_process_response_ancestor_conversation_not_found(
     )
     mock_create_conversation.return_value = None
 
-    # Get the Dalgo project ID
-    dalgo_project = db.exec(select(Project).where(Project.name == "Dalgo")).first()
-    if not dalgo_project:
-        pytest.skip("Dalgo project not found in the database")
-
     # Call process_response
     process_response(
         request=request,
         client=mock_client,
         assistant=mock_assistant,
         tracer=mock_tracer,
-        project_id=dalgo_project.id,
-        organization_id=1,
+        project_id=user_api_key.project_id,
+        organization_id=user_api_key.organization_id,
         session=db,
     )
 
@@ -855,7 +823,7 @@ def test_process_response_ancestor_conversation_not_found(
     mock_get_conversation_by_ancestor_id.assert_called_once_with(
         session=db,
         ancestor_response_id="resp_ancestor1234567890abcdef1234567890",
-        project_id=dalgo_project.id,
+        project_id=user_api_key.project_id,
     )
 
     # Verify OpenAI client was called with the original response_id as
