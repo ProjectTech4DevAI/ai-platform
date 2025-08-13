@@ -6,7 +6,6 @@ from sqlmodel import select
 
 from app.api.routes.threads import (
     process_run,
-    router,
     validate_thread,
     setup_thread,
     process_message_content,
@@ -18,9 +17,6 @@ from app.crud import get_thread_result
 from app.core.langfuse.langfuse import LangfuseTracer
 import openai
 from openai import OpenAIError
-
-
-# The client fixture from conftest.py will be used instead of creating a standalone app
 
 
 @patch("app.api.routes.threads.configure_openai")
