@@ -6,7 +6,12 @@ from typing import Set
 
 import openai
 from openai import OpenAI
-from sklearn.metrics import matthews_corrcoef, accuracy_score, f1_score
+from sklearn.metrics import (
+    matthews_corrcoef,
+    accuracy_score,
+    f1_score,
+    confusion_matrix,
+)
 from app.api.routes.fine_tuning import handle_openai_error
 
 
@@ -197,26 +202,32 @@ class ModelEvaluator:
 
     def evaluate(self, y_pred: list[str]) -> dict:
         """Evaluate the predictions against the true labels."""
+
         logger.info(f"[evaluate] Starting evaluation with {len(y_pred)} predictions.")
 
         try:
             mcc_score = round(matthews_corrcoef(self.y_true, y_pred), 4)
-            accuracy = round(accuracy_score(self.y_true, y_pred), 4)
-            f1_query = round(
-                f1_score(self.y_true, y_pred, pos_label="query", average="binary"), 4
-            )
+
+            y_true_bin = [1 if y == "query" else 0 for y in self.y_true]
+            y_pred_bin = [1 if y == "query" else 0 for y in y_pred]
+            tn, fp, fn, tp = confusion_matrix(
+                y_true_bin, y_pred_bin, labels=[0, 1]
+            ).ravel()
+
+            fpr = round(fp / (fp + tn), 4) if (fp + tn) else 0.0
+            fnr = round(fn / (fn + tp), 4) if (fn + tp) else 0.0
 
             logger.info(
-                f"[evaluate] Evaluation completed. MCC: {mcc_score}, Accuracy: {accuracy}, F1 Query: {f1_query}"
+                f"[evaluate] Evaluation completed. MCC: {mcc_score} FPR: {fpr}, FNR: {fnr}"
             )
 
             return {
                 "mcc": mcc_score,
-                "accuracy": accuracy,
-                "f1_query": f1_query,
+                "false_positive_rate": fpr,
+                "false_negetive_rate": fnr,
             }
         except Exception as e:
-            logger.error(f"[evaluate] Error during evaluation: {str(e)}")
+            logger.error(f"[evaluate] Evaluation failed: {e}")
             raise
 
     def run(self) -> dict:
