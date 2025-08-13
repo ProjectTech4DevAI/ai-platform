@@ -15,6 +15,12 @@ from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
 from app.core.cloud import AmazonCloudStorage
 from app.crud.rag import OpenAIAssistantCrud
 from app.core.doctransform import service as transformation_service
+from app.core.doctransform.registry import (
+    get_file_format, 
+    is_transformation_supported, 
+    get_available_transformers,
+    resolve_transformer
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -47,8 +53,15 @@ async def upload_doc(
     src: UploadFile = File(...),
     background_tasks: BackgroundTasks = None,
     target_format: Optional[str] = Form(None),
-    transformer: Optional[str] = Form("default"),
+    transformer: Optional[str] = Form(None),
 ):
+    # Determine source file format
+    try:
+        source_format = get_file_format(src.filename)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Upload the original document first
     storage = AmazonCloudStorage(current_user)
     document_id = uuid4()
     object_store_url = storage.put(src, Path(str(document_id)))
@@ -58,32 +71,50 @@ async def upload_doc(
         fname=src.filename,
         object_store_url=str(object_store_url),
     )
-    # Use update to insert or update as per existing logic
     source_document = crud.update(document)
 
+    # If no target format specified, return the uploaded document
     if not target_format:
         return APIResponse.success_response(source_document)
 
-    if target_format.lower() != "markdown":
+    # Validate the requested transformation
+    if not is_transformation_supported(source_format, target_format):
         raise HTTPException(
             status_code=400,
-            detail="Only 'markdown' target_format is supported at this time."
+            detail=f"Transformation from {source_format} to {target_format} is not supported"
         )
 
+    # Resolve the transformer to use
+    if not transformer:
+        transformer = "default"
+    try:
+        actual_transformer = resolve_transformer(source_format, target_format, transformer)
+    except ValueError as e:
+        available_transformers = get_available_transformers(source_format, target_format)
+        raise HTTPException(
+            status_code=400,
+            detail=f"{str(e)}. Available transformers: {list(available_transformers.keys())}"
+        )
+
+    # Start the transformation job
     job_id = transformation_service.start_job(
         db=session,
         current_user=current_user,
         source_document_id=source_document.id,
-        transformer_name=transformer,
+        transformer_name=actual_transformer,
+        target_format=target_format,
         background_tasks=background_tasks,
     )
 
     # Compose response with full document metadata and job info
     response_data = {
-        "message": "Document accepted for transformation.",
+        "message": f"Document accepted for transformation from {source_format} to {target_format}.",
         "original_document": APIResponse.success_response(source_document).data,
         "transformation_job_id": str(job_id),
-        "status_check_url": f"/api/v1/documents/transformations/{job_id}"
+        "source_format": source_format,
+        "target_format": target_format,
+        "transformer": actual_transformer,
+        "status_check_url": f"/documents/transformations/{job_id}"
     }
 
     return JSONResponse(
