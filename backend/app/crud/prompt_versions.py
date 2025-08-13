@@ -60,10 +60,7 @@ def create_prompt_version(
 
 
 def delete_prompt_version(
-    session: Session,
-    prompt_id: UUID,
-    version_id: UUID,
-    project_id: int
+    session: Session, prompt_id: UUID, version_id: UUID, project_id: int
 ):
     """
     Delete a prompt version by ID.
@@ -74,27 +71,33 @@ def delete_prompt_version(
         project_id=project_id,
     )
     if prompt.active_version == version_id:
-        logger.error(f"[delete_prompt_version] Cannot delete active version | Version ID: {version_id}, Prompt ID: {prompt_id}")
+        logger.error(
+            f"[delete_prompt_version] Cannot delete active version | Version ID: {version_id}, Prompt ID: {prompt_id}"
+        )
         raise HTTPException(status_code=409, detail="Cannot delete active version")
 
     stmt = select(PromptVersion).where(
         and_(
             PromptVersion.id == version_id,
             PromptVersion.prompt_id == prompt_id,
-            PromptVersion.is_deleted.is_(False)
+            PromptVersion.is_deleted.is_(False),
         )
     )
     prompt_version = session.exec(stmt).first()
 
     if not prompt_version:
-        logger.error(f"[delete_prompt_version] Prompt version not found | version_id={version_id}, prompt_id={prompt_id}")
+        logger.error(
+            f"[delete_prompt_version] Prompt version not found | version_id={version_id}, prompt_id={prompt_id}"
+        )
         raise HTTPException(status_code=404, detail="Prompt version not found")
 
     prompt_version.is_deleted = True
     prompt_version.deleted_at = now()
-    
+
     session.add(prompt_version)
     session.commit()
     session.refresh(prompt_version)
-    
-    logger.info(f"[delete_prompt_version] Deleted prompt version | Version ID: {version_id}, Prompt ID: {prompt_id}")
+
+    logger.info(
+        f"[delete_prompt_version] Deleted prompt version | Version ID: {version_id}, Prompt ID: {prompt_id}"
+    )

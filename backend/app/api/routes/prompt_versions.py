@@ -48,7 +48,7 @@ def delete_prompt_version_route(
         session=session,
         prompt_id=prompt_id,
         version_id=version_id,
-        project_id=current_user.project_id
+        project_id=current_user.project_id,
     )
     return APIResponse.success_response(
         data={"message": "Prompt version deleted successfully."}

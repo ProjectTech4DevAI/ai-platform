@@ -36,11 +36,11 @@ def create_prompt_route(
     """
     Create a new prompt under the specified organization and project.
     """
-    prompt = create_prompt(
+    prompt, version = create_prompt(
         session=session, prompt_in=prompt_in, project_id=current_user.project_id
     )
-
-    return APIResponse.success_response(prompt)
+    prompt_with_version = PromptWithVersion(**prompt.model_dump(), version=version)
+    return APIResponse.success_response(prompt_with_version)
 
 
 @router.get(
@@ -50,15 +50,9 @@ def create_prompt_route(
 def get_prompts_route(
     current_user: CurrentUserOrgProject,
     skip: int = Query(
-        0,
-        ge=0,
-        description="Number of prompts to skip (for pagination)."
+        0, ge=0, description="Number of prompts to skip (for pagination)."
     ),
-    limit: int = Query(
-        100,
-        gt=0,
-        description="Maximum number of prompts to return."
-    ),
+    limit: int = Query(100, gt=0, description="Maximum number of prompts to return."),
     session: Session = Depends(get_db),
 ):
     """
@@ -70,14 +64,10 @@ def get_prompts_route(
         skip=skip,
         limit=limit,
     )
-    total = count_prompts_in_project(session=session, project_id=current_user.project_id)
-    metadata = {
-        "pagination": {
-            "total": total,
-            "skip": skip,
-            "limit": limit
-        }
-    }
+    total = count_prompts_in_project(
+        session=session, project_id=current_user.project_id
+    )
+    metadata = {"pagination": {"total": total, "skip": skip, "limit": limit}}
     return APIResponse.success_response(prompts, metadata=metadata)
 
 
@@ -90,21 +80,21 @@ def get_prompt_by_id_route(
     current_user: CurrentUserOrgProject,
     prompt_id: UUID = Path(..., description="The ID of the prompt to fetch"),
     include_versions: bool = Query(
-        False,
-        description="Whether to include all versions of the prompt."
+        False, description="Whether to include all versions of the prompt."
     ),
     session: Session = Depends(get_db),
 ):
     """
     Get a single prompt by its ID.
     """
-    prompt = get_prompt_by_id(
+    prompt, versions = get_prompt_by_id(
         session=session,
         prompt_id=prompt_id,
         project_id=current_user.project_id,
-        include_versions=include_versions
+        include_versions=include_versions,
     )
-    return APIResponse.success_response(prompt)
+    prompt_with_versions = PromptWithVersions(**prompt.model_dump(), versions=versions)
+    return APIResponse.success_response(prompt_with_versions)
 
 
 @router.patch("/{prompt_id}", response_model=APIResponse[PromptPublic])
