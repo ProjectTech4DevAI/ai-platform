@@ -3,6 +3,7 @@ from sqlmodel import SQLModel
 from .auth import Token, TokenPayload
 from .collection import Collection
 from .document import Document
+from .doc_transformation_job import DocTransformationJob
 from .document_collection import DocumentCollection
 from .message import Message
 

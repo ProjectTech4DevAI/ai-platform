@@ -1,5 +1,6 @@
 from uuid import UUID, uuid4
 from datetime import datetime
+from typing import Optional
 
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -26,5 +27,10 @@ class Document(SQLModel, table=True):
         default_factory=now,
     )
     deleted_at: datetime | None
+    source_document_id: Optional[UUID] = Field(
+        default=None,
+        foreign_key="document.id",
+        nullable=True,
+    )
 
     owner: User = Relationship(back_populates="documents")

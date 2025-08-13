@@ -1,10 +1,12 @@
 import logging
 from uuid import UUID, uuid4
-from typing import List
+from typing import List, Optional
 from pathlib import Path
 
-from fastapi import APIRouter, File, UploadFile, Query
+from fastapi import APIRouter, File, UploadFile, Query, Form, BackgroundTasks
 from fastapi import Path as FastPath
+from fastapi.responses import JSONResponse
+from fastapi import HTTPException
 
 from app.crud import DocumentCrud, CollectionCrud
 from app.models import Document
@@ -12,6 +14,13 @@ from app.utils import APIResponse, load_description, get_openai_client
 from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
 from app.core.cloud import AmazonCloudStorage
 from app.crud.rag import OpenAIAssistantCrud
+from app.core.doctransform import service as transformation_service
+from app.core.doctransform.registry import (
+    get_file_format, 
+    is_transformation_supported, 
+    get_available_transformers,
+    resolve_transformer
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -38,24 +47,80 @@ def list_docs(
     description=load_description("documents/upload.md"),
     response_model=APIResponse[Document],
 )
-def upload_doc(
+async def upload_doc(
     session: SessionDep,
     current_user: CurrentUser,
     src: UploadFile = File(...),
+    background_tasks: BackgroundTasks = None,
+    target_format: Optional[str] = Form(None),
+    transformer: Optional[str] = Form(None),
 ):
+    # Determine source file format
+    try:
+        source_format = get_file_format(src.filename)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Upload the original document first
     storage = AmazonCloudStorage(current_user)
     document_id = uuid4()
-
     object_store_url = storage.put(src, Path(str(document_id)))
-
     crud = DocumentCrud(session, current_user.id)
     document = Document(
         id=document_id,
         fname=src.filename,
         object_store_url=str(object_store_url),
     )
-    data = crud.update(document)
-    return APIResponse.success_response(data)
+    source_document = crud.update(document)
+
+    # If no target format specified, return the uploaded document
+    if not target_format:
+        return APIResponse.success_response(source_document)
+
+    # Validate the requested transformation
+    if not is_transformation_supported(source_format, target_format):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Transformation from {source_format} to {target_format} is not supported"
+        )
+
+    # Resolve the transformer to use
+    if not transformer:
+        transformer = "default"
+    try:
+        actual_transformer = resolve_transformer(source_format, target_format, transformer)
+    except ValueError as e:
+        available_transformers = get_available_transformers(source_format, target_format)
+        raise HTTPException(
+            status_code=400,
+            detail=f"{str(e)}. Available transformers: {list(available_transformers.keys())}"
+        )
+
+    # Start the transformation job
+    job_id = transformation_service.start_job(
+        db=session,
+        current_user=current_user,
+        source_document_id=source_document.id,
+        transformer_name=actual_transformer,
+        target_format=target_format,
+        background_tasks=background_tasks,
+    )
+
+    # Compose response with full document metadata and job info
+    response_data = {
+        "message": f"Document accepted for transformation from {source_format} to {target_format}.",
+        "original_document": APIResponse.success_response(source_document).data,
+        "transformation_job_id": str(job_id),
+        "source_format": source_format,
+        "target_format": target_format,
+        "transformer": actual_transformer,
+        "status_check_url": f"/documents/transformations/{job_id}"
+    }
+
+    return JSONResponse(
+        status_code=202,
+        content=APIResponse.success_response(response_data).model_dump()
+    )
 
 
 @router.get(
