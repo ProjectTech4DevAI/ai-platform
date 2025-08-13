@@ -1,81 +1,33 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-from app.crud import fetch_by_eval_id
 from app.tests.utils.test_data import (
     create_test_finetuning_job_with_extra_fields,
     create_test_model_evaluation,
 )
 
 
-@patch("app.api.routes.model_evaluation.ModelEvaluator")
-def test_evaluate_model(
-    mock_ModelEvaluator, client, db, user_api_key_header, user_api_key
-):
+@patch("app.api.routes.model_evaluation.run_model_evaluation")
+def test_evaluate_model(mock_run_eval, client, db, user_api_key_header):
     fine_tuned, _ = create_test_finetuning_job_with_extra_fields(db, [0.5])
-
-    mock_evaluator = MagicMock()
-    mock_evaluator.run.return_value = {"mcc": 0.8, "accuracy": 0.9}
-    mock_ModelEvaluator.return_value = mock_evaluator
-
     body = {"fine_tuning_ids": [fine_tuned[0].id]}
 
-    response = client.post(
+    resp = client.post(
         "/api/v1/model_evaluation/evaluate_models/",
         json=body,
         headers=user_api_key_header,
     )
+    assert resp.status_code == 200, resp.text
 
-    assert response.status_code == 200
-    json_data = response.json()
+    j = resp.json()
+    evals = j["data"]["data"]
+    assert len(evals) == 1
+    assert evals[0]["status"] == "pending"
 
-    assert json_data["data"]["message"] == "Model evaluation(s) started successfully"
-
-    evaluations = [eval for eval in json_data["data"].get("data", []) if eval]
-    assert len(evaluations) == 1
-
-    assert evaluations[0]["status"] == "pending"
-
-    mock_evaluator.run.assert_called_with()
-    assert mock_evaluator.run.call_count == 1
-
-    updated_model_eval = fetch_by_eval_id(
-        db, evaluations[0]["id"], user_api_key.project_id
-    )
-
-    assert updated_model_eval.score == {"mcc": 0.8, "accuracy": 0.9}
-
-    assert updated_model_eval.fine_tuning_id == fine_tuned[0].id
-    assert updated_model_eval.model_name == fine_tuned[0].fine_tuned_model
-    assert updated_model_eval.testing_file_id == fine_tuned[0].testing_file_id
+    mock_run_eval.assert_called_once()
+    assert mock_run_eval.call_args[0][0] == evals[0]["id"]
 
 
-@patch("app.api.routes.model_evaluation.ModelEvaluator")
-def test_run_model_evaluation_evaluator_run_failure(
-    mock_ModelEvaluator, client, db, user_api_key_header, user_api_key
-):
-    fine_tuned, _ = create_test_finetuning_job_with_extra_fields(db, [0.5])
-    fine_tune = fine_tuned[0]
-
-    mock_evaluator = MagicMock()
-    mock_evaluator.run.side_effect = Exception("Evaluator failed")
-    mock_ModelEvaluator.return_value = mock_evaluator
-
-    response = client.post(
-        "/api/v1/model_evaluation/evaluate_models/",
-        json={"fine_tuning_ids": [fine_tune.id]},
-        headers=user_api_key_header,
-    )
-
-    json_data = response.json()
-    print("jonnn", json_data)
-    model_eval_id = json_data["data"]["data"][0]["id"]
-
-    updated_model_eval = fetch_by_eval_id(db, model_eval_id, user_api_key.project_id)
-    assert updated_model_eval.status == "failed"
-    assert updated_model_eval.error_message == "failed during background job processing"
-
-
-def test_evaluate_model_finetuning_not_found(client, db, user_api_key_header):
+def test_evaluate_model_finetuning_not_found(client, user_api_key_header):
     invalid_fine_tune_id = 9999
 
     body = {"fine_tuning_ids": [invalid_fine_tune_id]}

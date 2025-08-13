@@ -26,7 +26,7 @@ def create_model_evaluation(
 ) -> ModelEvaluation:
     fine_tuning_job = fetch_by_id(session, request.fine_tuning_id, project_id)
 
-    if fine_tuning_job.fine_tuned_model is None:
+    if fine_tuning_job.fine_tuned_model and fine_tuning_job.testing_file_id is None:
         logger.error(
             f"[create_model_evaluation] No fine tuned model found for the given fine tuning ID | fine_tuning_id={request.fine_tuning_id}, project_id={project_id}"
         )
