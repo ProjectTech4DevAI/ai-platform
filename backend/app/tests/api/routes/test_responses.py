@@ -1,9 +1,6 @@
 from unittest.mock import MagicMock, patch
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlmodel import select
-
 from app.api.routes.responses import router, process_response
 
 
@@ -11,6 +8,120 @@ from app.api.routes.responses import router, process_response
 app = FastAPI()
 app.include_router(router)
 client = TestClient(app)
+
+
+def create_mock_assistant(model="gpt-4o", vector_store_ids=None, max_num_results=20):
+    """Create a mock assistant with default or custom values."""
+    if vector_store_ids is None:
+        vector_store_ids = ["vs_test"]
+
+    mock_assistant = MagicMock()
+    mock_assistant.model = model
+    mock_assistant.instructions = "Test instructions"
+    mock_assistant.temperature = 0.1
+    mock_assistant.vector_store_ids = vector_store_ids
+    mock_assistant.max_num_results = max_num_results
+    return mock_assistant
+
+
+def create_mock_openai_response(
+    response_id="resp_1234567890abcdef1234567890abcdef1234567890",
+    output_text="Test output",
+    model="gpt-4o",
+    output=None,
+    previous_response_id=None,
+):
+    """Create a mock OpenAI response with default or custom values."""
+    if output is None:
+        output = []
+
+    mock_response = MagicMock()
+    mock_response.id = response_id
+    mock_response.output_text = output_text
+    mock_response.model = model
+    mock_response.usage.input_tokens = 10
+    mock_response.usage.output_tokens = 5
+    mock_response.usage.total_tokens = 15
+    mock_response.output = output
+    mock_response.previous_response_id = previous_response_id
+    return mock_response
+
+
+def create_mock_file_search_results():
+    """Create mock file search results for testing."""
+    mock_hit1 = MagicMock()
+    mock_hit1.score = 0.95
+    mock_hit1.text = "First search result"
+
+    mock_hit2 = MagicMock()
+    mock_hit2.score = 0.85
+    mock_hit2.text = "Second search result"
+
+    mock_file_search_call = MagicMock()
+    mock_file_search_call.type = "file_search_call"
+    mock_file_search_call.results = [mock_hit1, mock_hit2]
+
+    return [mock_file_search_call]
+
+
+def create_mock_conversation(
+    response_id="resp_latest1234567890abcdef1234567890",
+    ancestor_response_id="resp_ancestor1234567890abcdef1234567890",
+):
+    """Create a mock conversation with default or custom values."""
+    mock_conversation = MagicMock()
+    mock_conversation.response_id = response_id
+    mock_conversation.ancestor_response_id = ancestor_response_id
+    return mock_conversation
+
+
+def setup_common_mocks(
+    mock_get_credential,
+    mock_get_assistant,
+    mock_openai,
+    mock_tracer_class,
+    mock_get_ancestor_id_from_response,
+    mock_create_conversation,
+    mock_get_conversation_by_ancestor_id,
+    assistant_model="gpt-4o",
+    vector_store_ids=None,
+    conversation_found=True,
+    response_output=None,
+):
+    """Setup common mocks used across multiple tests."""
+    # Setup mock credentials
+    mock_get_credential.return_value = {"api_key": "test_api_key"}
+
+    # Setup mock assistant
+    mock_assistant = create_mock_assistant(assistant_model, vector_store_ids)
+    mock_get_assistant.return_value = mock_assistant
+
+    # Setup mock OpenAI client
+    mock_client = MagicMock()
+    mock_openai.return_value = mock_client
+
+    # Setup mock response
+    mock_response = create_mock_openai_response(output=response_output)
+    mock_client.responses.create.return_value = mock_response
+
+    # Setup mock tracer
+    mock_tracer = MagicMock()
+    mock_tracer_class.return_value = mock_tracer
+
+    # Setup mock CRUD functions
+    mock_get_ancestor_id_from_response.return_value = (
+        "resp_ancestor1234567890abcdef1234567890"
+    )
+    mock_create_conversation.return_value = None
+
+    # Setup mock conversation if needed
+    if conversation_found:
+        mock_conversation = create_mock_conversation()
+        mock_get_conversation_by_ancestor_id.return_value = mock_conversation
+    else:
+        mock_get_conversation_by_ancestor_id.return_value = None
+
+    return mock_client, mock_assistant
 
 
 @patch("app.api.routes.responses.process_response")
@@ -39,60 +150,16 @@ def test_responses_endpoint_success(
     # Mock the background task to prevent actual execution
     mock_process_response.return_value = None
 
-    # Setup mock credentials - configure to return different values based on provider
-    def mock_get_credentials_by_provider(*args, **kwargs):
-        provider = kwargs.get("provider")
-        if provider == "openai":
-            return {"api_key": "test_api_key"}
-        elif provider == "langfuse":
-            return {
-                "public_key": "test_public_key",
-                "secret_key": "test_secret_key",
-                "host": "https://cloud.langfuse.com",
-            }
-        return None
-
-    mock_get_credential.side_effect = mock_get_credentials_by_provider
-
-    # Setup mock assistant
-    mock_assistant = MagicMock()
-    mock_assistant.model = "gpt-4o"
-    mock_assistant.instructions = "Test instructions"
-    mock_assistant.temperature = 0.1
-    mock_assistant.vector_store_ids = ["vs_test"]
-    mock_assistant.max_num_results = 20
-
-    # Configure mock to return the assistant for any call
-    def return_mock_assistant(*args, **kwargs):
-        return mock_assistant
-
-    mock_get_assistant.side_effect = return_mock_assistant
-
-    # Setup mock OpenAI client
-    mock_client = MagicMock()
-    mock_openai.return_value = mock_client
-
-    # Setup the mock response object with proper response ID format
-    mock_response = MagicMock()
-    mock_response.id = "resp_1234567890abcdef1234567890abcdef1234567890"
-    mock_response.output_text = "Test output"
-    mock_response.model = "gpt-4o"
-    mock_response.usage.input_tokens = 10
-    mock_response.usage.output_tokens = 5
-    mock_response.usage.total_tokens = 15
-    mock_response.output = []
-    mock_response.previous_response_id = None
-    mock_client.responses.create.return_value = mock_response
-
-    # Setup mock tracer
-    mock_tracer = MagicMock()
-    mock_tracer_class.return_value = mock_tracer
-
-    # Setup mock CRUD functions
-    mock_get_ancestor_id_from_response.return_value = (
-        "resp_ancestor1234567890abcdef1234567890"
+    # Setup common mocks
+    mock_client, mock_assistant = setup_common_mocks(
+        mock_get_credential,
+        mock_get_assistant,
+        mock_openai,
+        mock_tracer_class,
+        mock_get_ancestor_id_from_response,
+        mock_create_conversation,
+        mock_get_conversation_by_ancestor_id,
     )
-    mock_create_conversation.return_value = None
 
     request_data = {
         "assistant_id": "assistant_dalgo",
@@ -142,43 +209,18 @@ def test_responses_endpoint_without_vector_store(
     # Mock the background task to prevent actual execution
     mock_process_response.return_value = None
 
-    # Setup mock credentials
-    mock_get_credential.return_value = {"api_key": "test_api_key"}
-
-    # Setup mock assistant without vector store
-    mock_assistant = MagicMock()
-    mock_assistant.model = "gpt-4"
-    mock_assistant.instructions = "Test instructions"
-    mock_assistant.temperature = 0.1
-    mock_assistant.vector_store_ids = []  # No vector store configured
-    mock_assistant.max_num_results = 20
-    mock_get_assistant.return_value = mock_assistant
-
-    # Setup mock OpenAI client
-    mock_client = MagicMock()
-    mock_openai.return_value = mock_client
-
-    # Setup the mock response object with proper response ID format
-    mock_response = MagicMock()
-    mock_response.id = "resp_1234567890abcdef1234567890abcdef1234567890"
-    mock_response.output_text = "Test output"
-    mock_response.model = "gpt-4"
-    mock_response.usage.input_tokens = 10
-    mock_response.usage.output_tokens = 5
-    mock_response.usage.total_tokens = 15
-    mock_response.output = []
-    mock_response.previous_response_id = None
-    mock_client.responses.create.return_value = mock_response
-
-    # Setup mock tracer
-    mock_tracer = MagicMock()
-    mock_tracer_class.return_value = mock_tracer
-
-    # Setup mock CRUD functions
-    mock_get_ancestor_id_from_response.return_value = (
-        "resp_ancestor1234567890abcdef1234567890"
+    # Setup common mocks with no vector store
+    mock_client, mock_assistant = setup_common_mocks(
+        mock_get_credential,
+        mock_get_assistant,
+        mock_openai,
+        mock_tracer_class,
+        mock_get_ancestor_id_from_response,
+        mock_create_conversation,
+        mock_get_conversation_by_ancestor_id,
+        assistant_model="gpt-4",
+        vector_store_ids=[],
     )
-    mock_create_conversation.return_value = None
 
     request_data = {
         "assistant_id": "assistant_123",
@@ -234,11 +276,7 @@ def test_responses_endpoint_no_openai_credentials(
 ):
     """Test the /responses endpoint when OpenAI credentials are not configured."""
     # Setup mock assistant
-    mock_assistant = MagicMock()
-    mock_assistant.model = "gpt-4"
-    mock_assistant.instructions = "Test instructions"
-    mock_assistant.temperature = 0.1
-    mock_assistant.vector_store_ids = []
+    mock_assistant = create_mock_assistant()
     mock_get_assistant.return_value = mock_assistant
 
     # Setup mock credentials to return None (no credentials)
@@ -267,11 +305,7 @@ def test_responses_endpoint_missing_api_key_in_credentials(
 ):
     """Test the /responses endpoint when credentials exist but don't have api_key."""
     # Setup mock assistant
-    mock_assistant = MagicMock()
-    mock_assistant.model = "gpt-4"
-    mock_assistant.instructions = "Test instructions"
-    mock_assistant.temperature = 0.1
-    mock_assistant.vector_store_ids = []
+    mock_assistant = create_mock_assistant()
     mock_get_assistant.return_value = mock_assistant
 
     # Setup mock credentials without api_key
@@ -315,57 +349,17 @@ def test_responses_endpoint_with_file_search_results(
     # Mock the background task to prevent actual execution
     mock_process_response.return_value = None
 
-    # Setup mock credentials
-    mock_get_credential.return_value = {"api_key": "test_api_key"}
-
-    # Setup mock assistant with vector store
-    mock_assistant = MagicMock()
-    mock_assistant.model = "gpt-4o"
-    mock_assistant.instructions = "Test instructions"
-    mock_assistant.temperature = 0.1
-    mock_assistant.vector_store_ids = ["vs_test"]
-    mock_assistant.max_num_results = 20
-    mock_get_assistant.return_value = mock_assistant
-
-    # Setup mock OpenAI client
-    mock_client = MagicMock()
-    mock_openai.return_value = mock_client
-
-    # Setup mock file search results
-    mock_hit1 = MagicMock()
-    mock_hit1.score = 0.95
-    mock_hit1.text = "First search result"
-
-    mock_hit2 = MagicMock()
-    mock_hit2.score = 0.85
-    mock_hit2.text = "Second search result"
-
-    mock_file_search_call = MagicMock()
-    mock_file_search_call.type = "file_search_call"
-    mock_file_search_call.results = [mock_hit1, mock_hit2]
-
-    # Setup the mock response object with file search results and proper response ID
-    # format
-    mock_response = MagicMock()
-    mock_response.id = "resp_1234567890abcdef1234567890abcdef1234567890"
-    mock_response.output_text = "Test output with search results"
-    mock_response.model = "gpt-4o"
-    mock_response.usage.input_tokens = 10
-    mock_response.usage.output_tokens = 5
-    mock_response.usage.total_tokens = 15
-    mock_response.output = [mock_file_search_call]
-    mock_response.previous_response_id = None
-    mock_client.responses.create.return_value = mock_response
-
-    # Setup mock tracer
-    mock_tracer = MagicMock()
-    mock_tracer_class.return_value = mock_tracer
-
-    # Setup mock CRUD functions
-    mock_get_ancestor_id_from_response.return_value = (
-        "resp_ancestor1234567890abcdef1234567890"
+    # Setup common mocks with file search results
+    mock_client, mock_assistant = setup_common_mocks(
+        mock_get_credential,
+        mock_get_assistant,
+        mock_openai,
+        mock_tracer_class,
+        mock_get_ancestor_id_from_response,
+        mock_create_conversation,
+        mock_get_conversation_by_ancestor_id,
+        response_output=create_mock_file_search_results(),
     )
-    mock_create_conversation.return_value = None
 
     request_data = {
         "assistant_id": "assistant_dalgo",
@@ -415,49 +409,17 @@ def test_responses_endpoint_with_ancestor_conversation_found(
     # Mock the background task to prevent actual execution
     mock_process_response.return_value = None
 
-    # Setup mock credentials
-    mock_get_credential.return_value = {"api_key": "test_api_key"}
-
-    # Setup mock assistant
-    mock_assistant = MagicMock()
-    mock_assistant.model = "gpt-4o"
-    mock_assistant.instructions = "Test instructions"
-    mock_assistant.temperature = 0.1
-    mock_assistant.vector_store_ids = ["vs_test"]
-    mock_assistant.max_num_results = 20
-    mock_get_assistant.return_value = mock_assistant
-
-    # Setup mock OpenAI client
-    mock_client = MagicMock()
-    mock_openai.return_value = mock_client
-
-    # Setup the mock response object
-    mock_response = MagicMock()
-    mock_response.id = "resp_1234567890abcdef1234567890abcdef1234567890"
-    mock_response.output_text = "Test output"
-    mock_response.model = "gpt-4o"
-    mock_response.usage.input_tokens = 10
-    mock_response.usage.output_tokens = 5
-    mock_response.usage.total_tokens = 15
-    mock_response.output = []
-    mock_response.previous_response_id = "resp_ancestor1234567890abcdef1234567890"
-    mock_client.responses.create.return_value = mock_response
-
-    # Setup mock tracer
-    mock_tracer = MagicMock()
-    mock_tracer_class.return_value = mock_tracer
-
-    # Setup mock CRUD functions
-    mock_get_ancestor_id_from_response.return_value = (
-        "resp_ancestor1234567890abcdef1234567890"
+    # Setup common mocks with conversation found
+    mock_client, mock_assistant = setup_common_mocks(
+        mock_get_credential,
+        mock_get_assistant,
+        mock_openai,
+        mock_tracer_class,
+        mock_get_ancestor_id_from_response,
+        mock_create_conversation,
+        mock_get_conversation_by_ancestor_id,
+        conversation_found=True,
     )
-    mock_create_conversation.return_value = None
-
-    # Setup mock conversation found by ancestor ID
-    mock_conversation = MagicMock()
-    mock_conversation.response_id = "resp_latest1234567890abcdef1234567890"
-    mock_conversation.ancestor_response_id = "resp_ancestor1234567890abcdef1234567890"
-    mock_get_conversation_by_ancestor_id.return_value = mock_conversation
 
     request_data = {
         "assistant_id": "assistant_dalgo",
@@ -508,46 +470,17 @@ def test_responses_endpoint_with_ancestor_conversation_not_found(
     # Mock the background task to prevent actual execution
     mock_process_response.return_value = None
 
-    # Setup mock credentials
-    mock_get_credential.return_value = {"api_key": "test_api_key"}
-
-    # Setup mock assistant
-    mock_assistant = MagicMock()
-    mock_assistant.model = "gpt-4o"
-    mock_assistant.instructions = "Test instructions"
-    mock_assistant.temperature = 0.1
-    mock_assistant.vector_store_ids = ["vs_test"]
-    mock_assistant.max_num_results = 20
-    mock_get_assistant.return_value = mock_assistant
-
-    # Setup mock OpenAI client
-    mock_client = MagicMock()
-    mock_openai.return_value = mock_client
-
-    # Setup the mock response object
-    mock_response = MagicMock()
-    mock_response.id = "resp_1234567890abcdef1234567890abcdef1234567890"
-    mock_response.output_text = "Test output"
-    mock_response.model = "gpt-4o"
-    mock_response.usage.input_tokens = 10
-    mock_response.usage.output_tokens = 5
-    mock_response.usage.total_tokens = 15
-    mock_response.output = []
-    mock_response.previous_response_id = "resp_ancestor1234567890abcdef1234567890"
-    mock_client.responses.create.return_value = mock_response
-
-    # Setup mock tracer
-    mock_tracer = MagicMock()
-    mock_tracer_class.return_value = mock_tracer
-
-    # Setup mock CRUD functions
-    mock_get_ancestor_id_from_response.return_value = (
-        "resp_ancestor1234567890abcdef1234567890"
+    # Setup common mocks with conversation not found
+    mock_client, mock_assistant = setup_common_mocks(
+        mock_get_credential,
+        mock_get_assistant,
+        mock_openai,
+        mock_tracer_class,
+        mock_get_ancestor_id_from_response,
+        mock_create_conversation,
+        mock_get_conversation_by_ancestor_id,
+        conversation_found=False,
     )
-    mock_create_conversation.return_value = None
-
-    # Setup mock conversation not found by ancestor ID
-    mock_get_conversation_by_ancestor_id.return_value = None
 
     request_data = {
         "assistant_id": "assistant_dalgo",
@@ -598,43 +531,16 @@ def test_responses_endpoint_without_response_id(
     # Mock the background task to prevent actual execution
     mock_process_response.return_value = None
 
-    # Setup mock credentials
-    mock_get_credential.return_value = {"api_key": "test_api_key"}
-
-    # Setup mock assistant
-    mock_assistant = MagicMock()
-    mock_assistant.model = "gpt-4o"
-    mock_assistant.instructions = "Test instructions"
-    mock_assistant.temperature = 0.1
-    mock_assistant.vector_store_ids = ["vs_test"]
-    mock_assistant.max_num_results = 20
-    mock_get_assistant.return_value = mock_assistant
-
-    # Setup mock OpenAI client
-    mock_client = MagicMock()
-    mock_openai.return_value = mock_client
-
-    # Setup the mock response object
-    mock_response = MagicMock()
-    mock_response.id = "resp_1234567890abcdef1234567890abcdef1234567890"
-    mock_response.output_text = "Test output"
-    mock_response.model = "gpt-4o"
-    mock_response.usage.input_tokens = 10
-    mock_response.usage.output_tokens = 5
-    mock_response.usage.total_tokens = 15
-    mock_response.output = []
-    mock_response.previous_response_id = None
-    mock_client.responses.create.return_value = mock_response
-
-    # Setup mock tracer
-    mock_tracer = MagicMock()
-    mock_tracer_class.return_value = mock_tracer
-
-    # Setup mock CRUD functions
-    mock_get_ancestor_id_from_response.return_value = (
-        "resp_1234567890abcdef1234567890abcdef1234567890"
+    # Setup common mocks
+    mock_client, mock_assistant = setup_common_mocks(
+        mock_get_credential,
+        mock_get_assistant,
+        mock_openai,
+        mock_tracer_class,
+        mock_get_ancestor_id_from_response,
+        mock_create_conversation,
+        mock_get_conversation_by_ancestor_id,
     )
-    mock_create_conversation.return_value = None
 
     request_data = {
         "assistant_id": "assistant_dalgo",
@@ -684,33 +590,22 @@ def test_process_response_ancestor_conversation_found(
     )
 
     # Setup mock assistant
-    mock_assistant = MagicMock()
-    mock_assistant.model = "gpt-4o"
-    mock_assistant.instructions = "Test instructions"
-    mock_assistant.temperature = 0.1
-    mock_assistant.vector_store_ids = ["vs_test"]
-    mock_assistant.max_num_results = 20
+    mock_assistant = create_mock_assistant()
 
     # Setup mock OpenAI client
     mock_client = MagicMock()
-    mock_response = MagicMock()
-    mock_response.id = "resp_new1234567890abcdef1234567890abcdef"
-    mock_response.output_text = "Test response"
-    mock_response.model = "gpt-4o"
-    mock_response.usage.input_tokens = 10
-    mock_response.usage.output_tokens = 5
-    mock_response.usage.total_tokens = 15
-    mock_response.output = []
-    mock_response.previous_response_id = "resp_latest1234567890abcdef1234567890"
+    mock_response = create_mock_openai_response(
+        response_id="resp_new1234567890abcdef1234567890abcdef",
+        output_text="Test response",
+        previous_response_id="resp_latest1234567890abcdef1234567890",
+    )
     mock_client.responses.create.return_value = mock_response
 
     # Setup mock tracer
     mock_tracer = MagicMock()
 
     # Setup mock conversation found by ancestor ID
-    mock_conversation = MagicMock()
-    mock_conversation.response_id = "resp_latest1234567890abcdef1234567890"
-    mock_conversation.ancestor_response_id = "resp_ancestor1234567890abcdef1234567890"
+    mock_conversation = create_mock_conversation()
     mock_get_conversation_by_ancestor_id.return_value = mock_conversation
 
     # Setup mock CRUD functions
@@ -776,24 +671,15 @@ def test_process_response_ancestor_conversation_not_found(
     )
 
     # Setup mock assistant
-    mock_assistant = MagicMock()
-    mock_assistant.model = "gpt-4o"
-    mock_assistant.instructions = "Test instructions"
-    mock_assistant.temperature = 0.1
-    mock_assistant.vector_store_ids = ["vs_test"]
-    mock_assistant.max_num_results = 20
+    mock_assistant = create_mock_assistant()
 
     # Setup mock OpenAI client
     mock_client = MagicMock()
-    mock_response = MagicMock()
-    mock_response.id = "resp_new1234567890abcdef1234567890abcdef"
-    mock_response.output_text = "Test response"
-    mock_response.model = "gpt-4o"
-    mock_response.usage.input_tokens = 10
-    mock_response.usage.output_tokens = 5
-    mock_response.usage.total_tokens = 15
-    mock_response.output = []
-    mock_response.previous_response_id = "resp_ancestor1234567890abcdef1234567890"
+    mock_response = create_mock_openai_response(
+        response_id="resp_new1234567890abcdef1234567890abcdef",
+        output_text="Test response",
+        previous_response_id="resp_ancestor1234567890abcdef1234567890",
+    )
     mock_client.responses.create.return_value = mock_response
 
     # Setup mock tracer
