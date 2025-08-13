@@ -64,3 +64,14 @@ from .openai_conversation import (
     create_conversation,
     delete_conversation,
 )
+
+from .prompt_versions import create_prompt_version, delete_prompt_version
+
+from .prompts import (
+    create_prompt,
+    count_prompts_in_project,
+    delete_prompt,
+    get_prompt_by_id,
+    get_prompts,
+    update_prompt,
+)

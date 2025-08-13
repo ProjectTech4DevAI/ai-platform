@@ -18,24 +18,20 @@ class PromptVersionBase(SQLModel):
 class PromptVersion(PromptVersionBase, table=True):
     __tablename__ = "prompt_version"
 
-    id: UUID = Field(
-        default_factory=uuid4,
-        primary_key=True,
-    )
-    prompt_id: UUID = Field(foreign_key="prompt.id")
-    version: int
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    prompt_id: UUID = Field(foreign_key="prompt.id", nullable=False)
+    version: int = Field(nullable=False)
 
-    inserted_at: datetime = Field(default_factory=now)
-    updated_at: datetime = Field(default_factory=now)
+    inserted_at: datetime = Field(default_factory=now, nullable=False)
+    updated_at: datetime = Field(default_factory=now, nullable=False)
 
-    is_deleted: bool = Field(default=False)
+    is_deleted: bool = Field(default=False, nullable=False)
     deleted_at: datetime | None = Field(default=None)
 
     prompt: "Prompt" = Relationship(
         back_populates="versions",
-        sa_relationship_kwargs={"foreign_keys": "[PromptVersion.prompt_id]"}
+        sa_relationship_kwargs={"foreign_keys": "[PromptVersion.prompt_id]"},
     )
-
 
 
 class PromptVersionPublic(PromptVersionBase):

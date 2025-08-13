@@ -1,12 +1,15 @@
 from datetime import datetime
-from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, ForeignKey
+from sqlmodel import SQLModel, Field, Relationship
 
 from app.core.util import now
-from app.models.prompt_version import PromptVersion, PromptVersionCreate
+from app.models.prompt_version import (
+    PromptVersion,
+    PromptVersionCreate,
+    PromptVersionPublic,
+)
 
 
 class PromptBase(SQLModel):
@@ -26,10 +29,10 @@ class Prompt(PromptBase, table=True):
                 "prompt_version.id",
                 use_alter=True,
                 deferrable=True,
-                initially="DEFERRED"
+                initially="DEFERRED",
             ),
-            nullable=False
-        )
+            nullable=False,
+        ),
     )
     project_id: int = Field(foreign_key="project.id")
     inserted_at: datetime = Field(default_factory=now, nullable=False)
@@ -39,7 +42,7 @@ class Prompt(PromptBase, table=True):
 
     versions: list["PromptVersion"] = Relationship(
         back_populates="prompt",
-        sa_relationship_kwargs={"foreign_keys": "[PromptVersion.prompt_id]"}
+        sa_relationship_kwargs={"foreign_keys": "[PromptVersion.prompt_id]"},
     )
 
 
@@ -51,6 +54,14 @@ class PromptPublic(PromptBase):
     updated_at: datetime
 
 
+class PromptWithVersion(PromptPublic):
+    version: PromptVersionPublic
+
+
+class PromptWithVersions(PromptPublic):
+    versions: list[PromptVersionPublic]
+
+
 class PromptCreate(PromptBase, PromptVersionCreate):
     pass
 
@@ -58,6 +69,7 @@ class PromptCreate(PromptBase, PromptVersionCreate):
 class PromptUpdate(SQLModel):
     name: str | None = Field(default=None, min_length=1, max_length=50)
     description: str | None = Field(default=None, min_length=1, max_length=500)
+    active_version: UUID | None = Field(default=None)
 
     class Config:
         from_attributes = True

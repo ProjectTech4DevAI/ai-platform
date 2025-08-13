@@ -68,6 +68,8 @@ from .prompt import (
     PromptCreate,
     PromptPublic,
     PromptUpdate,
+    PromptWithVersion,
+    PromptWithVersions,
 )
 
 from .prompt_version import (
