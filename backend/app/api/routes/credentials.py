@@ -56,7 +56,7 @@ def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
             project_id=creds_in.project_id,
         )
         if existing_cred:
-            logger.error(
+            logger.warning(
                 f"[create_new_credential] Credentials for provider '{provider}' already exist for organization {creds_in.organization_id} and project {creds_in.project_id}"
             )
             raise HTTPException(
@@ -155,9 +155,6 @@ def delete_provider_credential(
 ):
     provider_enum = validate_provider(provider)
     if not provider_enum:
-        logger.error(
-            f"[delete_provider_credential] Invalid provider: {provider} | org_id: {org_id}, project_id: {project_id}"
-        )
         raise HTTPException(status_code=400, detail="Invalid provider")
     provider_creds = get_provider_credential(
         session=session,

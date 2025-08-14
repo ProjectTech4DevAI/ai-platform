@@ -51,7 +51,7 @@ def read_users(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
 def create_user_endpoint(*, session: SessionDep, user_in: UserCreate) -> Any:
     if get_user_by_email(session=session, email=user_in.email):
         logger.error(
-            f"[create_user_endpoint] Attempt to create user with existing email: {user_in.email}"
+            f"[create_user_endpoint] Attempt to create user with existing email"
         )
         raise HTTPException(
             status_code=400,
@@ -80,7 +80,7 @@ def update_user_me(
         existing_user = get_user_by_email(session=session, email=user_in.email)
         if existing_user and existing_user.id != current_user.id:
             logger.error(
-                f"[update_user_me] Attempt to update user with existing email: {user_in.email}"
+                f"[update_user_me] Attempt to update user with existing email"
             )
             raise HTTPException(
                 status_code=409, detail="User with this email already exists"
@@ -90,7 +90,7 @@ def update_user_me(
     session.add(current_user)
     session.commit()
     session.refresh(current_user)
-    logger.info(f"[update_user_me] User updated with email: {current_user.email}")
+    logger.info(f"[update_user_me] User updated with id: {current_user.id}")
     return current_user
 
 
@@ -110,7 +110,7 @@ def update_password_me(
     current_user.hashed_password = get_password_hash(body.new_password)
     session.add(current_user)
     session.commit()
-    logger.info(f"[update_password_me] Password updated for user: {current_user.email}")
+    logger.info(f"[update_password_me] Password updated for user: {current_user.id}")
     return Message(message="Password updated successfully")
 
 
@@ -128,7 +128,7 @@ def delete_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
         )
     session.delete(current_user)
     session.commit()
-    logger.info(f"[delete_user_me] User deleted: {current_user.email}")
+    logger.info(f"[delete_user_me] User deleted: {current_user.id}")
     return Message(message="User deleted successfully")
 
 
@@ -143,7 +143,7 @@ def register_user(session: SessionDep, user_in: UserRegister) -> Any:
     """
     if get_user_by_email(session=session, email=user_in.email):
         logger.error(
-            f"[register_user] Attempt to create user with existing email: {user_in.email}"
+            f"[register_user] Attempt to create user with existing email"
         )
         raise HTTPException(
             status_code=400,
@@ -195,7 +195,7 @@ def update_user_endpoint(
         existing_user = get_user_by_email(session=session, email=user_in.email)
         if existing_user and existing_user.id != user_id:
             logger.error(
-                f"[update_user_endpoint] Attempt to update user with existing email: {user_in.email}"
+                f"[update_user_endpoint] Attempt to update user with existing email"
             )
             raise HTTPException(
                 status_code=409, detail="User with this email already exists"
@@ -225,5 +225,5 @@ def delete_user(
 
     session.delete(user)
     session.commit()
-    logger.info(f"[delete_user] User deleted: {user.email}")
+    logger.info(f"[delete_user] User deleted: {user.id}")
     return Message(message="User deleted successfully")
