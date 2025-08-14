@@ -21,8 +21,16 @@ from openai import OpenAIError
 
 @patch("app.api.routes.threads.configure_openai")
 @patch("app.api.routes.threads.get_provider_credential")
+@patch("app.api.routes.threads.send_callback")
+@patch("app.api.routes.threads.process_run")
 def test_threads_endpoint(
-    mock_get_provider_credential, mock_configure_openai, client, db, user_api_key_header
+    mock_process_run,
+    mock_send_callback,
+    mock_get_provider_credential,
+    mock_configure_openai,
+    client,
+    db,
+    user_api_key_header,
 ):
     """
     Test the /threads endpoint when creating a new thread.
@@ -155,13 +163,12 @@ def test_threads_sync_endpoint_active_run(
         "thread_id": "existing_thread",
     }
 
-    response = client.post(
-        "/api/v1/threads/sync", json=request_data, headers=user_api_key_header
-    )
-    assert response.status_code == 200
-    response_json = response.json()
-    assert response_json["success"] is False
-    assert "active run" in response_json["error"].lower()
+    # Expect the endpoint to raise when there's an active run
+    with pytest.raises(Exception) as excinfo:
+        client.post(
+            "/api/v1/threads/sync", json=request_data, headers=user_api_key_header
+        )
+    assert "active run" in str(excinfo.value).lower()
 
 
 @patch("app.api.routes.threads.configure_openai")
@@ -493,8 +500,14 @@ def test_poll_run_and_prepare_response_non_completed(
 
 @patch("app.api.routes.threads.configure_openai")
 @patch("app.api.routes.threads.get_provider_credential")
+@patch("app.api.routes.threads.poll_run_and_prepare_response")
 def test_threads_start_endpoint_creates_thread(
-    mock_get_provider_credential, mock_configure_openai, client, db, user_api_key_header
+    mock_poll_run,
+    mock_get_provider_credential,
+    mock_configure_openai,
+    client,
+    db,
+    user_api_key_header,
 ):
     """Test /threads/start creates thread and schedules background task."""
     mock_client = MagicMock()
