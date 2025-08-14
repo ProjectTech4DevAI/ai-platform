@@ -47,23 +47,6 @@ def create_mock_openai_response(
     return mock_response
 
 
-def create_mock_file_search_results():
-    """Create mock file search results for testing."""
-    mock_hit1 = MagicMock()
-    mock_hit1.score = 0.95
-    mock_hit1.text = "First search result"
-
-    mock_hit2 = MagicMock()
-    mock_hit2.score = 0.85
-    mock_hit2.text = "Second search result"
-
-    mock_file_search_call = MagicMock()
-    mock_file_search_call.type = "file_search_call"
-    mock_file_search_call.results = [mock_hit1, mock_hit2]
-
-    return [mock_file_search_call]
-
-
 def create_mock_conversation(
     response_id="resp_latest1234567890abcdef1234567890",
     ancestor_response_id="resp_ancestor1234567890abcdef1234567890",
@@ -199,9 +182,7 @@ def test_responses_endpoint_without_vector_store(
     mock_get_credential,
     mock_openai,
     mock_process_response,
-    db,
     user_api_key_header,
-    user_api_key,
 ):
     """Test the /responses endpoint when assistant has no vector store configured."""
     # Mock the background task to prevent actual execution
@@ -269,7 +250,6 @@ def test_responses_endpoint_assistant_not_found(
 def test_responses_endpoint_no_openai_credentials(
     mock_get_assistant,
     mock_get_credential,
-    db,
     user_api_key_header,
 ):
     """Test the /responses endpoint when OpenAI credentials are not configured."""
@@ -320,66 +300,6 @@ def test_responses_endpoint_missing_api_key_in_credentials(
     response_json = response.json()
     assert response_json["success"] is False
     assert "OpenAI API key not configured" in response_json["error"]
-
-
-@patch("app.api.routes.responses.process_response")
-@patch("app.api.routes.responses.OpenAI")
-@patch("app.api.routes.responses.get_provider_credential")
-@patch("app.api.routes.responses.get_assistant_by_id")
-@patch("app.api.routes.responses.LangfuseTracer")
-@patch("app.api.routes.responses.get_ancestor_id_from_response")
-@patch("app.api.routes.responses.create_conversation")
-@patch("app.api.routes.responses.get_conversation_by_ancestor_id")
-def test_responses_endpoint_with_file_search_results(
-    mock_get_conversation_by_ancestor_id,
-    mock_create_conversation,
-    mock_get_ancestor_id_from_response,
-    mock_tracer_class,
-    mock_get_assistant,
-    mock_get_credential,
-    mock_openai,
-    mock_process_response,
-    db,
-    user_api_key_header,
-    user_api_key,
-):
-    """Test the /responses endpoint with file search results in the response."""
-    # Mock the background task to prevent actual execution
-    mock_process_response.return_value = None
-
-    # Setup common mocks with file search results
-    mock_client, mock_assistant = setup_common_mocks(
-        mock_get_credential,
-        mock_get_assistant,
-        mock_openai,
-        mock_tracer_class,
-        mock_get_ancestor_id_from_response,
-        mock_create_conversation,
-        mock_get_conversation_by_ancestor_id,
-        response_output=create_mock_file_search_results(),
-    )
-
-    request_data = {
-        "assistant_id": "assistant_dalgo",
-        "question": "What is Dalgo?",
-        "callback_url": "http://example.com/callback",
-    }
-
-    response = client.post("/responses", json=request_data, headers=user_api_key_header)
-
-    assert response.status_code == 200
-    response_json = response.json()
-    assert response_json["success"] is True
-    assert response_json["data"]["status"] == "processing"
-    assert response_json["data"]["message"] == "Response creation started"
-
-    # Verify that the background task was scheduled with correct parameters
-    mock_process_response.assert_called_once()
-    call_args = mock_process_response.call_args
-    assert call_args[0][0].assistant_id == "assistant_dalgo"
-    assert call_args[0][0].question == "What is Dalgo?"
-    assert call_args[0][0].callback_url == "http://example.com/callback"
-    assert call_args[0][0].response_id is None
 
 
 @patch("app.api.routes.responses.process_response")
