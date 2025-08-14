@@ -2,7 +2,7 @@ from datetime import datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import Column, ForeignKey
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import Index, SQLModel, Field, Relationship
 
 from app.core.util import now
 from app.models.prompt_version import (
@@ -18,6 +18,10 @@ class PromptBase(SQLModel):
 
 
 class Prompt(PromptBase, table=True):
+    __table_args__ = (
+        Index("ix_prompt_project_id_is_deleted", "project_id", "is_deleted"),
+    )
+
     id: UUID = Field(
         default_factory=uuid4,
         primary_key=True,
@@ -34,7 +38,7 @@ class Prompt(PromptBase, table=True):
             nullable=False,
         ),
     )
-    project_id: int = Field(foreign_key="project.id")
+    project_id: int = Field(foreign_key="project.id", index=True, nullable=False)
     inserted_at: datetime = Field(default_factory=now, nullable=False)
     updated_at: datetime = Field(default_factory=now, nullable=False)
     is_deleted: bool = Field(default=False)
