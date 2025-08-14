@@ -254,7 +254,6 @@ def process_response(
                     total_tokens=response.usage.total_tokens,
                     model=response.model,
                 ),
-                **get_additional_data(request_dict),
             )
         )
     except openai.OpenAIError as e:
@@ -266,14 +265,7 @@ def process_response(
         tracer.log_error(error_message, response_id=request.response_id)
 
         request_dict = request.model_dump()
-        # Create a custom error response with additional data in data field
-        additional_data = get_additional_data(request_dict)
-        callback_response = ResponsesAPIResponse(
-            success=False,
-            data=additional_data if additional_data else None,
-            error=error_message,
-            metadata=None,
-        )
+        callback_response = ResponsesAPIResponse.failure_response(error=error_message)
 
     tracer.flush()
 
@@ -281,7 +273,21 @@ def process_response(
         logger.info(
             f"[process_response] Sending callback to URL: {request.callback_url}, assistant={mask_string(request.assistant_id)}, project_id={project_id}"
         )
-        send_callback(request.callback_url, callback_response.model_dump())
+
+        # Send callback with webhook-specific response format
+        callback_data = callback_response.model_dump()
+        send_callback(
+            request.callback_url,
+            {
+                "success": callback_data.get("success", False),
+                "data": {
+                    **(callback_data.get("data") or {}),
+                    **get_additional_data(request_dict),
+                },
+                "error": callback_data.get("error"),
+                "metadata": None,
+            },
+        )
         logger.info(
             f"[process_response] Callback sent successfully, assistant={mask_string(request.assistant_id)}, project_id={project_id}"
         )
