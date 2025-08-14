@@ -37,13 +37,15 @@ class APIResponse(BaseModel, Generic[T]):
         return cls(success=True, data=data, error=None, metadata=metadata)
 
     @classmethod
-    def failure_response(cls, error: str | list) -> "APIResponse[None]":
+    def failure_response(
+        cls, error: str | list, metadata: Optional[Dict[str, Any]] = None
+    ) -> "APIResponse[None]":
         if isinstance(error, list):  # to handle cases when error is a list of errors
             error_message = "\n".join([f"{err['loc']}: {err['msg']}" for err in error])
         else:
             error_message = error
 
-        return cls(success=False, data=None, error=error_message)
+        return cls(success=False, data=None, error=error_message, metadata=metadata)
 
 
 @dataclass
