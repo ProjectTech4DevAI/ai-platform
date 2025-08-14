@@ -141,9 +141,7 @@ def test_responses_endpoint_success(
     mock_get_credential,
     mock_openai,
     mock_process_response,
-    db,
     user_api_key_header: dict[str, str],
-    user_api_key,
 ):
     """Test the /responses endpoint for successful response creation."""
 
