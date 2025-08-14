@@ -1,7 +1,9 @@
 import inspect
 import logging
 import time
+import json
 import ast
+import re
 from uuid import UUID, uuid4
 from typing import Any, List, Optional
 from dataclasses import dataclass, field, fields, asdict, replace
@@ -31,11 +33,29 @@ router = APIRouter(prefix="/collections", tags=["collections"])
 
 
 def extract_error_message(err: Exception) -> str:
-    err_str = str(err)
-    if "Error code" in err_str and " - " in err_str:
-        payload = ast.literal_eval(err_str.split(" - ", 1)[-1])
-        return payload["error"]["message"].strip()
-    return err_str.strip()
+    err_str = str(err).strip()
+
+    body = re.sub(r"^Error code:\s*\d+\s*-\s*", "", err_str)
+    message = None
+    try:
+        payload = json.loads(body)
+        if isinstance(payload, dict):
+            message = payload.get("error", {}).get("message")
+    except Exception:
+        pass
+
+    if message is None:
+        try:
+            payload = ast.literal_eval(body)
+            if isinstance(payload, dict):
+                message = payload.get("error", {}).get("message")
+        except Exception:
+            pass
+
+    if not message:
+        message = body
+
+    return message.strip()[:1000]
 
 
 @dataclass
