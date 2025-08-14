@@ -1,11 +1,12 @@
 import pytest
+import os
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 from sqlalchemy import event
 from collections.abc import Generator
 
 from app.core.config import settings
-from app.core.db import engine
+from app.core.db import get_engine
 from app.api.deps import get_db
 from app.main import app
 from app.models import APIKeyPublic
@@ -14,8 +15,19 @@ from app.tests.utils.utils import get_superuser_token_headers, get_api_key_by_em
 from app.seed_data.seed_data import seed_database
 
 
+def pytest_configure():
+    os.environ.setdefault("ENVIRONMENT", "testing")
+    # Force reload of settings after setting environment
+    import app.core.config
+
+    app.core.config.SettingsSingleton.reset()
+    app.core.config.settings = app.core.config.SettingsSingleton()
+
+
 @pytest.fixture(scope="function")
 def db() -> Generator[Session, None, None]:
+    # Use dynamic engine to get the correct database
+    engine = get_engine()
     connection = engine.connect()
     transaction = connection.begin()
     session = Session(bind=connection)
@@ -37,6 +49,8 @@ def db() -> Generator[Session, None, None]:
 
 @pytest.fixture(scope="session", autouse=True)
 def seed_baseline():
+    # Use dynamic engine to get the correct database
+    engine = get_engine()
     with Session(engine) as session:
         seed_database(session)  # deterministic baseline
         yield
