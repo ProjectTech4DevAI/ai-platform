@@ -79,9 +79,7 @@ def update_user_me(
     if user_in.email:
         existing_user = get_user_by_email(session=session, email=user_in.email)
         if existing_user and existing_user.id != current_user.id:
-            logger.error(
-                f"[update_user_me] Attempt to update user with existing email"
-            )
+            logger.error(f"[update_user_me] Attempt to update user with existing email")
             raise HTTPException(
                 status_code=409, detail="User with this email already exists"
             )
@@ -142,9 +140,7 @@ def register_user(session: SessionDep, user_in: UserRegister) -> Any:
     This endpoint allows the registration of a new user and is accessible only by a superuser.
     """
     if get_user_by_email(session=session, email=user_in.email):
-        logger.error(
-            f"[register_user] Attempt to create user with existing email"
-        )
+        logger.error(f"[register_user] Attempt to create user with existing email")
         raise HTTPException(
             status_code=400,
             detail="The user with this email already exists in the system",
