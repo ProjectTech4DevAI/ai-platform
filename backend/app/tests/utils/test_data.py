@@ -7,11 +7,14 @@ from app.models import (
     Credential,
     OrganizationCreate,
     ProjectCreate,
+    PromptCreate,
+    PromptVersion,
     CredsCreate,
 )
 from app.crud import (
     create_organization,
     create_project,
+    create_prompt,
     create_api_key,
     set_creds_for_org,
 )
@@ -112,3 +115,21 @@ def create_test_credential(db: Session) -> tuple[list[Credential], Project]:
         },
     )
     return set_creds_for_org(session=db, creds_add=creds_data), project
+
+
+def create_test_prompt(
+    db: Session,
+    project_id: str,
+    name: str = "test_prompt",
+    description: str = "Test prompt description",
+    instruction: str = "Test instruction",
+    commit_message: str = "Initial version",
+) -> tuple[PromptCreate, PromptVersion]:
+    """Helper function to create a PromptCreate object and persist it in the database."""
+    prompt_in = PromptCreate(
+        name=name,
+        description=description,
+        instruction=instruction,
+        commit_message=commit_message,
+    )
+    return create_prompt(db, prompt_in=prompt_in, project_id=project_id)

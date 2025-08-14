@@ -16,19 +16,14 @@ from app.crud.prompts import (
 )
 from app.models import Prompt, PromptCreate, PromptUpdate, PromptVersion
 from app.tests.utils.utils import get_project
+from app.tests.utils.test_data import create_test_prompt
 
 
 @pytest.fixture
 def prompt(db) -> Prompt:
     """Fixture to create a reusable prompt"""
     project = get_project(db)
-    prompt_data = PromptCreate(
-        name="test_prompt",
-        description="This is a test prompt",
-        instruction="Test instruction",
-        commit_message="Initial version",
-    )
-    prompt, _ = create_prompt(db, prompt_in=prompt_data, project_id=project.id)
+    prompt, _ = create_test_prompt(db, project.id)
     return prompt
 
 
@@ -189,8 +184,8 @@ def test_prompt_exists_success(db: Session, prompt: Prompt):
     assert isinstance(result, Prompt)
     assert result.id == prompt.id
     assert result.project_id == project.id
-    assert result.name == "test_prompt"
-    assert result.description == "This is a test prompt"
+    assert result.name == prompt.name
+    assert result.description == prompt.description
     assert not result.is_deleted
 
 

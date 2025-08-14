@@ -3,8 +3,8 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
-from app.crud.prompts import create_prompt
 from app.models import APIKeyPublic, PromptCreate, PromptUpdate, PromptVersion
+from app.tests.utils.test_data import create_test_prompt
 
 
 def test_create_prompt_route_success(
@@ -15,7 +15,7 @@ def test_create_prompt_route_success(
     """Test successful creation of a prompt via API route"""
     project_id = user_api_key.project_id
     prompt_in = PromptCreate(
-        name=f"test_prompt_{uuid4()}",
+        name="test_prompt",
         description="Test prompt description",
         instruction="Test instruction",
         commit_message="Initial version",
@@ -54,21 +54,8 @@ def test_get_prompts_route_success(
     """Test successfully retrieving prompts with pagination metadata"""
     project_id = user_api_key.project_id
 
-    # Create multiple prompts
-    prompt_1_in = PromptCreate(
-        name=f"prompt_1_{uuid4()}",
-        description="First prompt description",
-        instruction="First instruction",
-        commit_message="Initial version",
-    )
-    prompt_2_in = PromptCreate(
-        name=f"prompt_2_{uuid4()}",
-        description="Second prompt description",
-        instruction="Second instruction",
-        commit_message="Initial version",
-    )
-    create_prompt(db, prompt_in=prompt_1_in, project_id=project_id)
-    create_prompt(db, prompt_in=prompt_2_in, project_id=project_id)
+    create_test_prompt(db, project_id, name="prompt_1")
+    create_test_prompt(db, project_id, name="prompt_2")
 
     response = client.get(
         f"/api/v1/prompts/?skip=0&limit=100",
@@ -86,8 +73,8 @@ def test_get_prompts_route_success(
 
     prompts = response_data["data"]
     assert len(prompts) == 2
-    assert prompts[0]["name"] == prompt_2_in.name
-    assert prompts[1]["name"] == prompt_1_in.name
+    assert prompts[0]["name"] == "prompt_2"
+    assert prompts[1]["name"] == "prompt_1"
     assert all(prompt["project_id"] == project_id for prompt in prompts)
 
 
@@ -120,13 +107,7 @@ def test_get_prompts_route_pagination(
     project_id = user_api_key.project_id
 
     for i in range(3):
-        prompt_in = PromptCreate(
-            name=f"prompt_{i}",
-            description=f"Prompt {i} description",
-            instruction=f"Instruction {i}",
-            commit_message="Initial version",
-        )
-        create_prompt(db, prompt_in=prompt_in, project_id=project_id)
+        create_test_prompt(db, project_id, name=f"prompt_{i}")
 
     response = client.get(
         f"/api/v1/prompts/?skip=1&limit=1",
@@ -149,13 +130,7 @@ def test_get_prompt_by_id_route_success_active_version(
 ):
     """Test successfully retrieving a prompt with its active version"""
     project_id = user_api_key.project_id
-    prompt_in = PromptCreate(
-        name=f"test_prompt_{uuid4()}",
-        description="Test prompt description",
-        instruction="Test instruction",
-        commit_message="Initial version",
-    )
-    prompt, version = create_prompt(db, prompt_in=prompt_in, project_id=project_id)
+    prompt, version = create_test_prompt(db, project_id, name="test_prompt")
 
     response = client.get(
         f"/api/v1/prompts/{prompt.id}?include_versions=false",
@@ -169,13 +144,13 @@ def test_get_prompt_by_id_route_success_active_version(
     data = response_data["data"]
 
     assert data["id"] == str(prompt.id)
-    assert data["name"] == prompt_in.name
-    assert data["description"] == prompt_in.description
+    assert data["name"] == "test_prompt"
+    assert data["description"] == "Test prompt description"
     assert data["project_id"] == project_id
     assert len(data["versions"]) == 1
     assert data["versions"][0]["id"] == str(version.id)
-    assert data["versions"][0]["instruction"] == prompt_in.instruction
-    assert data["versions"][0]["commit_message"] == prompt_in.commit_message
+    assert data["versions"][0]["instruction"] == "Test instruction"
+    assert data["versions"][0]["commit_message"] == "Initial version"
     assert data["versions"][0]["version"] == 1
     assert data["active_version"] == str(version.id)
 
@@ -187,13 +162,7 @@ def test_get_prompt_by_id_route_with_versions(
 ):
     """Test retrieving a prompt with all its versions"""
     project_id = user_api_key.project_id
-    prompt_in = PromptCreate(
-        name=f"test_prompt_{uuid4()}",
-        description="Test prompt description",
-        instruction="Test instruction",
-        commit_message="Initial version",
-    )
-    prompt, version = create_prompt(db, prompt_in=prompt_in, project_id=project_id)
+    prompt, _ = create_test_prompt(db, project_id, name="test_prompt")
 
     second_version = PromptVersion(
         prompt_id=prompt.id,
@@ -219,7 +188,7 @@ def test_get_prompt_by_id_route_with_versions(
     assert data["versions"][0]["version"] == 2
     assert data["versions"][1]["version"] == 1
     assert data["versions"][0]["instruction"] == "Second instruction"
-    assert data["versions"][1]["instruction"] == prompt_in.instruction
+    assert data["versions"][1]["instruction"] == "Test instruction"
 
 
 def test_get_prompt_by_id_route_not_found(
@@ -248,13 +217,7 @@ def test_update_prompt_route_success(
 ):
     """Test successfully updating a prompt's name and description"""
     project_id = user_api_key.project_id
-    prompt_in = PromptCreate(
-        name=f"test_prompt",
-        description="Test prompt description",
-        instruction="Test instruction",
-        commit_message="Initial version",
-    )
-    prompt, _ = create_prompt(db, prompt_in=prompt_in, project_id=project_id)
+    prompt, _ = create_test_prompt(db, project_id, name="test_prompt")
 
     prompt_version = PromptVersion(
         prompt_id=prompt.id,
@@ -297,13 +260,7 @@ def test_delete_prompt_route_success(
 ):
     """Test successfully soft-deleting a prompt"""
     project_id = user_api_key.project_id
-    prompt_in = PromptCreate(
-        name=f"test_prompt",
-        description="Test prompt description",
-        instruction="Test instruction",
-        commit_message="Initial version",
-    )
-    prompt, _ = create_prompt(db, prompt_in=prompt_in, project_id=project_id)
+    prompt, _ = create_test_prompt(db, project_id, name="test_prompt")
 
     response = client.delete(
         f"/api/v1/prompts/{prompt.id}",

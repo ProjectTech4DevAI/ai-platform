@@ -13,19 +13,14 @@ from app.crud.prompt_versions import (
 from app.crud.prompts import create_prompt
 from app.models import Prompt, PromptCreate, PromptVersion, PromptVersionCreate
 from app.tests.utils.utils import get_project
+from app.tests.utils.test_data import create_test_prompt
 
 
 @pytest.fixture
 def prompt(db: Session) -> Prompt:
     """Fixture to create a reusable prompt"""
     project = get_project(db)
-    prompt_data = PromptCreate(
-        name=f"test_prompt_{uuid4()}",
-        description="This is a test prompt",
-        instruction="Test instruction",
-        commit_message="Initial version",
-    )
-    prompt, _ = create_prompt(db, prompt_in=prompt_data, project_id=project.id)
+    prompt, _ = create_test_prompt(db, project.id)
     return prompt
 
 

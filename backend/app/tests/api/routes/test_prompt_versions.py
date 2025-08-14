@@ -3,6 +3,7 @@ from sqlmodel import Session
 
 from app.crud.prompts import create_prompt
 from app.models import APIKeyPublic, PromptCreate, PromptVersion, PromptVersionCreate
+from app.tests.utils.test_data import create_test_prompt
 
 
 def test_create_prompt_version_route_success(
@@ -11,15 +12,7 @@ def test_create_prompt_version_route_success(
     user_api_key: APIKeyPublic,
 ):
     """Test successful creation of a prompt version via API route."""
-    prompt_in = PromptCreate(
-        name=f"Test Prompt",
-        description="Prompt for testing version creation route",
-        instruction="Initial instruction",
-        commit_message="Initial version",
-    )
-    prompt, _ = create_prompt(
-        db, prompt_in=prompt_in, project_id=user_api_key.project_id
-    )
+    prompt, _ = create_test_prompt(db, user_api_key.project_id)
 
     version_in = PromptVersionCreate(
         instruction="Version 2 instructions", commit_message="Second version"
@@ -51,15 +44,7 @@ def test_delete_prompt_version_route_success(
     user_api_key: APIKeyPublic,
 ):
     """Test successful deletion of a non-active prompt version via API route"""
-    prompt_in = PromptCreate(
-        name=f"Test Prompt",
-        description="Prompt for testing version creation route",
-        instruction="Initial instruction",
-        commit_message="Initial version",
-    )
-    prompt, _ = create_prompt(
-        db, prompt_in=prompt_in, project_id=user_api_key.project_id
-    )
+    prompt, _ = create_test_prompt(db, user_api_key.project_id)
 
     # Create a second version (non-active)
     second_version = PromptVersion(
