@@ -1,6 +1,9 @@
 import inspect
 import logging
 import time
+import json
+import ast
+import re
 from uuid import UUID, uuid4
 from typing import Any, List, Optional
 from dataclasses import dataclass, field, fields, asdict, replace
@@ -13,6 +16,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
 from app.core.cloud import AmazonCloudStorage
+from app.api.routes.responses import handle_openai_error
 from app.core.util import now, post_callback
 from app.crud import (
     DocumentCrud,
@@ -26,6 +30,32 @@ from app.utils import APIResponse, load_description, get_openai_client
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/collections", tags=["collections"])
+
+
+def extract_error_message(err: Exception) -> str:
+    err_str = str(err).strip()
+
+    body = re.sub(r"^Error code:\s*\d+\s*-\s*", "", err_str)
+    message = None
+    try:
+        payload = json.loads(body)
+        if isinstance(payload, dict):
+            message = payload.get("error", {}).get("message")
+    except Exception:
+        pass
+
+    if message is None:
+        try:
+            payload = ast.literal_eval(body)
+            if isinstance(payload, dict):
+                message = payload.get("error", {}).get("message")
+        except Exception:
+            pass
+
+    if not message:
+        message = body
+
+    return message.strip()[:1000]
 
 
 @dataclass
@@ -246,6 +276,9 @@ def do_create_collection(
             collection = collection_crud.read_one(UUID(payload.key))
             collection.status = CollectionStatus.failed
             collection.updated_at = now()
+            message = extract_error_message(err)
+            collection.error_message = message
+
             collection_crud._update(collection)
         except Exception as suberr:
             logger.warning(
@@ -283,7 +316,6 @@ def create_collection(
     collection_crud = CollectionCrud(session, current_user.id)
     collection_crud.create(collection)
 
-    # 2. Launch background task
     background_tasks.add_task(
         do_create_collection, session, current_user, request, payload, client
     )
