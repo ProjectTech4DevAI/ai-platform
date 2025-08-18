@@ -1,7 +1,8 @@
-import uuid
+import re
+import secrets
 
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, model_validator, field_validator
 from sqlmodel import Session
 
 from app.crud import (
@@ -32,9 +33,34 @@ router = APIRouter(tags=["onboarding"])
 class OnboardingRequest(BaseModel):
     organization_name: str
     project_name: str
-    email: EmailStr
-    password: str
-    user_name: str
+    email: EmailStr | None = None
+    password: str | None = None
+    user_name: str | None = None
+
+    @staticmethod
+    def _clean_username(raw: str, max_len: int = 200) -> str:
+        """
+        Normalize a string into a safe username that can also be used
+        as the local part of an email address.
+        """
+        username = re.sub(r"[^A-Za-z0-9._]", "_", raw.strip().lower())
+        username = re.sub(r"[._]{2,}", "_", username)  # collapse repeats
+        username = username.strip("._")  # remove leading/trailing
+        return username[:max_len]
+
+    @model_validator(mode="after")
+    def set_defaults(self):
+        if self.user_name is None:
+            self.user_name = self.project_name + " User"
+
+        if self.email is None:
+            local_part = self._clean_username(self.user_name, max_len=200)
+            suffix = secrets.token_hex(3)
+            self.email = f"{local_part}.{suffix}@kaapi.org"
+
+        if self.password is None:
+            self.password = secrets.token_urlsafe(12)
+        return self
 
 
 class OnboardingResponse(BaseModel):
@@ -82,7 +108,7 @@ def onboard_user(request: OnboardingRequest, session: SessionDep):
         user = existing_user
     else:
         user_create = UserCreate(
-            name=request.user_name,
+            full_name=request.user_name,
             email=request.email,
             password=request.password,
         )
