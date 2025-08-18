@@ -81,13 +81,15 @@ class DocumentCrud:
         )
         results = self.session.exec(statement).all()
 
-        (m, n) = map(len, (results, doc_ids))
-        if m != n:
+        (retrieved_count, requested_count) = map(len, (results, doc_ids))
+        if retrieved_count != requested_count:
             try:
-                raise ValueError(f"Requested atleast {n} document retrieved {m}")
+                raise ValueError(
+                    f"Requested atleast {requested_count} document retrieved {retrieved_count}"
+                )
             except ValueError as err:
                 logger.error(
-                    f"[DocumentCrud.read_each] Mismatch in retrieved documents | {{'owner_id': {self.owner_id}, 'requested_count': {n}, 'retrieved_count': {m}}}",
+                    f"[DocumentCrud.read_each] Mismatch in retrieved documents | {{'owner_id': {self.owner_id}, 'requested_count': {requested_count}, 'retrieved_count': {retrieved_count}}}",
                     exc_info=True,
                 )
                 raise
