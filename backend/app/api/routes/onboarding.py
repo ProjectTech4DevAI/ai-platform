@@ -51,7 +51,7 @@ class OnboardingRequest(BaseModel):
         return v
 
     @staticmethod
-    def _refactor_username(raw: str, max_len: int = 200) -> str:
+    def _clean_username(raw: str, max_len: int = 200) -> str:
         """
         Normalize a string into a safe username that can also be used
         as the local part of an email address.
@@ -64,10 +64,10 @@ class OnboardingRequest(BaseModel):
     @model_validator(mode="after")
     def set_defaults(self):
         if self.user_name is None:
-            self.user_name = self._refactor_username(self.project_name)
+            self.user_name = self._clean_username(self.project_name)
 
         if self.email is None:
-            local_part = self._refactor_username(self.user_name, max_len=200)
+            local_part = self._clean_username(self.user_name, max_len=200)
             suffix = secrets.token_hex(3)
             self.email = f"{local_part}.{suffix}@kaapi.org"
 
