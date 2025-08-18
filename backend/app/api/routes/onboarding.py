@@ -35,27 +35,44 @@ class OnboardingRequest(BaseModel):
     project_name: str
     email: EmailStr | None = None
     password: str | None = None
-    user_name: str
+    user_name: str | None = None
 
     @field_validator("user_name")
     def validate_username(cls, v):
-        pattern = r"^[A-Za-z][A-Za-z0-9._]{2,29}$"
+        if v is None:
+            return v
+
+        pattern = r"^[A-Za-z][A-Za-z0-9._]{2,199}$"
         if not re.match(pattern, v):
             raise ValueError(
                 "Username must start with a letter, can contain letters, numbers, underscores, and dots, "
-                "and must be between 3 and 30 characters long."
+                "and must be between 3 and 200 characters long."
             )
         return v
 
+    @staticmethod
+    def _refactor_username(raw: str, max_len: int = 200) -> str:
+        """
+        Normalize a string into a safe username that can also be used
+        as the local part of an email address.
+        """
+        username = re.sub(r"[^A-Za-z0-9._]", "_", raw.strip().lower())
+        username = re.sub(r"[._]{2,}", "_", username)  # collapse repeats
+        username = username.strip("._")  # remove leading/trailing
+        return username[:max_len]
+
     @model_validator(mode="after")
     def set_defaults(self):
-        # Generate email and password if missing
+        if self.user_name is None:
+            self.user_name = self._refactor_username(self.project_name)
+
         if self.email is None:
+            local_part = self._refactor_username(self.user_name, max_len=200)
             suffix = secrets.token_hex(3)
-            self.email = f"{self.user_name}.{suffix}@kaapi.org"
+            self.email = f"{local_part}.{suffix}@kaapi.org"
 
         if self.password is None:
-            self.password = secrets.token_urlsafe(8)
+            self.password = secrets.token_urlsafe(12)
         return self
 
 
@@ -104,7 +121,7 @@ def onboard_user(request: OnboardingRequest, session: SessionDep):
         user = existing_user
     else:
         user_create = UserCreate(
-            name=request.user_name,
+            full_name=request.user_name,
             email=request.email,
             password=request.password,
         )
