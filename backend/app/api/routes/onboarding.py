@@ -51,7 +51,8 @@ class OnboardingRequest(BaseModel):
     def set_defaults(self):
         # Generate email and password if missing
         if self.email is None:
-            self.email = f"{self.user_name}@kaapi.org"
+            suffix = secrets.token_hex(3)
+            self.email = f"{self.user_name}.{suffix}@kaapi.org"
 
         if self.password is None:
             self.password = secrets.token_urlsafe(8)
