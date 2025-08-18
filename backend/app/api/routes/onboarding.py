@@ -37,19 +37,6 @@ class OnboardingRequest(BaseModel):
     password: str | None = None
     user_name: str | None = None
 
-    @field_validator("user_name")
-    def validate_username(cls, v):
-        if v is None:
-            return v
-
-        pattern = r"^[A-Za-z][A-Za-z0-9._]{2,199}$"
-        if not re.match(pattern, v):
-            raise ValueError(
-                "Username must start with a letter, can contain letters, numbers, underscores, and dots, "
-                "and must be between 3 and 200 characters long."
-            )
-        return v
-
     @staticmethod
     def _clean_username(raw: str, max_len: int = 200) -> str:
         """
@@ -64,7 +51,7 @@ class OnboardingRequest(BaseModel):
     @model_validator(mode="after")
     def set_defaults(self):
         if self.user_name is None:
-            self.user_name = self._clean_username(self.project_name)
+            self.user_name = self.project_name + " User"
 
         if self.email is None:
             local_part = self._clean_username(self.user_name, max_len=200)
