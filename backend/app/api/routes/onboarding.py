@@ -1,7 +1,8 @@
-import uuid
+import re
+import secrets
 
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, model_validator, field_validator
 from sqlmodel import Session
 
 from app.crud import (
@@ -32,9 +33,29 @@ router = APIRouter(tags=["onboarding"])
 class OnboardingRequest(BaseModel):
     organization_name: str
     project_name: str
-    email: EmailStr
-    password: str
+    email: EmailStr | None = None
+    password: str | None = None
     user_name: str
+
+    @field_validator("user_name")
+    def validate_username(cls, v):
+        pattern = r"^[A-Za-z][A-Za-z0-9._]{2,29}$"
+        if not re.match(pattern, v):
+            raise ValueError(
+                "Username must start with a letter, can contain letters, numbers, underscores, and dots, "
+                "and must be between 3 and 30 characters long."
+            )
+        return v
+
+    @model_validator(mode="after")
+    def set_defaults(self):
+        # Generate email and password if missing
+        if self.email is None:
+            self.email = f"{self.user_name}@kaapi.org"
+
+        if self.password is None:
+            self.password = secrets.token_urlsafe(8)
+        return self
 
 
 class OnboardingResponse(BaseModel):
