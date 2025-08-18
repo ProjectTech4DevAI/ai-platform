@@ -92,7 +92,7 @@ def test_fetch_eval_by_doc_id_not_found(db: Session):
 def test_fetch_top_model_by_doc_id_success(db: Session):
     model_evals = create_test_model_evaluation(db)
     model_eval = model_evals[0]
-    model_eval.score = {"mcc": 0.8, "accuracy": 0.9}
+    model_eval.score = {"mcc": 0.8}
     db.flush()
 
     doc_id = model_eval.document_id

@@ -49,7 +49,6 @@ def test_top_model_by_doc(client, db, user_api_key_header):
 
     model_eval.score = {
         "mcc": 0.85,
-        "false_positive_rate": 0.9,
     }
     db.flush()
 
@@ -63,7 +62,6 @@ def test_top_model_by_doc(client, db, user_api_key_header):
 
     assert json_data["data"]["score"] == {
         "mcc": 0.85,
-        "false_positive_rate": 0.9,
     }
     assert json_data["data"]["model_name"] == model_eval.model_name
     assert json_data["data"]["document_id"] == str(model_eval.document_id)

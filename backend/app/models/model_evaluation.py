@@ -77,7 +77,7 @@ class ModelEvaluation(ModelEvaluationBase, table=True):
     updated_at: datetime = Field(default_factory=now, nullable=False)
     deleted_at: datetime | None = Field(default=None, nullable=True)
 
-    project: "Project" = Relationship(back_populates="model_evaluation")
+    project: "Project" = Relationship()
     fine_tuning: "Fine_Tuning" = Relationship(back_populates="model_evaluation")
 
 

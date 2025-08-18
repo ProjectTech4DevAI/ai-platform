@@ -156,14 +156,10 @@ class ModelEvaluator:
                 )
 
                 try:
-                    response = self.client.chat.completions.create(
+                    response = self.client.responses.create(
                         model=self.model_name,
-                        messages=[
-                            {"role": "system", "content": self.system_instruction},
-                            {"role": "user", "content": prompt},
-                        ],
-                        temperature=0,
-                        max_tokens=3,
+                        instructions=self.system_instruction,
+                        input=prompt,
                     )
 
                     elapsed_time = time.time() - start_time
@@ -173,7 +169,7 @@ class ModelEvaluator:
                         )
                         continue
 
-                    raw = response.choices[0].message.content or ""
+                    raw = response.output_text or ""
                     prediction = self.normalize_prediction(raw)
                     predictions.append(prediction)
                     break
@@ -208,24 +204,10 @@ class ModelEvaluator:
         try:
             mcc_score = round(matthews_corrcoef(self.y_true, y_pred), 4)
 
-            y_true_bin = [1 if y == "query" else 0 for y in self.y_true]
-            y_pred_bin = [1 if y == "query" else 0 for y in y_pred]
-            tn, fp, fn, tp = confusion_matrix(
-                y_true_bin, y_pred_bin, labels=[0, 1]
-            ).ravel()
-
-            fpr = round(fp / (fp + tn), 4) if (fp + tn) else 0.0
-            fnr = round(fn / (fn + tp), 4) if (fn + tp) else 0.0
-
-            logger.info(
-                f"[evaluate] Evaluation completed. MCC: {mcc_score} FPR: {fpr}, FNR: {fnr}"
-            )
-
             return {
                 "mcc": mcc_score,
-                "false_positive_rate": fpr,
-                "false_negetive_rate": fnr,
             }
+
         except Exception as e:
             logger.error(f"[evaluate] Evaluation failed: {e}")
             raise
