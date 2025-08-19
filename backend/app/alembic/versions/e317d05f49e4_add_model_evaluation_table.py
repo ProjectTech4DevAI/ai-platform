@@ -1,7 +1,7 @@
 """add model evaluation table
 
 Revision ID: e317d05f49e4
-Revises: db9b5413d3ce
+Revises: e3c74fab4356
 Create Date: 2025-08-10 21:36:07.863951
 
 """
@@ -12,7 +12,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = "e317d05f49e4"
-down_revision = "db9b5413d3ce"
+down_revision = "e3c74fab4356"
 branch_labels = None
 depends_on = None
 
