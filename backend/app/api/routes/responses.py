@@ -7,6 +7,7 @@ from openai import OpenAI
 from pydantic import BaseModel, Extra
 from sqlmodel import Session
 
+from app.core.db import engine
 from app.api.deps import get_db, get_current_user_org_project
 from app.api.routes.threads import send_callback
 from app.crud.assistants import get_assistant_by_id
@@ -16,7 +17,7 @@ from app.crud.openai_conversation import (
     get_ancestor_id_from_response,
     get_conversation_by_ancestor_id,
 )
-from app.models import UserProjectOrg, OpenAIConversationCreate
+from app.models import UserProjectOrg, OpenAIConversationCreate, OpenAIConversation
 from app.utils import APIResponse, mask_string
 from app.core.langfuse.langfuse import LangfuseTracer
 
@@ -102,11 +103,26 @@ def get_file_search_results(response):
 
 def get_additional_data(request: dict) -> dict:
     """Extract additional data from request, excluding specific keys."""
-    return {
-        k: v
-        for k, v in request.items()
-        if k not in {"assistant_id", "callback_url", "response_id", "question"}
+    # Keys to exclude for async request (ResponsesAPIRequest)
+    async_exclude_keys = {"assistant_id", "callback_url", "response_id", "question"}
+    # Keys to exclude for sync request (ResponsesSyncAPIRequest)
+    sync_exclude_keys = {
+        "model",
+        "instructions",
+        "vector_store_ids",
+        "max_num_results",
+        "temperature",
+        "response_id",
+        "question",
     }
+
+    # Determine which keys to exclude based on the request structure
+    if "assistant_id" in request:
+        exclude_keys = async_exclude_keys
+    else:
+        exclude_keys = sync_exclude_keys
+
+    return {k: v for k, v in request.items() if k not in exclude_keys}
 
 
 def process_response(
@@ -116,7 +132,8 @@ def process_response(
     tracer: LangfuseTracer,
     project_id: int,
     organization_id: int,
-    session: Session,
+    ancestor_id: str,
+    latest_conversation: OpenAIConversation | None,
 ):
     """Process a response and send callback with results, with Langfuse tracing."""
     logger.info(
@@ -136,18 +153,6 @@ def process_response(
     )
 
     try:
-        # Get the latest conversation by ancestor ID to use as previous_response_id
-        ancestor_id = request.response_id
-        latest_conversation = None
-        if ancestor_id:
-            latest_conversation = get_conversation_by_ancestor_id(
-                session=session,
-                ancestor_response_id=ancestor_id,
-                project_id=project_id,
-            )
-            if latest_conversation:
-                ancestor_id = latest_conversation.response_id
-
         params = {
             "model": assistant.model,
             "previous_response_id": ancestor_id,
@@ -196,35 +201,36 @@ def process_response(
                 "error": None,
             },
         )
-        # Set ancestor_response_id using CRUD function
-        ancestor_response_id = (
-            latest_conversation.ancestor_response_id
-            if latest_conversation
-            else get_ancestor_id_from_response(
-                session=session,
-                current_response_id=response.id,
-                previous_response_id=response.previous_response_id,
-                project_id=project_id,
+
+        with Session(engine) as session:
+            ancestor_response_id = (
+                latest_conversation.ancestor_response_id
+                if latest_conversation
+                else get_ancestor_id_from_response(
+                    session=session,
+                    current_response_id=response.id,
+                    previous_response_id=response.previous_response_id,
+                    project_id=project_id,
+                )
             )
-        )
 
-        # Create conversation record in database
-        conversation_data = OpenAIConversationCreate(
-            response_id=response.id,
-            previous_response_id=response.previous_response_id,
-            ancestor_response_id=ancestor_response_id,
-            user_question=request.question,
-            response=response.output_text,
-            model=response.model,
-            assistant_id=request.assistant_id,
-        )
+            # Create conversation record in database
+            conversation_data = OpenAIConversationCreate(
+                response_id=response.id,
+                previous_response_id=response.previous_response_id,
+                ancestor_response_id=ancestor_response_id,
+                user_question=request.question,
+                response=response.output_text,
+                model=response.model,
+                assistant_id=request.assistant_id,
+            )
 
-        create_conversation(
-            session=session,
-            conversation=conversation_data,
-            project_id=project_id,
-            organization_id=organization_id,
-        )
+            create_conversation(
+                session=session,
+                conversation=conversation_data,
+                project_id=project_id,
+                organization_id=organization_id,
+            )
 
         request_dict = request.model_dump()
         callback_response = ResponsesAPIResponse.success_response(
@@ -239,7 +245,6 @@ def process_response(
                     total_tokens=response.usage.total_tokens,
                     model=response.model,
                 ),
-                **get_additional_data(request_dict),
             )
         )
     except openai.OpenAIError as e:
@@ -249,6 +254,8 @@ def process_response(
             exc_info=True,
         )
         tracer.log_error(error_message, response_id=request.response_id)
+
+        request_dict = request.model_dump()
         callback_response = ResponsesAPIResponse.failure_response(error=error_message)
 
     tracer.flush()
@@ -257,7 +264,21 @@ def process_response(
         logger.info(
             f"[process_response] Sending callback to URL: {request.callback_url}, assistant={mask_string(request.assistant_id)}, project_id={project_id}"
         )
-        send_callback(request.callback_url, callback_response.model_dump())
+
+        # Send callback with webhook-specific response format
+        callback_data = callback_response.model_dump()
+        send_callback(
+            request.callback_url,
+            {
+                "success": callback_data.get("success", False),
+                "data": {
+                    **(callback_data.get("data") or {}),
+                    **get_additional_data(request_dict),
+                },
+                "error": callback_data.get("error"),
+                "metadata": None,
+            },
+        )
         logger.info(
             f"[process_response] Callback sent successfully, assistant={mask_string(request.assistant_id)}, project_id={project_id}"
         )
@@ -294,10 +315,12 @@ async def responses(
         logger.error(
             f"[response] OpenAI API key not configured for org_id={organization_id}, project_id={project_id}"
         )
+        request_dict = request.model_dump()
+        additional_data = get_additional_data(request_dict)
         return {
             "success": False,
             "error": "OpenAI API key not configured for this organization.",
-            "data": None,
+            "data": additional_data if additional_data else None,
             "metadata": None,
         }
 
@@ -314,6 +337,17 @@ async def responses(
         response_id=request.response_id,
     )
 
+    ancestor_id = request.response_id
+    latest_conversation = None
+    if ancestor_id:
+        latest_conversation = get_conversation_by_ancestor_id(
+            session=_session,
+            ancestor_response_id=ancestor_id,
+            project_id=project_id,
+        )
+        if latest_conversation:
+            ancestor_id = latest_conversation.response_id
+
     background_tasks.add_task(
         process_response,
         request,
@@ -322,19 +356,23 @@ async def responses(
         tracer,
         project_id,
         organization_id,
-        _session,
+        ancestor_id,
+        latest_conversation,
     )
 
     logger.info(
         f"[response] Background task scheduled for response processing: assistant_id={mask_string(request.assistant_id)}, project_id={project_id}, organization_id={organization_id}"
     )
 
+    request_dict = request.model_dump()
+    additional_data = get_additional_data(request_dict)
+
     return {
         "success": True,
         "data": {
             "status": "processing",
             "message": "Response creation started",
-            "success": True,
+            **additional_data,
         },
         "error": None,
         "metadata": None,
@@ -360,11 +398,17 @@ async def responses_sync(
         project_id=project_id,
     )
     if not credentials or "api_key" not in credentials:
+        request_dict = request.model_dump()
         logger.error(
             f"[response_sync] OpenAI API key not configured for org_id={organization_id}, project_id={project_id}"
         )
-        return APIResponse.failure_response(
-            error="OpenAI API key not configured for this organization."
+        # Create a custom error response with additional data in data field
+        additional_data = get_additional_data(request_dict)
+        return APIResponse(
+            success=False,
+            data=additional_data if additional_data else None,
+            error="OpenAI API key not configured for this organization.",
+            metadata=None,
         )
 
     client = OpenAI(api_key=credentials["api_key"])
@@ -435,6 +479,10 @@ async def responses_sync(
         logger.info(
             f"[response_sync] Successfully generated response: response_id={response.id}, project_id={project_id}"
         )
+
+        request_dict = request.model_dump()
+        additional_data = get_additional_data(request_dict)
+
         return ResponsesAPIResponse.success_response(
             data=_APIResponse(
                 status="success",
@@ -447,6 +495,7 @@ async def responses_sync(
                     total_tokens=response.usage.total_tokens,
                     model=response.model,
                 ),
+                **additional_data,
             )
         )
     except openai.OpenAIError as e:
@@ -457,4 +506,13 @@ async def responses_sync(
         )
         tracer.log_error(error_message, response_id=request.response_id)
         tracer.flush()
-        return ResponsesAPIResponse.failure_response(error=error_message)
+
+        request_dict = request.model_dump()
+        # Create a custom error response with additional data in data field
+        additional_data = get_additional_data(request_dict)
+        return ResponsesAPIResponse(
+            success=False,
+            data=additional_data if additional_data else None,
+            error=error_message,
+            metadata=None,
+        )
