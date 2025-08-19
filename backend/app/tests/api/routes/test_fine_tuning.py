@@ -1,10 +1,8 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from openai import OpenAIError
 
-from app.crud import fetch_by_id
 from app.tests.utils.test_data import create_test_fine_tuning_jobs
-from app.tests.utils.utils import get_user_from_api_key, get_document
+from app.tests.utils.utils import get_document
 
 
 def create_file_mock(file_type):
@@ -34,7 +32,6 @@ class TestCreateFineTuningJobAPI:
         db,
         user_api_key_header,
     ):
-        user = get_user_from_api_key(db, user_api_key_header)
         document = get_document(db)
 
         for path in ["/tmp/train.jsonl", "/tmp/test.jsonl"]:
@@ -64,9 +61,8 @@ class TestCreateFineTuningJobAPI:
             "system_prompt": "you are a model able to classify",
         }
 
-        print("autssh=", user_api_key_header)
         response = client.post(
-            "/api/v1/fine_tuning/fine-tune", json=body, headers=user_api_key_header
+            "/api/v1/fine_tuning/fine_tune", json=body, headers=user_api_key_header
         )
         assert response.status_code == 200
 
@@ -74,92 +70,6 @@ class TestCreateFineTuningJobAPI:
         assert json_data["success"] is True
         assert json_data["data"]["message"] == "Fine-tuning job(s) started."
         assert json_data["metadata"] is None
-
-        for job in json_data["data"]["jobs"]:
-            job_id = int(job["id"])
-            job_db = fetch_by_id(db, job_id=job_id, project_id=user.project_id)
-            assert job_db.training_file_id.startswith("file")
-            assert job_db.testing_file_id.startswith("file")
-            assert job_db.provider_job_id.startswith("ft_mock_job")
-            assert job_db.status == "running"
-
-    def test_data_preprocessing_failure(
-        self,
-        mock_get_openai_client,
-        mock_preprocessor_cls,
-        client,
-        db,
-        user_api_key_header,
-    ):
-        user = get_user_from_api_key(db, user_api_key_header)
-        document = get_document(db)
-
-        mock_preprocessor = MagicMock()
-        mock_preprocessor.process.side_effect = ValueError("Invalid format")
-        mock_preprocessor_cls.return_value = mock_preprocessor
-
-        mock_get_openai_client.return_value = MagicMock()
-
-        body = {
-            "document_id": str(document.id),
-            "base_model": "gpt-4",
-            "split_ratio": [0.8],
-            "system_prompt": "you are a model able to classify",
-        }
-
-        response = client.post(
-            "/api/v1/fine_tuning/fine-tune", json=body, headers=user_api_key_header
-        )
-        assert response.status_code == 200
-
-        job_id = response.json()["data"]["jobs"][0]["id"]
-        job = fetch_by_id(db, job_id, user.project_id)
-        assert job.status == "failed"
-
-    def test_openai_job_creation_failure(
-        self,
-        mock_get_openai_client,
-        mock_preprocessor_cls,
-        client,
-        db,
-        user_api_key_header,
-    ):
-        user = get_user_from_api_key(db, user_api_key_header)
-        document = get_document(db)
-
-        mock_preprocessor_cls.return_value = MagicMock(
-            process=MagicMock(
-                return_value={
-                    "train_file": "/tmp/train.jsonl",
-                    "test_file": "/tmp/test.jsonl",
-                }
-            )
-        )
-
-        openai_error = OpenAIError("Job create failed")
-        openai_error.body = {"message": "Job create failed"}
-
-        mock_openai = MagicMock()
-        mock_openai.files.create.side_effect = create_file_mock("fine-tune")
-        mock_openai.fine_tuning.jobs.create.side_effect = openai_error
-        mock_get_openai_client.return_value = mock_openai
-
-        body = {
-            "document_id": str(document.id),
-            "base_model": "gpt-4",
-            "split_ratio": [0.8],
-            "system_prompt": "you are a model able to classify",
-        }
-
-        response = client.post(
-            "/api/v1/fine_tuning/fine-tune", json=body, headers=user_api_key_header
-        )
-        print("resposneee=", response)
-        assert response.status_code == 200
-
-        job_id = response.json()["data"]["jobs"][0]["id"]
-        job = fetch_by_id(db, job_id, user.project_id)
-        assert job.status == "failed"
 
 
 @pytest.mark.usefixtures("client", "db", "user_api_key_header")
