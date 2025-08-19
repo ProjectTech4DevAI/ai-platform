@@ -50,6 +50,7 @@ def upgrade():
         sa.Column(
             "fine_tuned_model", sqlmodel.sql.sqltypes.AutoString(), nullable=True
         ),
+        sa.Column("system_prompt", sa.Text(), nullable=False),
         sa.Column("error_message", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column("project_id", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(["project_id"], ["project.id"], ondelete="CASCADE"),

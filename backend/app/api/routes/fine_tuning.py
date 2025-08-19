@@ -23,6 +23,7 @@ from app.crud import (
     update_finetune_job,
     fetch_by_document_id,
 )
+from app.core.db import engine
 from app.api.deps import CurrentUserOrgProject, SessionDep
 from app.core.finetune.preprocessing import DataPreprocessor
 
@@ -51,7 +52,6 @@ def handle_openai_error(e: openai.OpenAIError) -> str:
 def process_fine_tuning_job(
     job_id: int,
     ratio: float,
-    session: Session,
     current_user: CurrentUserOrgProject,
     request: FineTuningJobCreate,
     client: OpenAI,
@@ -63,32 +63,102 @@ def process_fine_tuning_job(
     logger.info(
         f"[process_fine_tuning_job]Starting fine-tuning job processing | job_id={job_id}, project_id={project_id}|"
     )
-
-    try:
-        fine_tune = fetch_by_id(session, job_id, project_id)
-
-        storage = AmazonCloudStorage(current_user)
-        document_crud = DocumentCrud(session=session, owner_id=current_user.id)
-        document = document_crud.read_one(request.document_id)
-        preprocessor = DataPreprocessor(document, storage, ratio, request.system_prompt)
-        result = preprocessor.process()
-        train_path = result["train_file"]
-        test_path = result["test_file"]
-
+    with Session(engine) as session:
         try:
-            with open(train_path, "rb") as train_f:
-                uploaded_train = client.files.create(file=train_f, purpose="fine-tune")
-            with open(test_path, "rb") as test_f:
-                uploaded_test = client.files.create(file=test_f, purpose="fine-tune")
+            fine_tune = fetch_by_id(session, job_id, project_id)
+
+            storage = AmazonCloudStorage(current_user)
+            document_crud = DocumentCrud(session=session, owner_id=current_user.id)
+            document = document_crud.read_one(request.document_id)
+            preprocessor = DataPreprocessor(
+                document, storage, ratio, request.system_prompt
+            )
+            result = preprocessor.process()
+            train_path = result["train_file"]
+            test_path = result["test_file"]
+
+            try:
+                with open(train_path, "rb") as train_f:
+                    uploaded_train = client.files.create(
+                        file=train_f, purpose="fine-tune"
+                    )
+                with open(test_path, "rb") as test_f:
+                    uploaded_test = client.files.create(
+                        file=test_f, purpose="fine-tune"
+                    )
+
+                logger.info(
+                    f"[process_fine_tuning_job] Files uploaded to OpenAI successfully | "
+                    f"job_id={job_id}, project_id={project_id}|"
+                )
+            except openai.OpenAIError as e:
+                error_msg = handle_openai_error(e)
+                logger.error(
+                    f"[process_fine_tuning_job] Failed to upload to OpenAI: {error_msg} | "
+                    f"job_id={job_id}, project_id={project_id}|"
+                )
+                update_finetune_job(
+                    session=session,
+                    job=fine_tune,
+                    update=FineTuningUpdate(
+                        status=FineTuningStatus.failed,
+                        error_message="Failed during background job processing",
+                    ),
+                )
+                return
+            finally:
+                preprocessor.cleanup()
+
+            training_file_id = uploaded_train.id
+            testing_file_id = uploaded_test.id
+
+            try:
+                job = client.fine_tuning.jobs.create(
+                    training_file=training_file_id, model=request.base_model
+                )
+                logger.info(
+                    f"[process_fine_tuning_job] OpenAI fine-tuning job created | "
+                    f"provider_job_id={mask_string(job.id)}, job_id={job_id}, project_id={project_id}|"
+                )
+            except openai.OpenAIError as e:
+                error_msg = handle_openai_error(e)
+                logger.error(
+                    f"[process_fine_tuning_job] Failed to create OpenAI fine-tuning job: {error_msg} | "
+                    f"job_id={job_id}, project_id={project_id}|"
+                )
+                update_finetune_job(
+                    session=session,
+                    job=fine_tune,
+                    update=FineTuningUpdate(
+                        status=FineTuningStatus.failed,
+                        error_message="Failed during background job processing",
+                    ),
+                )
+                return
+
+            update_finetune_job(
+                session=session,
+                job=fine_tune,
+                update=FineTuningUpdate(
+                    training_file_id=training_file_id,
+                    testing_file_id=testing_file_id,
+                    split_ratio=ratio,
+                    provider_job_id=job.id,
+                    status=FineTuningStatus.running,
+                ),
+            )
+
+            end_time = time.time()
+            duration = end_time - start_time
 
             logger.info(
-                f"[process_fine_tuning_job] Files uploaded to OpenAI successfully | "
-                f"job_id={job_id}, project_id={project_id}|"
+                f"[process_fine_tuning_job] Fine-tuning job processed successfully | "
+                f"time_taken={duration:.2f}s, job_id={job_id}, project_id={project_id}|"
             )
-        except openai.OpenAIError as e:
-            error_msg = handle_openai_error(e)
+
+        except Exception as e:
             logger.error(
-                f"[process_fine_tuning_job] Failed to upload to OpenAI: {error_msg} | "
+                f"[process_fine_tuning_job] Background job failure: {e} | "
                 f"job_id={job_id}, project_id={project_id}|"
             )
             update_finetune_job(
@@ -99,74 +169,10 @@ def process_fine_tuning_job(
                     error_message="Failed during background job processing",
                 ),
             )
-            return
-        finally:
-            preprocessor.cleanup()
-
-        training_file_id = uploaded_train.id
-        testing_file_id = uploaded_test.id
-
-        try:
-            job = client.fine_tuning.jobs.create(
-                training_file=training_file_id, model=request.base_model
-            )
-            logger.info(
-                f"[process_fine_tuning_job] OpenAI fine-tuning job created | "
-                f"provider_job_id={mask_string(job.id)}, job_id={job_id}, project_id={project_id}|"
-            )
-        except openai.OpenAIError as e:
-            error_msg = handle_openai_error(e)
-            logger.error(
-                f"[process_fine_tuning_job] Failed to create OpenAI fine-tuning job: {error_msg} | "
-                f"job_id={job_id}, project_id={project_id}|"
-            )
-            update_finetune_job(
-                session=session,
-                job=fine_tune,
-                update=FineTuningUpdate(
-                    status=FineTuningStatus.failed,
-                    error_message="Failed during background job processing",
-                ),
-            )
-            return
-
-        update_finetune_job(
-            session=session,
-            job=fine_tune,
-            update=FineTuningUpdate(
-                training_file_id=training_file_id,
-                testing_file_id=testing_file_id,
-                split_ratio=ratio,
-                provider_job_id=job.id,
-                status=FineTuningStatus.running,
-            ),
-        )
-
-        end_time = time.time()
-        duration = end_time - start_time
-
-        logger.info(
-            f"[process_fine_tuning_job] Fine-tuning job processed successfully | "
-            f"time_taken={duration:.2f}s, job_id={job_id}, project_id={project_id}|"
-        )
-
-    except Exception as e:
-        logger.error(
-            f"[process_fine_tuning_job] Background job failure: {e} | "
-            f"job_id={job_id}, project_id={project_id}|"
-        )
-        update_finetune_job(
-            session=session,
-            job=fine_tune,
-            update=FineTuningUpdate(
-                status=FineTuningStatus.failed,
-                error_message="Failed during background job processing",
-            ),
-        )
 
 
 @router.post(
-    "/fine-tune",
+    "/fine_tune",
     description=load_description("fine_tuning/create.md"),
     response_model=APIResponse,
 )
@@ -196,7 +202,6 @@ def fine_tune_from_CSV(
                 process_fine_tuning_job,
                 job.id,
                 ratio,
-                session,
                 current_user,
                 request,
                 client,
