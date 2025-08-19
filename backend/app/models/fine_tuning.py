@@ -81,6 +81,7 @@ class Fine_Tuning(FineTuningJobBase, table=True):
     deleted_at: datetime | None = Field(default=None, nullable=True)
 
     project: "Project" = Relationship(back_populates="fine_tuning")
+    model_evaluation: "ModelEvaluation" = Relationship(back_populates="fine_tuning")
 
 
 class FineTuningUpdate(SQLModel):
