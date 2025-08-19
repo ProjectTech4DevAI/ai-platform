@@ -1,7 +1,7 @@
 """add fine tuning table
 
 Revision ID: e3c74fab4356
-Revises: e9dd35eff62c
+Revises: 5a59c6c29a82
 Create Date: 2025-08-04 22:03:54.552069
 
 """
@@ -12,7 +12,7 @@ from sqlalchemy.dialects import postgresql
 
 
 revision = "e3c74fab4356"
-down_revision = "e9dd35eff62c"
+down_revision = "5a59c6c29a82"
 branch_labels = None
 depends_on = None
 
