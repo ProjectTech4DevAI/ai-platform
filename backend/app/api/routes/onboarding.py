@@ -12,6 +12,7 @@ from app.crud import (
     create_user,
     create_api_key,
     get_api_key_by_project_user,
+    set_creds_for_org
 )
 from app.models import (
     OrganizationCreate,
@@ -20,6 +21,7 @@ from app.models import (
     Project,
     User,
     APIKey,
+    CredsCreate
 )
 from app.api.deps import (
     SessionDep,
@@ -36,6 +38,7 @@ class OnboardingRequest(BaseModel):
     email: EmailStr | None = None
     password: str | None = None
     user_name: str | None = None
+    openai_api_key: str | None = None
 
     @staticmethod
     def _clean_username(raw: str, max_len: int = 200) -> str:
@@ -94,8 +97,11 @@ def onboard_user(request: OnboardingRequest, session: SessionDep):
     existing_project = (
         session.query(Project).filter(Project.name == request.project_name).first()
     )
-    if existing_project:
-        project = existing_project  # Use the existing project
+    if existing_project and existing_project.organization_id == organization.id:
+        raise HTTPException(
+            status_code=400,
+            detail="Project already exists in this organization.",
+        )
     else:
         project_create = ProjectCreate(
             name=request.project_name, organization_id=organization.id
@@ -135,6 +141,21 @@ def onboard_user(request: OnboardingRequest, session: SessionDep):
     # Set user as non-superuser and save to session
     user.is_superuser = False
     session.add(user)
+
+    if request.openai_api_key:
+        openai_creds = {
+            "openai":{
+                "api_key": request.openai_api_key
+            }
+        }
+        creds_create = CredsCreate(
+            organization_id=organization.id,
+            project_id=project.id,
+            is_active=True,
+            credential=openai_creds
+        )
+        set_creds_for_org(session=session, creds_add=creds_create)
+
     session.commit()
 
     return OnboardingResponse(
