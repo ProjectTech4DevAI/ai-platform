@@ -21,6 +21,7 @@ class OnboardingRequest(SQLModel):
     - Some users may not need a full user module and only want to interact using an API key.
       For those cases, user-related fields are optional and safe defaults are generated automatically.
     """
+
     organization_name: str = Field(
         description="Name of the organization to be created or linked",
         min_length=3,
@@ -87,18 +88,12 @@ class OnboardingResponse(SQLModel):
     Contains the identifiers and credentials created or linked during onboarding.
     """
 
-    organization_id: int = Field(
-        description="Unique ID of the organization"
-    )
-    organization_name: str = Field(
-        description="Name of the organization"
-    )
+    organization_id: int = Field(description="Unique ID of the organization")
+    organization_name: str = Field(description="Name of the organization")
     project_id: int = Field(
         description="Unique ID of the project within the organization"
     )
-    project_name: str = Field(
-        description="Name of the project"
-    )
+    project_name: str = Field(description="Name of the project")
     user_id: int = Field(
         description="Unique ID of the user.",
     )
@@ -108,9 +103,7 @@ class OnboardingResponse(SQLModel):
     user_name: str = Field(
         description="Name of the user.",
     )
-    api_key: str = Field(
-        description="Generated internal API key for the project."
-    )
+    api_key: str = Field(description="Generated internal API key for the project.")
     openai_api_key: str | None = Field(
         default=None,
         description="Optional OpenAI API key linked to this project, if provided at onboarding.",
