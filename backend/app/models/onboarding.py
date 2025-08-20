@@ -100,9 +100,6 @@ class OnboardingResponse(SQLModel):
     user_email: EmailStr = Field(
         description="Email of the user.",
     )
-    user_name: str = Field(
-        description="Name of the user.",
-    )
     api_key: str = Field(description="Generated internal API key for the project.")
     openai_api_key: str | None = Field(
         default=None,
