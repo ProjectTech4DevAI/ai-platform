@@ -96,7 +96,7 @@ def test_onboard_project_existing_organization(db: Session) -> None:
     """Test onboarding with existing organization but new project and user."""
     # Create existing organization
     existing_org = create_test_organization(db)
-    
+
     project_name = "TestProjectOnboard"
     email = random_email()
     password = random_lower_string()
@@ -126,7 +126,7 @@ def test_onboard_project_existing_user(db: Session) -> None:
     """Test onboarding with existing user but new organization and project."""
 
     existing_user = create_random_user(db)
-    
+
     org_name = "TestOrgOnboard"
     project_name = "TestProjectOnboard"
 
@@ -164,14 +164,14 @@ def test_onboard_project_duplicate_project_name(db: Session) -> None:
 
     onboard_request = OnboardingRequest(
         organization_name=org.name,
-        project_name=existing_project.name, 
+        project_name=existing_project.name,
         email=email,
         password=password,
     )
 
     with pytest.raises(HTTPException) as exc_info:
         onboard_project(session=db, onboard_in=onboard_request)
-    
+
     assert exc_info.value.status_code == 409
     assert "Project already exists" in str(exc_info.value.detail)
 
@@ -246,7 +246,7 @@ def test_onboard_project_api_key_generation(db: Session) -> None:
             APIKey.user_id == user.id,
             APIKey.project_id == project.id,
             APIKey.organization_id == org.id,
-            APIKey.is_deleted.is_(False)
+            APIKey.is_deleted.is_(False),
         )
     ).first()
     assert api_key_record is not None
