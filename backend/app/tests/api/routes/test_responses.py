@@ -250,9 +250,9 @@ def test_responses_endpoint_assistant_not_found(
 @patch("app.api.routes.responses.get_assistant_by_id")
 @patch("app.api.routes.responses.process_response")
 def test_responses_endpoint_no_openai_credentials(
+    mock_process_response,
     mock_get_assistant,
     mock_get_credential,
-    mock_process_response,
     user_api_key_header,
     client,
 ):
@@ -285,9 +285,9 @@ def test_responses_endpoint_no_openai_credentials(
 @patch("app.api.routes.responses.get_assistant_by_id")
 @patch("app.api.routes.responses.process_response")
 def test_responses_endpoint_missing_api_key_in_credentials(
+    mock_process_response,
     mock_get_assistant,
     mock_get_credential,
-    mock_process_response,
     user_api_key_header,
     client,
 ):
