@@ -226,7 +226,6 @@ def test_responses_endpoint_without_vector_store(
 @patch("app.api.routes.responses.get_assistant_by_id")
 def test_responses_endpoint_assistant_not_found(
     mock_get_assistant,
-    db,
     user_api_key_header,
 ):
     """Test the /responses endpoint when assistant is not found."""
@@ -278,7 +277,6 @@ def test_responses_endpoint_no_openai_credentials(
 def test_responses_endpoint_missing_api_key_in_credentials(
     mock_get_assistant,
     mock_get_credential,
-    db,
     user_api_key_header,
 ):
     """Test the /responses endpoint when credentials exist but don't have api_key."""
@@ -319,9 +317,7 @@ def test_responses_endpoint_with_ancestor_conversation_found(
     mock_get_credential,
     mock_openai,
     mock_process_response,
-    db,
     user_api_key_header: dict[str, str],
-    user_api_key,
 ):
     """Test the /responses endpoint when a conversation is found by ancestor ID."""
     # Mock the background task to prevent actual execution
@@ -380,9 +376,7 @@ def test_responses_endpoint_with_ancestor_conversation_not_found(
     mock_get_credential,
     mock_openai,
     mock_process_response,
-    db,
     user_api_key_header: dict[str, str],
-    user_api_key,
 ):
     """Test the /responses endpoint when no conversation is found by ancestor ID."""
     # Mock the background task to prevent actual execution
@@ -441,9 +435,7 @@ def test_responses_endpoint_without_response_id(
     mock_get_credential,
     mock_openai,
     mock_process_response,
-    db,
     user_api_key_header: dict[str, str],
-    user_api_key,
 ):
     """Test the /responses endpoint when no response_id is provided."""
     # Mock the background task to prevent actual execution
