@@ -1,6 +1,5 @@
 import pytest
 from fastapi import HTTPException
-from requests import session
 from sqlmodel import Session, select
 
 from app.utils import mask_string

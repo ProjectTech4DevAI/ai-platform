@@ -5,7 +5,6 @@ from app.utils import mask_string
 from app.core.config import settings
 from app.tests.utils.utils import random_email, random_lower_string
 from app.tests.utils.test_data import create_test_organization
-from app.tests.utils.user import create_random_user
 
 
 def test_onboard_project_new_organization_project_user(

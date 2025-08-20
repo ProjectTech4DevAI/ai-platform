@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends
-from app.crud import onboard_project
-from app.models import OnboardingRequest, OnboardingResponse, User
-from app.utils import APIResponse, load_description
+
 from app.api.deps import (
     SessionDep,
     get_current_active_superuser,
 )
+from app.crud import onboard_project
+from app.models import OnboardingRequest, OnboardingResponse, User
+from app.utils import APIResponse, load_description
 
 router = APIRouter(tags=["onboarding"])
 

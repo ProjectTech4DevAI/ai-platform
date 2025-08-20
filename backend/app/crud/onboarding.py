@@ -1,3 +1,4 @@
+import logging
 from fastapi import HTTPException
 from sqlmodel import Session
 
@@ -21,6 +22,8 @@ from app.models import (
     User,
     UserCreate,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def onboard_project(
@@ -99,6 +102,7 @@ def onboard_project(
     )
     session.add(api_key)
 
+    credential = None
     if onboard_in.openai_api_key:
         creds = {"api_key": onboard_in.openai_api_key}
         encrypted_credentials = encrypt_credentials(creds)
@@ -113,6 +117,13 @@ def onboard_project(
 
     session.commit()
 
+    openai_creds_id = credential.id if credential else None
+
+    logger.info(
+        "[onboard_project] Onboarding completed successfully. "
+        f"org_id={organization.id}, project_id={project.id}, user_id={user.id}, "
+        f"openai_creds_id={openai_creds_id}"
+    )
     return OnboardingResponse(
         organization_id=organization.id,
         organization_name=organization.name,
@@ -121,5 +132,7 @@ def onboard_project(
         user_id=user.id,
         user_email=user.email,
         api_key=raw_key,
-        openai_api_key=mask_string(onboard_in.openai_api_key) if onboard_in.openai_api_key else None
+        openai_api_key=mask_string(onboard_in.openai_api_key)
+        if onboard_in.openai_api_key
+        else None,
     )
