@@ -1,13 +1,5 @@
 from unittest.mock import MagicMock, patch
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from app.api.routes.responses import router, process_response
-
-
-# Wrap the router in a FastAPI app instance
-app = FastAPI()
-app.include_router(router)
-client = TestClient(app)
+from app.api.routes.responses import process_response
 
 
 def create_mock_assistant(model="gpt-4o", vector_store_ids=None, max_num_results=20):
@@ -125,6 +117,7 @@ def test_responses_endpoint_success(
     mock_openai,
     mock_process_response,
     user_api_key_header: dict[str, str],
+    client,
 ):
     """Test the /responses endpoint for successful response creation."""
 
@@ -148,7 +141,9 @@ def test_responses_endpoint_success(
         "callback_url": "http://example.com/callback",
     }
 
-    response = client.post("/responses", json=request_data, headers=user_api_key_header)
+    response = client.post(
+        "/api/v1/responses", json=request_data, headers=user_api_key_header
+    )
 
     assert response.status_code == 200
     response_json = response.json()
@@ -183,6 +178,7 @@ def test_responses_endpoint_without_vector_store(
     mock_openai,
     mock_process_response,
     user_api_key_header,
+    client,
 ):
     """Test the /responses endpoint when assistant has no vector store configured."""
     # Mock the background task to prevent actual execution
@@ -207,7 +203,9 @@ def test_responses_endpoint_without_vector_store(
         "callback_url": "http://example.com/callback",
     }
 
-    response = client.post("/responses", json=request_data, headers=user_api_key_header)
+    response = client.post(
+        "/api/v1/responses", json=request_data, headers=user_api_key_header
+    )
     assert response.status_code == 200
     response_json = response.json()
     assert response_json["success"] is True
@@ -227,6 +225,7 @@ def test_responses_endpoint_without_vector_store(
 def test_responses_endpoint_assistant_not_found(
     mock_get_assistant,
     user_api_key_header,
+    client,
 ):
     """Test the /responses endpoint when assistant is not found."""
     # Setup mock assistant to return None (not found)
@@ -238,10 +237,13 @@ def test_responses_endpoint_assistant_not_found(
         "callback_url": "http://example.com/callback",
     }
 
-    response = client.post("/responses", json=request_data, headers=user_api_key_header)
+    response = client.post(
+        "/api/v1/responses", json=request_data, headers=user_api_key_header
+    )
     assert response.status_code == 404
     response_json = response.json()
-    assert response_json["detail"] == "Assistant not found or not active"
+    assert response_json["success"] is False
+    assert response_json["error"] == "Assistant not found or not active"
 
 
 @patch("app.api.routes.responses.get_provider_credential")
@@ -250,6 +252,7 @@ def test_responses_endpoint_no_openai_credentials(
     mock_get_assistant,
     mock_get_credential,
     user_api_key_header,
+    client,
 ):
     """Test the /responses endpoint when OpenAI credentials are not configured."""
     # Setup mock assistant
@@ -265,7 +268,9 @@ def test_responses_endpoint_no_openai_credentials(
         "callback_url": "http://example.com/callback",
     }
 
-    response = client.post("/responses", json=request_data, headers=user_api_key_header)
+    response = client.post(
+        "/api/v1/responses", json=request_data, headers=user_api_key_header
+    )
     assert response.status_code == 200
     response_json = response.json()
     assert response_json["success"] is False
@@ -278,6 +283,7 @@ def test_responses_endpoint_missing_api_key_in_credentials(
     mock_get_assistant,
     mock_get_credential,
     user_api_key_header,
+    client,
 ):
     """Test the /responses endpoint when credentials exist but don't have api_key."""
     # Setup mock assistant
@@ -293,7 +299,9 @@ def test_responses_endpoint_missing_api_key_in_credentials(
         "callback_url": "http://example.com/callback",
     }
 
-    response = client.post("/responses", json=request_data, headers=user_api_key_header)
+    response = client.post(
+        "/api/v1/responses", json=request_data, headers=user_api_key_header
+    )
     assert response.status_code == 200
     response_json = response.json()
     assert response_json["success"] is False
@@ -318,6 +326,7 @@ def test_responses_endpoint_with_ancestor_conversation_found(
     mock_openai,
     mock_process_response,
     user_api_key_header: dict[str, str],
+    client,
 ):
     """Test the /responses endpoint when a conversation is found by ancestor ID."""
     # Mock the background task to prevent actual execution
@@ -342,7 +351,9 @@ def test_responses_endpoint_with_ancestor_conversation_found(
         "response_id": "resp_ancestor1234567890abcdef1234567890",
     }
 
-    response = client.post("/responses", json=request_data, headers=user_api_key_header)
+    response = client.post(
+        "/api/v1/responses", json=request_data, headers=user_api_key_header
+    )
 
     assert response.status_code == 200
     response_json = response.json()
@@ -377,6 +388,7 @@ def test_responses_endpoint_with_ancestor_conversation_not_found(
     mock_openai,
     mock_process_response,
     user_api_key_header: dict[str, str],
+    client,
 ):
     """Test the /responses endpoint when no conversation is found by ancestor ID."""
     # Mock the background task to prevent actual execution
@@ -401,7 +413,9 @@ def test_responses_endpoint_with_ancestor_conversation_not_found(
         "response_id": "resp_ancestor1234567890abcdef1234567890",
     }
 
-    response = client.post("/responses", json=request_data, headers=user_api_key_header)
+    response = client.post(
+        "/api/v1/responses", json=request_data, headers=user_api_key_header
+    )
 
     assert response.status_code == 200
     response_json = response.json()
@@ -436,6 +450,7 @@ def test_responses_endpoint_without_response_id(
     mock_openai,
     mock_process_response,
     user_api_key_header: dict[str, str],
+    client,
 ):
     """Test the /responses endpoint when no response_id is provided."""
     # Mock the background task to prevent actual execution
@@ -459,7 +474,9 @@ def test_responses_endpoint_without_response_id(
         # No response_id provided
     }
 
-    response = client.post("/responses", json=request_data, headers=user_api_key_header)
+    response = client.post(
+        "/api/v1/responses", json=request_data, headers=user_api_key_header
+    )
 
     assert response.status_code == 200
     response_json = response.json()
@@ -532,15 +549,12 @@ def test_process_response_ancestor_conversation_found(
         tracer=mock_tracer,
         project_id=user_api_key.project_id,
         organization_id=user_api_key.organization_id,
-        session=db,
+        ancestor_id=mock_conversation.response_id,
+        latest_conversation=mock_conversation,
     )
 
-    # Verify get_conversation_by_ancestor_id was called with correct parameters
-    mock_get_conversation_by_ancestor_id.assert_called_once_with(
-        session=db,
-        ancestor_response_id="resp_ancestor1234567890abcdef1234567890",
-        project_id=user_api_key.project_id,
-    )
+    # process_response doesn't call get_conversation_by_ancestor_id; endpoint resolves it
+    mock_get_conversation_by_ancestor_id.assert_not_called()
 
     # Verify OpenAI client was called with the conversation's response_id as
     # previous_response_id
@@ -612,15 +626,12 @@ def test_process_response_ancestor_conversation_not_found(
         tracer=mock_tracer,
         project_id=user_api_key.project_id,
         organization_id=user_api_key.organization_id,
-        session=db,
+        ancestor_id=request.response_id,
+        latest_conversation=None,
     )
 
-    # Verify get_conversation_by_ancestor_id was called with correct parameters
-    mock_get_conversation_by_ancestor_id.assert_called_once_with(
-        session=db,
-        ancestor_response_id="resp_ancestor1234567890abcdef1234567890",
-        project_id=user_api_key.project_id,
-    )
+    # process_response doesn't call get_conversation_by_ancestor_id; endpoint resolves it
+    mock_get_conversation_by_ancestor_id.assert_not_called()
 
     # Verify OpenAI client was called with the original response_id as
     # previous_response_id
