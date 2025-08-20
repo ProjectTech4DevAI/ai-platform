@@ -125,7 +125,7 @@ def test_responses_endpoint_success(
     mock_process_response.return_value = None
 
     # Setup common mocks
-    mock_client, mock_assistant = setup_common_mocks(
+    setup_common_mocks(
         mock_get_credential,
         mock_get_assistant,
         mock_openai,
@@ -248,9 +248,11 @@ def test_responses_endpoint_assistant_not_found(
 
 @patch("app.api.routes.responses.get_provider_credential")
 @patch("app.api.routes.responses.get_assistant_by_id")
+@patch("app.api.routes.responses.process_response")
 def test_responses_endpoint_no_openai_credentials(
     mock_get_assistant,
     mock_get_credential,
+    mock_process_response,
     user_api_key_header,
     client,
 ):
@@ -275,13 +277,17 @@ def test_responses_endpoint_no_openai_credentials(
     response_json = response.json()
     assert response_json["success"] is False
     assert "OpenAI API key not configured" in response_json["error"]
+    # Ensure background task was not scheduled
+    mock_process_response.assert_not_called()
 
 
 @patch("app.api.routes.responses.get_provider_credential")
 @patch("app.api.routes.responses.get_assistant_by_id")
+@patch("app.api.routes.responses.process_response")
 def test_responses_endpoint_missing_api_key_in_credentials(
     mock_get_assistant,
     mock_get_credential,
+    mock_process_response,
     user_api_key_header,
     client,
 ):
@@ -306,6 +312,8 @@ def test_responses_endpoint_missing_api_key_in_credentials(
     response_json = response.json()
     assert response_json["success"] is False
     assert "OpenAI API key not configured" in response_json["error"]
+    # Ensure background task was not scheduled
+    mock_process_response.assert_not_called()
 
 
 @patch("app.api.routes.responses.process_response")
