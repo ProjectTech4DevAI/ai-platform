@@ -2,6 +2,7 @@ from fastapi import HTTPException
 from sqlmodel import Session
 
 from app.core.security import encrypt_api_key, encrypt_credentials, get_password_hash
+from app.utils import mask_string
 from app.crud import (
     generate_api_key,
     get_organization_by_name,
@@ -105,7 +106,6 @@ def onboard_project(
             organization_id=organization.id,
             project_id=project.id,
             is_active=True,
-            api_key=encrypted_credentials,
             provider="openai",
             credential=encrypted_credentials,
         )
@@ -120,7 +120,6 @@ def onboard_project(
         project_name=project.name,
         user_id=user.id,
         user_email=user.email,
-        user_name=user.full_name,
         api_key=raw_key,
-        openai_api_key=onboard_in.openai_api_key,
+        openai_api_key=mask_string(onboard_in.openai_api_key) if onboard_in.openai_api_key else None
     )

@@ -3,6 +3,7 @@ from fastapi import HTTPException
 from requests import session
 from sqlmodel import Session, select
 
+from app.utils import mask_string
 from app.crud.onboarding import onboard_project
 from app.crud import (
     get_organization_by_name,
@@ -48,7 +49,7 @@ def test_onboard_project_new_organization_project_user(db: Session) -> None:
     assert response.organization_name == org_name
     assert response.project_name == project_name
     assert response.user_email == email
-    assert response.openai_api_key == openai_key
+    assert response.openai_api_key == mask_string(openai_key)
     assert response.api_key is not None
     assert len(response.api_key) > 0
 
@@ -283,4 +284,4 @@ def test_onboard_project_response_data_integrity(db: Session) -> None:
     assert project.name == response.project_name
     assert project.organization_id == response.organization_id
     assert user.email == response.user_email
-    assert response.openai_api_key == openai_key
+    assert response.openai_api_key == mask_string(openai_key)

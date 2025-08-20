@@ -21,6 +21,7 @@
 ## 🔑 OpenAI API Key (Optional)
 - If provided, the API key will be **encrypted** and stored as project credentials.
 - If omitted, the project will be created **without OpenAI credentials**.
+- The return response includes a masked openai_key if provided.
 
 ---
 

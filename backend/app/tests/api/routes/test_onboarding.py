@@ -1,9 +1,8 @@
-import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
+from app.utils import mask_string
 from app.core.config import settings
-from app.models import OnboardingRequest
 from app.tests.utils.utils import random_email, random_lower_string
 from app.tests.utils.test_data import create_test_organization
 from app.tests.utils.user import create_random_user
@@ -47,7 +46,7 @@ def test_onboard_project_new_organization_project_user(
     assert data["organization_name"] == org_name
     assert data["project_name"] == project_name
     assert data["user_email"] == email
-    assert data["openai_api_key"] == openai_key
+    assert data["openai_api_key"] == mask_string(openai_key)
     assert "api_key" in data
     assert len(data["api_key"]) > 0
     assert "organization_id" in data
