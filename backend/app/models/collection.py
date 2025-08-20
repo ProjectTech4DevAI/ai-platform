@@ -43,6 +43,7 @@ class Collection(SQLModel, table=True):
     llm_service_name: Optional[str] = Field(default=None, nullable=True)
 
     status: CollectionStatus = Field(default=CollectionStatus.processing)
+    error_message: Optional[str] = Field(default=None, nullable=True)
 
     created_at: datetime = Field(default_factory=now)
     updated_at: datetime = Field(default_factory=now)

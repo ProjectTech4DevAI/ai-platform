@@ -17,7 +17,7 @@ def test_onboard_user(client, db: Session, superuser_token_headers: dict[str, st
         "project_name": "TestProject",
         "email": random_email(),
         "password": "testpassword123",
-        "user_name": "Test User",
+        "user_name": "test_user",
     }
 
     response = client.post(
@@ -63,7 +63,7 @@ def test_create_user_existing_email(
         "project_name": "TestProject",
         "email": random_email(),
         "password": "testpassword123",
-        "user_name": "Test User",
+        "user_name": "test_user",
     }
 
     client.post(
@@ -87,7 +87,7 @@ def test_is_superuser_flag(
         "project_name": "TestProjects",
         "email": random_email(),
         "password": "testpassword123",
-        "user_name": "Test User",
+        "user_name": "test_user",
     }
 
     response = client.post(
@@ -110,7 +110,7 @@ def test_organization_and_project_creation(
         "project_name": "NewProject",
         "email": random_email(),
         "password": "newpassword123",
-        "user_name": "New User",
+        "user_name": "new_user",
     }
 
     response = client.post(
