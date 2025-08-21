@@ -3,13 +3,17 @@ from typing import List, Optional
 
 from sqlalchemy import Column, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 
 from app.core.util import now
 
 
 class AssistantBase(SQLModel):
-    assistant_id: str = Field(index=True, unique=True)
+    __table_args__ = (
+        UniqueConstraint("project_id", "assistant_id", name="uq_project_assistant_id"),
+    )
+
+    assistant_id: str = Field(index=True)
     name: str
     instructions: str = Field(sa_column=Column(Text, nullable=False))
     model: str
@@ -44,6 +48,12 @@ class AssistantCreate(SQLModel):
     name: str = Field(description="Name of the assistant", min_length=3, max_length=50)
     instructions: str = Field(
         description="Instructions for the assistant", min_length=10
+    )
+    assistant_id: str | None = Field(
+        default=None,
+        description="Unique identifier for the assistant",
+        min_length=3,
+        max_length=50,
     )
     model: str = Field(
         default="gpt-4o",
