@@ -2,7 +2,6 @@ import pytest
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
-from app.utils import mask_string
 from app.crud.onboarding import onboard_project
 from app.crud import (
     get_organization_by_name,
@@ -48,7 +47,6 @@ def test_onboard_project_new_organization_project_user(db: Session) -> None:
     assert response.organization_name == org_name
     assert response.project_name == project_name
     assert response.user_email == email
-    assert response.openai_api_key == mask_string(openai_key)
     assert response.api_key is not None
     assert len(response.api_key) > 0
 
@@ -176,25 +174,6 @@ def test_onboard_project_duplicate_project_name(db: Session) -> None:
     assert "Project already exists" in str(exc_info.value.detail)
 
 
-def test_onboard_project_without_openai_key(db: Session) -> None:
-    """Test onboarding without OpenAI API key."""
-    org_name = "TestOrgOnboard"
-    project_name = "TestProjectOnboard"
-    email = random_email()
-    password = random_lower_string()
-
-    onboard_request = OnboardingRequest(
-        organization_name=org_name,
-        project_name=project_name,
-        email=email,
-        password=password,
-    )
-
-    response = onboard_project(session=db, onboard_in=onboard_request)
-
-    assert response.openai_api_key is None
-
-
 def test_onboard_project_with_auto_generated_defaults(db: Session) -> None:
     """Test onboarding with minimal input using auto-generated defaults."""
     org_name = "TestOrgOnboard"
@@ -283,4 +262,3 @@ def test_onboard_project_response_data_integrity(db: Session) -> None:
     assert project.name == response.project_name
     assert project.organization_id == response.organization_id
     assert user.email == response.user_email
-    assert response.openai_api_key == mask_string(openai_key)

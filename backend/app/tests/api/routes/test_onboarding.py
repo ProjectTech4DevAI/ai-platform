@@ -45,7 +45,6 @@ def test_onboard_project_new_organization_project_user(
     assert data["organization_name"] == org_name
     assert data["project_name"] == project_name
     assert data["user_email"] == email
-    assert data["openai_api_key"] == mask_string(openai_key)
     assert "api_key" in data
     assert len(data["api_key"]) > 0
     assert "organization_id" in data
@@ -87,7 +86,6 @@ def test_onboard_project_existing_organization(
     assert data["organization_name"] == existing_org.name
     assert data["project_name"] == project_name
     assert data["user_email"] == email
-    assert data["openai_api_key"] is None  # No OpenAI key provided
 
 
 def test_onboard_project_duplicate_project_in_organization(
@@ -128,35 +126,6 @@ def test_onboard_project_duplicate_project_in_organization(
     error_response = response.json()
     assert "error" in error_response
     assert "Project already exists" in error_response["error"]
-
-
-def test_onboard_project_without_openai_key(
-    client: TestClient, superuser_token_headers: dict[str, str], db: Session
-) -> None:
-    """Test onboarding without OpenAI API key."""
-    org_name = "TestOrgOnboard"
-    project_name = "TestProjectOnboard"
-    email = random_email()
-    password = random_lower_string()
-
-    onboard_data = {
-        "organization_name": org_name,
-        "project_name": project_name,
-        "email": email,
-        "password": password,
-    }
-
-    response = client.post(
-        f"{settings.API_V1_STR}/onboard",
-        json=onboard_data,
-        headers=superuser_token_headers,
-    )
-
-    assert response.status_code == 201
-    response_data = response.json()
-
-    data = response_data["data"]
-    assert data["openai_api_key"] is None
 
 
 def test_onboard_project_with_auto_generated_defaults(
