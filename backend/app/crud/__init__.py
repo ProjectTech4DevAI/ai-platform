@@ -19,12 +19,14 @@ from .organization import (
 from .project import (
     create_project,
     get_project_by_id,
+    get_project_by_name,
     get_projects_by_organization,
     validate_project,
 )
 
 from .api_key import (
     create_api_key,
+    generate_api_key,
     get_api_key,
     get_api_key_by_value,
     get_api_keys_by_project,
@@ -64,3 +66,5 @@ from .openai_conversation import (
     create_conversation,
     delete_conversation,
 )
+
+from .onboarding import onboard_project

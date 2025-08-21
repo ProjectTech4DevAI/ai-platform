@@ -63,3 +63,5 @@ from .openai_conversation import (
     OpenAIConversationBase,
     OpenAIConversationCreate,
 )
+
+from .onboarding import OnboardingRequest, OnboardingResponse
