@@ -158,6 +158,74 @@ class TestAssistantCrud:
         assert result.max_num_results == assistant_create.max_num_results
 
     @patch("app.crud.assistants.verify_vector_store_ids_exist")
+    def test_create_assistant_with_id_success(
+        self, mock_vector_store_ids_exist, db: Session
+    ):
+        """Assistant is created with a specific ID when vector store IDs are valid"""
+        project = get_project(db)
+        assistant_create = AssistantCreate(
+            name="Test Assistant",
+            instructions="Test instructions",
+            model="gpt-4o",
+            vector_store_ids=["vs_1", "vs_2"],
+            temperature=0.7,
+            max_num_results=10,
+            assistant_id="test_assistant_id",
+        )
+        client = OpenAI(api_key="test_key")
+        mock_vector_store_ids_exist.return_value = None
+        result = create_assistant(
+            db, client, assistant_create, project.id, project.organization_id
+        )
+
+        assert result.name == assistant_create.name
+        assert result.instructions == assistant_create.instructions
+        assert result.model == assistant_create.model
+        assert result.vector_store_ids == assistant_create.vector_store_ids
+        assert result.temperature == assistant_create.temperature
+        assert result.max_num_results == assistant_create.max_num_results
+        assert result.assistant_id == assistant_create.assistant_id
+
+    @patch("app.crud.assistants.verify_vector_store_ids_exist")
+    def test_create_assistant_duplicate_assistant_id(
+        self, mock_vector_store_ids_exist, db: Session
+    ):
+        """Creating an assistant with a duplicate assistant_id should raise 409 Conflict"""
+        project = get_project(db)
+
+        assistant_id = "duplicate_id"
+        assistant_create_1 = AssistantCreate(
+            name="Assistant One",
+            instructions="First assistant instructions",
+            model="gpt-4o",
+            vector_store_ids=[],
+            assistant_id=assistant_id,
+        )
+        client = OpenAI(api_key="test_key")
+        mock_vector_store_ids_exist.return_value = None
+        create_assistant(
+            db, client, assistant_create_1, project.id, project.organization_id
+        )
+
+        assistant_create_2 = AssistantCreate(
+            name="Assistant Two",
+            instructions="Second assistant instructions",
+            model="gpt-4o",
+            vector_store_ids=[],
+            assistant_id=assistant_id,
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            create_assistant(
+                db, client, assistant_create_2, project.id, project.organization_id
+            )
+
+        assert exc_info.value.status_code == 409
+        assert f"Assistant with ID {assistant_id} already exists." in str(
+            exc_info.value.detail
+        )
+
+    @patch("app.crud.assistants.verify_vector_store_ids_exist")
     def test_create_assistant_vector_store_invalid(
         self, mock_vector_store_ids_exist, db: Session
     ):

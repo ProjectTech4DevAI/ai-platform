@@ -173,8 +173,19 @@ def create_assistant(
 ) -> Assistant:
     verify_vector_store_ids_exist(openai_client, assistant.vector_store_ids)
 
+    assistant.assistant_id = assistant.assistant_id or str(uuid.uuid4())
+
+    existing = get_assistant_by_id(session, assistant.assistant_id, project_id)
+    if existing:
+        logger.error(
+            f"[create_assistant] Assistant with ID {mask_string(assistant.assistant_id)} already exists. | project_id: {project_id}"
+        )
+        raise HTTPException(
+            status_code=409,
+            detail=f"Assistant with ID {assistant.assistant_id} already exists.",
+        )
+
     assistant = Assistant(
-        assistant_id=str(uuid.uuid4()),
         **assistant.model_dump(exclude_unset=True),
         project_id=project_id,
         organization_id=organization_id,

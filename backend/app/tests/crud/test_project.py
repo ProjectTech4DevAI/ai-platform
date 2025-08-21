@@ -6,6 +6,7 @@ from app.models import Project, ProjectCreate
 from app.crud.project import (
     create_project,
     get_project_by_id,
+    get_project_by_name,
     get_projects_by_organization,
     validate_project,
 )
@@ -41,6 +42,31 @@ def test_get_project_by_id(db: Session) -> None:
     assert fetched_project is not None
     assert fetched_project.id == project.id
     assert fetched_project.name == project.name
+
+
+def test_get_project_by_name(db: Session) -> None:
+    """Test retrieving a project by name and organization ID."""
+    project = create_test_project(db)
+
+    fetched_project = get_project_by_name(
+        session=db, project_name=project.name, organization_id=project.organization_id
+    )
+    assert fetched_project is not None
+    assert fetched_project.id == project.id
+    assert fetched_project.name == project.name
+    assert fetched_project.organization_id == project.organization_id
+
+
+def test_get_project_by_name_not_found(db: Session) -> None:
+    """Test retrieving a project by name when it doesn't exist."""
+    organization = create_test_organization(db)
+
+    # Try to get a project that doesn't exist
+    non_existent_name = f"non-existent-{random_lower_string()}"
+    fetched_project = get_project_by_name(
+        session=db, project_name=non_existent_name, organization_id=organization.id
+    )
+    assert fetched_project is None
 
 
 def test_get_projects_by_organization(db: Session) -> None:

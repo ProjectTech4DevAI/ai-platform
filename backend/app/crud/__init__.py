@@ -19,12 +19,14 @@ from .organization import (
 from .project import (
     create_project,
     get_project_by_id,
+    get_project_by_name,
     get_projects_by_organization,
     validate_project,
 )
 
 from .api_key import (
     create_api_key,
+    generate_api_key,
     get_api_key,
     get_api_key_by_value,
     get_api_keys_by_project,
@@ -82,3 +84,5 @@ from .model_evaluation import (
     fetch_top_model_by_doc_id,
     update_model_eval,
 )
+
+from .onboarding import onboard_project
