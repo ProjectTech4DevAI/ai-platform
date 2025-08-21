@@ -73,9 +73,15 @@ async def upload_doc(
     )
     source_document = crud.update(document)
 
+    # Generate signed S3 URL for the original document
+    signed_url = storage.get_signed_url(str(object_store_url))
+
     # If no target format specified, return the uploaded document
     if not target_format:
-        return APIResponse.success_response(source_document)
+        return APIResponse.success_response({
+            "document": source_document,
+            "signed_url": signed_url,
+        })
 
     # Validate the requested transformation
     if not is_transformation_supported(source_format, target_format):
@@ -107,9 +113,20 @@ async def upload_doc(
     )
 
     # Compose response with full document metadata and job info
+    # response_data = {
+    #     "message": f"Document accepted for transformation from {source_format} to {target_format}.",
+    #     "original_document": APIResponse.success_response(source_document),
+    #     "transformation_job_id": str(job_id),
+    #     "source_format": source_format,
+    #     "target_format": target_format,
+    #     "transformer": actual_transformer,
+    #     "status_check_url": f"/documents/transformations/{job_id}"
+    # }
+
     response_data = {
         "message": f"Document accepted for transformation from {source_format} to {target_format}.",
-        "original_document": APIResponse.success_response(source_document).data,
+        "original_document_id": str(source_document.id),
+        "original_document_signed_url": signed_url,
         "transformation_job_id": str(job_id),
         "source_format": source_format,
         "target_format": target_format,

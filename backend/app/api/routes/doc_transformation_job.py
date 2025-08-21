@@ -7,6 +7,8 @@ from typing import List
 from app.crud.doc_transformation_job import DocTransformationJobCrud
 from app.utils import APIResponse
 from app.api.deps import SessionDep, CurrentUser
+from app.core.cloud import AmazonCloudStorage
+from app.crud import DocumentCrud
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/documents/transformations", tags=["doc_transformation_job"])
@@ -23,7 +25,19 @@ def get_transformation_job(
 ):
     crud = DocTransformationJobCrud(session)
     job = crud.read_one(job_id)
-    return APIResponse.success_response(job)
+
+    # Get signed S3 URL for the transformed document if available
+    transformed_document_id = getattr(job, "transformed_document_id", None)
+    signed_url = None
+    if transformed_document_id:
+        doc_crud = DocumentCrud(session, current_user.id)
+        transformed_doc = doc_crud.read_one(transformed_document_id)
+        storage = AmazonCloudStorage(current_user)
+        signed_url = storage.get_signed_url(transformed_doc.object_store_url)
+    job_dict = job.model_dump() if hasattr(job, "model_dump") else dict(job)
+    job_dict["transformed_document_signed_url"] = signed_url
+
+    return APIResponse.success_response(job_dict)
 
 @router.get(
     "/",

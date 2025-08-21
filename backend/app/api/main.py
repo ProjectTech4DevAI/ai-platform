@@ -17,6 +17,7 @@ from app.api.routes import (
     utils,
     onboarding,
     credentials,
+    doc_transformation_job,
 )
 from app.core.config import settings
 
@@ -36,6 +37,7 @@ api_router.include_router(responses.router)
 api_router.include_router(threads.router)
 api_router.include_router(users.router)
 api_router.include_router(utils.router)
+api_router.include_router(doc_transformation_job.router)
 
 if settings.ENVIRONMENT == "local":
     api_router.include_router(private.router)

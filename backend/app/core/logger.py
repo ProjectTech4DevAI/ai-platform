@@ -9,7 +9,7 @@ os.makedirs(LOG_DIR, exist_ok=True)
 
 LOG_FILE_PATH = os.path.join(LOG_DIR, "app.log")
 
-LOGGING_LEVEL = logging.INFO
+LOGGING_LEVEL = logging.DEBUG
 LOGGING_FORMAT = (
     "%(asctime)s - [%(correlation_id)s] - %(levelname)s - %(name)s - %(message)s"
 )
