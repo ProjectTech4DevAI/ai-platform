@@ -188,6 +188,33 @@ class AmazonCloudStorage(CloudStorage):
             )
             raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err
 
+    def get_signed_url(self, url: str, expires_in: int = 3600) -> str:
+        """
+        Generate a signed S3 URL for the given file.
+        :param url: S3 url (e.g., s3://bucket/key)
+        :param expires_in: Expiry time in seconds (default: 1 hour)
+        :return: Signed URL as string
+        """
+        name = SimpleStorageName.from_url(url)
+        try:
+            signed_url = self.aws.client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": name.Bucket, "Key": name.Key},
+                ExpiresIn=expires_in,
+            )
+            logger.info(
+                f"[AmazonCloudStorage.get_signed_url] Signed URL generated | "
+                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}'}}"
+            )
+            return signed_url
+        except ClientError as err:
+            logger.error(
+                f"[AmazonCloudStorage.get_signed_url] AWS presign error | "
+                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}', 'error': '{str(err)}'}}",
+                exc_info=True,
+            )
+            raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err
+
     def delete(self, url: str) -> None:
         name = SimpleStorageName.from_url(url)
         kwargs = asdict(name)
