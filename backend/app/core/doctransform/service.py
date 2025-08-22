@@ -29,10 +29,8 @@ def start_job(
     target_format: str,
     background_tasks: BackgroundTasks,
 ) -> UUID:
-    logger.debug(f"start_job called | source_document_id={source_document_id} | transformer_name={transformer_name} | target_format={target_format} | user_id={current_user.id}")
     job_crud = DocTransformationJobCrud(db)
     job = job_crud.create(source_document_id=source_document_id)
-    logger.debug(f"Job created | job_id={job.id}")
     
     # Extract the user ID before passing to background task
     user_id = current_user.id
@@ -49,24 +47,20 @@ def execute_job(
 ):
     try:
         with Session(engine) as db:
-            logger.debug(f"execute_job started | job_id={job_id} | transformer_name={transformer_name} | target_format={target_format} | user_id={user_id}")
+            logger.info(f"[execute_job started] Transformation Job started | job_id={job_id} | transformer_name={transformer_name} | target_format={target_format} | user_id={user_id}")
             job_crud = DocTransformationJobCrud(db)
             doc_crud = DocumentCrud(db, user_id)
 
-            logger.debug(f"Marking job as PROCESSING | job_id={job_id}")
             job_crud.update_status(job_id, TransformationStatus.PROCESSING)
 
             # fetch source document
             job = job_crud.read_one(job_id)
-            logger.debug(f"Fetched job | job_id={job_id} | source_document_id={job.source_document_id}")
             source_doc = doc_crud.read_one(job.source_document_id)
-            logger.debug(f"Fetched source document | doc_id={source_doc.id}")
 
             current_user = User(id=user_id)
             
             # download source file to temp
             storage = AmazonCloudStorage(current_user)
-            logger.debug(f"Streaming source document from storage | url={source_doc.object_store_url}")
             body = storage.stream(source_doc.object_store_url)
             tmp_dir = Path(tempfile.mkdtemp())
             tmp_in = tmp_dir / f"{source_doc.id}"
@@ -75,9 +69,7 @@ def execute_job(
             logger.debug(f"Downloaded source document to temp file | path={tmp_in}")
 
             # transform document
-            logger.debug(f"Converting document | path={tmp_in} | transformer={transformer_name}")
             transformed_text = convert_document(tmp_in, transformer_name)
-            logger.debug(f"Document transformed | length={len(transformed_text)}")
 
             # write transformed output with appropriate extension
             fname_no_ext = Path(source_doc.fname).stem
@@ -85,7 +77,6 @@ def execute_job(
             transformed_doc_id = uuid4()
             tmp_out = tmp_dir / f"<transformed>{fname_no_ext}{target_extension}"
             tmp_out.write_text(transformed_text)
-            logger.debug(f"Transformed output written to temp file | path={tmp_out}")
 
             # Determine content type based on target format
             content_type_map = {
@@ -103,7 +94,6 @@ def execute_job(
                     headers=Headers({"content-type": content_type}),
                 )
                 dest = storage.put(file_upload, Path(str(transformed_doc_id)))
-            logger.debug(f"Transformed file uploaded | dest={dest}")
 
             # create new Document record
             new_doc = Document(
@@ -114,11 +104,11 @@ def execute_job(
                 source_document_id=source_doc.id,
             )
             created = DocumentCrud(db, user_id).update(new_doc)
-            logger.debug(f"New document record created | doc_id={created.id}")
 
             # mark completed
             job_crud.update_status(job_id, TransformationStatus.COMPLETED, transformed_document_id=created.id)
-            logger.debug(f"Job marked as COMPLETED | job_id={job_id}")
+
+            logger.info(f"[execute_job] Doc Transformation job completed | job_id={job_id} | transformed_doc_id={created.id} | user_id={user_id}")
 
     except Exception as e:
         logger.error(f"Transformation job failed | job_id={job_id} | error={e}", exc_info=True)
@@ -126,6 +116,7 @@ def execute_job(
             with Session(engine) as db:
                 job_crud = DocTransformationJobCrud(db)
                 job_crud.update_status(job_id, TransformationStatus.FAILED, error_message=str(e))
+                logger.info(f"[execute_job] Doc Transformation job failed | job_id={job_id} | error={e}")
         except Exception as db_error:
             logger.error(f"Failed to update job status to FAILED | job_id={job_id} | db_error={db_error}")
         raise

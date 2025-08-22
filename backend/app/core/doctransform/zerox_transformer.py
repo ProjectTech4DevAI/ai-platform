@@ -13,7 +13,7 @@ class ZeroxTransformer(Transformer):
         self.model = model
 
     def transform(self, input_path: Path) -> str:
-        logging.info(f"ZeroxTransformer: {input_path} (model={self.model})")
+        logging.info(f"ZeroxTransformer Started: {input_path} (model={self.model})")
         try:
             with Runner() as runner:
                 result = runner.run(zerox(
