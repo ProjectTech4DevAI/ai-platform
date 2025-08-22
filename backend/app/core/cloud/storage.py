@@ -10,7 +10,7 @@ from fastapi import UploadFile
 from botocore.exceptions import ClientError
 from botocore.response import StreamingBody
 
-from app.api.deps import CurrentUser
+from app.models import UserProjectOrg
 from app.core.config import settings
 from app.utils import mask_string
 
@@ -108,7 +108,7 @@ class SimpleStorageName:
 
 
 class CloudStorage:
-    def __init__(self, user: CurrentUser):
+    def __init__(self, user: UserProjectOrg):
         self.user = user
 
     def put(self, source: UploadFile, basename: str):
@@ -119,7 +119,7 @@ class CloudStorage:
 
 
 class AmazonCloudStorage(CloudStorage):
-    def __init__(self, user: CurrentUser):
+    def __init__(self, user: UserProjectOrg):
         super().__init__(user)
         self.aws = AmazonCloudStorageClient()
 
