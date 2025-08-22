@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi import HTTPException
 
 from app.crud import DocumentCrud, CollectionCrud
-from app.models import Document, DocumentUploadResponse, TransformationJobInfo
+from app.models import Document, DocumentUploadResponse, DocumentPublic, TransformationJobInfo
 from app.utils import APIResponse, load_description, get_openai_client
 from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
 from app.core.cloud import AmazonCloudStorage
@@ -118,8 +118,9 @@ async def upload_doc(
             status_check_url=f"/documents/transformations/{job_id}"
         )
 
+    document_schema = DocumentPublic.model_validate(source_document, from_attributes=True)
     response = DocumentUploadResponse(
-        **source_document.model_dump(),
+        **document_schema.model_dump(),
         transformation_job=job_info
     )
 
