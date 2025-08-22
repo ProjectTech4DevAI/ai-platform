@@ -53,7 +53,12 @@ class DocumentPublic(SQLModel):
         description="The timestamp when the document was last updated"
     )
     source_document_id: UUID | None = Field(
+        default=None,
         description="The ID of the source document if this document is a transformation"
+    )
+    signed_url: str | None = Field(
+        default=None,
+        description="A signed URL for accessing the document"
     )
 
 

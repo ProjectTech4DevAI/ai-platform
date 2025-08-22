@@ -182,13 +182,21 @@ def permanent_delete_doc(
 @router.get(
     "/info/{doc_id}",
     description=load_description("documents/info.md"),
-    response_model=APIResponse[Document],
+    response_model=APIResponse[DocumentPublic],
 )
 def doc_info(
     session: SessionDep,
     current_user: CurrentUser,
     doc_id: UUID = FastPath(description="Document to retrieve"),
+    include_url: bool = Query(False, description="Include a signed URL to access the document"),
 ):
     crud = DocumentCrud(session, current_user.id)
-    data = crud.read_one(doc_id)
-    return APIResponse.success_response(data)
+    document = crud.read_one(doc_id)
+
+    doc_schema = DocumentPublic.model_validate(document, from_attributes=True)
+
+    if include_url:
+        storage = AmazonCloudStorage(current_user)
+        doc_schema.signed_url = storage.get_signed_url(document.object_store_url)
+
+    return APIResponse.success_response(doc_schema)
