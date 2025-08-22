@@ -6,13 +6,13 @@ from uuid import uuid4, UUID
 
 from fastapi import BackgroundTasks, UploadFile
 from tenacity import retry, wait_exponential, stop_after_attempt
-from sqlmodel import Session, select
+from sqlmodel import Session
+from starlette.datastructures import Headers
 
 from app.crud.doc_transformation_job import DocTransformationJobCrud
 from app.crud.document import DocumentCrud
 from app.models.document import Document
 from app.models.doc_transformation_job import TransformationStatus
-from app.core.util import now
 from app.core.cloud import AmazonCloudStorage
 from app.api.deps import CurrentUser
 from app.core.doctransform.registry import convert_document, FORMAT_TO_EXTENSION
@@ -98,16 +98,10 @@ def execute_job(
 
             # upload transformed file and create document record
             with open(tmp_out, "rb") as fobj:
-                class FileUpload:
-                    def __init__(self, filename: str, file, content_type: str):
-                        self.filename = filename
-                        self.file = file
-                        self.content_type = content_type
-
-                file_upload = FileUpload(
+                file_upload = UploadFile(
                     filename=tmp_out.name,
                     file=fobj,
-                    content_type=content_type
+                    headers=Headers({"content-type": content_type}),
                 )
                 dest = storage.put(file_upload, Path(str(transformed_doc_id)))
             logger.debug(f"Transformed file uploaded | dest={dest}")
