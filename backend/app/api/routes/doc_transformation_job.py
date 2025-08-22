@@ -1,9 +1,9 @@
 import logging
 from uuid import UUID
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi import Path as FastPath
 from fastapi import Query
-from typing import List
+from app.models import DocTransformationJob
 from app.crud.doc_transformation_job import DocTransformationJobCrud
 from app.utils import APIResponse
 from app.api.deps import SessionDep, CurrentUser
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/documents/transformations", tags=["doc_transformatio
 @router.get(
     "/{job_id}",
     description="Get the status and details of a document transformation job.",
-    response_model=APIResponse,
+    response_model=APIResponse[DocTransformationJob],
 )
 def get_transformation_job(
     session: SessionDep,
@@ -28,7 +28,7 @@ def get_transformation_job(
 @router.get(
     "/",
     description="Get the status and details of multiple document transformation jobs by IDs.",
-    response_model=APIResponse,
+    response_model=APIResponse[list[DocTransformationJob]],
 )
 def get_multiple_transformation_jobs(
     session: SessionDep,
@@ -37,9 +37,8 @@ def get_multiple_transformation_jobs(
 ):
     crud = DocTransformationJobCrud(session)
     try:
-        job_id_list: List[UUID] = [UUID(jid.strip()) for jid in job_ids.split(",") if jid.strip()]
+        job_id_list: list[UUID] = [UUID(jid.strip()) for jid in job_ids.split(",") if jid.strip()]
     except Exception:
-        from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="Invalid job_ids format. Must be comma-separated UUIDs.")
     jobs = [crud.read_one(job_id) for job_id in job_id_list]
     return APIResponse.success_response(jobs)
