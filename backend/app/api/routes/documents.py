@@ -3,10 +3,10 @@ from uuid import UUID, uuid4
 from typing import List
 from pathlib import Path
 
-from fastapi import APIRouter, File, UploadFile, Query
+from fastapi import APIRouter, File, UploadFile, Query, HTTPException
 from fastapi import Path as FastPath
 
-from app.crud import DocumentCrud, CollectionCrud
+from app.crud import DocumentCrud, CollectionCrud, get_project_by_id
 from app.models import Document, DocumentPublic, Message
 from app.utils import APIResponse, load_description, get_openai_client
 from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
@@ -43,10 +43,14 @@ def upload_doc(
     current_user: CurrentUserOrgProject,
     src: UploadFile = File(...),
 ):
-    storage = AmazonCloudStorage(current_user)
+    storage = AmazonCloudStorage(current_user.project_id)
     document_id = uuid4()
+    project = get_project_by_id(session=session, project_id=current_user.project_id)
+    if project is None:
+        raise HTTPException(404, "Project not found")
 
-    object_store_url = storage.put(src, Path(str(document_id)))
+    key = Path(str(project.storage_path), str(document_id))
+    object_store_url = storage.put(src, key)
 
     crud = DocumentCrud(session, current_user.project_id)
     document = Document(
@@ -101,7 +105,7 @@ def permanent_delete_doc(
     a_crud = OpenAIAssistantCrud(client)
     d_crud = DocumentCrud(session, current_user.project_id)
     c_crud = CollectionCrud(session, current_user.id)
-    storage = AmazonCloudStorage(current_user)
+    storage = AmazonCloudStorage(current_user.project_id)
 
     document = d_crud.read_one(doc_id)
 
@@ -134,7 +138,7 @@ def doc_info(
     doc_schema = DocumentPublic.model_validate(document, from_attributes=True)
 
     if include_url:
-        storage = AmazonCloudStorage(current_user)
+        storage = AmazonCloudStorage(current_user.project_id)
         doc_schema.signed_url = storage.get_signed_url(document.object_store_url)
 
     return APIResponse.success_response(doc_schema)
