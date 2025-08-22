@@ -13,6 +13,7 @@ from app.crud.doc_transformation_job import DocTransformationJobCrud
 from app.crud.document import DocumentCrud
 from app.models.document import Document
 from app.models.doc_transformation_job import TransformationStatus
+from app.models import User
 from app.core.cloud import AmazonCloudStorage
 from app.api.deps import CurrentUser
 from app.core.doctransform.registry import convert_document, FORMAT_TO_EXTENSION
@@ -36,7 +37,7 @@ def start_job(
     # Extract the user ID before passing to background task
     user_id = current_user.id
     background_tasks.add_task(execute_job, user_id, job.id, transformer_name, target_format)
-    logger.debug(f"execute_job scheduled as background task | job_id={job.id}")
+    logger.info(f"[start_job] Job scheduled for document transformation | id: {job.id}, user_id: {user_id}")
     return job.id
 
 @retry(wait=wait_exponential(multiplier=5, min=5, max=10), stop=stop_after_attempt(3))
@@ -61,8 +62,6 @@ def execute_job(
             source_doc = doc_crud.read_one(job.source_document_id)
             logger.debug(f"Fetched source document | doc_id={source_doc.id}")
 
-            # Create a simple User object for AmazonCloudStorage
-            from app.models import User
             current_user = User(id=user_id)
             
             # download source file to temp

@@ -25,6 +25,7 @@ class ZeroxTransformer(Transformer):
             output = '\n\n'.join(x.content for x in result.pages)
             if not output:
                 raise ValueError('Empty output from zerox')
+            logging.info("[ZeroxTransformer.transformer] Transformation Completed.")
             return output
         except Exception as e:
             logging.error(

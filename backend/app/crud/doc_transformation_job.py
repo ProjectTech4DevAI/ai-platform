@@ -17,6 +17,7 @@ class DocTransformationJobCrud:
         self.session.add(job)
         self.session.commit()
         self.session.refresh(job)
+        logger.info(f"[DocTransformationJobCrud.create] Created new transformation job | id: {job.id}, source_document_id: {source_document_id}")
         return job
 
     def read_one(self, job_id: UUID) -> DocTransformationJob:
@@ -45,6 +46,7 @@ class DocTransformationJobCrud:
         self.session.add(job)
         self.session.commit()
         self.session.refresh(job)
+        logger.info(f"[DocTransformationJobCrud.update_status] Updated job status | id: {job.id}, status: {status}")
         return job
 
     def read_many(self, skip: int = 0, limit: int = 100) -> List[DocTransformationJob]:
