@@ -74,21 +74,17 @@ def process_fine_tuning_job(
                 document, storage, ratio, request.system_prompt
             )
             result = preprocessor.process()
-            train_path = result["train_file"]
-            test_path = result["test_file"]
+            train_path = result["train_jsonl_path"]
+            train_data_url = result["train_csv_url"]
+            test_data_url = result["test_csv_url"]
 
             try:
                 with open(train_path, "rb") as train_f:
                     uploaded_train = client.files.create(
                         file=train_f, purpose="fine-tune"
                     )
-                with open(test_path, "rb") as test_f:
-                    uploaded_test = client.files.create(
-                        file=test_f, purpose="fine-tune"
-                    )
-
                 logger.info(
-                    f"[process_fine_tuning_job] Files uploaded to OpenAI successfully | "
+                    f"[process_fine_tuning_job] File uploaded to OpenAI successfully | "
                     f"job_id={job_id}, project_id={project_id}|"
                 )
             except openai.OpenAIError as e:
@@ -110,7 +106,6 @@ def process_fine_tuning_job(
                 preprocessor.cleanup()
 
             training_file_id = uploaded_train.id
-            testing_file_id = uploaded_test.id
 
             try:
                 job = client.fine_tuning.jobs.create(
@@ -141,7 +136,8 @@ def process_fine_tuning_job(
                 job=fine_tune,
                 update=FineTuningUpdate(
                     training_file_id=training_file_id,
-                    testing_file_id=testing_file_id,
+                    train_data_url=train_data_url,
+                    test_data_url=test_data_url,
                     split_ratio=ratio,
                     provider_job_id=job.id,
                     status=FineTuningStatus.running,
