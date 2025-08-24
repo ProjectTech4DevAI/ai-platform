@@ -12,7 +12,7 @@ from sqlmodel import Session, select
 from app.core.config import settings
 from app.crud.user import get_user_by_email
 from app.crud.api_key import get_api_key_by_value, get_api_key_by_user_id
-from app.models import APIKeyPublic, Project, Assistant, Organization
+from app.models import APIKeyPublic, Project, Assistant, Organization, Document
 
 
 T = TypeVar("T")
@@ -111,6 +111,30 @@ def get_assistant(session: Session, name: str | None = None) -> Assistant:
         raise ValueError("No active assistants found")
 
     return assistant
+
+
+def get_document(session: Session, fname: str | None = None) -> Document:
+    """
+    Retrieve an active document from the database.
+
+    If a document filename is provided, fetch the active document with that name.
+    If no name is provided, fetch any available document.
+    """
+    if fname:
+        statement = (
+            select(Document)
+            .where(Document.fname == fname, Document.deleted_at.is_(None))
+            .limit(1)
+        )
+    else:
+        statement = select(Document).where(Document.deleted_at.is_(None)).limit(1)
+
+    document = session.exec(statement).first()
+
+    if not document:
+        raise ValueError("No active documents found")
+
+    return document
 
 
 def get_organization(session: Session, name: str | None = None) -> Organization:
