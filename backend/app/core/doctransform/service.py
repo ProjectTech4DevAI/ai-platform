@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from uuid import uuid4, UUID
 
+from app.crud.project import get_project_by_id
 from fastapi import BackgroundTasks, UploadFile
 from tenacity import retry, wait_exponential, stop_after_attempt
 from sqlmodel import Session
@@ -15,7 +16,7 @@ from app.models.document import Document
 from app.models.doc_transformation_job import TransformationStatus
 from app.models import User
 from app.core.cloud import AmazonCloudStorage
-from app.api.deps import CurrentUser
+from app.api.deps import CurrentUserOrgProject
 from app.core.doctransform.registry import convert_document, FORMAT_TO_EXTENSION
 from app.core.db import engine
 
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 def start_job(
     db: Session,
-    current_user: CurrentUser,
+    current_user: CurrentUserOrgProject,
     source_document_id: UUID,
     transformer_name: str,
     target_format: str,
@@ -32,24 +33,24 @@ def start_job(
     job_crud = DocTransformationJobCrud(db)
     job = job_crud.create(source_document_id=source_document_id)
     
-    # Extract the user ID before passing to background task
-    user_id = current_user.id
-    background_tasks.add_task(execute_job, user_id, job.id, transformer_name, target_format)
-    logger.info(f"[start_job] Job scheduled for document transformation | id: {job.id}, user_id: {user_id}")
+    # Extract the project ID before passing to background task
+    project_id = current_user.project_id
+    background_tasks.add_task(execute_job, project_id, job.id, transformer_name, target_format)
+    logger.info(f"[start_job] Job scheduled for document transformation | id: {job.id}, project_id: {project_id}")
     return job.id
 
 @retry(wait=wait_exponential(multiplier=5, min=5, max=10), stop=stop_after_attempt(3))
 def execute_job(
-    user_id: int,
+    project_id: int,
     job_id: UUID,
     transformer_name: str,
     target_format: str,
 ):
     try:
         with Session(engine) as db:
-            logger.info(f"[execute_job started] Transformation Job started | job_id={job_id} | transformer_name={transformer_name} | target_format={target_format} | user_id={user_id}")
+            logger.info(f"[execute_job started] Transformation Job started | job_id={job_id} | transformer_name={transformer_name} | target_format={target_format} | project_id={project_id}")
             job_crud = DocTransformationJobCrud(db)
-            doc_crud = DocumentCrud(db, user_id)
+            doc_crud = DocumentCrud(db, project_id)
 
             job_crud.update_status(job_id, TransformationStatus.PROCESSING)
 
@@ -57,10 +58,8 @@ def execute_job(
             job = job_crud.read_one(job_id)
             source_doc = doc_crud.read_one(job.source_document_id)
 
-            current_user = User(id=user_id)
-            
             # download source file to temp
-            storage = AmazonCloudStorage(current_user)
+            storage = AmazonCloudStorage(project_id=project_id)
             body = storage.stream(source_doc.object_store_url)
             tmp_dir = Path(tempfile.mkdtemp())
             tmp_in = tmp_dir / f"{source_doc.id}"
@@ -93,22 +92,24 @@ def execute_job(
                     file=fobj,
                     headers=Headers({"content-type": content_type}),
                 )
-                dest = storage.put(file_upload, Path(str(transformed_doc_id)))
+                project = get_project_by_id(session=db, project_id=project_id)
+                key = Path(str(project.storage_path), str(transformed_doc_id))
+                dest = storage.put(file_upload, key)
 
             # create new Document record
             new_doc = Document(
                 id=transformed_doc_id,
-                owner_id=user_id,
+                project_id=project_id,
                 fname=tmp_out.name,
                 object_store_url=str(dest),
                 source_document_id=source_doc.id,
             )
-            created = DocumentCrud(db, user_id).update(new_doc)
+            created = DocumentCrud(db, project_id).update(new_doc)
 
             # mark completed
             job_crud.update_status(job_id, TransformationStatus.COMPLETED, transformed_document_id=created.id)
 
-            logger.info(f"[execute_job] Doc Transformation job completed | job_id={job_id} | transformed_doc_id={created.id} | user_id={user_id}")
+            logger.info(f"[execute_job] Doc Transformation job completed | job_id={job_id} | transformed_doc_id={created.id} | project_id={project_id}")
 
     except Exception as e:
         logger.error(f"Transformation job failed | job_id={job_id} | error={e}", exc_info=True)
