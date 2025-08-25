@@ -27,24 +27,6 @@ def upgrade():
         "fine_tuning",
         sa.Column("test_data_url", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     )
-    op.add_column(
-        "model_evaluation",
-        sa.Column(
-            "test_data_url",
-            sqlmodel.sql.sqltypes.AutoString(),
-            nullable=False,
-            server_default="",
-        ),
-    )
-    op.add_column(
-        "model_evaluation",
-        sa.Column(
-            "prediction_data_url", sqlmodel.sql.sqltypes.AutoString(), nullable=True
-        ),
-    )
-    op.alter_column(
-        "model_evaluation", "testing_file_id", existing_type=sa.VARCHAR(), nullable=True
-    )
 
 
 def downgrade():
@@ -53,12 +35,4 @@ def downgrade():
     op.add_column(
         "fine_tuning",
         sa.Column("testing_file_id", sa.VARCHAR(), autoincrement=False, nullable=True),
-    )
-    op.drop_column("model_evaluation", "prediction_data_url")
-    op.drop_column("model_evaluation", "test_data_url")
-    op.alter_column(
-        "model_evaluation",
-        "testing_file_id",
-        existing_type=sa.VARCHAR(),
-        nullable=False,
     )
