@@ -65,7 +65,7 @@ jobs:
         working-directory: backend
 
       - name: Upload coverage reports to codecov
-        uses: codecov/codecov-action@v5.4.3
+        uses: codecov/codecov-action@v5.5.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
