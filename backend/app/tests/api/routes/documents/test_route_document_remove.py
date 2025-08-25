@@ -1,10 +1,11 @@
 import pytest
 import openai_responses
 from openai_responses import OpenAIMock
-from openai import OpenAI
+from openai import OpenAI, project
 from sqlmodel import Session, select
 from unittest.mock import patch
 
+from app.crud import get_project_by_id
 from app.models import Document
 from app.tests.utils.document import (
     DocumentMaker,
@@ -35,8 +36,11 @@ class TestDocumentRouteRemove:
             client = OpenAI(api_key="sk-test-key")
             mock_get_openai_client.return_value = client
 
-            store = DocumentStore(db)
-            response = crawler.get(route.append(store.put()))
+            project = get_project_by_id(
+                session=db, project_id=crawler.user_api_key.project_id
+            )
+            store = DocumentStore(db=db, project=project)
+            response = crawler.delete(route.append(store.put()))
 
             assert response.is_success
 
@@ -54,15 +58,18 @@ class TestDocumentRouteRemove:
             client = OpenAI(api_key="sk-test-key")
             mock_get_openai_client.return_value = client
 
-            store = DocumentStore(db)
+            project = get_project_by_id(
+                session=db, project_id=crawler.user_api_key.project_id
+            )
+            store = DocumentStore(db=db, project=project)
             document = store.put()
 
-            crawler.get(route.append(document))
+            crawler.delete(route.append(document))
             db.refresh(document)
             statement = select(Document).where(Document.id == document.id)
             result = db.exec(statement).one()
 
-            assert result.deleted_at is not None
+            assert result.is_deleted is True
 
     @openai_responses.mock()
     @patch("app.api.routes.documents.get_openai_client")
@@ -79,7 +86,10 @@ class TestDocumentRouteRemove:
             mock_get_openai_client.return_value = client
 
             DocumentStore.clear(db)
-            maker = DocumentMaker(db)
-            response = crawler.get(route.append(next(maker)))
+            project = get_project_by_id(
+                session=db, project_id=crawler.user_api_key.project_id
+            )
+            maker = DocumentMaker(project=project)
+            response = crawler.delete(route.append(next(maker)))
 
             assert response.is_error
