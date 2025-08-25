@@ -1,7 +1,6 @@
 import pytest
 from sqlmodel import Session
 
-from app.crud import get_project_by_id
 from app.tests.utils.document import (
     DocumentComparator,
     DocumentStore,
@@ -49,10 +48,7 @@ class TestDocumentRouteList:
         route: QueryRoute,
         crawler: WebCrawler,
     ):
-        project = get_project_by_id(
-            session=db, project_id=crawler.user_api_key.project_id
-        )
-        store = DocumentStore(db=db, project=project)
+        store = DocumentStore(db=db, project_id=crawler.user_api_key.project_id)
         source = DocumentComparator(store.put())
 
         response = httpx_to_standard(crawler.get(route))
@@ -82,10 +78,7 @@ class TestDocumentRouteList:
         route: QueryRoute,
         crawler: WebCrawler,
     ):
-        project = get_project_by_id(
-            session=db, project_id=crawler.user_api_key.project_id
-        )
-        store = DocumentStore(db=db, project=project)
+        store = DocumentStore(db=db, project_id=crawler.user_api_key.project_id)
         limit = len(store.fill(self._ndocs))
         skip = limit // 2
 

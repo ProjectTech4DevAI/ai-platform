@@ -3,7 +3,7 @@ from openai_responses import OpenAIMock
 from openai import OpenAI
 from sqlmodel import Session
 
-from app.crud import CollectionCrud, get_project_by_id
+from app.crud import CollectionCrud
 from app.models import Collection
 from app.tests.utils.document import DocumentStore
 from app.tests.utils.collection import get_collection
@@ -17,8 +17,7 @@ def create_collections(db: Session, n: int):
         client = OpenAI(api_key="sk-test-key")
         for _ in range(n):
             collection = get_collection(db, client)
-            project = get_project_by_id(session=db, project_id=collection.project_id)
-            store = DocumentStore(db, project=project)
+            store = DocumentStore(db, project_id=collection.project_id)
             documents = store.fill(1)
             if crud is None:
                 crud = CollectionCrud(db, collection.owner_id)

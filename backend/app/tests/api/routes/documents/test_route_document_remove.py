@@ -1,11 +1,10 @@
 import pytest
 import openai_responses
 from openai_responses import OpenAIMock
-from openai import OpenAI, project
+from openai import OpenAI
 from sqlmodel import Session, select
 from unittest.mock import patch
 
-from app.crud import get_project_by_id
 from app.models import Document
 from app.tests.utils.document import (
     DocumentMaker,
@@ -36,10 +35,7 @@ class TestDocumentRouteRemove:
             client = OpenAI(api_key="sk-test-key")
             mock_get_openai_client.return_value = client
 
-            project = get_project_by_id(
-                session=db, project_id=crawler.user_api_key.project_id
-            )
-            store = DocumentStore(db=db, project=project)
+            store = DocumentStore(db=db, project_id=crawler.user_api_key.project_id)
             response = crawler.delete(route.append(store.put()))
 
             assert response.is_success
@@ -58,10 +54,7 @@ class TestDocumentRouteRemove:
             client = OpenAI(api_key="sk-test-key")
             mock_get_openai_client.return_value = client
 
-            project = get_project_by_id(
-                session=db, project_id=crawler.user_api_key.project_id
-            )
-            store = DocumentStore(db=db, project=project)
+            store = DocumentStore(db=db, project_id=crawler.user_api_key.project_id)
             document = store.put()
 
             crawler.delete(route.append(document))
@@ -86,10 +79,10 @@ class TestDocumentRouteRemove:
             mock_get_openai_client.return_value = client
 
             DocumentStore.clear(db)
-            project = get_project_by_id(
-                session=db, project_id=crawler.user_api_key.project_id
+
+            maker = DocumentMaker(
+                project_id=crawler.user_api_key.project_id, session=db
             )
-            maker = DocumentMaker(project=project)
             response = crawler.delete(route.append(next(maker)))
 
             assert response.is_error

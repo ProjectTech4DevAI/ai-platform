@@ -1,7 +1,6 @@
 import pytest
 from sqlmodel import Session
 
-from app.crud import get_project_by_id
 from app.tests.utils.document import (
     DocumentComparator,
     DocumentMaker,
@@ -25,10 +24,7 @@ class TestDocumentRouteInfo:
         route: Route,
         crawler: WebCrawler,
     ):
-        project = get_project_by_id(
-            session=db, project_id=crawler.user_api_key.project_id
-        )
-        store = DocumentStore(db=db, project=project)
+        store = DocumentStore(db=db, project_id=crawler.user_api_key.project_id)
         response = crawler.get(route.append(store.put()))
 
         assert response.is_success
@@ -39,10 +35,7 @@ class TestDocumentRouteInfo:
         route: Route,
         crawler: WebCrawler,
     ):
-        project = get_project_by_id(
-            session=db, project_id=crawler.user_api_key.project_id
-        )
-        store = DocumentStore(db=db, project=project)
+        store = DocumentStore(db=db, project_id=crawler.user_api_key.project_id)
         document = store.put()
         source = DocumentComparator(document)
 
@@ -51,13 +44,10 @@ class TestDocumentRouteInfo:
         assert source == target.data
 
     def test_cannot_info_unknown_document(
-        self, db: Session, route: Route, crawler: Route
+        self, db: Session, route: Route, crawler: WebCrawler
     ):
         DocumentStore.clear(db)
-        project = get_project_by_id(
-            session=db, project_id=crawler.user_api_key.project_id
-        )
-        maker = DocumentMaker(project=project)
+        maker = DocumentMaker(project_id=crawler.user_api_key.project_id, session=db)
         response = crawler.get(route.append(next(maker)))
 
         assert response.is_error
