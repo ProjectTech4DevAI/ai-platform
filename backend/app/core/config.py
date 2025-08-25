@@ -1,8 +1,7 @@
 import secrets
 import warnings
 import os
-from typing import Annotated, Any, Literal
-from functools import lru_cache
+from typing import Any, Literal
 
 from pydantic import (
     EmailStr,
@@ -99,7 +98,6 @@ class Settings(BaseSettings):
         return self
 
 
-@lru_cache()
 def get_settings() -> Settings:
     """Get settings with appropriate env file based on ENVIRONMENT."""
     environment = os.getenv("ENVIRONMENT", "development")
