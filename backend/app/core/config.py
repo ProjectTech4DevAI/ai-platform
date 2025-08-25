@@ -1,7 +1,7 @@
 import secrets
 import warnings
 import os
-from typing import Annotated, Any, Literal
+from typing import Any, Literal
 
 from pydantic import (
     EmailStr,
@@ -15,30 +15,30 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 
 
-def parse_cors(v: Any) -> list[str] | str:
-    if isinstance(v, str) and not v.startswith("["):
-        return [i.strip() for i in v.split(",")]
-    elif isinstance(v, list | str):
-        return v
-    raise ValueError(v)
+def parse_cors(origins: Any) -> list[str] | str:
+    # If it's a plain comma-separated string, split it into a list
+    if isinstance(origins, str) and not origins.startswith("["):
+        return [origin.strip() for origin in origins.split(",")]
+    # If it's already a list or JSON-style string, just return it
+    elif isinstance(origins, (list, str)):
+        return origins
+    raise ValueError(f"Invalid CORS origins format: {origins!r}")
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        # Use top level .env file (one level above ./backend/)
-        env_file="../.env",
+        # env_file will be set dynamically in get_settings()
         env_ignore_empty=True,
         extra="ignore",
     )
-    LANGFUSE_PUBLIC_KEY: str
-    LANGFUSE_SECRET_KEY: str
-    LANGFUSE_HOST: str  # 🇪🇺 EU region
-    OPENAI_API_KEY: str
+
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = secrets.token_urlsafe(32)
     # 60 minutes * 24 hours * 1 days = 1 days
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 1
-    ENVIRONMENT: Literal["local", "staging", "production"] = "local"
+    ENVIRONMENT: Literal[
+        "development", "testing", "staging", "production"
+    ] = "development"
 
     PROJECT_NAME: str
     SENTRY_DSN: HttpUrl | None = None
@@ -84,7 +84,7 @@ class Settings(BaseSettings):
                 f'The value of {var_name} is "changethis", '
                 "for security, please change it, at least for deployments."
             )
-            if self.ENVIRONMENT == "local":
+            if self.ENVIRONMENT in ["development", "testing"]:
                 warnings.warn(message, stacklevel=1)
             else:
                 raise ValueError(message)
@@ -100,4 +100,17 @@ class Settings(BaseSettings):
         return self
 
 
-settings = Settings()  # type: ignore
+def get_settings() -> Settings:
+    """Get settings with appropriate env file based on ENVIRONMENT."""
+    environment = os.getenv("ENVIRONMENT", "development")
+
+    # Determine env file
+    env_files = {"testing": "../.env.test", "development": "../.env"}
+    env_file = env_files.get(environment, "../.env")
+
+    # Create Settings instance with the appropriate env file
+    return Settings(_env_file=env_file)
+
+
+# Export settings instance
+settings = get_settings()
