@@ -15,12 +15,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 
 
-def parse_cors(v: Any) -> list[str] | str:
-    if isinstance(v, str) and not v.startswith("["):
-        return [i.strip() for i in v.split(",")]
-    elif isinstance(v, list | str):
-        return v
-    raise ValueError(v)
+def parse_cors(origins: Any) -> list[str] | str:
+    # If it's a plain comma-separated string, split it into a list
+    if isinstance(origins, str) and not origins.startswith("["):
+        return [origin.strip() for origin in origins.split(",")]
+    # If it's already a list or JSON-style string, just return it
+    elif isinstance(origins, (list, str)):
+        return origins
+    raise ValueError(f"Invalid CORS origins format: {origins!r}")
 
 
 class Settings(BaseSettings):
