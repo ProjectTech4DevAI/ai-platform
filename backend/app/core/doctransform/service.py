@@ -30,7 +30,7 @@ def start_job(
     target_format: str,
     background_tasks: BackgroundTasks,
 ) -> UUID:
-    job_crud = DocTransformationJobCrud(db)
+    job_crud = DocTransformationJobCrud(session=db, project_id=current_user.project_id)
     job = job_crud.create(source_document_id=source_document_id)
     
     # Extract the project ID before passing to background task
@@ -49,8 +49,8 @@ def execute_job(
     try:
         with Session(engine) as db:
             logger.info(f"[execute_job started] Transformation Job started | job_id={job_id} | transformer_name={transformer_name} | target_format={target_format} | project_id={project_id}")
-            job_crud = DocTransformationJobCrud(db)
-            doc_crud = DocumentCrud(db, project_id)
+            job_crud = DocTransformationJobCrud(session=db, project_id=project_id)
+            doc_crud = DocumentCrud(session=db, project_id=project_id)
 
             job_crud.update_status(job_id, TransformationStatus.PROCESSING)
 
@@ -115,7 +115,7 @@ def execute_job(
         logger.error(f"Transformation job failed | job_id={job_id} | error={e}", exc_info=True)
         try:
             with Session(engine) as db:
-                job_crud = DocTransformationJobCrud(db)
+                job_crud = DocTransformationJobCrud(session=db, project_id=project_id)
                 job_crud.update_status(job_id, TransformationStatus.FAILED, error_message=str(e))
                 logger.info(f"[execute_job] Doc Transformation job failed | job_id={job_id} | error={e}")
         except Exception as db_error:
