@@ -12,6 +12,7 @@ from openai import OpenAI
 import openai_responses
 from openai_responses import OpenAIMock
 
+from app.crud import get_project_by_id
 from app.core.cloud import AmazonCloudStorageClient
 from app.core.config import settings
 from app.models import Document
@@ -60,7 +61,10 @@ class TestDocumentRoutePermanentRemove:
         aws.create()
 
         # Setup document in DB and S3
-        store = DocumentStore(db)
+        project = get_project_by_id(
+            session=db, project_id=crawler.user_api_key.project_id
+        )
+        store = DocumentStore(db=db, project=project)
         document = store.put()
         s3_key = Path(urlparse(document.object_store_url).path).relative_to("/")
         aws.client.put_object(
@@ -94,7 +98,10 @@ class TestDocumentRoutePermanentRemove:
     ):
         DocumentStore.clear(db)
 
-        maker = DocumentMaker(db)
+        project = get_project_by_id(
+            session=db, project_id=crawler.user_api_key.project_id
+        )
+        maker = DocumentMaker(project=project)
         response = crawler.delete(route.append(next(maker), suffix="permanent"))
 
         assert response.is_error

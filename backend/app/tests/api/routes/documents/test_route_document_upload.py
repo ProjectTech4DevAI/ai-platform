@@ -9,6 +9,7 @@ from moto import mock_aws
 from sqlmodel import Session, select
 from fastapi.testclient import TestClient
 
+from app.models import APIKeyPublic
 from app.core.cloud import AmazonCloudStorageClient
 from app.core.config import settings
 from app.models import Document
@@ -25,7 +26,7 @@ class WebUploader(WebCrawler):
         with scratch.open("rb") as fp:
             return self.client.post(
                 str(route),
-                headers=self.user_api_key_header,
+                headers={"X-API-KEY": self.user_api_key.key},
                 files={
                     "src": (str(scratch), fp, mtype),
                 },
@@ -45,8 +46,8 @@ def route():
 
 
 @pytest.fixture
-def uploader(client: TestClient, user_api_key_header: dict[str, str]):
-    return WebUploader(client, user_api_key_header)
+def uploader(client: TestClient, user_api_key: APIKeyPublic):
+    return WebUploader(client, user_api_key)
 
 
 @pytest.fixture(scope="class")
@@ -80,6 +81,7 @@ class TestDocumentRouteUpload:
 
     def test_adds_to_S3(
         self,
+        db: Session,
         route: Route,
         scratch: Path,
         uploader: WebUploader,
@@ -88,7 +90,13 @@ class TestDocumentRouteUpload:
         aws.create()
 
         response = httpx_to_standard(uploader.put(route, scratch))
-        url = urlparse(response.data["object_store_url"])
+        doc_id = response.data["id"]
+
+        # Get the document from database to access object_store_url
+        statement = select(Document).where(Document.id == doc_id)
+        result = db.exec(statement).one()
+
+        url = urlparse(result.object_store_url)
         key = Path(url.path)
         key = key.relative_to(key.root)
 

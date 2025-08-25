@@ -2,7 +2,7 @@
 name = "app"
 version = "0.1.0"
 description = ""
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.11,<4.0"
 dependencies = [
     "fastapi[standard]<1.0.0,>=0.114.2",
     "python-multipart<1.0.0,>=0.0.7",
@@ -29,6 +29,7 @@ dependencies = [
     "openai_responses",
     "langfuse>=2.60.3",
     "asgi-correlation-id>=4.3.4",
+    "py-zerox>=0.0.7,<1.0.0"
 ]
 
 [tool.uv]
