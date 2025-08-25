@@ -21,8 +21,9 @@ def uuid_increment(value: UUID):
     return UUID(int=inc)
 
 
-def get_collection(db: Session, client=None):
-    owner_id = get_user_id_by_email(db)
+def get_collection(db: Session, client=None, owner_id: int = None) -> Collection:
+    if owner_id is None:
+        owner_id = get_user_id_by_email(db)
 
     # Step 1: Create real organization and project entries
     project = create_test_project(db)
