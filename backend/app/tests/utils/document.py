@@ -12,15 +12,11 @@ from sqlmodel import Session, delete
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
-from app.models import Document
+from app.crud.project import get_project_by_id
+from app.models import APIKeyPublic, Document, DocumentPublic, Project
 from app.utils import APIResponse
 
-from .utils import SequentialUuidGenerator, get_user_id_by_email
-
-
-@ft.cache
-def _get_user_id_by_email(db: Session):
-    return get_user_id_by_email(db)
+from .utils import SequentialUuidGenerator
 
 
 def httpx_to_standard(response: Response):
@@ -28,48 +24,54 @@ def httpx_to_standard(response: Response):
 
 
 class DocumentMaker:
-    def __init__(self, db: Session):
-        self.owner_id = _get_user_id_by_email(db)
+    def __init__(self, project_id: int, session: Session):
+        self.project_id = project_id
+        self.session = session
+        self.project: Project = None
         self.index = SequentialUuidGenerator()
 
     def __iter__(self):
         return self
 
     def __next__(self):
+        if self.project is None:
+            self.project = get_project_by_id(
+                session=self.session, project_id=self.project_id
+            )
+
         doc_id = next(self.index)
-        key = f"{self.owner_id}/{doc_id}.txt"
+        key = f"{self.project.storage_path}/{doc_id}.txt"
         object_store_url = f"s3://{settings.AWS_S3_BUCKET}/{key}"
 
         return Document(
             id=doc_id,
-            owner_id=self.owner_id,
+            project_id=self.project.id,
             fname=f"{doc_id}.xyz",
             object_store_url=object_store_url,
+            is_deleted=False,
         )
 
 
 class DocumentStore:
+    def __init__(self, db: Session, project_id: int):
+        self.db = db
+        self.documents = DocumentMaker(project_id=project_id, session=db)
+        self.clear(self.db)
+
     @staticmethod
     def clear(db: Session):
         db.exec(delete(Document))
         db.commit()
 
     @property
-    def owner(self):
-        return self.documents.owner_id
-
-    def __init__(self, db: Session):
-        self.db = db
-        self.documents = DocumentMaker(self.db)
-        self.clear(self.db)
+    def project(self):
+        return self.documents.project
 
     def put(self):
         doc = next(self.documents)
-
         self.db.add(doc)
         self.db.commit()
         self.db.refresh(doc)
-
         return doc
 
     def extend(self, n: int):
@@ -113,22 +115,24 @@ class Route:
 @dataclass
 class WebCrawler:
     client: TestClient
-    user_api_key_header: dict[str, str]
+    user_api_key: APIKeyPublic
 
     def get(self, route: Route):
         return self.client.get(
             str(route),
-            headers=self.user_api_key_header,
+            headers={"X-API-KEY": self.user_api_key.key},
         )
 
     def delete(self, route: Route):
         return self.client.delete(
             str(route),
-            headers=self.user_api_key_header,
+            headers={"X-API-KEY": self.user_api_key.key},
         )
 
 
 class DocumentComparator:
+    """Compare a Document model against the DocumentPublic API response."""
+
     @ft.singledispatchmethod
     @staticmethod
     def to_string(value):
@@ -148,15 +152,21 @@ class DocumentComparator:
         self.document = document
 
     def __eq__(self, other: dict):
-        this = dict(self.to_dict())
+        this = dict(self.to_public_dict())
         return this == other
 
-    def to_dict(self):
-        document = dict(self.document)
-        for k, v in document.items():
-            yield (k, self.to_string(v))
+    def to_public_dict(self) -> dict:
+        """Convert Document to dict matching DocumentPublic schema."""
+        field_names = DocumentPublic.model_fields.keys()
+
+        result = {}
+        for field in field_names:
+            value = getattr(self.document, field, None)
+            result[field] = self.to_string(value)
+
+        return result
 
 
 @pytest.fixture
-def crawler(client: TestClient, user_api_key_header: dict[str, str]):
-    return WebCrawler(client, user_api_key_header)
+def crawler(client: TestClient, user_api_key: APIKeyPublic):
+    return WebCrawler(client, user_api_key=user_api_key)

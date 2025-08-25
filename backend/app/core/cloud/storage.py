@@ -10,7 +10,7 @@ from fastapi import UploadFile
 from botocore.exceptions import ClientError
 from botocore.response import StreamingBody
 
-from app.api.deps import CurrentUser
+from app.models import UserProjectOrg
 from app.core.config import settings
 from app.utils import mask_string
 
@@ -108,8 +108,8 @@ class SimpleStorageName:
 
 
 class CloudStorage:
-    def __init__(self, user: CurrentUser):
-        self.user = user
+    def __init__(self, project_id: int):
+        self.project_id = project_id
 
     def put(self, source: UploadFile, basename: str):
         raise NotImplementedError()
@@ -119,12 +119,11 @@ class CloudStorage:
 
 
 class AmazonCloudStorage(CloudStorage):
-    def __init__(self, user: CurrentUser):
-        super().__init__(user)
+    def __init__(self, project_id: int):
+        super().__init__(project_id)
         self.aws = AmazonCloudStorageClient()
 
-    def put(self, source: UploadFile, basename: Path) -> SimpleStorageName:
-        key = Path(str(self.user.id), basename)
+    def put(self, source: UploadFile, key: Path) -> SimpleStorageName:
         destination = SimpleStorageName(str(key))
         kwargs = asdict(destination)
 
@@ -138,12 +137,12 @@ class AmazonCloudStorage(CloudStorage):
             )
             logger.info(
                 f"[AmazonCloudStorage.put] File uploaded successfully | "
-                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(destination.Bucket)}', 'key': '{mask_string(destination.Key)}'}}"
+                f"{{'project_id': '{self.project_id}', 'bucket': '{mask_string(destination.Bucket)}', 'key': '{mask_string(destination.Key)}'}}"
             )
         except ClientError as err:
             logger.error(
                 f"[AmazonCloudStorage.put] AWS upload error | "
-                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(destination.Bucket)}', 'key': '{mask_string(destination.Key)}', 'error': '{str(err)}'}}",
+                f"{{'project_id': '{self.project_id}', 'bucket': '{mask_string(destination.Bucket)}', 'key': '{mask_string(destination.Key)}', 'error': '{str(err)}'}}",
                 exc_info=True,
             )
             raise CloudStorageError(f'AWS Error: "{err}"') from err
@@ -157,13 +156,13 @@ class AmazonCloudStorage(CloudStorage):
             body = self.aws.client.get_object(**kwargs).get("Body")
             logger.info(
                 f"[AmazonCloudStorage.stream] File streamed successfully | "
-                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}'}}"
+                f"{{'project_id': '{self.project_id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}'}}"
             )
             return body
         except ClientError as err:
             logger.error(
                 f"[AmazonCloudStorage.stream] AWS stream error | "
-                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}', 'error': '{str(err)}'}}",
+                f"{{'project_id': '{self.project_id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}', 'error': '{str(err)}'}}",
                 exc_info=True,
             )
             raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err
@@ -177,13 +176,40 @@ class AmazonCloudStorage(CloudStorage):
             size_kb = round(size_bytes / 1024, 2)
             logger.info(
                 f"[AmazonCloudStorage.get_file_size_kb] File size retrieved successfully | "
-                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}', 'size_kb': {size_kb}}}"
+                f"{{'project_id': '{self.project_id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}', 'size_kb': {size_kb}}}"
             )
             return size_kb
         except ClientError as err:
             logger.error(
                 f"[AmazonCloudStorage.get_file_size_kb] AWS head object error | "
-                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}', 'error': '{str(err)}'}}",
+                f"{{'project_id': '{self.project_id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}', 'error': '{str(err)}'}}",
+                exc_info=True,
+            )
+            raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err
+
+    def get_signed_url(self, url: str, expires_in: int = 3600) -> str:
+        """
+        Generate a signed S3 URL for the given file.
+        :param url: S3 url (e.g., s3://bucket/key)
+        :param expires_in: Expiry time in seconds (default: 1 hour)
+        :return: Signed URL as string
+        """
+        name = SimpleStorageName.from_url(url)
+        try:
+            signed_url = self.aws.client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": name.Bucket, "Key": name.Key},
+                ExpiresIn=expires_in,
+            )
+            logger.info(
+                f"[AmazonCloudStorage.get_signed_url] Signed URL generated | "
+                f"{{'project_id': '{self.project_id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}'}}"
+            )
+            return signed_url
+        except ClientError as err:
+            logger.error(
+                f"[AmazonCloudStorage.get_signed_url] AWS presign error | "
+                f"{{'project_id': '{self.project_id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}', 'error': '{str(err)}'}}",
                 exc_info=True,
             )
             raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err
@@ -195,12 +221,12 @@ class AmazonCloudStorage(CloudStorage):
             self.aws.client.delete_object(**kwargs)
             logger.info(
                 f"[AmazonCloudStorage.delete] File deleted successfully | "
-                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}'}}"
+                f"{{'project_id': '{self.project_id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}'}}"
             )
         except ClientError as err:
             logger.error(
                 f"[AmazonCloudStorage.delete] AWS delete error | "
-                f"{{'user_id': '{self.user.id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}', 'error': '{str(err)}'}}",
+                f"{{'project_id': '{self.project_id}', 'bucket': '{mask_string(name.Bucket)}', 'key': '{mask_string(name.Key)}', 'error': '{str(err)}'}}",
                 exc_info=True,
             )
             raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err

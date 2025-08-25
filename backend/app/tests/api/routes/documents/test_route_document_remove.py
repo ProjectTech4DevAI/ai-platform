@@ -35,8 +35,8 @@ class TestDocumentRouteRemove:
             client = OpenAI(api_key="sk-test-key")
             mock_get_openai_client.return_value = client
 
-            store = DocumentStore(db)
-            response = crawler.get(route.append(store.put()))
+            store = DocumentStore(db=db, project_id=crawler.user_api_key.project_id)
+            response = crawler.delete(route.append(store.put()))
 
             assert response.is_success
 
@@ -54,15 +54,15 @@ class TestDocumentRouteRemove:
             client = OpenAI(api_key="sk-test-key")
             mock_get_openai_client.return_value = client
 
-            store = DocumentStore(db)
+            store = DocumentStore(db=db, project_id=crawler.user_api_key.project_id)
             document = store.put()
 
-            crawler.get(route.append(document))
+            crawler.delete(route.append(document))
             db.refresh(document)
             statement = select(Document).where(Document.id == document.id)
             result = db.exec(statement).one()
 
-            assert result.deleted_at is not None
+            assert result.is_deleted is True
 
     @openai_responses.mock()
     @patch("app.api.routes.documents.get_openai_client")
@@ -79,7 +79,10 @@ class TestDocumentRouteRemove:
             mock_get_openai_client.return_value = client
 
             DocumentStore.clear(db)
-            maker = DocumentMaker(db)
-            response = crawler.get(route.append(next(maker)))
+
+            maker = DocumentMaker(
+                project_id=crawler.user_api_key.project_id, session=db
+            )
+            response = crawler.delete(route.append(next(maker)))
 
             assert response.is_error

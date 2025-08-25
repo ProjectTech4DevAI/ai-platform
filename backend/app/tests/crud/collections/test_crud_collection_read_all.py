@@ -11,14 +11,14 @@ from app.tests.utils.collection import get_collection
 
 def create_collections(db: Session, n: int):
     crud = None
-    store = DocumentStore(db)
-    documents = store.fill(1)
 
     openai_mock = OpenAIMock()
     with openai_mock.router:
         client = OpenAI(api_key="sk-test-key")
         for _ in range(n):
             collection = get_collection(db, client)
+            store = DocumentStore(db, project_id=collection.project_id)
+            documents = store.fill(1)
             if crud is None:
                 crud = CollectionCrud(db, collection.owner_id)
             crud.create(collection, documents)

@@ -12,10 +12,10 @@ class TestCollectionCreate:
 
     @openai_responses.mock()
     def test_create_associates_documents(self, db: Session):
-        store = DocumentStore(db)
-        documents = store.fill(self._n_documents)
-
         collection = get_collection(db)
+        store = DocumentStore(db, project_id=collection.project_id)
+
+        documents = store.fill(self._n_documents)
         crud = CollectionCrud(db, collection.owner_id)
         collection = crud.create(collection, documents)
 
