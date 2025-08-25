@@ -5,19 +5,19 @@ from sqlmodel import Session
 from sqlalchemy.exc import NoResultFound
 
 from app.core.config import settings
-from app.crud import CollectionCrud
+from app.crud import CollectionCrud, get_project_by_id
 from app.tests.utils.document import DocumentStore
 from app.tests.utils.collection import get_collection, uuid_increment
 
 
 def mk_collection(db: Session):
-    store = DocumentStore(db)
-    documents = store.fill(1)
-
     openai_mock = OpenAIMock()
     with openai_mock.router:
         client = OpenAI(api_key="sk-test-key")
         collection = get_collection(db, client)
+        project = get_project_by_id(session=db, project_id=collection.project_id)
+        store = DocumentStore(db, project=project)
+        documents = store.fill(1)
         crud = CollectionCrud(db, collection.owner_id)
         return crud.create(collection, documents)
 
