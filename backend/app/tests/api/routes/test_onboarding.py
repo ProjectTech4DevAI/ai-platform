@@ -1,130 +1,160 @@
 from fastapi.testclient import TestClient
-from app.main import app  # Assuming your FastAPI app is in app/main.py
-from app.models import Organization, Project, User, APIKey
-from app.crud import create_organization, create_project, create_user, create_api_key
-from sqlalchemy import create_engine
 from sqlmodel import Session
+
+from app.utils import mask_string
 from app.core.config import settings
 from app.tests.utils.utils import random_email, random_lower_string
-from app.core.security import decrypt_api_key
-
-client = TestClient(app)
+from app.tests.utils.test_data import create_test_organization
 
 
-def test_onboard_user(client, db: Session, superuser_token_headers: dict[str, str]):
-    data = {
-        "organization_name": "TestOrg",
-        "project_name": "TestProject",
-        "email": random_email(),
-        "password": "testpassword123",
-        "user_name": "test_user",
+def test_onboard_project_new_organization_project_user(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """Test onboarding with new organization, project, and user."""
+    org_name = "TestOrgOnboard"
+    project_name = "TestProjectOnboard"
+    email = random_email()
+    password = random_lower_string()
+    user_name = "Test User Onboard"
+    openai_key = f"sk-{random_lower_string()}"
+
+    onboard_data = {
+        "organization_name": org_name,
+        "project_name": project_name,
+        "email": email,
+        "password": password,
+        "user_name": user_name,
+        "openai_api_key": openai_key,
     }
 
     response = client.post(
-        f"{settings.API_V1_STR}/onboard", json=data, headers=superuser_token_headers
+        f"{settings.API_V1_STR}/onboard",
+        json=onboard_data,
+        headers=superuser_token_headers,
     )
 
-    assert response.status_code == 200
-
+    assert response.status_code == 201
     response_data = response.json()
-    assert "organization_id" in response_data
-    assert "project_id" in response_data
-    assert "user_id" in response_data
-    assert "api_key" in response_data
 
-    organization = (
-        db.query(Organization)
-        .filter(Organization.name == data["organization_name"])
-        .first()
-    )
-    project = db.query(Project).filter(Project.name == data["project_name"]).first()
-    user = db.query(User).filter(User.email == data["email"]).first()
-    api_key = db.query(APIKey).filter(APIKey.user_id == user.id).first()
+    # Check the response structure
+    assert "data" in response_data
+    assert "success" in response_data
+    assert response_data["success"] is True
 
-    assert organization is not None
-    assert project is not None
-    assert user is not None
-    assert api_key is not None
-
-    plain_token = response_data["api_key"]
-    encrypted_stored = api_key.key
-
-    assert decrypt_api_key(encrypted_stored) == plain_token  # main check
-    assert encrypted_stored != plain_token
-
-    assert user.is_superuser is False
+    data = response_data["data"]
+    assert data["organization_name"] == org_name
+    assert data["project_name"] == project_name
+    assert data["user_email"] == email
+    assert "api_key" in data
+    assert len(data["api_key"]) > 0
+    assert "organization_id" in data
+    assert "project_id" in data
+    assert "user_id" in data
 
 
-def test_create_user_existing_email(
-    client, db: Session, superuser_token_headers: dict[str, str]
-):
-    data = {
-        "organization_name": "TestOrg",
-        "project_name": "TestProject",
-        "email": random_email(),
-        "password": "testpassword123",
-        "user_name": "test_user",
-    }
+def test_onboard_project_existing_organization(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """Test onboarding with existing organization but new project and user."""
+    # Create existing organization
+    existing_org = create_test_organization(db)
 
-    client.post(
-        f"{settings.API_V1_STR}/onboard", json=data, headers=superuser_token_headers
-    )
+    project_name = "TestProjectOnboard"
+    email = random_email()
+    password = random_lower_string()
+    user_name = "Test User Onboard"
 
-    response = client.post(
-        f"{settings.API_V1_STR}/onboard", json=data, headers=superuser_token_headers
-    )
-    assert response.status_code == 400
-    assert (
-        response.json()["error"] == "API key already exists for this user and project."
-    )
-
-
-def test_is_superuser_flag(
-    client, db: Session, superuser_token_headers: dict[str, str]
-):
-    data = {
-        "organization_name": "TestOrg",
-        "project_name": "TestProjects",
-        "email": random_email(),
-        "password": "testpassword123",
-        "user_name": "test_user",
+    onboard_data = {
+        "organization_name": existing_org.name,
+        "project_name": project_name,
+        "email": email,
+        "password": password,
+        "user_name": user_name,
     }
 
     response = client.post(
-        f"{settings.API_V1_STR}/onboard", json=data, headers=superuser_token_headers
+        f"{settings.API_V1_STR}/onboard",
+        json=onboard_data,
+        headers=superuser_token_headers,
     )
 
-    assert response.status_code == 200
-
+    assert response.status_code == 201
     response_data = response.json()
-    user = db.query(User).filter(User.id == response_data["user_id"]).first()
-    assert user is not None
-    assert user.is_superuser is False
+
+    data = response_data["data"]
+    assert data["organization_id"] == existing_org.id
+    assert data["organization_name"] == existing_org.name
+    assert data["project_name"] == project_name
+    assert data["user_email"] == email
 
 
-def test_organization_and_project_creation(
-    client, db: Session, superuser_token_headers: dict[str, str]
-):
-    data = {
-        "organization_name": "NewOrg",
-        "project_name": "NewProject",
-        "email": random_email(),
-        "password": "newpassword123",
-        "user_name": "new_user",
+def test_onboard_project_duplicate_project_in_organization(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """Test onboarding fails when project already exists in the organization."""
+    org_name = "TestOrgOnboard"
+    project_name = "TestProjectOnboard"
+    email = random_email()
+    password = random_lower_string()
+
+    onboard_data = {
+        "organization_name": org_name,
+        "project_name": project_name,
+        "email": email,
+        "password": password,
+    }
+
+    # First request should succeed
+    response = client.post(
+        f"{settings.API_V1_STR}/onboard",
+        json=onboard_data,
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 201
+
+    # Second request with same org and project should fail
+    email2 = random_email()
+    onboard_data["email"] = email2
+
+    response = client.post(
+        f"{settings.API_V1_STR}/onboard",
+        json=onboard_data,
+        headers=superuser_token_headers,
+    )
+
+    assert response.status_code == 409
+    error_response = response.json()
+    assert "error" in error_response
+    assert "Project already exists" in error_response["error"]
+
+
+def test_onboard_project_with_auto_generated_defaults(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """Test onboarding with minimal input using auto-generated defaults."""
+    org_name = "TestOrgOnboard"
+    project_name = "TestProjectOnboard"
+
+    # Only provide required fields
+    onboard_data = {
+        "organization_name": org_name,
+        "project_name": project_name,
+        # email, password, user_name will be auto-generated
     }
 
     response = client.post(
-        f"{settings.API_V1_STR}/onboard", json=data, headers=superuser_token_headers
+        f"{settings.API_V1_STR}/onboard",
+        json=onboard_data,
+        headers=superuser_token_headers,
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 201
+    response_data = response.json()
 
-    organization = (
-        db.query(Organization)
-        .filter(Organization.name == data["organization_name"])
-        .first()
-    )
-    project = db.query(Project).filter(Project.name == data["project_name"]).first()
-
-    assert organization is not None
-    assert project is not None
+    data = response_data["data"]
+    assert data["organization_name"] == org_name
+    assert data["project_name"] == project_name
+    assert data["user_email"] is not None
+    assert "@kaapi.org" in data["user_email"]
+    assert "api_key" in data
+    assert len(data["api_key"]) > 0
