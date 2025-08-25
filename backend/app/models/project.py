@@ -1,3 +1,4 @@
+from uuid import UUID, uuid4
 from datetime import datetime
 from typing import Optional, List
 from sqlmodel import Field, Relationship, SQLModel
@@ -30,6 +31,7 @@ class Project(ProjectBase, table=True):
     organization_id: int = Field(
         foreign_key="organization.id", index=True, nullable=False, ondelete="CASCADE"
     )
+    storage_path: UUID = Field(default_factory=uuid4, nullable=False, unique=True)
     inserted_at: datetime = Field(default_factory=now, nullable=False)
     updated_at: datetime = Field(default_factory=now, nullable=False)
 
