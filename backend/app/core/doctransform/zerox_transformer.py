@@ -13,7 +13,7 @@ class ZeroxTransformer(Transformer):
         self.model = model
 
     def transform(self, input_path: Path) -> str:
-        logging.info(f"ZeroxTransformer: {input_path} (model={self.model})")
+        logging.info(f"ZeroxTransformer Started: {input_path} (model={self.model})")
         try:
             with Runner() as runner:
                 result = runner.run(zerox(
@@ -25,6 +25,7 @@ class ZeroxTransformer(Transformer):
             output = '\n\n'.join(x.content for x in result.pages)
             if not output:
                 raise ValueError('Empty output from zerox')
+            logging.info("[ZeroxTransformer.transformer] Transformation Completed.")
             return output
         except Exception as e:
             logging.error(

@@ -7,8 +7,11 @@ ENV PYTHONUNBUFFERED=1
 # Set working directory
 WORKDIR /app/
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y curl
+# Install system dependencies (added poppler-utils)
+RUN apt-get update && apt-get install -y \
+    curl \
+    poppler-utils \
+ && rm -rf /var/lib/apt/lists/*
 
 # Install uv package manager
 COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /uvx /bin/

@@ -5,11 +5,13 @@ from datetime import datetime
 from sqlmodel import SQLModel, Field
 from app.core.util import now
 
+
 class TransformationStatus(str, enum.Enum):
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
+
 
 class DocTransformationJob(SQLModel, table=True):
     __tablename__ = "doc_transformation_job"
@@ -21,3 +23,8 @@ class DocTransformationJob(SQLModel, table=True):
     error_message: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=now)
     updated_at: datetime = Field(default_factory=now)
+
+
+class DocTransformationJobs(SQLModel):
+    jobs: list[DocTransformationJob]
+    jobs_not_found: list[UUID]
