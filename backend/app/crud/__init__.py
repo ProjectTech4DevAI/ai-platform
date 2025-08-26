@@ -8,6 +8,7 @@ from .collection import CollectionCrud
 
 from .document import DocumentCrud
 from .document_collection import DocumentCollectionCrud
+from .doc_transformation_job import DocTransformationJobCrud
 
 from .organization import (
     create_organization,
