@@ -47,66 +47,73 @@ def execute_job(
     target_format: str,
 ):
     try:
+        logger.info(f"[execute_job started] Transformation Job started | job_id={job_id} | transformer_name={transformer_name} | target_format={target_format} | project_id={project_id}")
+
+        # Update job status to PROCESSING and fetch source document info
         with Session(engine) as db:
-            logger.info(f"[execute_job started] Transformation Job started | job_id={job_id} | transformer_name={transformer_name} | target_format={target_format} | project_id={project_id}")
             job_crud = DocTransformationJobCrud(session=db, project_id=project_id)
+            job = job_crud.update_status(job_id, TransformationStatus.PROCESSING)
+
             doc_crud = DocumentCrud(session=db, project_id=project_id)
-
-            job_crud.update_status(job_id, TransformationStatus.PROCESSING)
-
-            # fetch source document
-            job = job_crud.read_one(job_id)
+            
             source_doc = doc_crud.read_one(job.source_document_id)
+            
+            source_doc_id = source_doc.id
+            source_doc_fname = source_doc.fname
+            source_doc_object_store_url = source_doc.object_store_url
 
-            # download source file to temp
-            storage = AmazonCloudStorage(project_id=project_id)
-            body = storage.stream(source_doc.object_store_url)
-            tmp_dir = Path(tempfile.mkdtemp())
-            tmp_in = tmp_dir / f"{source_doc.id}"
-            with open(tmp_in, "wb") as f:
-                shutil.copyfileobj(body, f)
-            logger.debug(f"Downloaded source document to temp file | path={tmp_in}")
+            project = get_project_by_id(session=db, project_id=project_id)
+            project_storage_path = project.storage_path
 
-            # transform document
-            transformed_text = convert_document(tmp_in, transformer_name)
+        # Download and transform document
+        storage = AmazonCloudStorage(project_id=project_id)
+        body = storage.stream(source_doc_object_store_url)
+        tmp_dir = Path(tempfile.mkdtemp())
+        tmp_in = tmp_dir / f"{source_doc_id}"
+        with open(tmp_in, "wb") as f:
+            shutil.copyfileobj(body, f)
 
-            # write transformed output with appropriate extension
-            fname_no_ext = Path(source_doc.fname).stem
-            target_extension = FORMAT_TO_EXTENSION.get(target_format, f".{target_format}")
-            transformed_doc_id = uuid4()
-            tmp_out = tmp_dir / f"<transformed>{fname_no_ext}{target_extension}"
-            tmp_out.write_text(transformed_text)
+        # transform document
+        transformed_text = convert_document(tmp_in, transformer_name)
 
-            # Determine content type based on target format
-            content_type_map = {
-                "markdown": "text/markdown",
-                "text": "text/plain",
-                "html": "text/html",
-            }
-            content_type = content_type_map.get(target_format, "text/plain")
+        # write transformed output with appropriate extension
+        fname_no_ext = Path(source_doc_fname).stem
+        target_extension = FORMAT_TO_EXTENSION.get(target_format, f".{target_format}")
+        transformed_doc_id = uuid4()
+        tmp_out = tmp_dir / f"<transformed>{fname_no_ext}{target_extension}"
+        tmp_out.write_text(transformed_text)
 
-            # upload transformed file and create document record
-            with open(tmp_out, "rb") as fobj:
-                file_upload = UploadFile(
-                    filename=tmp_out.name,
-                    file=fobj,
-                    headers=Headers({"content-type": content_type}),
-                )
-                project = get_project_by_id(session=db, project_id=project_id)
-                key = Path(str(project.storage_path), str(transformed_doc_id))
-                dest = storage.put(file_upload, key)
+        # Determine content type based on target format
+        content_type_map = {
+            "markdown": "text/markdown",
+            "text": "text/plain",
+            "html": "text/html",
+        }
+        content_type = content_type_map.get(target_format, "text/plain")
 
-            # create new Document record
+
+        # upload transformed file and create document record
+        with open(tmp_out, "rb") as fobj:
+            file_upload = UploadFile(
+                filename=tmp_out.name,
+                file=fobj,
+                headers=Headers({"content-type": content_type}),
+            )
+            key = Path(str(project_storage_path), str(transformed_doc_id))
+            dest = storage.put(file_upload, key)
+
+        # create new Document record
+        with Session(engine) as db:
             new_doc = Document(
                 id=transformed_doc_id,
                 project_id=project_id,
                 fname=tmp_out.name,
                 object_store_url=str(dest),
-                source_document_id=source_doc.id,
+                source_document_id=source_doc_id,
             )
             created = DocumentCrud(db, project_id).update(new_doc)
 
-            # mark completed
+            job_crud = DocTransformationJobCrud(session=db, project_id=project_id)
             job_crud.update_status(job_id, TransformationStatus.COMPLETED, transformed_document_id=created.id)
 
             logger.info(f"[execute_job] Doc Transformation job completed | job_id={job_id} | transformed_doc_id={created.id} | project_id={project_id}")
