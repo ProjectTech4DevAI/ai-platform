@@ -128,3 +128,6 @@ def execute_job(
         except Exception as db_error:
             logger.error(f"Failed to update job status to FAILED | job_id={job_id} | db_error={db_error}")
         raise
+    finally:
+        if tmp_dir and tmp_dir.exists():
+            shutil.rmtree(tmp_dir)
