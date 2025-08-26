@@ -160,7 +160,7 @@ def update_creds_for_org(
     creds = session.exec(statement).first()
     if creds is None:
         logger.error(
-            f"[update_creds_for_org] Credentials not found for organization {org_id}, provider {creds_in.provider}, project_id {creds_in.project_id}"
+            f"[update_creds_for_org] Credentials not found | organization {org_id}, provider {creds_in.provider}, project_id {creds_in.project_id}"
         )
         raise HTTPException(
             status_code=404, detail="Credentials not found for this provider"

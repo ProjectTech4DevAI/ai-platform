@@ -17,7 +17,7 @@ def create_user(*, session: Session, user_create: UserCreate) -> User:
     session.add(db_obj)
     session.commit()
     session.refresh(db_obj)
-    logger.info(f"[create_user] User created with id: {db_obj.id}")
+    logger.info(f"[create_user] User created | user_id: {db_obj.id}")
     return db_obj
 
 
@@ -33,7 +33,7 @@ def update_user(*, session: Session, db_user: User, user_in: UserUpdate) -> Any:
     session.commit()
     session.refresh(db_user)
     logger.info(
-        f"[update_user] User updated with id: {db_user.id}, updated fields: {user_data.keys()}"
+        f"[update_user] User updated | user_id: {db_user.id}, updated_fields: {list(user_data.keys())}"
     )
     return db_user
 
