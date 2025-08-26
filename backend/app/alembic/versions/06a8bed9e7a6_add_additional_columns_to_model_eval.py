@@ -49,11 +49,14 @@ def upgrade():
             "prediction_data_url", sqlmodel.sql.sqltypes.AutoString(), nullable=True
         ),
     )
-    sa.Column(
-        "eval_status",
-        modelevaluation_status_enum,
-        nullable=False,
-        server_default="pending",
+    op.add_column(
+        "model_evaluation",
+        sa.Column(
+            "eval_status",
+            modelevaluation_status_enum,
+            nullable=False,
+            server_default="pending",
+        ),
     )
     op.alter_column(
         "model_evaluation", "testing_file_id", existing_type=sa.VARCHAR(), nullable=True
