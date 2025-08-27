@@ -127,7 +127,11 @@ def get_providers(
 
 
 def update_creds_for_org(
-    *, session: Session, org_id: int, creds_in: CredsUpdate
+    *,
+    session: Session,
+    org_id: int,
+    creds_in: CredsUpdate,
+    project_id: Optional[int] = None,
 ) -> List[Credential]:
     """Updates credentials for a specific provider of an organization."""
     if not creds_in.provider or not creds_in.credential:
@@ -143,9 +147,7 @@ def update_creds_for_org(
         Credential.organization_id == org_id,
         Credential.provider == creds_in.provider,
         Credential.is_active == True,
-        Credential.project_id == creds_in.project_id
-        if creds_in.project_id is not None
-        else True,
+        Credential.project_id == project_id if project_id is not None else True,
     )
     creds = session.exec(statement).first()
     if creds is None:

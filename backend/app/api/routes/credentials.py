@@ -130,11 +130,12 @@ def update_credential(
             status_code=400, detail="Provider and credential must be provided"
         )
 
-    # Ensure update targets current project
-    creds_in.project_id = _current_user.project_id
-
+    # Pass project_id directly to the CRUD function since CredsUpdate no longer has this field
     updated_creds = update_creds_for_org(
-        session=session, org_id=_current_user.organization_id, creds_in=creds_in
+        session=session,
+        org_id=_current_user.organization_id,
+        creds_in=creds_in,
+        project_id=_current_user.project_id,
     )
 
     return APIResponse.success_response([cred.to_public() for cred in updated_creds])

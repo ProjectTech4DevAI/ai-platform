@@ -108,12 +108,13 @@ def test_update_creds_for_org(db: Session) -> None:
     )
     # Update credentials
     updated_creds = {"api_key": "updated-key"}
-    creds_update = CredsUpdate(
-        project_id=project.id, provider="openai", credential=updated_creds
-    )
+    creds_update = CredsUpdate(provider="openai", credential=updated_creds)
 
     updated = update_creds_for_org(
-        session=db, org_id=credential.organization_id, creds_in=creds_update
+        session=db,
+        org_id=credential.organization_id,
+        creds_in=creds_update,
+        project_id=project.id,
     )
 
     assert len(updated) == 1
