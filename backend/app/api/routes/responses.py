@@ -7,6 +7,7 @@ from openai import OpenAI
 from pydantic import BaseModel, Extra
 from sqlmodel import Session
 
+from app.core.db import engine
 from app.api.deps import get_db, get_current_user_org_project
 from app.api.routes.threads import send_callback
 from app.crud.assistants import get_assistant_by_id
@@ -16,7 +17,7 @@ from app.crud.openai_conversation import (
     get_ancestor_id_from_response,
     get_conversation_by_ancestor_id,
 )
-from app.models import UserProjectOrg, OpenAIConversationCreate
+from app.models import UserProjectOrg, OpenAIConversationCreate, OpenAIConversation
 from app.utils import APIResponse, mask_string
 from app.core.langfuse.langfuse import LangfuseTracer
 
@@ -131,7 +132,8 @@ def process_response(
     tracer: LangfuseTracer,
     project_id: int,
     organization_id: int,
-    session: Session,
+    ancestor_id: str,
+    latest_conversation: OpenAIConversation | None,
 ):
     """Process a response and send callback with results, with Langfuse tracing."""
     logger.info(
@@ -151,18 +153,6 @@ def process_response(
     )
 
     try:
-        # Get the latest conversation by ancestor ID to use as previous_response_id
-        ancestor_id = request.response_id
-        latest_conversation = None
-        if ancestor_id:
-            latest_conversation = get_conversation_by_ancestor_id(
-                session=session,
-                ancestor_response_id=ancestor_id,
-                project_id=project_id,
-            )
-            if latest_conversation:
-                ancestor_id = latest_conversation.response_id
-
         params = {
             "model": assistant.model,
             "previous_response_id": ancestor_id,
@@ -211,35 +201,36 @@ def process_response(
                 "error": None,
             },
         )
-        # Set ancestor_response_id using CRUD function
-        ancestor_response_id = (
-            latest_conversation.ancestor_response_id
-            if latest_conversation
-            else get_ancestor_id_from_response(
-                session=session,
-                current_response_id=response.id,
-                previous_response_id=response.previous_response_id,
-                project_id=project_id,
+
+        with Session(engine) as session:
+            ancestor_response_id = (
+                latest_conversation.ancestor_response_id
+                if latest_conversation
+                else get_ancestor_id_from_response(
+                    session=session,
+                    current_response_id=response.id,
+                    previous_response_id=response.previous_response_id,
+                    project_id=project_id,
+                )
             )
-        )
 
-        # Create conversation record in database
-        conversation_data = OpenAIConversationCreate(
-            response_id=response.id,
-            previous_response_id=response.previous_response_id,
-            ancestor_response_id=ancestor_response_id,
-            user_question=request.question,
-            response=response.output_text,
-            model=response.model,
-            assistant_id=request.assistant_id,
-        )
+            # Create conversation record in database
+            conversation_data = OpenAIConversationCreate(
+                response_id=response.id,
+                previous_response_id=response.previous_response_id,
+                ancestor_response_id=ancestor_response_id,
+                user_question=request.question,
+                response=response.output_text,
+                model=response.model,
+                assistant_id=request.assistant_id,
+            )
 
-        create_conversation(
-            session=session,
-            conversation=conversation_data,
-            project_id=project_id,
-            organization_id=organization_id,
-        )
+            create_conversation(
+                session=session,
+                conversation=conversation_data,
+                project_id=project_id,
+                organization_id=organization_id,
+            )
 
         request_dict = request.model_dump()
         callback_response = ResponsesAPIResponse.success_response(
@@ -346,6 +337,17 @@ async def responses(
         response_id=request.response_id,
     )
 
+    ancestor_id = request.response_id
+    latest_conversation = None
+    if ancestor_id:
+        latest_conversation = get_conversation_by_ancestor_id(
+            session=_session,
+            ancestor_response_id=ancestor_id,
+            project_id=project_id,
+        )
+        if latest_conversation:
+            ancestor_id = latest_conversation.response_id
+
     background_tasks.add_task(
         process_response,
         request,
@@ -354,7 +356,8 @@ async def responses(
         tracer,
         project_id,
         organization_id,
-        _session,
+        ancestor_id,
+        latest_conversation,
     )
 
     logger.info(
