@@ -23,8 +23,6 @@ def create_test_credentials(db: Session):
 
 def test_set_credential(
     client: TestClient,
-    db: Session,
-    user_api_key_header: dict[str, str],
     user_api_key: APIKeyPublic,
 ):
     project_id = user_api_key.project_id
@@ -67,8 +65,6 @@ def test_set_credential(
 
 def test_set_credentials_ignored_mismatched_ids(
     client: TestClient,
-    db: Session,
-    user_api_key_header: dict[str, str],
     user_api_key: APIKeyPublic,
 ):
     # Even if mismatched IDs are sent, route uses API key context
@@ -94,8 +90,6 @@ def test_set_credentials_ignored_mismatched_ids(
 
 def test_read_credentials_with_creds(
     client: TestClient,
-    db: Session,
-    user_api_key_header: dict[str, str],
     user_api_key: APIKeyPublic,
 ):
     # Ensure at least one credential exists for current project
@@ -142,8 +136,6 @@ def test_read_credentials_not_found(
 
 def test_read_provider_credential(
     client: TestClient,
-    db: Session,
-    user_api_key_header: dict[str, str],
     user_api_key: APIKeyPublic,
 ):
     # Ensure exists
@@ -193,8 +185,6 @@ def test_read_provider_credential_not_found(
 
 def test_update_credentials(
     client: TestClient,
-    db: Session,
-    user_api_key_header: dict[str, str],
     user_api_key: APIKeyPublic,
 ):
     # Ensure exists
@@ -267,8 +257,6 @@ def test_update_credentials_not_found_for_provider(
 
 def test_delete_provider_credential(
     client: TestClient,
-    db: Session,
-    user_api_key_header: dict[str, str],
     user_api_key: APIKeyPublic,
 ):
     # Ensure exists
@@ -289,7 +277,7 @@ def test_delete_provider_credential(
         headers={"X-API-KEY": user_api_key.key},
     )
 
-    response = client.delete(
+    client.delete(
         f"{settings.API_V1_STR}/credentials/provider/{Provider.OPENAI.value}",
         headers={"X-API-KEY": user_api_key.key},
     )
@@ -313,8 +301,6 @@ def test_delete_provider_credential_not_found(
 
 def test_delete_all_credentials(
     client: TestClient,
-    db: Session,
-    user_api_key_header: dict[str, str],
     user_api_key: APIKeyPublic,
 ):
     # Ensure exists
@@ -371,7 +357,6 @@ def test_delete_all_credentials_not_found(
 def test_duplicate_credential_creation(
     client: TestClient,
     db: Session,
-    user_api_key_header: dict[str, str],
     user_api_key: APIKeyPublic,
 ):
     credential = test_credential_data(db)
@@ -401,8 +386,6 @@ def test_duplicate_credential_creation(
 
 def test_multiple_provider_credentials(
     client: TestClient,
-    db: Session,
-    user_api_key_header: dict[str, str],
     user_api_key: APIKeyPublic,
 ):
     # Ensure clean state for current org/project
@@ -470,7 +453,6 @@ def test_multiple_provider_credentials(
 def test_credential_encryption(
     client: TestClient,
     db: Session,
-    user_api_key_header: dict[str, str],
     user_api_key: APIKeyPublic,
 ):
     credential = test_credential_data(db)
