@@ -1,5 +1,3 @@
-from typing import List
-
 from fastapi import APIRouter, Depends
 
 from app.api.deps import SessionDep, get_current_user_org_project
@@ -11,7 +9,6 @@ from app.crud.credentials import (
     update_creds_for_org,
     remove_provider_credential,
 )
-from app.crud import validate_organization
 from app.models import CredsCreate, CredsPublic, CredsUpdate, UserProjectOrg
 from app.utils import APIResponse
 from app.core.providers import validate_provider
@@ -22,9 +19,9 @@ router = APIRouter(prefix="/credentials", tags=["credentials"])
 
 @router.post(
     "/",
-    response_model=APIResponse[List[CredsPublic]],
+    response_model=APIResponse[list[CredsPublic]],
     summary="Create new credentials for the current organization and project",
-    description="Creates new credentials for the caller's organization and project as derived from the API key. Each organization can have different credentials for different providers and projects. Only one credential per provider is allowed per organization-project combination.",
+    description="Creates new credentials for the caller's organization and project. Each organization can have different credentials for different providers and projects. Only one credential per provider is allowed per organization-project combination.",
 )
 def create_new_credential(
     *,
@@ -32,9 +29,6 @@ def create_new_credential(
     creds_in: CredsCreate,
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
-    # Validate organization
-    validate_organization(session, _current_user.organization_id)
-
     # Project comes from API key context; no cross-org check needed here
 
     # Prevent duplicate credentials
@@ -69,9 +63,9 @@ def create_new_credential(
 
 @router.get(
     "/",
-    response_model=APIResponse[List[CredsPublic]],
+    response_model=APIResponse[list[CredsPublic]],
     summary="Get all credentials for current org and project",
-    description="Retrieves all provider credentials associated with the caller's organization and project derived from the API key.",
+    description="Retrieves all provider credentials associated with the caller's organization and project.",
 )
 def read_credential(
     *,
@@ -93,7 +87,7 @@ def read_credential(
     "/provider/{provider}",
     response_model=APIResponse[dict],
     summary="Get specific provider credentials for current org and project",
-    description="Retrieves credentials for a specific provider (e.g., 'openai', 'anthropic') for the caller's organization and project derived from the API key.",
+    description="Retrieves credentials for a specific provider (e.g., 'openai', 'anthropic') for the caller's organization and project.",
 )
 def read_provider_credential(
     *,
@@ -116,9 +110,9 @@ def read_provider_credential(
 
 @router.patch(
     "/",
-    response_model=APIResponse[List[CredsPublic]],
+    response_model=APIResponse[list[CredsPublic]],
     summary="Update credentials for current org and project",
-    description="Updates credentials for a specific provider of the caller's organization and project derived from the API key.",
+    description="Updates credentials for a specific provider of the caller's organization and project.",
 )
 def update_credential(
     *,
@@ -126,7 +120,6 @@ def update_credential(
     creds_in: CredsUpdate,
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
-    validate_organization(session, _current_user.organization_id)
     if not creds_in or not creds_in.provider or not creds_in.credential:
         raise HTTPException(
             status_code=400, detail="Provider and credential must be provided"
@@ -157,8 +150,6 @@ def delete_provider_credential(
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
     provider_enum = validate_provider(provider)
-    if not provider_enum:
-        raise HTTPException(status_code=400, detail="Invalid provider")
     provider_creds = get_provider_credential(
         session=session,
         org_id=_current_user.organization_id,
@@ -168,7 +159,7 @@ def delete_provider_credential(
     if provider_creds is None:
         raise HTTPException(status_code=404, detail="Provider credentials not found")
 
-    updated_creds = remove_provider_credential(
+    remove_provider_credential(
         session=session,
         org_id=_current_user.organization_id,
         provider=provider_enum,
@@ -184,7 +175,7 @@ def delete_provider_credential(
     "/",
     response_model=APIResponse[dict],
     summary="Delete all credentials for current org and project",
-    description="Removes all credentials for the caller's organization and project derived from the API key. This is a soft delete operation that marks credentials as inactive.",
+    description="Removes all credentials for the caller's organization and project. This is a soft delete operation that marks credentials as inactive.",
 )
 def delete_all_credentials(
     *,
@@ -198,7 +189,9 @@ def delete_all_credentials(
     )
     if not creds:
         raise HTTPException(
-            status_code=404, detail="Credentials for organization not found"
+            status_code=404, detail="Credentials for organization/project not found"
         )
 
-    return APIResponse.success_response({"message": "Credentials deleted successfully"})
+    return APIResponse.success_response(
+        {"message": "All credentials deleted successfully"}
+    )
