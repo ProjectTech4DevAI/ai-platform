@@ -327,7 +327,7 @@ def test_delete_all_credentials(
 
     assert response.status_code == 200  # Expect 200 for successful deletion
     data = response.json()["data"]
-    assert data["message"] == "Credentials deleted successfully"
+    assert data["message"] == "All credentials deleted successfully"
 
     # Verify the credentials are soft deleted
     response = client.get(
@@ -351,7 +351,7 @@ def test_delete_all_credentials_not_found(
     )
 
     assert response.status_code == 404
-    assert "Credentials for organization not found" in response.json()["error"]
+    assert "Credentials for organization/project not found" in response.json()["error"]
 
 
 def test_duplicate_credential_creation(
