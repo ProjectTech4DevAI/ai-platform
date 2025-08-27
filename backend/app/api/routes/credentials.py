@@ -32,11 +32,8 @@ def create_new_credential(
     creds_in: CredsCreate,
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
-    # Derive organization_id and project_id from API key context
-    creds_in.organization_id = _current_user.organization_id
-    creds_in.project_id = _current_user.project_id
     # Validate organization
-    validate_organization(session, creds_in.organization_id)
+    validate_organization(session, _current_user.organization_id)
 
     # Project comes from API key context; no cross-org check needed here
 
@@ -44,9 +41,9 @@ def create_new_credential(
     for provider in creds_in.credential.keys():
         existing_cred = get_provider_credential(
             session=session,
-            org_id=creds_in.organization_id,
+            org_id=_current_user.organization_id,
             provider=provider,
-            project_id=creds_in.project_id,
+            project_id=_current_user.project_id,
         )
         if existing_cred:
             raise HTTPException(
@@ -58,8 +55,13 @@ def create_new_credential(
             )
 
     # Create credentials
-    new_creds = set_creds_for_org(session=session, creds_add=creds_in)
-    if not new_creds:
+    credential = set_creds_for_org(
+        session=session,
+        creds_add=creds_in,
+        organization_id=_current_user.organization_id,
+        project_id=_current_user.project_id,
+    )
+    if not credential:
         raise Exception(status_code=500, detail="Failed to create credentials")
 
     return APIResponse.success_response([cred.to_public() for cred in new_creds])
@@ -100,16 +102,16 @@ def read_provider_credential(
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
     provider_enum = validate_provider(provider)
-    provider_creds = get_provider_credential(
+    credential = get_provider_credential(
         session=session,
         org_id=_current_user.organization_id,
         provider=provider_enum,
         project_id=_current_user.project_id,
     )
-    if provider_creds is None:
+    if credential is None:
         raise HTTPException(status_code=404, detail="Provider credentials not found")
 
-    return APIResponse.success_response(provider_creds)
+    return APIResponse.success_response(credential)
 
 
 @router.patch(
@@ -131,14 +133,16 @@ def update_credential(
         )
 
     # Pass project_id directly to the CRUD function since CredsUpdate no longer has this field
-    updated_creds = update_creds_for_org(
+    update_credential = update_creds_for_org(
         session=session,
         org_id=_current_user.organization_id,
         creds_in=creds_in,
         project_id=_current_user.project_id,
     )
 
-    return APIResponse.success_response([cred.to_public() for cred in updated_creds])
+    return APIResponse.success_response(
+        [cred.to_public() for cred in update_credential]
+    )
 
 
 @router.delete(

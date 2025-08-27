@@ -32,12 +32,16 @@ def test_set_credentials_for_org(db: Session) -> None:
         },
     }
     credentials_create = CredsCreate(
-        organization_id=project.organization_id,
-        project_id=project.id,
+        is_active=True,
         credential=credentials_data,
     )
 
-    created_credentials = set_creds_for_org(session=db, creds_add=credentials_create)
+    created_credentials = set_creds_for_org(
+        session=db,
+        creds_add=credentials_create,
+        organization_id=project.organization_id,
+        project_id=project.id,
+    )
 
     assert len(created_credentials) == 2
     assert all(
@@ -63,11 +67,15 @@ def test_get_creds_by_org(db: Session) -> None:
     }
 
     credentials_create = CredsCreate(
-        organization_id=project.organization_id,
-        project_id=project.id,
+        is_active=True,
         credential=credentials_data,
     )
-    set_creds_for_org(session=db, creds_add=credentials_create)
+    set_creds_for_org(
+        session=db,
+        creds_add=credentials_create,
+        organization_id=project.organization_id,
+        project_id=project.id,
+    )
 
     # Test retrieving credentials
     retrieved_creds = get_creds_by_org(session=db, org_id=project.organization_id)
@@ -84,10 +92,16 @@ def test_get_provider_credential(db: Session) -> None:
     credentials_create = test_credential_data(db)
     original_api_key = credentials_create.credential[Provider.OPENAI.value]["api_key"]
 
-    set_creds_for_org(session=db, creds_add=credentials_create)
+    project = create_test_project(db)
+    set_creds_for_org(
+        session=db,
+        creds_add=credentials_create,
+        organization_id=project.organization_id,
+        project_id=project.id,
+    )
     # Test retrieving specific provider credentials
     retrieved_cred = get_provider_credential(
-        session=db, org_id=credentials_create.organization_id, provider="openai"
+        session=db, org_id=project.organization_id, provider="openai"
     )
 
     assert retrieved_cred is not None
@@ -167,11 +181,15 @@ def test_remove_creds_for_org(db: Session) -> None:
     }
 
     creds_create = CredsCreate(
-        organization_id=project.organization_id,
-        project_id=project.id,
+        is_active=True,
         credential=credentials_data,
     )
-    set_creds_for_org(session=db, creds_add=creds_create)
+    set_creds_for_org(
+        session=db,
+        creds_add=creds_create,
+        organization_id=project.organization_id,
+        project_id=project.id,
+    )
 
     # Remove all credentials
     removed = remove_creds_for_org(session=db, org_id=project.organization_id)
@@ -192,13 +210,17 @@ def test_invalid_provider(db: Session) -> None:
     # Test with unsupported provider
     credentials_data = {"gemini": {"api_key": "test-key"}}
     credentials_create = CredsCreate(
-        organization_id=project.organization_id,
-        project_id=project.id,
+        is_active=True,
         credential=credentials_data,
     )
 
     with pytest.raises(ValueError, match="Unsupported provider"):
-        set_creds_for_org(session=db, creds_add=credentials_create)
+        set_creds_for_org(
+            session=db,
+            creds_add=credentials_create,
+            organization_id=project.organization_id,
+            project_id=project.id,
+        )
 
 
 def test_duplicate_provider_credentials(db: Session) -> None:
@@ -209,11 +231,15 @@ def test_duplicate_provider_credentials(db: Session) -> None:
     credentials_data = {"openai": {"api_key": "test-key"}}
 
     credentials_create = CredsCreate(
-        organization_id=project.organization_id,
-        project_id=project.id,
+        is_active=True,
         credential=credentials_data,
     )
-    set_creds_for_org(session=db, creds_add=credentials_create)
+    set_creds_for_org(
+        session=db,
+        creds_add=credentials_create,
+        organization_id=project.organization_id,
+        project_id=project.id,
+    )
 
     # Verify credentials exist and are active
     existing_creds = get_provider_credential(
@@ -237,13 +263,17 @@ def test_langfuse_credential_validation(db: Session) -> None:
         }
     }
     credentials_create = CredsCreate(
-        organization_id=project.organization_id,
-        project_id=project.id,
+        is_active=True,
         credential=invalid_credentials,
     )
 
     with pytest.raises(ValueError):
-        set_creds_for_org(session=db, creds_add=credentials_create)
+        set_creds_for_org(
+            session=db,
+            creds_add=credentials_create,
+            organization_id=project.organization_id,
+            project_id=project.id,
+        )
 
     # Test with valid Langfuse credentials
     valid_credentials = {
@@ -255,11 +285,15 @@ def test_langfuse_credential_validation(db: Session) -> None:
     }
 
     credentials_create = CredsCreate(
-        organization_id=project.organization_id,
-        project_id=project.id,
+        is_active=True,
         credential=valid_credentials,
     )
 
-    created_credentials = set_creds_for_org(session=db, creds_add=credentials_create)
+    created_credentials = set_creds_for_org(
+        session=db,
+        creds_add=credentials_create,
+        organization_id=project.organization_id,
+        project_id=project.id,
+    )
     assert len(created_credentials) == 1
     assert created_credentials[0].provider == "langfuse"

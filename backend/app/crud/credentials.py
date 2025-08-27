@@ -14,7 +14,9 @@ from app.core.util import now
 from app.core.exception_handlers import HTTPException
 
 
-def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Credential]:
+def set_creds_for_org(
+    *, session: Session, creds_add: CredsCreate, organization_id: int, project_id: int
+) -> List[Credential]:
     """Set credentials for an organization. Creates a separate row for each provider."""
     created_credentials = []
 
@@ -31,8 +33,8 @@ def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Crede
 
         # Create a row for each provider
         credential = Credential(
-            organization_id=creds_add.organization_id,
-            project_id=creds_add.project_id,
+            organization_id=organization_id,
+            project_id=project_id,
             is_active=creds_add.is_active,
             provider=provider,
             credential=encrypted_credentials,
