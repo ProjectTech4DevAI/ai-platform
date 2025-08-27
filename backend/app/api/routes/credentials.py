@@ -133,7 +133,7 @@ def update_credential(
         )
 
     # Pass project_id directly to the CRUD function since CredsUpdate no longer has this field
-    update_credential = update_creds_for_org(
+    updated_credential = update_creds_for_org(
         session=session,
         org_id=_current_user.organization_id,
         creds_in=creds_in,
@@ -141,7 +141,7 @@ def update_credential(
     )
 
     return APIResponse.success_response(
-        [cred.to_public() for cred in update_credential]
+        [cred.to_public() for cred in updated_credential]
     )
 
 
