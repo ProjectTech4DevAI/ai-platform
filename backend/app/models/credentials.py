@@ -20,8 +20,6 @@ class CredsCreate(SQLModel):
     """Create new credentials for an organization.
     The credential field should be a dictionary mapping provider names to their credentials.
     Example: {"openai": {"api_key": "..."}, "langfuse": {"public_key": "..."}}
-
-    Note: organization_id and project_id are automatically derived from the API key context.
     """
 
     is_active: bool = True
