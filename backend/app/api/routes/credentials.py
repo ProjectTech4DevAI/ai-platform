@@ -55,16 +55,16 @@ def create_new_credential(
             )
 
     # Create credentials
-    credential = set_creds_for_org(
+    created_creds = set_creds_for_org(
         session=session,
         creds_add=creds_in,
         organization_id=_current_user.organization_id,
         project_id=_current_user.project_id,
     )
-    if not credential:
+    if not created_creds:
         raise Exception(status_code=500, detail="Failed to create credentials")
 
-    return APIResponse.success_response([cred.to_public() for cred in credential])
+    return APIResponse.success_response([cred.to_public() for cred in created_creds])
 
 
 @router.get(
