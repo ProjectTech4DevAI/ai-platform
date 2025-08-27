@@ -64,7 +64,7 @@ def create_new_credential(
     if not credential:
         raise Exception(status_code=500, detail="Failed to create credentials")
 
-    return APIResponse.success_response([cred.to_public() for cred in new_creds])
+    return APIResponse.success_response([cred.to_public() for cred in credential])
 
 
 @router.get(
