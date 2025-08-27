@@ -2,7 +2,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends
 
-from app.api.deps import SessionDep, get_current_active_superuser
+from app.api.deps import SessionDep, get_current_user_org_project
 from app.crud.credentials import (
     get_creds_by_org,
     get_provider_credential,
@@ -11,10 +11,8 @@ from app.crud.credentials import (
     update_creds_for_org,
     remove_provider_credential,
 )
-from app.crud import validate_organization, validate_project
-from app.models import CredsCreate, CredsPublic, CredsUpdate
-from app.models.organization import Organization
-from app.models.project import Project
+from app.crud import validate_organization
+from app.models import CredsCreate, CredsPublic, CredsUpdate, UserProjectOrg
 from app.utils import APIResponse
 from app.core.providers import validate_provider
 from app.core.exception_handlers import HTTPException
@@ -24,23 +22,23 @@ router = APIRouter(prefix="/credentials", tags=["credentials"])
 
 @router.post(
     "/",
-    dependencies=[Depends(get_current_active_superuser)],
     response_model=APIResponse[List[CredsPublic]],
-    summary="Create new credentials for an organization and project",
-    description="Creates new credentials for a specific organization and project combination. This endpoint requires superuser privileges. Each organization can have different credentials for different providers and projects. Only one credential per provider is allowed per organization-project combination.",
+    summary="Create new credentials for the current organization and project",
+    description="Creates new credentials for the caller's organization and project as derived from the API key. Each organization can have different credentials for different providers and projects. Only one credential per provider is allowed per organization-project combination.",
 )
-def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
+def create_new_credential(
+    *,
+    session: SessionDep,
+    creds_in: CredsCreate,
+    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
+):
+    # Derive organization_id and project_id from API key context
+    creds_in.organization_id = _current_user.organization_id
+    creds_in.project_id = _current_user.project_id
     # Validate organization
     validate_organization(session, creds_in.organization_id)
 
-    # Validate project if provided
-    if creds_in.project_id:
-        project = validate_project(session, creds_in.project_id)
-        if project.organization_id != creds_in.organization_id:
-            raise HTTPException(
-                status_code=400,
-                detail="Project does not belong to the specified organization",
-            )
+    # Project comes from API key context; no cross-org check needed here
 
     # Prevent duplicate credentials
     for provider in creds_in.credential.keys():
@@ -68,14 +66,21 @@ def create_new_credential(*, session: SessionDep, creds_in: CredsCreate):
 
 
 @router.get(
-    "/{org_id}",
-    dependencies=[Depends(get_current_active_superuser)],
+    "/",
     response_model=APIResponse[List[CredsPublic]],
-    summary="Get all credentials for an organization and project",
-    description="Retrieves all provider credentials associated with a specific organization and project combination. If project_id is not provided, returns credentials for the organization level. This endpoint requires superuser privileges.",
+    summary="Get all credentials for current org and project",
+    description="Retrieves all provider credentials associated with the caller's organization and project derived from the API key.",
 )
-def read_credential(*, session: SessionDep, org_id: int, project_id: int | None = None):
-    creds = get_creds_by_org(session=session, org_id=org_id, project_id=project_id)
+def read_credential(
+    *,
+    session: SessionDep,
+    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
+):
+    creds = get_creds_by_org(
+        session=session,
+        org_id=_current_user.organization_id,
+        project_id=_current_user.project_id,
+    )
     if not creds:
         raise HTTPException(status_code=404, detail="Credentials not found")
 
@@ -83,21 +88,23 @@ def read_credential(*, session: SessionDep, org_id: int, project_id: int | None 
 
 
 @router.get(
-    "/{org_id}/{provider}",
-    dependencies=[Depends(get_current_active_superuser)],
+    "/provider/{provider}",
     response_model=APIResponse[dict],
-    summary="Get specific provider credentials for an organization and project",
-    description="Retrieves credentials for a specific provider (e.g., 'openai', 'anthropic') for a given organization and project combination. If project_id is not provided, returns organization-level credentials. This endpoint requires superuser privileges.",
+    summary="Get specific provider credentials for current org and project",
+    description="Retrieves credentials for a specific provider (e.g., 'openai', 'anthropic') for the caller's organization and project derived from the API key.",
 )
 def read_provider_credential(
-    *, session: SessionDep, org_id: int, provider: str, project_id: int | None = None
+    *,
+    session: SessionDep,
+    provider: str,
+    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
     provider_enum = validate_provider(provider)
     provider_creds = get_provider_credential(
         session=session,
-        org_id=org_id,
+        org_id=_current_user.organization_id,
         provider=provider_enum,
-        project_id=project_id,
+        project_id=_current_user.project_id,
     )
     if provider_creds is None:
         raise HTTPException(status_code=404, detail="Provider credentials not found")
@@ -106,49 +113,61 @@ def read_provider_credential(
 
 
 @router.patch(
-    "/{org_id}",
-    dependencies=[Depends(get_current_active_superuser)],
+    "/",
     response_model=APIResponse[List[CredsPublic]],
-    summary="Update organization and project credentials",
-    description="Updates credentials for a specific organization and project combination. Can update specific provider credentials or add new providers. If project_id is provided in the update, credentials will be moved to that project. This endpoint requires superuser privileges.",
+    summary="Update credentials for current org and project",
+    description="Updates credentials for a specific provider of the caller's organization and project derived from the API key.",
 )
-def update_credential(*, session: SessionDep, org_id: int, creds_in: CredsUpdate):
-    validate_organization(session, org_id)
+def update_credential(
+    *,
+    session: SessionDep,
+    creds_in: CredsUpdate,
+    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
+):
+    validate_organization(session, _current_user.organization_id)
     if not creds_in or not creds_in.provider or not creds_in.credential:
         raise HTTPException(
             status_code=400, detail="Provider and credential must be provided"
         )
 
+    # Ensure update targets current project
+    creds_in.project_id = _current_user.project_id
+
     updated_creds = update_creds_for_org(
-        session=session, org_id=org_id, creds_in=creds_in
+        session=session, org_id=_current_user.organization_id, creds_in=creds_in
     )
 
     return APIResponse.success_response([cred.to_public() for cred in updated_creds])
 
 
 @router.delete(
-    "/{org_id}/{provider}",
-    dependencies=[Depends(get_current_active_superuser)],
+    "/provider/{provider}",
     response_model=APIResponse[dict],
-    summary="Delete specific provider credentials for an organization and project",
+    summary="Delete specific provider credentials for current org and project",
 )
 def delete_provider_credential(
-    *, session: SessionDep, org_id: int, provider: str, project_id: int | None = None
+    *,
+    session: SessionDep,
+    provider: str,
+    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
     provider_enum = validate_provider(provider)
     if not provider_enum:
         raise HTTPException(status_code=400, detail="Invalid provider")
     provider_creds = get_provider_credential(
         session=session,
-        org_id=org_id,
+        org_id=_current_user.organization_id,
         provider=provider_enum,
-        project_id=project_id,
+        project_id=_current_user.project_id,
     )
     if provider_creds is None:
         raise HTTPException(status_code=404, detail="Provider credentials not found")
 
     updated_creds = remove_provider_credential(
-        session=session, org_id=org_id, provider=provider_enum, project_id=project_id
+        session=session,
+        org_id=_current_user.organization_id,
+        provider=provider_enum,
+        project_id=_current_user.project_id,
     )
 
     return APIResponse.success_response(
@@ -157,16 +176,21 @@ def delete_provider_credential(
 
 
 @router.delete(
-    "/{org_id}",
-    dependencies=[Depends(get_current_active_superuser)],
+    "/",
     response_model=APIResponse[dict],
-    summary="Delete all credentials for an organization and project",
-    description="Removes all credentials for a specific organization and project combination. If project_id is provided, only removes credentials for that project. This is a soft delete operation that marks credentials as inactive. This endpoint requires superuser privileges.",
+    summary="Delete all credentials for current org and project",
+    description="Removes all credentials for the caller's organization and project derived from the API key. This is a soft delete operation that marks credentials as inactive.",
 )
 def delete_all_credentials(
-    *, session: SessionDep, org_id: int, project_id: int | None = None
+    *,
+    session: SessionDep,
+    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
-    creds = remove_creds_for_org(session=session, org_id=org_id, project_id=project_id)
+    creds = remove_creds_for_org(
+        session=session,
+        org_id=_current_user.organization_id,
+        project_id=_current_user.project_id,
+    )
     if not creds:
         raise HTTPException(
             status_code=404, detail="Credentials for organization not found"
