@@ -4,7 +4,7 @@ import io
 
 from sqlmodel import Session
 from fastapi.testclient import TestClient
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from app.core.config import settings
 from app.tests.utils.document import DocumentStore
@@ -43,13 +43,30 @@ class TestCollectionRouteCreate:
     _n_documents = 5
 
     @patch("app.api.routes.collections.get_openai_client")
+    @patch("fastapi.BackgroundTasks.add_task")
+    @patch("app.api.routes.collections.Session")
     def test_create_collection_success(
         self,
+        mock_session,
+        mock_add_task,
         mock_get_openai_client,
         client: TestClient,
         db: Session,
         user_api_key_header,
     ):
+        # Configure mocks
+        mock_openai_client = get_mock_openai_client_with_vector_store()
+        mock_get_openai_client.return_value = mock_openai_client
+
+        # # Make background task run synchronously
+        def run_task_immediately(task_func, *args, **kwargs):
+            task_func(*args, **kwargs)
+
+        mock_add_task.side_effect = run_task_immediately
+
+        # Mock Session to return the test database session
+        mock_session.return_value.__enter__.return_value = db
+
         store = DocumentStore(db)
         documents = store.fill(self._n_documents)
         doc_ids = [str(doc.id) for doc in documents]
@@ -63,9 +80,6 @@ class TestCollectionRouteCreate:
         }
 
         headers = user_api_key_header
-
-        mock_openai_client = get_mock_openai_client_with_vector_store()
-        mock_get_openai_client.return_value = mock_openai_client
 
         response = client.post(
             f"{settings.API_V1_STR}/collections/create", json=body, headers=headers
@@ -88,7 +102,6 @@ class TestCollectionRouteCreate:
             headers=headers,
         )
         assert info_response.status_code == 200
-        info_data = info_response.json()["data"]
 
         assert collection.status == CollectionStatus.successful.value
         assert collection.owner_id == user.user_id
