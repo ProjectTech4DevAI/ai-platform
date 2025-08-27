@@ -24,7 +24,7 @@ class OnboardingRequest(SQLModel):
 
     organization_name: str = Field(
         description="Name of the organization to be created or linked",
-        min_length=3,
+        min_length=1,
         max_length=100,
     )
     project_name: str = Field(
