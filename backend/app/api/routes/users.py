@@ -79,7 +79,9 @@ def update_user_me(
     if user_in.email:
         existing_user = get_user_by_email(session=session, email=user_in.email)
         if existing_user and existing_user.id != current_user.id:
-            logger.error(f"[update_user_me] Attempting to update user with existing email | email: {user_in.email}, user_id: {current_user.id}")
+            logger.error(
+                f"[update_user_me] Attempting to update user with existing email | email: {user_in.email}, user_id: {current_user.id}"
+            )
             raise HTTPException(
                 status_code=409, detail="User with this email already exists"
             )
@@ -120,7 +122,9 @@ def read_user_me(current_user: CurrentUser) -> Any:
 @router.delete("/me", response_model=Message)
 def delete_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
     if current_user.is_superuser:
-        logger.error(f"[delete_user_me] Attempt to delete superuser account by itself | user_id: {current_user.id}")
+        logger.error(
+            f"[delete_user_me] Attempt to delete superuser account by itself | user_id: {current_user.id}"
+        )
         raise HTTPException(
             status_code=403, detail="Super users are not allowed to delete themselves"
         )
@@ -140,7 +144,9 @@ def register_user(session: SessionDep, user_in: UserRegister) -> Any:
     This endpoint allows the registration of a new user and is accessible only by a superuser.
     """
     if get_user_by_email(session=session, email=user_in.email):
-        logger.error(f"[register_user] Attempt to create user with existing email | email: {user_in.email}")
+        logger.error(
+            f"[register_user] Attempt to create user with existing email | email: {user_in.email}"
+        )
         raise HTTPException(
             status_code=400,
             detail="The user with this email already exists in the system",
@@ -214,7 +220,9 @@ def delete_user(
         raise HTTPException(status_code=404, detail="User not found")
 
     if user == current_user:
-        logger.error(f"[delete_user] Attempt to delete self by superuser | user_id: {current_user.id}")
+        logger.error(
+            f"[delete_user] Attempt to delete self by superuser | user_id: {current_user.id}"
+        )
         raise HTTPException(
             status_code=403, detail="Super users are not allowed to delete themselves"
         )
