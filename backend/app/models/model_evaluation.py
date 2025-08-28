@@ -47,9 +47,7 @@ class ModelEvaluation(ModelEvaluationBase, table=True):
         nullable=False,
     )
     model_name: str = Field(description="fine tuned model name from OpenAI")
-    test_data_s3_url: str = Field(
-        description="S3 url of the testing data stored ins S3"
-    )
+    test_data_s3_url: str = Field(description="S3 url of the testing data stored in S3")
     base_model: str = Field(nullable=False, description="Base model for fine-tuning")
     split_ratio: float = Field(
         nullable=False, description="the ratio the dataset was divided in"
