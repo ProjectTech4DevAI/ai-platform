@@ -111,7 +111,7 @@ def permanent_delete_doc(
     d_crud.delete(doc_id)
 
     return APIResponse.success_response(
-        Message(message="Document Permanently Deleted Successfully")
+        Message(message="Document permanently deleted successfully")
     )
 
 
