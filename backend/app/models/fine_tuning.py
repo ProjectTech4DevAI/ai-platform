@@ -22,7 +22,6 @@ class FineTuningJobBase(SQLModel):
     split_ratio: float = Field(nullable=False)
     document_id: UUID = Field(foreign_key="document.id", nullable=False)
     training_file_id: Optional[str] = Field(default=None)
-    testing_file_id: Optional[str] = Field(default=None)
     system_prompt: str = Field(sa_column=Column(Text, nullable=False))
 
 
@@ -65,6 +64,12 @@ class Fine_Tuning(FineTuningJobBase, table=True):
     fine_tuned_model: str | None = Field(
         default=None, description="Final fine tuned model name from OpenAI"
     )
+    train_data_url: str | None = Field(
+        default=None, description="S3 url of the training data stored ins S3"
+    )
+    test_data_url: str | None = Field(
+        default=None, description="S3 url of the testing data stored ins S3"
+    )
     error_message: str | None = Field(
         default=None, description="error message for when something failed"
     )
@@ -86,7 +91,8 @@ class Fine_Tuning(FineTuningJobBase, table=True):
 
 class FineTuningUpdate(SQLModel):
     training_file_id: Optional[str] = None
-    testing_file_id: Optional[str] = None
+    train_data_url: Optional[str] = None
+    test_data_url: Optional[str] = None
     split_ratio: Optional[float] = None
     provider_job_id: Optional[str] = None
     fine_tuned_model: Optional[str] = None
@@ -106,7 +112,8 @@ class FineTuningJobPublic(SQLModel):
     error_message: str | None = None
     fine_tuned_model: str | None = None
     training_file_id: str | None = None
-    testing_file_id: str | None = None
+    train_data_url: str | None = None
+    test_data_url: str | None = None
 
     inserted_at: datetime
     updated_at: datetime

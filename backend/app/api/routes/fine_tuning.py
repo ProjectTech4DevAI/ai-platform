@@ -54,7 +54,6 @@ def process_fine_tuning_job(
     ratio: float,
     current_user: CurrentUserOrgProject,
     request: FineTuningJobCreate,
-    client: OpenAI,
 ):
     start_time = time.time()
     project_id = current_user.project_id
@@ -67,6 +66,9 @@ def process_fine_tuning_job(
         try:
             fine_tune = fetch_by_id(session, job_id, project_id)
 
+            client = get_openai_client(
+                session, current_user.organization_id, project_id
+            )
             storage = AmazonCloudStorage(current_user)
             document_crud = DocumentCrud(session=session, owner_id=current_user.id)
             document = document_crud.read_one(request.document_id)
@@ -74,12 +76,12 @@ def process_fine_tuning_job(
                 document, storage, ratio, request.system_prompt
             )
             result = preprocessor.process()
-            train_path = result["train_jsonl_path"]
-            train_data_url = result["train_csv_url"]
-            test_data_url = result["test_csv_url"]
+            train_data_temp_filepath = result["train_jsonl_temp_filepath"]
+            train_data_s3_url = result["train_csv_s3_url"]
+            test_data_s3_url = result["test_csv_s3_url"]
 
             try:
-                with open(train_path, "rb") as train_f:
+                with open(train_data_temp_filepath, "rb") as train_f:
                     uploaded_train = client.files.create(
                         file=train_f, purpose="fine-tune"
                     )
@@ -136,8 +138,8 @@ def process_fine_tuning_job(
                 job=fine_tune,
                 update=FineTuningUpdate(
                     training_file_id=training_file_id,
-                    train_data_url=train_data_url,
-                    test_data_url=test_data_url,
+                    train_data_url=train_data_s3_url,
+                    test_data_url=test_data_s3_url,
                     split_ratio=ratio,
                     provider_job_id=job.id,
                     status=FineTuningStatus.running,
@@ -178,8 +180,11 @@ def fine_tune_from_CSV(
     request: FineTuningJobCreate,
     background_tasks: BackgroundTasks,
 ):
-    client = get_openai_client(
-        session, current_user.organization_id, current_user.project_id
+    client = get_openai_client(  # Used here only to validate the user's OpenAI key;
+        # the actual client is re-initialized separately inside the background task
+        session,
+        current_user.organization_id,
+        current_user.project_id,
     )
     results = []
 
@@ -195,12 +200,7 @@ def fine_tune_from_CSV(
 
         if created:
             background_tasks.add_task(
-                process_fine_tuning_job,
-                job.id,
-                ratio,
-                current_user,
-                request,
-                client,
+                process_fine_tuning_job, job.id, ratio, current_user, request
             )
 
     if not results:

@@ -129,11 +129,15 @@ class DataPreprocessor:
         train_dict = train_data.to_dict(orient="records")
         train_jsonl = self._modify_data_format(train_dict)
 
-        uuids = uuid.uuid4().hex
-        pct = int(self.split_ratio * 100)  # percentage of data
-        train_csv_name = f"train_split_{pct}_{uuids}.csv"
-        test_csv_name = f"test_split_{pct}_{uuids}.csv"
-        train_jsonl_name = f"train_data_{pct}_{uuids}.jsonl"
+        unique_id = uuid.uuid4().hex
+        train_percentage = int(self.split_ratio * 100)  # train %
+        test_percentage = (
+            100 - train_percentage
+        )  # remaining % for test (since we used 1 - ratio earlier for test size)
+
+        train_csv_name = f"train_split_{train_percentage}_{unique_id}.csv"
+        test_csv_name = f"test_split_{test_percentage}_{unique_id}.csv"
+        train_jsonl_name = f"train_data_{train_percentage}_{unique_id}.jsonl"
 
         train_csv_url = self.upload_csv_to_s3(train_data, train_csv_name)
         test_csv_url = self.upload_csv_to_s3(test_data, test_csv_name)
@@ -141,7 +145,7 @@ class DataPreprocessor:
         train_jsonl_path = self._save_to_jsonl(train_jsonl, train_jsonl_name)
 
         return {
-            "train_csv_url": train_csv_url,
-            "test_csv_url": test_csv_url,
-            "train_jsonl_path": train_jsonl_path,
+            "train_csv_s3_url": train_csv_url,
+            "test_csv_s3_url": test_csv_url,
+            "train_jsonl_temp_filepath": train_jsonl_path,
         }
