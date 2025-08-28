@@ -129,6 +129,7 @@ def create_test_credential(db: Session) -> tuple[list[Credential], Project]:
         project,
     )
 
+
 def create_test_fine_tuning_jobs(
     db: Session,
     ratios: list[float],
@@ -174,9 +175,7 @@ def create_test_finetuning_job_with_extra_fields(
 
 
 def create_test_model_evaluation(db) -> list[ModelEvaluation]:
-    fine_tune_jobs, any_created = create_test_finetuning_job_with_extra_fields(
-        db, [0.5, 0.7]
-    )
+    fine_tune_jobs, _ = create_test_finetuning_job_with_extra_fields(db, [0.5, 0.7])
 
     model_evaluations = []
 
