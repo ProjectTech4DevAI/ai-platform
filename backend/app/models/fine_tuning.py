@@ -64,10 +64,10 @@ class Fine_Tuning(FineTuningJobBase, table=True):
     fine_tuned_model: str | None = Field(
         default=None, description="Final fine tuned model name from OpenAI"
     )
-    train_data_url: str | None = Field(
+    train_data_s3_url: str | None = Field(
         default=None, description="S3 url of the training data stored ins S3"
     )
-    test_data_url: str | None = Field(
+    test_data_s3_url: str | None = Field(
         default=None, description="S3 url of the testing data stored ins S3"
     )
     error_message: str | None = Field(
@@ -91,8 +91,8 @@ class Fine_Tuning(FineTuningJobBase, table=True):
 
 class FineTuningUpdate(SQLModel):
     training_file_id: Optional[str] = None
-    train_data_url: Optional[str] = None
-    test_data_url: Optional[str] = None
+    train_data_s3_url: Optional[str] = None
+    test_data_s3_url: Optional[str] = None
     split_ratio: Optional[float] = None
     provider_job_id: Optional[str] = None
     fine_tuned_model: Optional[str] = None
@@ -112,8 +112,8 @@ class FineTuningJobPublic(SQLModel):
     error_message: str | None = None
     fine_tuned_model: str | None = None
     training_file_id: str | None = None
-    train_data_url: str | None = None
-    test_data_url: str | None = None
+    train_data_s3_url: str | None = None
+    test_data_s3_url: str | None = None
 
     inserted_at: datetime
     updated_at: datetime

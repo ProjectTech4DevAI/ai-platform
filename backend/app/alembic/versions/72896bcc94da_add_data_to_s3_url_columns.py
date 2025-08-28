@@ -21,17 +21,21 @@ def upgrade():
     op.drop_column("fine_tuning", "testing_file_id")
     op.add_column(
         "fine_tuning",
-        sa.Column("train_data_url", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+        sa.Column(
+            "train_data_s3_url", sqlmodel.sql.sqltypes.AutoString(), nullable=True
+        ),
     )
     op.add_column(
         "fine_tuning",
-        sa.Column("test_data_url", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+        sa.Column(
+            "test_data_s3_url", sqlmodel.sql.sqltypes.AutoString(), nullable=True
+        ),
     )
 
 
 def downgrade():
-    op.drop_column("fine_tuning", "test_data_url")
-    op.drop_column("fine_tuning", "train_data_url")
+    op.drop_column("fine_tuning", "test_data_s3_url")
+    op.drop_column("fine_tuning", "train_data_s3_url")
     op.add_column(
         "fine_tuning",
         sa.Column("testing_file_id", sa.VARCHAR(), autoincrement=False, nullable=True),

@@ -138,8 +138,8 @@ def process_fine_tuning_job(
                 job=fine_tune,
                 update=FineTuningUpdate(
                     training_file_id=training_file_id,
-                    train_data_url=train_data_s3_url,
-                    test_data_url=test_data_s3_url,
+                    train_data_s3_url=train_data_s3_url,
+                    test_data_s3_url=test_data_s3_url,
                     split_ratio=ratio,
                     provider_job_id=job.id,
                     status=FineTuningStatus.running,
