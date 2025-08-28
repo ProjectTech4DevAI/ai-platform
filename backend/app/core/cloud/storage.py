@@ -117,8 +117,8 @@ class CloudStorage(ABC):
         self.storage_path = str(storage_path)
 
     @abstractmethod
-    def put(self, source: UploadFile, basename: str) -> str:
-        """Upload a file to storage and return the storage path"""
+    def put(self, source: UploadFile, basename: str) -> SimpleStorageName:
+        """Upload a file to storage"""
         pass
 
     @abstractmethod
@@ -148,8 +148,10 @@ class AmazonCloudStorage(CloudStorage):
         self.aws = AmazonCloudStorageClient()
 
     def put(self, source: UploadFile, file_path: Path) -> SimpleStorageName:
-        key = Path(self.storage_path, file_path)
-        destination = SimpleStorageName(str(key))
+        if file_path.is_absolute():
+            raise ValueError("file_path must be relative to the project's storage root")
+        key = Path(self.storage_path) / file_path
+        destination = SimpleStorageName(key.as_posix())
         kwargs = asdict(destination)
 
         try:
