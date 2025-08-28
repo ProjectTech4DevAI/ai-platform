@@ -10,7 +10,7 @@ from app.crud import DocumentCrud, CollectionCrud, get_project_by_id
 from app.models import Document, DocumentPublic, Message
 from app.utils import APIResponse, load_description, get_openai_client
 from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
-from app.core.cloud import AmazonCloudStorage
+from app.core.cloud import get_cloud_storage
 from app.crud.rag import OpenAIAssistantCrud
 
 logger = logging.getLogger(__name__)
@@ -43,14 +43,10 @@ def upload_doc(
     current_user: CurrentUserOrgProject,
     src: UploadFile = File(...),
 ):
-    storage = AmazonCloudStorage(current_user.project_id)
+    storage = get_cloud_storage(session=session, project_id=current_user.project_id)
     document_id = uuid4()
-    project = get_project_by_id(session=session, project_id=current_user.project_id)
-    if project is None:
-        raise HTTPException(404, "Project not found")
 
-    key = Path(str(project.storage_path), str(document_id))
-    object_store_url = storage.put(src, key)
+    object_store_url = storage.put(src, Path(str(document_id)))
 
     crud = DocumentCrud(session, current_user.project_id)
     document = Document(
@@ -101,11 +97,11 @@ def permanent_delete_doc(
     client = get_openai_client(
         session, current_user.organization_id, current_user.project_id
     )
-
+    project = get_project_by_id(session=session, project_id=current_user.project_id)
     a_crud = OpenAIAssistantCrud(client)
     d_crud = DocumentCrud(session, current_user.project_id)
     c_crud = CollectionCrud(session, current_user.id)
-    storage = AmazonCloudStorage(current_user.project_id)
+    storage = get_cloud_storage(session=session, project_id=current_user.project_id)
 
     document = d_crud.read_one(doc_id)
 
@@ -136,9 +132,8 @@ def doc_info(
     document = crud.read_one(doc_id)
 
     doc_schema = DocumentPublic.model_validate(document, from_attributes=True)
-
     if include_url:
-        storage = AmazonCloudStorage(current_user.project_id)
+        storage = get_cloud_storage(session=session, project_id=current_user.project_id)
         doc_schema.signed_url = storage.get_signed_url(document.object_store_url)
 
     return APIResponse.success_response(doc_schema)

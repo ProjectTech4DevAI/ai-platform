@@ -1,4 +1,6 @@
 import os
+from sqlmodel import Session
+from uuid import UUID
 import logging
 import functools as ft
 from pathlib import Path
@@ -10,6 +12,7 @@ from fastapi import UploadFile
 from botocore.exceptions import ClientError
 from botocore.response import StreamingBody
 
+from app.crud import get_project_by_id
 from app.models import UserProjectOrg
 from app.core.config import settings
 from app.utils import mask_string
@@ -108,8 +111,9 @@ class SimpleStorageName:
 
 
 class CloudStorage:
-    def __init__(self, project_id: int):
+    def __init__(self, project_id: int, storage_path: UUID):
         self.project_id = project_id
+        self.storage_path = str(storage_path)
 
     def put(self, source: UploadFile, basename: str):
         raise NotImplementedError()
@@ -117,13 +121,23 @@ class CloudStorage:
     def stream(self, url: str) -> StreamingBody:
         raise NotImplementedError()
 
+    def get_file_size_kb(self, url: str) -> float:
+        raise NotImplementedError()
+
+    def get_signed_url(self, url: str, expires_in: int = 3600) -> str:
+        raise NotImplementedError()
+
+    def delete(self, url: str) -> None:
+        raise NotImplementedError()
+
 
 class AmazonCloudStorage(CloudStorage):
-    def __init__(self, project_id: int):
-        super().__init__(project_id)
+    def __init__(self, project_id: int, storage_path: UUID):
+        super().__init__(project_id, storage_path)
         self.aws = AmazonCloudStorageClient()
 
-    def put(self, source: UploadFile, key: Path) -> SimpleStorageName:
+    def put(self, source: UploadFile, file_path: Path) -> SimpleStorageName:
+        key = Path(self.storage_path, file_path)
         destination = SimpleStorageName(str(key))
         kwargs = asdict(destination)
 
@@ -230,3 +244,16 @@ class AmazonCloudStorage(CloudStorage):
                 exc_info=True,
             )
             raise CloudStorageError(f'AWS Error: "{err}" ({url})') from err
+
+
+def get_cloud_storage(session: Session, project_id: int) -> CloudStorage:
+    """
+    Method to create and configure a cloud storage instance.
+    """
+    project = get_project_by_id(session=session, project_id=project_id)
+    if not project:
+        raise ValueError(f"Invalid project_id: {project_id}")
+
+    storage_path = project.storage_path
+
+    return AmazonCloudStorage(project_id=project_id, storage_path=storage_path)
