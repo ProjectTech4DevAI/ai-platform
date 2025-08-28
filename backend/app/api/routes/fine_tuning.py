@@ -54,7 +54,6 @@ def process_fine_tuning_job(
     ratio: float,
     current_user: CurrentUserOrgProject,
     request: FineTuningJobCreate,
-    client: OpenAI,
 ):
     start_time = time.time()
     project_id = current_user.project_id
@@ -67,6 +66,9 @@ def process_fine_tuning_job(
         try:
             fine_tune = fetch_by_id(session, job_id, project_id)
 
+            client = get_openai_client(
+                session, current_user.organization_id, project_id
+            )
             storage = AmazonCloudStorage(current_user)
             document_crud = DocumentCrud(session=session, owner_id=current_user.id)
             document = document_crud.read_one(request.document_id)
@@ -74,21 +76,17 @@ def process_fine_tuning_job(
                 document, storage, ratio, request.system_prompt
             )
             result = preprocessor.process()
-            train_path = result["train_file"]
-            test_path = result["test_file"]
+            train_data_temp_filepath = result["train_jsonl_temp_filepath"]
+            train_data_s3_url = result["train_csv_s3_url"]
+            test_data_s3_url = result["test_csv_s3_url"]
 
             try:
-                with open(train_path, "rb") as train_f:
+                with open(train_data_temp_filepath, "rb") as train_f:
                     uploaded_train = client.files.create(
                         file=train_f, purpose="fine-tune"
                     )
-                with open(test_path, "rb") as test_f:
-                    uploaded_test = client.files.create(
-                        file=test_f, purpose="fine-tune"
-                    )
-
                 logger.info(
-                    f"[process_fine_tuning_job] Files uploaded to OpenAI successfully | "
+                    f"[process_fine_tuning_job] File uploaded to OpenAI successfully | "
                     f"job_id={job_id}, project_id={project_id}|"
                 )
             except openai.OpenAIError as e:
@@ -110,7 +108,6 @@ def process_fine_tuning_job(
                 preprocessor.cleanup()
 
             training_file_id = uploaded_train.id
-            testing_file_id = uploaded_test.id
 
             try:
                 job = client.fine_tuning.jobs.create(
@@ -141,7 +138,8 @@ def process_fine_tuning_job(
                 job=fine_tune,
                 update=FineTuningUpdate(
                     training_file_id=training_file_id,
-                    testing_file_id=testing_file_id,
+                    train_data_s3_url=train_data_s3_url,
+                    test_data_s3_url=test_data_s3_url,
                     split_ratio=ratio,
                     provider_job_id=job.id,
                     status=FineTuningStatus.running,
@@ -182,8 +180,11 @@ def fine_tune_from_CSV(
     request: FineTuningJobCreate,
     background_tasks: BackgroundTasks,
 ):
-    client = get_openai_client(
-        session, current_user.organization_id, current_user.project_id
+    client = get_openai_client(  # Used here only to validate the user's OpenAI key;
+        # the actual client is re-initialized separately inside the background task
+        session,
+        current_user.organization_id,
+        current_user.project_id,
     )
     results = []
 
@@ -199,12 +200,7 @@ def fine_tune_from_CSV(
 
         if created:
             background_tasks.add_task(
-                process_fine_tuning_job,
-                job.id,
-                ratio,
-                current_user,
-                request,
-                client,
+                process_fine_tuning_job, job.id, ratio, current_user, request
             )
 
     if not results:

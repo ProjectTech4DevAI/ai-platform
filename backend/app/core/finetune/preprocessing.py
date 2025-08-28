@@ -3,6 +3,11 @@ import json
 import uuid
 import tempfile
 import logging
+import io
+
+from pathlib import Path
+from fastapi import UploadFile
+from starlette.datastructures import Headers
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
@@ -21,6 +26,34 @@ class DataPreprocessor:
         self.generated_files = []
 
         self.system_message = {"role": "system", "content": system_message.strip()}
+
+    def upload_csv_to_s3(self, df, filename: str) -> str:
+        logger.info(
+            f"[upload_csv_to_s3] Preparing to upload '{filename}' to s3 | rows={len(df)}, cols={len(df.columns)}"
+        )
+
+        buf = io.BytesIO(df.to_csv(index=False).encode("utf-8"))
+        buf.seek(0)
+
+        headers = Headers({"content-type": "text/csv"})
+        upload = UploadFile(
+            filename=filename,
+            file=buf,
+            headers=headers,
+        )
+
+        try:
+            dest = self.storage.put(upload, basename=Path("datasets") / filename)
+            logger.info(
+                f"[upload_csv_to_s3] Upload successful | filename='{filename}', s3_url='{dest}'"
+            )
+            return str(dest)
+        except Exception as err:
+            logger.error(
+                f"[upload_csv_to_s3] Upload failed | filename='{filename}', error='{err}'",
+                exc_info=True,
+            )
+            raise
 
     def _save_to_jsonl(self, data, filename):
         temp_dir = tempfile.gettempdir()
@@ -65,14 +98,14 @@ class DataPreprocessor:
 
             if not self.query_col or not self.label_col:
                 logger.error(
-                    f"[DataPreprocessor] Dataset does not contai a 'label' column and one of: {possible_query_columns} "
+                    f"[DataPreprocessor] Dataset does not contain a 'label' column and one of: {possible_query_columns}"
                 )
                 raise ValueError(
                     f"CSV must contain a 'label' column and one of: {possible_query_columns}"
                 )
 
             logger.info(
-                f"[DataPreprocessor]Identified columns - query_col={self.query_col}, label_col={self.label_col}"
+                f"[DataPreprocessor] Identified columns - query_col={self.query_col}, label_col={self.label_col}"
             )
             return df
         finally:
@@ -90,21 +123,29 @@ class DataPreprocessor:
         )
 
         logger.info(
-            f"[DataPreprocessor]Data split complete: train_size={len(train_data)}, test_size={len(test_data)}"
+            f"[DataPreprocessor] Data split complete: train_size={len(train_data)}, test_size={len(test_data)}"
         )
 
         train_dict = train_data.to_dict(orient="records")
-        test_dict = test_data.to_dict(orient="records")
-
         train_jsonl = self._modify_data_format(train_dict)
-        test_jsonl = self._modify_data_format(test_dict)
 
-        train_file = (
-            f"train_data_{int(self.split_ratio * 100)}_{uuid.uuid4().hex}.jsonl"
-        )
-        test_file = f"test_data_{int(self.split_ratio * 100)}_{uuid.uuid4().hex}.jsonl"
+        unique_id = uuid.uuid4().hex
+        train_percentage = int(self.split_ratio * 100)  # train %
+        test_percentage = (
+            100 - train_percentage
+        )  # remaining % for test (since we used 1 - ratio earlier for test size)
 
-        train_path = self._save_to_jsonl(train_jsonl, train_file)
-        test_path = self._save_to_jsonl(test_jsonl, test_file)
+        train_csv_name = f"train_split_{train_percentage}_{unique_id}.csv"
+        test_csv_name = f"test_split_{test_percentage}_{unique_id}.csv"
+        train_jsonl_name = f"train_data_{train_percentage}_{unique_id}.jsonl"
 
-        return {"train_file": train_path, "test_file": test_path}
+        train_csv_url = self.upload_csv_to_s3(train_data, train_csv_name)
+        test_csv_url = self.upload_csv_to_s3(test_data, test_csv_name)
+
+        train_jsonl_path = self._save_to_jsonl(train_jsonl, train_jsonl_name)
+
+        return {
+            "train_csv_s3_url": train_csv_url,
+            "test_csv_s3_url": test_csv_url,
+            "train_jsonl_temp_filepath": train_jsonl_path,
+        }
