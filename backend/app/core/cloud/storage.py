@@ -7,6 +7,7 @@ from pathlib import Path
 from dataclasses import dataclass, asdict
 from urllib.parse import ParseResult, urlparse, urlunparse
 
+from abc import ABC, abstractmethod
 import boto3
 from fastapi import UploadFile
 from botocore.exceptions import ClientError
@@ -110,25 +111,35 @@ class SimpleStorageName:
         return cls(Bucket=url.netloc, Key=str(path))
 
 
-class CloudStorage:
+class CloudStorage(ABC):
     def __init__(self, project_id: int, storage_path: UUID):
         self.project_id = project_id
         self.storage_path = str(storage_path)
 
-    def put(self, source: UploadFile, basename: str):
-        raise NotImplementedError()
+    @abstractmethod
+    def put(self, source: UploadFile, basename: str) -> str:
+        """Upload a file to storage and return the storage path"""
+        pass
 
+    @abstractmethod
     def stream(self, url: str) -> StreamingBody:
-        raise NotImplementedError()
+        """Stream a file from storage"""
+        pass
 
+    @abstractmethod
     def get_file_size_kb(self, url: str) -> float:
-        raise NotImplementedError()
+        """Return the file size in KB"""
+        pass
 
+    @abstractmethod
     def get_signed_url(self, url: str, expires_in: int = 3600) -> str:
-        raise NotImplementedError()
+        """Generate a signed URL with an optional expiry"""
+        pass
 
+    @abstractmethod
     def delete(self, url: str) -> None:
-        raise NotImplementedError()
+        """Delete a file from storage"""
+        pass
 
 
 class AmazonCloudStorage(CloudStorage):
