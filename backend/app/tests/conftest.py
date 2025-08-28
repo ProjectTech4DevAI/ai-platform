@@ -1,9 +1,15 @@
 import pytest
+import os
+
+# Set environment before importing ANYTHING else
+os.environ["ENVIRONMENT"] = "testing"
+
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 from sqlalchemy import event
 from collections.abc import Generator
 
+# Now import after setting environment
 from app.core.config import settings
 from app.core.db import engine
 from app.api.deps import get_db

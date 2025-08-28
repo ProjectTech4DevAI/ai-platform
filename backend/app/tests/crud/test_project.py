@@ -34,6 +34,22 @@ def test_create_project(db: Session) -> None:
     assert project.organization_id == organization.id
 
 
+def test_create_project_duplicate_name(db: Session) -> None:
+    """Test creating a project with a duplicate name."""
+    organization = create_test_organization(db)
+
+    project_name = random_lower_string()
+    project_data = ProjectCreate(
+        name=project_name,
+        description="Test description",
+        is_active=True,
+        organization_id=organization.id,
+    )
+    project = create_project(session=db, project_create=project_data)
+    with pytest.raises(HTTPException, match="Project already exists"):
+        create_project(session=db, project_create=project_data)
+
+
 def test_get_project_by_id(db: Session) -> None:
     """Test retrieving a project by ID."""
     project = create_test_project(db)

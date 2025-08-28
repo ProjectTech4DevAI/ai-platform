@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 
 from app.core.util import now
 
@@ -26,6 +26,10 @@ class ProjectUpdate(SQLModel):
 
 # Database model for Project
 class Project(ProjectBase, table=True):
+    __table_args__ = (
+        UniqueConstraint("name", "organization_id", name="uq_project_name_org_id"),
+    )
+
     id: int = Field(default=None, primary_key=True)
     organization_id: int = Field(
         foreign_key="organization.id", index=True, nullable=False, ondelete="CASCADE"

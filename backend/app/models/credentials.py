@@ -16,12 +16,13 @@ class CredsBase(SQLModel):
     is_active: bool = True
 
 
-class CredsCreate(CredsBase):
+class CredsCreate(SQLModel):
     """Create new credentials for an organization.
     The credential field should be a dictionary mapping provider names to their credentials.
     Example: {"openai": {"api_key": "..."}, "langfuse": {"public_key": "..."}}
     """
 
+    is_active: bool = True
     credential: Dict[str, Any] = Field(
         default=None,
         description="Dictionary mapping provider names to their credentials",
@@ -41,9 +42,6 @@ class CredsUpdate(SQLModel):
     )
     is_active: Optional[bool] = Field(
         default=None, description="Whether the credentials are active"
-    )
-    project_id: Optional[int] = Field(
-        default=None, description="Project ID to associate with these credentials"
     )
 
 

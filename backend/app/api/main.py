@@ -42,5 +42,5 @@ api_router.include_router(fine_tuning.router)
 api_router.include_router(model_evaluation.router)
 
 
-if settings.ENVIRONMENT == "local":
+if settings.ENVIRONMENT in ["development", "testing"]:
     api_router.include_router(private.router)
