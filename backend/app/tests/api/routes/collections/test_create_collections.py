@@ -36,7 +36,7 @@ def mock_s3(monkeypatch):
         def head_object(self, Bucket, Key):
             return {"ContentLength": 1024}
 
-    monkeypatch.setattr("app.api.routes.collections.AmazonCloudStorage", FakeStorage)
+    monkeypatch.setattr("app.api.routes.collections.get_cloud_storage", FakeStorage)
     monkeypatch.setattr("boto3.client", lambda service: FakeS3Client())
 
 
