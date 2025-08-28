@@ -1,18 +1,18 @@
-import json
 import difflib
 import time
 import logging
 from typing import Set
 
 import openai
+import pandas as pd
 from openai import OpenAI
+import uuid
 from sklearn.metrics import (
     matthews_corrcoef,
-    accuracy_score,
-    f1_score,
-    confusion_matrix,
 )
+from app.core.cloud import AmazonCloudStorage
 from app.api.routes.fine_tuning import handle_openai_error
+from app.core.finetune.preprocessing import DataPreprocessor
 
 
 logger = logging.getLogger(__name__)
@@ -26,12 +26,14 @@ class ModelEvaluator:
     def __init__(
         self,
         model_name: str,
-        testing_file_id: str,
+        test_data_s3_url: str,
+        storage: AmazonCloudStorage,
         system_prompt: str,
         client: OpenAI,
     ):
         self.model_name = model_name
-        self.testing_file_id = testing_file_id
+        self.test_data_s3_url = test_data_s3_url
+        self.storage = storage
         self.system_instruction = system_prompt
         self.client = client
 
@@ -43,83 +45,57 @@ class ModelEvaluator:
 
     def load_labels_and_prompts(self) -> None:
         """
-        Loads labels and prompts directly from OpenAI NDJSON file content using the testing file ID.
-
-        Example data format:
-        {
-            "messages": [
-                {"role": "system", "content": "You are an assistant that is good at categorizing if what user is saying is a query or non-query"},
-                {"role": "user", "content": "what is the colour of the apple"},
-                {"role": "assistant", "content": "query"}
-            ]
-        }
-        {
-            "messages": [
-                {"role": "system", "content": "You are an assistant that is good at categorizing if what user is saying is a query or non-query"},
-                {"role": "user", "content": "i like apples"},
-                {"role": "assistant", "content": "non-query"}
-            ]
-        }
+        Load prompts (X) and labels (y) from an S3-hosted CSV via storage.stream.
+        Expects:
+          - one of: 'query' | 'question' | 'message'
+          - 'label'
         """
         logger.info(
-            f"[load_labels_and_prompts] Loading labels and prompts from file ID: {self.testing_file_id}"
+            f"[ModelEvaluator.load_labels_and_prompts] Loading CSV from: {self.test_data_s3_url}"
         )
+        file_obj = self.storage.stream(self.test_data_s3_url)
         try:
-            response = self.client.files.content(self.testing_file_id)
-            file_bytes = response.read()
-            lines = file_bytes.decode("utf-8").splitlines()
+            df = pd.read_csv(file_obj)
+            df.columns = [c.strip().lower() for c in df.columns]
 
-            for ln, line in enumerate(lines, 1):
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    obj = json.loads(line)
-                    msgs = obj.get("messages", [])
-                    if not isinstance(msgs, list) or not msgs:
-                        logger.error(
-                            f"[load_labels_and_prompts] Line {ln}: 'messages' missing or invalid"
-                        )
-                        raise ValueError(f"Line {ln}: 'messages' missing or invalid")
+            possible_query_columns = ["query", "question", "message"]
+            query_col = next(
+                (c for c in possible_query_columns if c in df.columns), None
+            )
+            label_col = "label" if "label" in df.columns else None
 
-                    user_msgs = [
-                        m for m in msgs if m.get("role") == "user" and "content" in m
-                    ]
-                    model_msgs = [
-                        m
-                        for m in msgs
-                        if m.get("role") == "assistant" and "content" in m
-                    ]
-                    if not user_msgs or not model_msgs:
-                        logger.error(
-                            f"[load_labels_and_prompts] Line {ln}: missing user or assistant message"
-                        )
-                        raise ValueError(
-                            f"Line {ln}: missing user or assistant message"
-                        )
+            if not query_col or not label_col:
+                logger.error(
+                    "[ModelEvaluator.load_labels_and_prompts] CSV must contain a 'label' column "
+                    f"and one of: {possible_query_columns}"
+                )
+                raise ValueError(
+                    f"CSV must contain a 'label' column and one of: {possible_query_columns}"
+                )
 
-                    prompt = user_msgs[0]["content"]
-                    label = (model_msgs[0]["content"] or "").strip().lower()
+            prompts = df[query_col].astype(str).tolist()
+            labels = df[label_col].astype(str).str.strip().str.lower().tolist()
 
-                    self.prompts.append(prompt)
-                    self.y_true.append(label)
-                    self.allowed_labels.add(label)
+            self.prompts = prompts
+            self.y_true = labels
+            self.allowed_labels = set(labels)
 
-                except Exception as e:
-                    logger.error(
-                        f"[load_labels_and_prompts] Error processing line {ln}: {str(e)}"
-                    )
-                    raise
+            self.query_col = query_col
+            self.label_col = label_col
 
             logger.info(
-                f"[load_labels_and_prompts] Loaded {len(self.prompts)} prompts and {len(self.y_true)} labels."
+                "[ModelEvaluator.load_labels_and_prompts] "
+                f"Loaded {len(self.prompts)} prompts and {len(self.y_true)} labels; "
+                f"query_col={query_col}, label_col={label_col}, allowed_labels={self.allowed_labels}"
             )
-
         except Exception as e:
             logger.error(
-                f"[load_labels_and_prompts] Failed to load file content: {str(e)}"
+                f"[ModelEvaluator.load_labels_and_prompts] Failed to load/parse test CSV: {e}",
+                exc_info=True,
             )
             raise
+        finally:
+            file_obj.close()
 
     def normalize_prediction(self, text: str) -> str:
         logger.debug(f"[normalize_prediction] Normalizing prediction: {text}")
@@ -139,7 +115,7 @@ class ModelEvaluator:
         )
         return next(iter(self.allowed_labels))
 
-    def generate_predictions(self) -> list[str]:
+    def generate_predictions(self) -> tuple[list[str], str]:
         logger.info(
             f"[generate_predictions] Generating predictions for {len(self.prompts)} prompts."
         )
@@ -192,34 +168,74 @@ class ModelEvaluator:
 
         total_elapsed = time.time() - start_preds
         logger.info(
-            f"[generate_predictions] Finished {total_prompts} prompts in {total_elapsed:.2f}s | Generated {len(predictions)} predictions."
+            f"[generate_predictions] Finished {total_prompts} prompts in {total_elapsed:.2f}s | "
+            f"Generated {len(predictions)} predictions."
         )
-        return predictions
 
-    def evaluate(self, y_pred: list[str]) -> dict:
-        """Evaluate the predictions against the true labels."""
+        prediction_data = pd.DataFrame(
+            {
+                "prompt": self.prompts,
+                "true_label": self.y_true,
+                "prediction": predictions,
+            }
+        )
 
-        logger.info(f"[evaluate] Starting evaluation with {len(y_pred)} predictions.")
+        unique_id = uuid.uuid4().hex
+        filename = f"predictions_{self.model_name}_{unique_id}.csv"
+        prediction_data_s3_url = DataPreprocessor.upload_csv_to_s3(
+            self.storage, prediction_data, filename
+        )
+        self.prediction_data_s3_url = prediction_data_s3_url
+
+        logger.info(
+            f"[generate_predictions] Predictions CSV uploaded to S3 | url={prediction_data_s3_url}"
+        )
+
+        return predictions, prediction_data_s3_url
+
+    def evaluate(self) -> dict:
+        """Evaluate using the predictions CSV previously uploaded to S3."""
+        if not getattr(self, "prediction_data_s3_url", None):
+            raise RuntimeError(
+                "[evaluate] predictions_s3_url not set. Call generate_predictions() first."
+            )
+
+        logger.info(
+            f"[evaluate] Streaming predictions CSV from: {self.prediction_data_s3_url}"
+        )
+        prediction_obj = self.storage.stream(self.prediction_data_s3_url)
+        try:
+            df = pd.read_csv(prediction_obj)
+        finally:
+            prediction_obj.close()
+
+        if "true_label" not in df.columns or "prediction" not in df.columns:
+            raise ValueError(
+                "[evaluate] prediction data CSV must contain 'true_label' and 'prediction' columns."
+            )
+
+        y_true = df["true_label"].astype(str).str.strip().str.lower().tolist()
+        y_pred = df["prediction"].astype(str).str.strip().str.lower().tolist()
 
         try:
-            mcc_score = round(matthews_corrcoef(self.y_true, y_pred), 4)
-
-            return {
-                "mcc": mcc_score,
-            }
-
+            mcc_score = round(matthews_corrcoef(y_true, y_pred), 4)
+            logger.info(f"[evaluate] Computed MCC={mcc_score}")
+            return {"mcc_score": mcc_score}
         except Exception as e:
-            logger.error(f"[evaluate] Evaluation failed: {e}")
+            logger.error(f"[evaluate] Evaluation failed: {e}", exc_info=True)
             raise
 
     def run(self) -> dict:
         """Run the full evaluation process: load data, generate predictions, evaluate results."""
         try:
             self.load_labels_and_prompts()
-            predictions = self.generate_predictions()
-            evaluation_results = self.evaluate(predictions)
+            predictions, prediction_data_s3_url = self.generate_predictions()
+            evaluation_results = self.evaluate()
             logger.info("[evaluate] Model evaluation completed successfully.")
-            return evaluation_results
+            return {
+                "evaluation_score": evaluation_results,
+                "prediction_data_s3_url": prediction_data_s3_url,
+            }
         except Exception as e:
             logger.error(f"[evaluate] Error in running ModelEvaluator: {str(e)}")
             raise

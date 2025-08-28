@@ -27,7 +27,11 @@ class DataPreprocessor:
 
         self.system_message = {"role": "system", "content": system_message.strip()}
 
-    def upload_csv_to_s3(self, df, filename: str) -> str:
+    @staticmethod
+    def upload_csv_to_s3(storage, df, filename: str) -> str:
+        """
+        Uploads a DataFrame as CSV to S3 using the provided storage instance.
+        """
         logger.info(
             f"[upload_csv_to_s3] Preparing to upload '{filename}' to s3 | rows={len(df)}, cols={len(df.columns)}"
         )
@@ -43,7 +47,7 @@ class DataPreprocessor:
         )
 
         try:
-            dest = self.storage.put(upload, basename=Path("datasets") / filename)
+            dest = storage.put(upload, basename=Path("datasets") / filename)
             logger.info(
                 f"[upload_csv_to_s3] Upload successful | filename='{filename}', s3_url='{dest}'"
             )
@@ -139,8 +143,8 @@ class DataPreprocessor:
         test_csv_name = f"test_split_{test_percentage}_{unique_id}.csv"
         train_jsonl_name = f"train_data_{train_percentage}_{unique_id}.jsonl"
 
-        train_csv_url = self.upload_csv_to_s3(train_data, train_csv_name)
-        test_csv_url = self.upload_csv_to_s3(test_data, test_csv_name)
+        train_csv_url = self.upload_csv_to_s3(self.storage, train_data, train_csv_name)
+        test_csv_url = self.upload_csv_to_s3(self.storage, test_data, test_csv_name)
 
         train_jsonl_path = self._save_to_jsonl(train_jsonl, train_jsonl_name)
 

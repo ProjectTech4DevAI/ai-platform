@@ -16,80 +16,27 @@ down_revision = "72896bcc94da"
 branch_labels = None
 depends_on = None
 
-modelevaluation_status_enum = postgresql.ENUM(
-    "pending",
-    "running",
-    "completed",
-    "failed",
-    name="modelevaluationstatus",
-    create_type=False,
-)
-
 
 def upgrade():
-    op.add_column(
-        "model_evaluation",
-        sa.Column("test_data_url", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-    )
-    op.add_column(
-        "model_evaluation",
-        sa.Column("batch_id", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
-    )
-    op.add_column(
-        "model_evaluation",
-        sa.Column("output_file_id", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
-    )
-    op.add_column(
-        "model_evaluation",
-        sa.Column("batch_status", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
-    )
+    op.drop_column("model_evaluation", "testing_file_id")
     op.add_column(
         "model_evaluation",
         sa.Column(
-            "prediction_data_url", sqlmodel.sql.sqltypes.AutoString(), nullable=True
+            "test_data_s3_url", sqlmodel.sql.sqltypes.AutoString(), nullable=False
         ),
     )
     op.add_column(
         "model_evaluation",
         sa.Column(
-            "eval_status",
-            modelevaluation_status_enum,
-            nullable=False,
-            server_default="pending",
+            "prediction_data_s3_url", sqlmodel.sql.sqltypes.AutoString(), nullable=True
         ),
     )
-    op.alter_column(
-        "model_evaluation", "testing_file_id", existing_type=sa.VARCHAR(), nullable=True
-    )
-    op.drop_column("model_evaluation", "status")
 
 
 def downgrade():
+    op.drop_column("model_evaluation", "prediction_data_s3_url")
+    op.drop_column("model_evaluation", "test_data_s3_url")
     op.add_column(
         "model_evaluation",
-        sa.Column(
-            "status",
-            postgresql.ENUM(
-                "pending",
-                "running",
-                "completed",
-                "failed",
-                name="modelevaluationstatus",
-            ),
-            server_default=sa.text("'pending'::modelevaluationstatus"),
-            autoincrement=False,
-            nullable=False,
-        ),
+        sa.Column("testing_file_id", sa.VARCHAR(), autoincrement=False, nullable=True),
     )
-    op.alter_column(
-        "model_evaluation",
-        "testing_file_id",
-        existing_type=sa.VARCHAR(),
-        nullable=False,
-    )
-    op.drop_column("model_evaluation", "eval_status")
-    op.drop_column("model_evaluation", "prediction_data_url")
-    op.drop_column("model_evaluation", "batch_status")
-    op.drop_column("model_evaluation", "output_file_id")
-    op.drop_column("model_evaluation", "batch_id")
-    op.drop_column("model_evaluation", "test_data_url")
