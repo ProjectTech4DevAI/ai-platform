@@ -1,8 +1,8 @@
 """add source document id to document table
 
-Revision ID: 0c9793b419a4
-Revises: b79fc198879a
-Create Date: 2025-08-25 13:48:26.542200
+Revision ID: b5b9412d3d2a
+Revises: 40307ab77e9f
+Create Date: 2025-08-29 15:59:34.347031
 
 """
 from alembic import op
@@ -11,8 +11,8 @@ import sqlmodel.sql.sqltypes
 
 
 # revision identifiers, used by Alembic.
-revision = '0c9793b419a4'
-down_revision = 'b79fc198879a'
+revision = 'b5b9412d3d2a'
+down_revision = '40307ab77e9f'
 branch_labels = None
 depends_on = None
 

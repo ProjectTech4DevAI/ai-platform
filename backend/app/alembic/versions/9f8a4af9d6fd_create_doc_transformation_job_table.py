@@ -1,8 +1,8 @@
 """create doc transformation job table
 
-Revision ID: 892800196e2a
-Revises: 0c9793b419a4
-Create Date: 2025-08-25 13:49:20.278428
+Revision ID: 9f8a4af9d6fd
+Revises: b5b9412d3d2a
+Create Date: 2025-08-29 16:00:47.848950
 
 """
 from alembic import op
@@ -11,8 +11,8 @@ import sqlmodel.sql.sqltypes
 
 
 # revision identifiers, used by Alembic.
-revision = '892800196e2a'
-down_revision = '0c9793b419a4'
+revision = '9f8a4af9d6fd'
+down_revision = 'b5b9412d3d2a'
 branch_labels = None
 depends_on = None
 
