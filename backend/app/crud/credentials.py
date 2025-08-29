@@ -15,7 +15,9 @@ from app.core.exception_handlers import HTTPException
 logger = logging.getLogger(__name__)
 
 
-def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Credential]:
+def set_creds_for_org(
+    *, session: Session, creds_add: CredsCreate, organization_id: int, project_id: int
+) -> List[Credential]:
     """Set credentials for an organization. Creates a separate row for each provider."""
     created_credentials = []
 
@@ -35,8 +37,8 @@ def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Crede
 
         # Create a row for each provider
         credential = Credential(
-            organization_id=creds_add.organization_id,
-            project_id=creds_add.project_id,
+            organization_id=organization_id,
+            project_id=project_id,
             is_active=creds_add.is_active,
             provider=provider,
             credential=encrypted_credentials,
@@ -137,7 +139,11 @@ def get_providers(
 
 
 def update_creds_for_org(
-    *, session: Session, org_id: int, creds_in: CredsUpdate
+    *,
+    session: Session,
+    org_id: int,
+    creds_in: CredsUpdate,
+    project_id: Optional[int] = None,
 ) -> List[Credential]:
     """Updates credentials for a specific provider of an organization."""
     if not creds_in.provider or not creds_in.credential:
@@ -153,9 +159,7 @@ def update_creds_for_org(
         Credential.organization_id == org_id,
         Credential.provider == creds_in.provider,
         Credential.is_active == True,
-        Credential.project_id == creds_in.project_id
-        if creds_in.project_id is not None
-        else True,
+        Credential.project_id == project_id if project_id is not None else True,
     )
     creds = session.exec(statement).first()
     if creds is None:
