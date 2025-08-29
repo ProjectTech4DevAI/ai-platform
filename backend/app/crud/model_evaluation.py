@@ -26,9 +26,9 @@ def create_model_evaluation(
 ) -> ModelEvaluation:
     fine_tuning_job = fetch_by_id(session, request.fine_tuning_id, project_id)
 
-    if fine_tuning_job.fine_tuned_model and fine_tuning_job.testing_file_id is None:
+    if fine_tuning_job.fine_tuned_model and fine_tuning_job.test_data_s3_url is None:
         logger.error(
-            f"[create_model_evaluation] No fine tuned model found for the given fine tuning ID | fine_tuning_id={request.fine_tuning_id}, project_id={project_id}"
+            f"[create_model_evaluation] No fine tuned model or test data found for the given fine tuning ID | fine_tuning_id={request.fine_tuning_id}, project_id={project_id}"
         )
         raise HTTPException(404, "Fine tuned model not found")
 
@@ -39,7 +39,7 @@ def create_model_evaluation(
         "split_ratio": fine_tuning_job.split_ratio,
         "model_name": fine_tuning_job.fine_tuned_model,
         "document_id": fine_tuning_job.document_id,
-        "testing_file_id": fine_tuning_job.testing_file_id,
+        "test_data_s3_url": fine_tuning_job.test_data_s3_url,
         "project_id": project_id,
         "organization_id": organization_id,
         "status": status,

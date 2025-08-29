@@ -164,11 +164,11 @@ def create_test_finetuning_job_with_extra_fields(
     db: Session,
     ratios: list[float],
 ) -> tuple[list[Fine_Tuning], bool]:
-    jobs, _ = create_test_fine_tuning_jobs(db, [0.5, 0.7])
+    jobs, _ = create_test_fine_tuning_jobs(db, ratios)
 
     if jobs:
         for job in jobs:
-            job.testing_file_id = "testing_file_id_example"
+            job.test_data_s3_url = "test_data_s3_url_example"
             job.fine_tuned_model = "fine_tuned_model_name"
 
     return jobs, True
@@ -186,9 +186,7 @@ def create_test_model_evaluation(db) -> list[ModelEvaluation]:
             base_model=fine_tune.base_model,
             model_name=fine_tune.fine_tuned_model,
             document_id=fine_tune.document_id,
-            testing_file_id=fine_tune.testing_file_id
-            if fine_tune.testing_file_id
-            else None,
+            test_data_s3_url=fine_tune.test_data_s3_url,
         )
 
         model_eval = create_model_evaluation(

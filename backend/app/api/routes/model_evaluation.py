@@ -22,6 +22,7 @@ from app.models import (
     ModelEvaluationPublic,
 )
 from app.core.db import engine
+from app.core.cloud import AmazonCloudStorage
 from app.core.finetune.evaluation import ModelEvaluator
 from app.utils import get_openai_client, APIResponse
 from app.api.deps import CurrentUserOrgProject, SessionDep
@@ -35,7 +36,6 @@ router = APIRouter(prefix="/model_evaluation", tags=["model_evaluation"])
 def run_model_evaluation(
     eval_id: int,
     current_user: CurrentUserOrgProject,
-    client: OpenAI,
 ):
     start_time = time.time()
     logger.info(
@@ -43,6 +43,11 @@ def run_model_evaluation(
     )
 
     with Session(engine) as db:
+        client = get_openai_client(
+            db, current_user.organization_id, current_user.project_id
+        )
+        storage = AmazonCloudStorage(current_user)
+
         try:
             model_eval = update_model_eval(
                 session=db,
@@ -53,9 +58,10 @@ def run_model_evaluation(
 
             evaluator = ModelEvaluator(
                 model_name=model_eval.model_name,
-                testing_file_id=model_eval.testing_file_id,
+                test_data_s3_url=model_eval.test_data_s3_url,
                 system_prompt=model_eval.system_prompt,
                 client=client,
+                storage=storage,
             )
             result = evaluator.run()
 
@@ -64,7 +70,9 @@ def run_model_evaluation(
                 eval_id=eval_id,
                 project_id=current_user.project_id,
                 update=ModelEvaluationUpdate(
-                    score=result, status=ModelEvaluationStatus.completed
+                    score=result["evaluation_score"],
+                    prediction_data_s3_url=result["prediction_data_s3_url"],
+                    status=ModelEvaluationStatus.completed,
                 ),
             )
 
@@ -111,7 +119,8 @@ def evaluate_models(
     """
     client = get_openai_client(
         session, current_user.organization_id, current_user.project_id
-    )
+    )  # keeping this here for checking if the user's validated OpenAI key is present or not,
+    # even though the client will be initialized separately inside the background task
 
     if not request.fine_tuning_ids:
         logger.error(
@@ -150,9 +159,7 @@ def evaluate_models(
             f"[evaluate_model] Created evaluation for fine_tuning_id {job_id} with eval ID={model_eval.id}, project_id:{current_user.project_id}"
         )
 
-        background_tasks.add_task(
-            run_model_evaluation, model_eval.id, current_user, client
-        )
+        background_tasks.add_task(run_model_evaluation, model_eval.id, current_user)
 
     return APIResponse.success_response(
         {"message": "Model evaluation(s) started successfully", "data": evals}

@@ -37,7 +37,7 @@ def test_create_model_evaluation(db: Session):
         base_model=fine_tune.base_model,
         model_name=fine_tune.fine_tuned_model,
         document_id=fine_tune.document_id,
-        testing_file_id=fine_tune.testing_file_id,
+        test_data_s3_url=fine_tune.test_data_s3_url,
         status="pending",
     )
 
@@ -52,7 +52,7 @@ def test_create_model_evaluation(db: Session):
     assert created_eval.status == "pending"
     assert created_eval.document_id == fine_tune.document_id
     assert created_eval.model_name == fine_tune.fine_tuned_model
-    assert created_eval.testing_file_id == fine_tune.testing_file_id
+    assert created_eval.test_data_s3_url == fine_tune.test_data_s3_url
 
 
 def test_fetch_by_eval_id_success(db: Session):
