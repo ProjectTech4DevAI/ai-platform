@@ -3,4 +3,5 @@ from .storage import (
     AmazonCloudStorageClient,
     CloudStorage,
     CloudStorageError,
+    get_cloud_storage,
 )

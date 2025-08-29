@@ -76,8 +76,6 @@ def test_credential_data(db: Session) -> CredsCreate:
     project = create_test_project(db)
     api_key = "sk-" + generate_random_string(10)
     creds_data = CredsCreate(
-        organization_id=project.organization_id,
-        project_id=project.id,
         is_active=True,
         credential={
             Provider.OPENAI.value: {
@@ -100,8 +98,6 @@ def create_test_credential(db: Session) -> tuple[list[Credential], Project]:
     project = create_test_project(db)
     api_key = "sk-" + generate_random_string(10)
     creds_data = CredsCreate(
-        organization_id=project.organization_id,
-        project_id=project.id,
         is_active=True,
         credential={
             Provider.OPENAI.value: {
@@ -111,4 +107,12 @@ def create_test_credential(db: Session) -> tuple[list[Credential], Project]:
             }
         },
     )
-    return set_creds_for_org(session=db, creds_add=creds_data), project
+    return (
+        set_creds_for_org(
+            session=db,
+            creds_add=creds_data,
+            organization_id=project.organization_id,
+            project_id=project.id,
+        ),
+        project,
+    )

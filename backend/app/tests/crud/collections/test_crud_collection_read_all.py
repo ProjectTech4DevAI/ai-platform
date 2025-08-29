@@ -17,8 +17,7 @@ def create_collections(db: Session, n: int):
         client = OpenAI(api_key="sk-test-key")
         for _ in range(n):
             collection = get_collection(db, client)
-            project = get_project_by_id(session=db, project_id=collection.project_id)
-            store = DocumentStore(db, project=project)
+            store = DocumentStore(db, project_id=collection.project_id)
             documents = store.fill(1)
             if crud is None:
                 crud = CollectionCrud(db, collection.owner_id)

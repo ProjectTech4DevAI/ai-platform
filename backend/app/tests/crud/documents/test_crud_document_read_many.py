@@ -10,7 +10,7 @@ from app.tests.utils.utils import get_project
 @pytest.fixture
 def store(db: Session):
     project = get_project(db)
-    ds = DocumentStore(db, project)
+    ds = DocumentStore(db, project.id)
     ds.fill(TestDatabaseReadMany._ndocs)
 
     return ds

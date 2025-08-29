@@ -54,7 +54,7 @@ class TestCollectionDelete:
     @openai_responses.mock()
     def test_delete_document_deletes_collections(self, db: Session):
         project = get_project(db)
-        store = DocumentStore(db, project=project)
+        store = DocumentStore(db, project_id=project.id)
         documents = store.fill(1)
 
         stmt = select(APIKey).where(
@@ -66,8 +66,8 @@ class TestCollectionDelete:
         client = OpenAI(api_key="sk-test-key")
         resources = []
         for _ in range(self._n_collections):
-            coll = get_collection(db, client)
-            crud = CollectionCrud(db, coll.owner_id)
+            coll = get_collection(db, client, owner_id=owner_id)
+            crud = CollectionCrud(db, owner_id=owner_id)
             collection = crud.create(coll, documents)
             resources.append((crud, collection))
 
