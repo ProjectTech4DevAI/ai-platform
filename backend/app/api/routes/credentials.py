@@ -133,7 +133,9 @@ def update_credential(
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
     if not creds_in or not creds_in.provider or not creds_in.credential:
-        logger.error(f"[update_credential] Invalid input | organization_id: {_current_user.organization_id}, project_id: {_current_user.project_id}")
+        logger.error(
+            f"[update_credential] Invalid input | organization_id: {_current_user.organization_id}, project_id: {_current_user.project_id}"
+        )
         raise HTTPException(
             status_code=400, detail="Provider and credential must be provided"
         )
