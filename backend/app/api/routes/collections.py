@@ -211,7 +211,10 @@ def _backout(crud: OpenAIAssistantCrud, assistant_id: str):
             exc_info=True,
         )
 
-
+# TODO: Avoid passing ORM / object models (e.g., UserProjectOrg, ResponsePayload) 
+# into background job functions. When moving to Celery or another task queue, 
+# this can cause issues with serialization/deserialization. Instead, pass only 
+# primitive types (IDs, strings, etc.) and rehydrate objects inside the task.
 def do_create_collection(
     current_user: UserProjectOrg,
     request: CreationRequest,
@@ -334,6 +337,10 @@ def create_collection(
     return APIResponse.success_response(data=None, metadata=asdict(payload))
 
 
+# TODO: Avoid passing ORM / object models (e.g., UserProjectOrg, ResponsePayload) 
+# into background job functions. When moving to Celery or another task queue, 
+# this can cause issues with serialization/deserialization. Instead, pass only 
+# primitive types (IDs, strings, etc.) and rehydrate objects inside the task.
 def do_delete_collection(
     current_user: UserProjectOrg,
     request: DeletionRequest,
@@ -350,6 +357,10 @@ def do_delete_collection(
             collection_crud = CollectionCrud(session, current_user.id)
             collection = collection_crud.read_one(request.collection_id)
             assistant = OpenAIAssistantCrud(client)
+            # TODO: Decouple OpenAI collection deletion from DB session handling.  
+            # Currently, the call to OpenAI is tightly coupled with the session,  
+            # which may keep the session open until deletion completes.
+
             data = collection_crud.delete(collection, assistant)
             logger.info(
                 f"[do_delete_collection] Collection deleted successfully | {{'collection_id': '{collection.id}'}}"
