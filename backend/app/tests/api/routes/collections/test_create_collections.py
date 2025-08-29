@@ -6,7 +6,6 @@ from sqlmodel import Session
 from fastapi.testclient import TestClient
 from unittest.mock import patch
 
-from app.crud import get_project_by_id
 from app.models import APIKeyPublic
 from app.core.config import settings
 from app.tests.utils.document import DocumentStore
@@ -37,7 +36,7 @@ def mock_s3(monkeypatch):
         def head_object(self, Bucket, Key):
             return {"ContentLength": 1024}
 
-    monkeypatch.setattr("app.api.routes.collections.AmazonCloudStorage", FakeStorage)
+    monkeypatch.setattr("app.api.routes.collections.get_cloud_storage", FakeStorage)
     monkeypatch.setattr("boto3.client", lambda service: FakeS3Client())
 
 
@@ -52,8 +51,7 @@ class TestCollectionRouteCreate:
         db: Session,
         user_api_key: APIKeyPublic,
     ):
-        project = get_project_by_id(session=db, project_id=user_api_key.project_id)
-        store = DocumentStore(db, project=project)
+        store = DocumentStore(db, project_id=user_api_key.project_id)
         documents = store.fill(self._n_documents)
         doc_ids = [str(doc.id) for doc in documents]
 

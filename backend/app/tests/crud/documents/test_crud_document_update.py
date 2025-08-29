@@ -10,13 +10,13 @@ from app.tests.utils.utils import get_project
 @pytest.fixture
 def documents(db: Session):
     project = get_project(db)
-    store = DocumentStore(db, project)
+    store = DocumentStore(db, project.id)
     return store.documents
 
 
 class TestDatabaseUpdate:
     def test_update_adds_one(self, db: Session, documents: DocumentMaker):
-        crud = DocumentCrud(db, documents.project.id)
+        crud = DocumentCrud(db, documents.project_id)
 
         before = crud.read_many()
         crud.update(next(documents))
@@ -29,7 +29,7 @@ class TestDatabaseUpdate:
         db: Session,
         documents: DocumentMaker,
     ):
-        crud = DocumentCrud(db, documents.project.id)
+        crud = DocumentCrud(db, documents.project_id)
         (a, b) = (crud.update(y) for (_, y) in zip(range(2), documents))
 
         assert a.inserted_at <= b.inserted_at
@@ -39,7 +39,7 @@ class TestDatabaseUpdate:
         db: Session,
         documents: DocumentMaker,
     ):
-        crud = DocumentCrud(db, documents.project.id)
+        crud = DocumentCrud(db, documents.project_id)
         document = crud.update(next(documents))
 
         assert document.is_deleted is False
@@ -49,12 +49,12 @@ class TestDatabaseUpdate:
         db: Session,
         documents: DocumentMaker,
     ):
-        crud = DocumentCrud(db, documents.project.id)
+        crud = DocumentCrud(db, documents.project_id)
         document = next(documents)
         document.project_id = None
         result = crud.update(document)
 
-        assert result.project_id == documents.project.id
+        assert result.project_id == documents.project_id
 
     def test_update_respects_owner(
         self,
@@ -62,8 +62,8 @@ class TestDatabaseUpdate:
         documents: DocumentMaker,
     ):
         document = next(documents)
-        document.project_id = documents.project.id + 1
+        document.project_id = documents.project_id + 1
 
-        crud = DocumentCrud(db, documents.project.id)
+        crud = DocumentCrud(db, documents.project_id)
         with pytest.raises(PermissionError):
             crud.update(document)

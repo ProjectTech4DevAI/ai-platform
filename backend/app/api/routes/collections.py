@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, HttpUrl
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
-from app.core.cloud import AmazonCloudStorage
+from app.core.cloud import get_cloud_storage
 from app.api.routes.responses import handle_openai_error
 from app.core.util import now, post_callback
 from app.crud import (
@@ -225,7 +225,7 @@ def do_create_collection(
         else WebHookCallback(request.callback_url, payload)
     )
 
-    storage = AmazonCloudStorage(current_user.project_id)
+    storage = get_cloud_storage(session=session, project_id=current_user.project_id)
     document_crud = DocumentCrud(session, current_user.project_id)
     assistant_crud = OpenAIAssistantCrud(client)
     vector_store_crud = OpenAIVectorStoreCrud(client)

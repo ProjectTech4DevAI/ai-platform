@@ -12,7 +12,7 @@ from app.core.exception_handlers import HTTPException
 @pytest.fixture
 def store(db: Session):
     project = get_project(db)
-    return DocumentStore(db, project)
+    return DocumentStore(db, project.id)
 
 
 class TestDatabaseReadOne:

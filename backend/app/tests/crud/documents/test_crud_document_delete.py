@@ -13,7 +13,7 @@ from app.core.exception_handlers import HTTPException
 @pytest.fixture
 def document(db: Session):
     project = get_project(db)
-    store = DocumentStore(db, project)
+    store = DocumentStore(db, project.id)
     document = store.put()
 
     crud = DocumentCrud(db, document.project_id)
@@ -35,7 +35,7 @@ class TestDatabaseDelete:
 
     def test_cannot_delete_others_documents(self, db: Session):
         project = get_project(db)
-        store = DocumentStore(db, project)
+        store = DocumentStore(db, project.id)
         document = store.put()
         other_project_id = project.id + 1
 
