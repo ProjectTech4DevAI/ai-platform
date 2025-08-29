@@ -10,6 +10,7 @@ All fixtures are automatically available from conftest.py in the same directory.
 Test files can import these base classes and use fixtures without additional imports.
 """
 from typing import List
+from urllib.parse import urlparse
 
 from app.core.cloud import AmazonCloudStorageClient
 from app.core.config import settings
@@ -33,9 +34,12 @@ class DocTransformTestBase:
         content: bytes = b"Test document content"
     ) -> bytes:
         """Create content in S3 for a document."""
+        parsed_url = urlparse(document.object_store_url)
+        s3_key = parsed_url.path.lstrip('/')
+        
         aws.client.put_object(
             Bucket=settings.AWS_S3_BUCKET,
-            Key=f"{project.storage_path}/{document.id}.txt",
+            Key=s3_key,
             Body=content
         )
         return content
@@ -51,10 +55,13 @@ class DocTransformTestBase:
         if expected_content is None:
             expected_content = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
         
-        transformed_key = transformed_doc.object_store_url.split('/')[-1]
+        parsed_url = urlparse(transformed_doc.object_store_url)
+
+        transformed_key = parsed_url.path.lstrip('/')
+        
         response = aws.client.get_object(
             Bucket=settings.AWS_S3_BUCKET,
-            Key=f"{project.storage_path}/{transformed_key}"
+            Key=transformed_key
         )
         transformed_content = response['Body'].read().decode('utf-8')
         assert transformed_content == expected_content

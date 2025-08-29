@@ -21,8 +21,7 @@ class TestGetTransformationJob:
         user_api_key: APIKeyPublic
     ):
         """Test successfully retrieving an existing transformation job."""
-        project = get_project_by_id(session=db, project_id=user_api_key.project_id)
-        document = DocumentStore(db, project).put()
+        document = DocumentStore(db, user_api_key.project_id).put()
         job = DocTransformationJobCrud(db, user_api_key.project_id)
         created_job = job.create(document.id)
 
@@ -80,8 +79,7 @@ class TestGetTransformationJob:
         superuser_api_key: APIKeyPublic
     ):
         """Test that jobs from different projects are not accessible."""
-        project = get_project_by_id(session=db, project_id=user_api_key.project_id)
-        store = DocumentStore(db, project)
+        store = DocumentStore(db, user_api_key.project_id)
         crud = DocTransformationJobCrud(db, user_api_key.project_id)
         document = store.put()
         job = crud.create(document.id)
@@ -101,8 +99,7 @@ class TestGetTransformationJob:
         user_api_key: APIKeyPublic
     ):
         """Test getting a completed job with transformation result."""
-        project = get_project_by_id(session=db, project_id=user_api_key.project_id)
-        store = DocumentStore(db, project)
+        store = DocumentStore(db, user_api_key.project_id)
         crud = DocTransformationJobCrud(db, user_api_key.project_id)
         source_document = store.put()
         transformed_document = store.put()
@@ -132,8 +129,7 @@ class TestGetTransformationJob:
         user_api_key: APIKeyPublic
     ):
         """Test getting a failed job with error message."""
-        project = get_project_by_id(session=db, project_id=user_api_key.project_id)
-        store = DocumentStore(db, project)
+        store = DocumentStore(db, user_api_key.project_id)
         crud = DocTransformationJobCrud(db, user_api_key.project_id)
         document = store.put()
         job = crud.create(document.id)
@@ -165,8 +161,7 @@ class TestGetMultipleTransformationJobs:
         user_api_key: APIKeyPublic
     ):
         """Test successfully retrieving multiple transformation jobs."""
-        project = get_project_by_id(session=db, project_id=user_api_key.project_id)
-        store = DocumentStore(db, project)
+        store = DocumentStore(db, user_api_key.project_id)
         crud = DocTransformationJobCrud(db, user_api_key.project_id)
         documents = store.fill(3)
         jobs = [crud.create(doc.id) for doc in documents]
@@ -194,8 +189,7 @@ class TestGetMultipleTransformationJobs:
         user_api_key: APIKeyPublic
     ):
         """Test retrieving a mix of existing and non-existing jobs."""
-        project = get_project_by_id(session=db, project_id=user_api_key.project_id)
-        store = DocumentStore(db, project)
+        store = DocumentStore(db, user_api_key.project_id)
         crud = DocTransformationJobCrud(db, user_api_key.project_id)
         documents = store.fill(2)
         jobs = [crud.create(doc.id) for doc in documents]
@@ -270,8 +264,7 @@ class TestGetMultipleTransformationJobs:
         user_api_key: APIKeyPublic
     ):
         """Test that mixed valid/invalid UUIDs returns 422."""
-        project = get_project_by_id(session=db, project_id=user_api_key.project_id)
-        store = DocumentStore(db, project)
+        store = DocumentStore(db, user_api_key.project_id)
         crud = DocTransformationJobCrud(db, user_api_key.project_id)
         document = store.put()
         job = crud.create(document.id)
@@ -309,8 +302,7 @@ class TestGetMultipleTransformationJobs:
         superuser_api_key: APIKeyPublic
     ):
         """Test that jobs from different projects are not returned."""
-        project = get_project_by_id(session=db, project_id=user_api_key.project_id)
-        store = DocumentStore(db, project)
+        store = DocumentStore(db, user_api_key.project_id)
         crud = DocTransformationJobCrud(db, user_api_key.project_id)
         document = store.put()
         job = crud.create(document.id)
@@ -334,8 +326,7 @@ class TestGetMultipleTransformationJobs:
         user_api_key: APIKeyPublic
     ):
         """Test retrieving jobs with different statuses."""
-        project = get_project_by_id(session=db, project_id=user_api_key.project_id)
-        store = DocumentStore(db, project)
+        store = DocumentStore(db, user_api_key.project_id)
         crud = DocTransformationJobCrud(db, user_api_key.project_id)
         documents = store.fill(4)
         jobs = [crud.create(doc.id) for doc in documents]

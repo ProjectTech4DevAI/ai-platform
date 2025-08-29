@@ -15,7 +15,7 @@ from app.crud.document import DocumentCrud
 from app.models.document import Document
 from app.models.doc_transformation_job import TransformationStatus
 from app.models import User
-from app.core.cloud import AmazonCloudStorage
+from app.core.cloud import get_cloud_storage
 from app.api.deps import CurrentUserOrgProject
 from app.core.doctransform.registry import convert_document, FORMAT_TO_EXTENSION
 from app.core.db import engine
@@ -64,9 +64,10 @@ def execute_job(
 
             project = get_project_by_id(session=db, project_id=project_id)
             project_storage_path = project.storage_path
+            
+            storage = get_cloud_storage(session=db, project_id=project_id)
 
         # Download and transform document
-        storage = AmazonCloudStorage(project_id=project_id)
         body = storage.stream(source_doc_object_store_url)
         tmp_dir = Path(tempfile.mkdtemp())
         tmp_in = tmp_dir / f"{source_doc_id}"

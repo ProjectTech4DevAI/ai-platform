@@ -66,6 +66,6 @@ def background_tasks() -> BackgroundTasks:
 @pytest.fixture
 def test_document(db: Session, current_user: UserProjectOrg) -> Tuple[Document, Project]:
     """Create a test document for the current user's project."""
+    store = DocumentStore(db, current_user.project_id)
     project = get_project_by_id(session=db, project_id=current_user.project_id)
-    store = DocumentStore(db, project)
     return store.put(), project

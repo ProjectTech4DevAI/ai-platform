@@ -38,8 +38,8 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
         
         # Mock storage.put to raise an error
         with patch('app.core.doctransform.service.Session') as mock_session_class, \
-             patch('app.core.doctransform.service.AmazonCloudStorage') as mock_storage_class:
-            
+             patch('app.core.doctransform.service.get_cloud_storage') as mock_storage_class:
+
             mock_session_class.return_value.__enter__.return_value = db
             mock_session_class.return_value.__exit__.return_value = None
             

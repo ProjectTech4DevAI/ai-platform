@@ -11,12 +11,12 @@ from app.tests.utils.utils import get_project, SequentialUuidGenerator
 @pytest.fixture
 def store(db: Session):
     project = get_project(db)
-    return DocumentStore(db, project)
+    return DocumentStore(db, project.id)
 
 
 @pytest.fixture
 def crud(db: Session, store: DocumentStore):
-    return DocTransformationJobCrud(db, store.project.id)
+    return DocTransformationJobCrud(db, store.project_id)
 
 
 class TestDocTransformationJobCrudCreate:
