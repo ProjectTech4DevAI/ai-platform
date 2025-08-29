@@ -136,3 +136,14 @@ def parallel_processing_task(self, data_chunks: list, process_func: str = "defau
             meta={"error": str(exc)}
         )
         raise
+
+@celery_app.task
+def add_numbers(x: int, y: int) -> int:
+    """Example task for testing Celery setup."""
+    return x + y
+
+
+@celery_app.task
+def hello_world(name: str = "World") -> str:
+    """Example task for testing Celery setup."""
+    return f"Hello, {name}!"

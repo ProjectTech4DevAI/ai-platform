@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 from typing import List, Optional
 from pathlib import Path
 
-from fastapi import APIRouter, File, UploadFile, Query, Form, BackgroundTasks
+from fastapi import APIRouter, File, UploadFile, Query, Form
 from fastapi import Path as FastPath
 from fastapi.responses import JSONResponse
 from fastapi import HTTPException
@@ -51,7 +51,6 @@ async def upload_doc(
     session: SessionDep,
     current_user: CurrentUser,
     src: UploadFile = File(...),
-    background_tasks: BackgroundTasks = None,
     target_format: Optional[str] = Form(None),
     transformer: Optional[str] = Form(None),
 ):
@@ -102,14 +101,13 @@ async def upload_doc(
             detail=f"{str(e)}. Available transformers: {list(available_transformers.keys())}"
         )
 
-    # Start the transformation job
+    # Start the transformation job (now using Celery instead of background_tasks)
     job_id = transformation_service.start_job(
         db=session,
         current_user=current_user,
         source_document_id=source_document.id,
         transformer_name=actual_transformer,
         target_format=target_format,
-        background_tasks=background_tasks,
     )
 
     # Compose response with full document metadata and job info
@@ -203,5 +201,7 @@ def doc_info(
     doc_id: UUID = FastPath(description="Document to retrieve"),
 ):
     crud = DocumentCrud(session, current_user.id)
+    data = crud.read_one(doc_id)
+    return APIResponse.success_response(data)
     data = crud.read_one(doc_id)
     return APIResponse.success_response(data)

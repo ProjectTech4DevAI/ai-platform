@@ -1,4 +1,3 @@
-import os
 from celery import Celery
 from kombu import Queue
 from app.core.config import settings
@@ -8,10 +7,10 @@ celery_app = Celery(
     "ai_platform",
     broker=settings.RABBITMQ_URL,
     backend=settings.REDIS_URL,
-    include=["app.celery.tasks"]
+    include=["app.celery.tasks.document_transformation"]
 )
 
-# Configure Celery
+# Celery configuration
 celery_app.conf.update(
     # Task routing
     task_routes={
@@ -38,6 +37,8 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
+    task_track_started=True,
+    task_always_eager=False,
     
     # Result backend configuration
     result_expires=3600,  # 1 hour
@@ -53,4 +54,5 @@ celery_app.conf.update(
 )
 
 # Auto-discover tasks
+celery_app.autodiscover_tasks()
 celery_app.autodiscover_tasks()

@@ -63,3 +63,4 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     start_worker(args.queues, args.concurrency, args.loglevel)
+    celery_app.start()
