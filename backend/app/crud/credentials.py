@@ -23,7 +23,7 @@ def set_creds_for_org(
 
     if not creds_add.credential:
         logger.error(
-            f"[set_creds_for_org] No credentials provided | project_id: {creds_add.project_id}"
+            f"[set_creds_for_org] No credentials provided | project_id: {project_id}"
         )
         raise HTTPException(400, "No credentials provided")
 
@@ -52,14 +52,14 @@ def set_creds_for_org(
         except IntegrityError as e:
             session.rollback()
             logger.error(
-                f"[set_creds_for_org] Integrity error while adding credentials | organization_id {creds_add.organization_id}, project_id {creds_add.project_id}, provider {provider}: {str(e)}",
+                f"[set_creds_for_org] Integrity error while adding credentials | organization_id {organization_id}, project_id {project_id}, provider {provider}: {str(e)}",
                 exc_info=True,
             )
             raise ValueError(
                 f"Error while adding credentials for provider {provider}: {str(e)}"
             )
     logger.info(
-        f"[set_creds_for_org] Successfully created credentials | organization_id {creds_add.organization_id}, project_id {creds_add.project_id}"
+        f"[set_creds_for_org] Successfully created credentials | organization_id {organization_id}, project_id {project_id}"
     )
     return created_credentials
 
@@ -164,7 +164,7 @@ def update_creds_for_org(
     creds = session.exec(statement).first()
     if creds is None:
         logger.error(
-            f"[update_creds_for_org] Credentials not found | organization {org_id}, provider {creds_in.provider}, project_id {creds_in.project_id}"
+            f"[update_creds_for_org] Credentials not found | organization {org_id}, provider {creds_in.provider}, project_id {project_id}"
         )
         raise HTTPException(
             status_code=404, detail="Credentials not found for this provider"
@@ -176,7 +176,7 @@ def update_creds_for_org(
     session.commit()
     session.refresh(creds)
     logger.info(
-        f"[update_creds_for_org] Successfully updated credentials | organization_id {org_id}, provider {creds_in.provider}, project_id {creds_in.project_id}"
+        f"[update_creds_for_org] Successfully updated credentials | organization_id {org_id}, provider {creds_in.provider}, project_id {project_id}"
     )
     return [creds]
 
