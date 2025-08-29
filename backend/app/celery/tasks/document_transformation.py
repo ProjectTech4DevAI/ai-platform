@@ -12,7 +12,7 @@ from app.models.doc_transformation_job import TransformationStatus
 logger = logging.getLogger(__name__)
 
 
-@celery_app.task(bind=True)
+@celery_app.task(bind=True, queue="long_running")
 def transform_document_task(self, job_id: str, transformer_name: str, target_format: str):
     """
     Celery task to handle document transformation.

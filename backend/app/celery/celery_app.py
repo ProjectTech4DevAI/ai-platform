@@ -1,4 +1,5 @@
 from celery import Celery
+import os
 from kombu import Queue
 from app.core.config import settings
 

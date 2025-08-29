@@ -128,7 +128,7 @@ async def upload_doc(
         "transformation_job_id": str(job_id),
         "source_format": source_format,
         "target_format": target_format,
-        "transformer": actual_transformer,
+        "transformer": transformer,
         "status_check_url": f"/documents/transformations/{job_id}"
     }
 
