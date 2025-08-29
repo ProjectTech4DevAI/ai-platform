@@ -125,6 +125,7 @@ async def upload_doc(
         )
 
     document_schema = DocumentPublic.model_validate(source_document, from_attributes=True)
+    document_schema.signed_url = storage.get_signed_url(source_document.object_store_url)
     response = DocumentUploadResponse(
         **document_schema.model_dump(),
         transformation_job=job_info

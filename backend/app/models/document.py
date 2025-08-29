@@ -81,4 +81,7 @@ class TransformationJobInfo(SQLModel):
 
 
 class DocumentUploadResponse(DocumentPublic):
+    signed_url: str = Field(
+        description="A signed URL for accessing the document"
+    )
     transformation_job: TransformationJobInfo | None = None
