@@ -148,7 +148,6 @@ def test_read_provider_credential(
         json={
             "organization_id": user_api_key.organization_id,
             "project_id": user_api_key.project_id,
-            "is_active": True,
             "credential": {
                 Provider.OPENAI.value: {"api_key": "sk-xyz", "model": "gpt-4"}
             },

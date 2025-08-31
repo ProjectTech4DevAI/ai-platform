@@ -175,7 +175,7 @@ def delete_provider_credential(
     "/",
     response_model=APIResponse[dict],
     summary="Delete all credentials for current org and project",
-    description="Removes all credentials for the caller's organization and project. This is a soft delete operation that marks credentials as inactive.",
+    description="Removes all credentials for the caller's organization and project. This is a hard delete operation that permanently removes credentials from the database.",
 )
 def delete_all_credentials(
     *,
