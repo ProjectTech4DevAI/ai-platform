@@ -2,7 +2,8 @@ from sqlmodel import SQLModel
 
 from .auth import Token, TokenPayload
 from .collection import Collection
-from .document import Document, DocumentPublic
+from .document import Document, DocumentPublic, DocumentUploadResponse, TransformationJobInfo
+from .doc_transformation_job import DocTransformationJob, DocTransformationJobs, TransformationStatus
 from .document_collection import DocumentCollection
 from .message import Message
 

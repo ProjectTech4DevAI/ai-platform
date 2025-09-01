@@ -1,7 +1,7 @@
 import openai_responses
 from sqlmodel import Session, select
 
-from app.crud import CollectionCrud
+from app.crud import CollectionCrud, get_project_by_id
 from app.models import DocumentCollection
 from app.tests.utils.document import DocumentStore
 from app.tests.utils.collection import get_collection

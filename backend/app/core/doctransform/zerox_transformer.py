@@ -1,0 +1,45 @@
+from asyncio import Runner
+import logging
+from pathlib import Path
+from .transformer import Transformer
+from pyzerox import zerox
+
+class ZeroxTransformer(Transformer):
+    """
+    Transformer that uses zerox to extract content from PDFs.
+    """
+
+    def __init__(self, model: str = "gpt-4o"):
+        self.model = model
+
+    def transform(self, input_path: Path, output_path: Path) -> Path:
+        logging.info(f"ZeroxTransformer Started: {input_path} (model={self.model})")
+        try:
+            with Runner() as runner:
+                result = runner.run(zerox(
+                    file_path=str(input_path),
+                    model=self.model,
+                ))
+            if result is None or not hasattr(result, "pages") or result.pages is None:
+                raise RuntimeError("Zerox returned no pages. This may indicate a PDF/image conversion failure (is Poppler installed and in PATH?)")
+
+            with output_path.open("w", encoding="utf-8") as output_file:
+                for page in result.pages:
+                    if not getattr(page, "content", None):
+                        continue    
+                    output_file.write(page.content)
+                    output_file.write("\n\n")
+
+            logging.info(f"[ZeroxTransformer.transform] Transformation completed, output written to: {output_path}")
+            return output_path
+        except Exception as e:
+            logging.error(
+                f"ZeroxTransformer failed for {input_path}: {e}\n"
+                "This may be due to a missing Poppler installation or a corrupt PDF file.",
+                exc_info=True
+            )
+            raise RuntimeError(
+                f"Failed to extract content from PDF. "
+                f"Check that Poppler is installed and in your PATH. Original error: {e}"
+            ) from e
+
