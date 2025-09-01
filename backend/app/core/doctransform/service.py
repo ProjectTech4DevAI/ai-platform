@@ -4,7 +4,6 @@ import logging
 from pathlib import Path
 from uuid import uuid4, UUID
 
-from app.crud.project import get_project_by_id
 from fastapi import BackgroundTasks, UploadFile
 from tenacity import retry, wait_exponential, stop_after_attempt
 from sqlmodel import Session
@@ -62,9 +61,6 @@ def execute_job(
             source_doc_fname = source_doc.fname
             source_doc_object_store_url = source_doc.object_store_url
 
-            project = get_project_by_id(session=db, project_id=project_id)
-            project_storage_path = project.storage_path
-            
             storage = get_cloud_storage(session=db, project_id=project_id)
 
         # Download and transform document
@@ -100,8 +96,7 @@ def execute_job(
                 file=fobj,
                 headers=Headers({"content-type": content_type}),
             )
-            key = Path(str(project_storage_path), str(transformed_doc_id))
-            dest = storage.put(file_upload, key)
+            dest = storage.put(file_upload, Path(str(transformed_doc_id)))
 
         # create new Document record
         with Session(engine) as db:

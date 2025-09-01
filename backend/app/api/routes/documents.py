@@ -8,7 +8,7 @@ from fastapi import Path as FastPath
 from fastapi.responses import JSONResponse
 from fastapi import HTTPException
 
-from app.crud import DocumentCrud, CollectionCrud, get_project_by_id
+from app.crud import DocumentCrud, CollectionCrud
 from app.models import Document, DocumentPublic, Message, DocumentUploadResponse, TransformationJobInfo
 from app.utils import APIResponse, load_description, get_openai_client
 from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
@@ -89,12 +89,8 @@ async def upload_doc(
 
     storage = get_cloud_storage(session=session, project_id=current_user.project_id)
     document_id = uuid4()
-    project = get_project_by_id(session=session, project_id=current_user.project_id)
-    if project is None:
-        raise HTTPException(404, "Project not found")
 
-    key = Path(str(project.storage_path), str(document_id))
-    object_store_url = storage.put(src, key)
+    object_store_url = storage.put(src, Path(str(document_id)))
 
     crud = DocumentCrud(session, current_user.project_id)
     document = Document(
@@ -173,7 +169,6 @@ def permanent_delete_doc(
     client = get_openai_client(
         session, current_user.organization_id, current_user.project_id
     )
-    project = get_project_by_id(session=session, project_id=current_user.project_id)
     a_crud = OpenAIAssistantCrud(client)
     d_crud = DocumentCrud(session, current_user.project_id)
     c_crud = CollectionCrud(session, current_user.id)
