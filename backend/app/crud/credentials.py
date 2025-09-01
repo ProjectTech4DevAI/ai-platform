@@ -1,14 +1,9 @@
 from typing import Optional, Dict, Any, List, Union
 from sqlmodel import Session, select
 from sqlalchemy.exc import IntegrityError
-from datetime import datetime, timezone
 
 from app.models import Credential, CredsCreate, CredsUpdate
-from app.core.providers import (
-    validate_provider,
-    validate_provider_credentials,
-    get_supported_providers,
-)
+from app.core.providers import validate_provider, validate_provider_credentials
 from app.core.security import encrypt_credentials, decrypt_credentials
 from app.core.util import now
 from app.core.exception_handlers import HTTPException

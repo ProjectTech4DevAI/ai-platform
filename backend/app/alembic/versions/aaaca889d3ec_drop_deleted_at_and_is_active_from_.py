@@ -1,4 +1,4 @@
-"""drop_deleted_at_and_is_active_from_credential_table
+"""drop_deleted_at_from_credential_table
 
 Revision ID: aaaca889d3ec
 Revises: 8725df286943
