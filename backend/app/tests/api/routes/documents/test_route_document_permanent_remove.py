@@ -12,7 +12,6 @@ from openai import OpenAI
 import openai_responses
 from openai_responses import OpenAIMock
 
-from app.crud import get_project_by_id
 from app.core.cloud import AmazonCloudStorageClient
 from app.core.config import settings
 from app.models import Document

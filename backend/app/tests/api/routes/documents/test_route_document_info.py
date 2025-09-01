@@ -1,7 +1,6 @@
 import pytest
 from sqlmodel import Session
 
-from app.crud import get_project_by_id
 from app.tests.utils.document import (
     DocumentComparator,
     DocumentMaker,

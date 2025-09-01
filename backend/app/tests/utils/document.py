@@ -32,12 +32,8 @@ class DocumentMaker:
 
     def __iter__(self):
         return self
-    
+
     def __next__(self):
-        if self.project is None:
-            self.project = get_project_by_id(
-                session=self.session, project_id=self.project_id
-            )
 
         doc_id = next(self.index)
         key = f"{self.project.storage_path}/{doc_id}.txt"

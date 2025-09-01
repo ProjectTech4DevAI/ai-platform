@@ -1,12 +1,12 @@
-import logging
 from uuid import UUID
-from fastapi import APIRouter, HTTPException, Query, Path as FastPath
-from app.models import DocTransformationJob, DocTransformationJobs
-from app.crud.doc_transformation_job import DocTransformationJobCrud
-from app.utils import APIResponse
-from app.api.deps import SessionDep, CurrentUserOrgProject
 
-logger = logging.getLogger(__name__)
+from fastapi import APIRouter, HTTPException, Query, Path as FastPath
+
+from app.api.deps import CurrentUserOrgProject, SessionDep
+from app.crud.doc_transformation_job import DocTransformationJobCrud
+from app.models import DocTransformationJob, DocTransformationJobs
+from app.utils import APIResponse
+
 router = APIRouter(prefix="/documents/transformations", tags=["doc_transformation_job"])
 
 

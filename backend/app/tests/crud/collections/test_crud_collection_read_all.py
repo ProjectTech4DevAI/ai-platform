@@ -3,7 +3,7 @@ from openai_responses import OpenAIMock
 from openai import OpenAI
 from sqlmodel import Session
 
-from app.crud import CollectionCrud, get_project_by_id
+from app.crud import CollectionCrud
 from app.models import Collection
 from app.tests.utils.document import DocumentStore
 from app.tests.utils.collection import get_collection

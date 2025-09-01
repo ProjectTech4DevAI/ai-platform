@@ -1,11 +1,10 @@
 import pytest
 import openai_responses
 from openai_responses import OpenAIMock
-from openai import OpenAI, project
+from openai import OpenAI
 from sqlmodel import Session, select
 from unittest.mock import patch
 
-from app.crud import get_project_by_id
 from app.models import Document
 from app.tests.utils.document import (
     DocumentMaker,

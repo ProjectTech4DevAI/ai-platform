@@ -1,11 +1,11 @@
 import pytest
-from uuid import UUID
 from sqlmodel import Session
 from app.crud.doc_transformation_job import DocTransformationJobCrud
-from app.models import DocTransformationJob, TransformationStatus
+from app.models import TransformationStatus
 from app.core.exception_handlers import HTTPException
 from app.tests.utils.document import DocumentStore
 from app.tests.utils.utils import get_project, SequentialUuidGenerator
+from app.tests.utils.test_data import create_test_project
 
 
 @pytest.fixture
@@ -104,7 +104,7 @@ class TestDocTransformationJobCrudReadOne:
         job = job_crud.create(document.id)
         
         # Try to read from different project
-        other_project = get_project(db, name="Dalgo")
+        other_project = create_test_project(db)
         other_crud = DocTransformationJobCrud(db, other_project.id)
         
         with pytest.raises(HTTPException) as exc_info:

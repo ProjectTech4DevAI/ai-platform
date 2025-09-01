@@ -45,6 +45,7 @@ def execute_job(
     transformer_name: str,
     target_format: str,
 ):
+    tmp_dir: Path | None = None
     try:
         logger.info(f"[execute_job started] Transformation Job started | job_id={job_id} | transformer_name={transformer_name} | target_format={target_format} | project_id={project_id}")
 

@@ -13,7 +13,10 @@ class ZeroxTransformer(Transformer):
         self.model = model
 
     def transform(self, input_path: Path, output_path: Path) -> Path:
-        logging.info(f"ZeroxTransformer Started: {input_path} (model={self.model})")
+        logging.info(f"ZeroxTransformer Started: (model={self.model})")
+        if not input_path.exists():
+            raise FileNotFoundError(f"Input file not found: {input_path}")
+
         try:
             with Runner() as runner:
                 result = runner.run(zerox(

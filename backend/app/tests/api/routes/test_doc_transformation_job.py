@@ -1,16 +1,10 @@
-import pytest
-from uuid import UUID
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.core.config import settings
 from app.crud.doc_transformation_job import DocTransformationJobCrud
-from app.models import TransformationStatus
+from app.models import APIKeyPublic, TransformationStatus
 from app.tests.utils.document import DocumentStore
-from app.tests.utils.utils import get_project
-from app.models import APIKeyPublic
-from app.crud.project import get_project_by_id
-
 
 
 class TestGetTransformationJob:

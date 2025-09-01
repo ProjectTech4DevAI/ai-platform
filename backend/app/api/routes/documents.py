@@ -1,26 +1,38 @@
 import logging
-from uuid import UUID, uuid4
-from typing import List, Optional
 from pathlib import Path
+from uuid import UUID, uuid4
 
-from fastapi import APIRouter, File, UploadFile, Query, Form, BackgroundTasks, HTTPException
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+)
 from fastapi import Path as FastPath
-from fastapi.responses import JSONResponse
-from fastapi import HTTPException
 
-from app.crud import DocumentCrud, CollectionCrud
-from app.models import Document, DocumentPublic, Message, DocumentUploadResponse, TransformationJobInfo
-from app.utils import APIResponse, load_description, get_openai_client
-from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
+from app.api.deps import CurrentUserOrgProject, SessionDep
 from app.core.cloud import get_cloud_storage
-from app.crud.rag import OpenAIAssistantCrud
 from app.core.doctransform import service as transformation_service
 from app.core.doctransform.registry import (
-    get_file_format, 
-    is_transformation_supported, 
     get_available_transformers,
-    resolve_transformer
+    get_file_format,
+    is_transformation_supported,
+    resolve_transformer,
 )
+from app.crud import CollectionCrud, DocumentCrud
+from app.crud.rag import OpenAIAssistantCrud
+from app.models import (
+    Document,
+    DocumentPublic,
+    DocumentUploadResponse,
+    Message,
+    TransformationJobInfo,
+)
+from app.utils import APIResponse, get_openai_client, load_description
+
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -29,7 +41,7 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 @router.get(
     "/list",
     description=load_description("documents/list.md"),
-    response_model=APIResponse[List[DocumentPublic]],
+    response_model=APIResponse[list[DocumentPublic]],
 )
 def list_docs(
     session: SessionDep,
@@ -50,8 +62,8 @@ def list_docs(
 async def upload_doc(
     session: SessionDep,
     current_user: CurrentUserOrgProject,
+    background_tasks: BackgroundTasks,
     src: UploadFile = File(...),
-    background_tasks: BackgroundTasks = None,
     target_format: str | None = Form(
         None,
         description="Desired output format for the uploaded document (e.g., pdf, docx, txt). "
