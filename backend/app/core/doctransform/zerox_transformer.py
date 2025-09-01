@@ -1,8 +1,10 @@
 from asyncio import Runner
 import logging
 from pathlib import Path
-from .transformer import Transformer
+from app.core.doctransform.transformer import Transformer
 from pyzerox import zerox
+
+logger = logging.getLogger(__name__)
 
 
 class ZeroxTransformer(Transformer):
@@ -14,7 +16,7 @@ class ZeroxTransformer(Transformer):
         self.model = model
 
     def transform(self, input_path: Path, output_path: Path) -> Path:
-        logging.info(f"ZeroxTransformer Started: (model={self.model})")
+        logger.info(f"ZeroxTransformer Started: (model={self.model})")
         if not input_path.exists():
             raise FileNotFoundError(f"Input file not found: {input_path}")
 
@@ -38,12 +40,12 @@ class ZeroxTransformer(Transformer):
                     output_file.write(page.content)
                     output_file.write("\n\n")
 
-            logging.info(
+            logger.info(
                 f"[ZeroxTransformer.transform] Transformation completed, output written to: {output_path}"
             )
             return output_path
         except Exception as e:
-            logging.error(
+            logger.error(
                 f"ZeroxTransformer failed for {input_path}: {e}\n"
                 "This may be due to a missing Poppler installation or a corrupt PDF file.",
                 exc_info=True,

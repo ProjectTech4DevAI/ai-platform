@@ -1,9 +1,9 @@
 from pathlib import Path
 from typing import Type, Dict, Set, Tuple, Optional
 
-from .transformer import Transformer
-from .test_transformer import TestTransformer
-from .zerox_transformer import ZeroxTransformer
+from app.core.doctransform.transformer import Transformer
+from app.core.doctransform.test_transformer import TestTransformer
+from app.core.doctransform.zerox_transformer import ZeroxTransformer
 
 
 class TransformationError(Exception):

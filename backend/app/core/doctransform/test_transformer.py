@@ -1,5 +1,5 @@
 from pathlib import Path
-from .transformer import Transformer
+from app.core.doctransform.transformer import Transformer
 
 
 class TestTransformer(Transformer):
