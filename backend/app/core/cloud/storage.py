@@ -117,7 +117,7 @@ class CloudStorage(ABC):
         self.storage_path = str(storage_path)
 
     @abstractmethod
-    def put(self, source: UploadFile, basename: str) -> SimpleStorageName:
+    def put(self, source: UploadFile, filepath: Path) -> SimpleStorageName:
         """Upload a file to storage"""
         pass
 
