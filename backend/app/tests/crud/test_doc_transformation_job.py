@@ -16,7 +16,7 @@ def store(db: Session):
 
 @pytest.fixture
 def crud(db: Session, store: DocumentStore):
-    return DocTransformationJobCrud(db, store.project_id)
+    return DocTransformationJobCrud(db, store.project.id)
 
 
 class TestDocTransformationJobCrudCreate:
