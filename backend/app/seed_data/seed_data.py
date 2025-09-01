@@ -335,7 +335,7 @@ def create_document(session: Session, document_data_raw: dict) -> Document:
         document = Document(
             fname=document_data.fname,
             object_store_url=document_data.object_store_url,
-            owner_id=user.id,
+            project_id=project.id,
         )
 
         session.add(document)

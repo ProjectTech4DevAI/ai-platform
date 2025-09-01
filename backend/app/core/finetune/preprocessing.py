@@ -47,9 +47,9 @@ class DataPreprocessor:
         )
 
         try:
-            dest = storage.put(upload, basename=Path("datasets") / filename)
+            dest = storage.put(upload, file_path=Path("datasets") / filename)
             logger.info(
-                f"[upload_csv_to_s3] Upload successful | filename='{filename}', s3_url='{dest}'"
+                f"[upload_csv_to_s3] Upload successful | filename='{filename}', s3_object='{dest}'"
             )
             return str(dest)
         except Exception as err:
@@ -143,13 +143,15 @@ class DataPreprocessor:
         test_csv_name = f"test_split_{test_percentage}_{unique_id}.csv"
         train_jsonl_name = f"train_data_{train_percentage}_{unique_id}.jsonl"
 
-        train_csv_url = self.upload_csv_to_s3(self.storage, train_data, train_csv_name)
-        test_csv_url = self.upload_csv_to_s3(self.storage, test_data, test_csv_name)
+        train_csv_object = self.upload_csv_to_s3(
+            self.storage, train_data, train_csv_name
+        )
+        test_csv_object = self.upload_csv_to_s3(self.storage, test_data, test_csv_name)
 
         train_jsonl_path = self._save_to_jsonl(train_jsonl, train_jsonl_name)
 
         return {
-            "train_csv_s3_url": train_csv_url,
-            "test_csv_s3_url": test_csv_url,
+            "train_csv_s3_object": train_csv_object,
+            "test_csv_s3_object": test_csv_object,
             "train_jsonl_temp_filepath": train_jsonl_path,
         }

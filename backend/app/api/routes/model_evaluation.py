@@ -22,7 +22,7 @@ from app.models import (
     ModelEvaluationPublic,
 )
 from app.core.db import engine
-from app.core.cloud import AmazonCloudStorage
+from app.core.cloud import get_cloud_storage
 from app.core.finetune.evaluation import ModelEvaluator
 from app.utils import get_openai_client, APIResponse
 from app.api.deps import CurrentUserOrgProject, SessionDep
@@ -46,7 +46,7 @@ def run_model_evaluation(
         client = get_openai_client(
             db, current_user.organization_id, current_user.project_id
         )
-        storage = AmazonCloudStorage(current_user)
+        storage = get_cloud_storage(session=db, project_id=current_user.project_id)
 
         try:
             model_eval = update_model_eval(
@@ -58,7 +58,7 @@ def run_model_evaluation(
 
             evaluator = ModelEvaluator(
                 model_name=model_eval.model_name,
-                test_data_s3_url=model_eval.test_data_s3_url,
+                test_data_s3_object=model_eval.test_data_s3_object,
                 system_prompt=model_eval.system_prompt,
                 client=client,
                 storage=storage,
@@ -71,7 +71,7 @@ def run_model_evaluation(
                 project_id=current_user.project_id,
                 update=ModelEvaluationUpdate(
                     score=result["evaluation_score"],
-                    prediction_data_s3_url=result["prediction_data_s3_url"],
+                    prediction_data_s3_object=result["prediction_data_s3_object"],
                     status=ModelEvaluationStatus.completed,
                 ),
             )
@@ -92,7 +92,7 @@ def run_model_evaluation(
                 project_id=current_user.project_id,
                 update=ModelEvaluationUpdate(
                     status=ModelEvaluationStatus.failed,
-                    error_message="failed during background job processing",
+                    error_message="failed during background job processing:" + str(e),
                 ),
             )
 
@@ -169,6 +169,7 @@ def evaluate_models(
 @router.get(
     "/{document_id}/top_model",
     response_model=APIResponse[ModelEvaluationPublic],
+    response_model_exclude_none=True,
 )
 def get_top_model_by_doc_id(
     document_id: UUID,
@@ -183,19 +184,47 @@ def get_top_model_by_doc_id(
         f"[get_top_model_by_doc_id] Fetching top model for document_id={document_id}, "
         f"project_id={current_user.project_id}"
     )
+
     top_model = fetch_top_model_by_doc_id(session, document_id, current_user.project_id)
+    storage = get_cloud_storage(session=session, project_id=current_user.project_id)
+
+    s3_key = getattr(top_model, "prediction_data_s3_object", None)
+    prediction_data_file_url = storage.get_signed_url(s3_key) if s3_key else None
+
+    top_model = top_model.model_copy(
+        update={"prediction_data_file_url": prediction_data_file_url}
+    )
+
     return APIResponse.success_response(top_model)
 
 
-@router.get("/{document_id}", response_model=APIResponse[list[ModelEvaluationPublic]])
+@router.get(
+    "/{document_id}",
+    response_model=APIResponse[list[ModelEvaluationPublic]],
+    response_model_exclude_none=True,
+)
 def get_evals_by_doc_id(
-    document_id: UUID, session: SessionDep, current_user: CurrentUserOrgProject
+    document_id: UUID,
+    session: SessionDep,
+    current_user: CurrentUserOrgProject,
 ):
     """
     Return all model evaluations for the given document_id within the current project.
     """
     logger.info(
-        f"[get_evals_by_doc_id]Fetching evaluations for document_id: {document_id}, project_id: {current_user.project_id}"
+        f"[get_evals_by_doc_id] Fetching evaluations for document_id={document_id}, "
+        f"project_id={current_user.project_id}"
     )
+
     evaluations = fetch_eval_by_doc_id(session, document_id, current_user.project_id)
+    storage = get_cloud_storage(session=session, project_id=current_user.project_id)
+
+    for ev in evaluations:
+        s3_key = getattr(ev, "prediction_data_s3_object", None)
+        prediction_data_file_url = storage.get_signed_url(s3_key) if s3_key else None
+
+        ev = ev.model_copy(
+            update={"prediction_data_file_url": prediction_data_file_url}
+        )
+
     return APIResponse.success_response(evaluations)
