@@ -12,22 +12,23 @@ logger = logging.getLogger(__name__)
 
 
 class DocumentCrud:
-    def __init__(self, session: Session, owner_id: int):
+    def __init__(self, session: Session, project_id: int):
         self.session = session
-        self.owner_id = owner_id
+        self.project_id = project_id
 
-    def read_one(self, doc_id: UUID):
+    def read_one(self, doc_id: UUID) -> Document:
         statement = select(Document).where(
             and_(
-                Document.owner_id == self.owner_id,
                 Document.id == doc_id,
+                Document.project_id == self.project_id,
+                Document.is_deleted.is_(False),
             )
         )
 
         result = self.session.exec(statement).one_or_none()
         if result is None:
             logger.warning(
-                f"[DocumentCrud.read_one] Document not found | {{'doc_id': '{doc_id}', 'owner_id': {self.owner_id}}}"
+                f"[DocumentCrud.read_one] Document not found | {{'doc_id': '{doc_id}', 'project_id': {self.project_id}}}"
             )
             raise HTTPException(status_code=404, detail="Document not found")
 
@@ -35,14 +36,11 @@ class DocumentCrud:
 
     def read_many(
         self,
-        skip: Optional[int] = None,
-        limit: Optional[int] = None,
-    ):
+        skip: int | None = None,
+        limit: int | None = None,
+    ) -> list[Document]:
         statement = select(Document).where(
-            and_(
-                Document.owner_id == self.owner_id,
-                Document.deleted_at.is_(None),
-            )
+            and_(Document.project_id == self.project_id, Document.is_deleted.is_(False))
         )
 
         if skip is not None:
@@ -51,7 +49,7 @@ class DocumentCrud:
                     raise ValueError(f"Negative skip: {skip}")
                 except ValueError as err:
                     logger.error(
-                        f"[DocumentCrud.read_many] Invalid skip value | {{'owner_id': {self.owner_id}, 'skip': {skip}, 'error': '{str(err)}'}}",
+                        f"[DocumentCrud.read_many] Invalid skip value | {{'project_id': {self.project_id}, 'skip': {skip}, 'error': '{str(err)}'}}",
                         exc_info=True,
                     )
                     raise
@@ -63,7 +61,7 @@ class DocumentCrud:
                     raise ValueError(f"Negative limit: {limit}")
                 except ValueError as err:
                     logger.error(
-                        f"[DocumentCrud.read_many] Invalid limit value | {{'owner_id': {self.owner_id}, 'limit': {limit}, 'error': '{str(err)}'}}",
+                        f"[DocumentCrud.read_many] Invalid limit value | {{'project_id': {self.project_id}, 'limit': {limit}, 'error': '{str(err)}'}}",
                         exc_info=True,
                     )
                     raise
@@ -72,11 +70,12 @@ class DocumentCrud:
         documents = self.session.exec(statement).all()
         return documents
 
-    def read_each(self, doc_ids: List[UUID]):
+    def read_each(self, doc_ids: list[UUID]):
         statement = select(Document).where(
             and_(
-                Document.owner_id == self.owner_id,
+                Document.project_id == self.project_id,
                 Document.id.in_(doc_ids),
+                Document.is_deleted.is_(False),
             )
         )
         results = self.session.exec(statement).all()
@@ -89,7 +88,7 @@ class DocumentCrud:
                 )
             except ValueError as err:
                 logger.error(
-                    f"[DocumentCrud.read_each] Mismatch in retrieved documents | {{'owner_id': {self.owner_id}, 'requested_count': {requested_count}, 'retrieved_count': {retrieved_count}}}",
+                    f"[DocumentCrud.read_each] Mismatch in retrieved documents | {{'project_id': {self.project_id}, 'requested_count': {requested_count}, 'retrieved_count': {retrieved_count}}}",
                     exc_info=True,
                 )
                 raise
@@ -97,12 +96,12 @@ class DocumentCrud:
         return results
 
     def update(self, document: Document):
-        if not document.owner_id:
-            document.owner_id = self.owner_id
-        elif document.owner_id != self.owner_id:
-            error = "Invalid document ownership: owner={} attempter={}".format(
-                self.owner_id,
-                document.owner_id,
+        if not document.project_id:
+            document.project_id = self.project_id
+        elif document.project_id != self.project_id:
+            error = "Invalid document ownership: project={} attempter={}".format(
+                self.project_id,
+                document.project_id,
             )
             try:
                 raise PermissionError(error)
@@ -118,18 +117,19 @@ class DocumentCrud:
         self.session.commit()
         self.session.refresh(document)
         logger.info(
-            f"[DocumentCrud.update] Document updated successfully | {{'doc_id': '{document.id}', 'owner_id': {self.owner_id}}}"
+            f"[DocumentCrud.update] Document updated successfully | {{'doc_id': '{document.id}', 'project_id': {self.project_id}}}"
         )
 
         return document
 
     def delete(self, doc_id: UUID):
         document = self.read_one(doc_id)
+        document.is_deleted = True
         document.deleted_at = now()
         document.updated_at = now()
 
         updated_document = self.update(document)
         logger.info(
-            f"[DocumentCrud.delete] Document deleted successfully | {{'doc_id': '{doc_id}', 'owner_id': {self.owner_id}}}"
+            f"[DocumentCrud.delete] Document deleted successfully | {{'doc_id': '{doc_id}', 'project_id': {self.project_id}}}"
         )
         return updated_document
