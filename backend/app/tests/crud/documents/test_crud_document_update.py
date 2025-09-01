@@ -5,6 +5,7 @@ from app.crud import DocumentCrud
 
 from app.tests.utils.document import DocumentMaker, DocumentStore
 from app.tests.utils.utils import get_project
+from app.tests.utils.test_data import create_test_project
 
 
 @pytest.fixture
@@ -62,7 +63,8 @@ class TestDatabaseUpdate:
         documents: DocumentMaker,
     ):
         document = next(documents)
-        document.project_id = documents.project_id + 1
+        other_project = create_test_project(db)
+        document.project_id = other_project.id
 
         crud = DocumentCrud(db, documents.project_id)
         with pytest.raises(PermissionError):
