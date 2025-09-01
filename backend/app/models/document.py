@@ -1,30 +1,47 @@
 from uuid import UUID, uuid4
 from datetime import datetime
 
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, SQLModel
 
 from app.core.util import now
-from .user import User
 
 
-class Document(SQLModel, table=True):
-    id: UUID = Field(
-        default_factory=uuid4,
-        primary_key=True,
-    )
-    owner_id: int = Field(
-        foreign_key="user.id",
+class DocumentBase(SQLModel):
+    project_id: int = Field(
+        description="The ID of the project to which the document belongs",
+        foreign_key="project.id",
         nullable=False,
         ondelete="CASCADE",
     )
-    fname: str
+    fname: str = Field(description="The original filename of the document")
+
+
+class Document(DocumentBase, table=True):
+    id: UUID = Field(
+        default_factory=uuid4,
+        primary_key=True,
+        description="The unique identifier of the document",
+    )
     object_store_url: str
     inserted_at: datetime = Field(
-        default_factory=now,
+        default_factory=now, description="The timestamp when the document was inserted"
     )
     updated_at: datetime = Field(
         default_factory=now,
+        description="The timestamp when the document was last updated",
     )
+    is_deleted: bool = Field(default=False)
     deleted_at: datetime | None
 
-    owner: User = Relationship(back_populates="documents")
+
+class DocumentPublic(DocumentBase):
+    id: UUID = Field(description="The unique identifier of the document")
+    signed_url: str | None = Field(
+        default=None, description="A signed URL for accessing the document"
+    )
+    inserted_at: datetime = Field(
+        description="The timestamp when the document was inserted"
+    )
+    updated_at: datetime = Field(
+        description="The timestamp when the document was last updated"
+    )
