@@ -1,18 +1,16 @@
 """drop_deleted_at_from_credential_table
 
-Revision ID: aaaca889d3ec
-Revises: 8725df286943
-Create Date: 2025-08-31 16:15:15.078191
+Revision ID: 7a0e8ab42c69
+Revises: 40307ab77e9f
+Create Date: 2025-09-01 21:52:33.293932
 
 """
 from alembic import op
 import sqlalchemy as sa
-import sqlmodel.sql.sqltypes
-
 
 # revision identifiers, used by Alembic.
-revision = "aaaca889d3ec"
-down_revision = "8725df286943"
+revision = "7a0e8ab42c69"
+down_revision = "40307ab77e9f"
 branch_labels = None
 depends_on = None
 
