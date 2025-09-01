@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, HttpUrl
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
-from app.core.cloud import AmazonCloudStorage
+from app.core.cloud import get_cloud_storage
 from app.api.routes.responses import handle_openai_error
 from app.core.util import now, post_callback
 from app.crud import (
@@ -24,7 +24,7 @@ from app.crud import (
     DocumentCollectionCrud,
 )
 from app.crud.rag import OpenAIVectorStoreCrud, OpenAIAssistantCrud
-from app.models import Collection, Document
+from app.models import Collection, Document, DocumentPublic
 from app.models.collection import CollectionStatus
 from app.utils import APIResponse, load_description, get_openai_client
 
@@ -225,8 +225,8 @@ def do_create_collection(
         else WebHookCallback(request.callback_url, payload)
     )
 
-    storage = AmazonCloudStorage(current_user)
-    document_crud = DocumentCrud(session, current_user.id)
+    storage = get_cloud_storage(session=session, project_id=current_user.project_id)
+    document_crud = DocumentCrud(session, current_user.project_id)
     assistant_crud = OpenAIAssistantCrud(client)
     vector_store_crud = OpenAIVectorStoreCrud(client)
     collection_crud = CollectionCrud(session, current_user.id)
@@ -423,7 +423,7 @@ def list_collections(
 @router.post(
     "/docs/{collection_id}",
     description=load_description("collections/docs.md"),
-    response_model=APIResponse[List[Document]],
+    response_model=APIResponse[List[DocumentPublic]],
 )
 def collection_documents(
     session: SessionDep,

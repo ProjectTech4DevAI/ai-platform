@@ -48,7 +48,7 @@ class TestDocumentRouteList:
         route: QueryRoute,
         crawler: WebCrawler,
     ):
-        store = DocumentStore(db)
+        store = DocumentStore(db=db, project_id=crawler.user_api_key.project_id)
         source = DocumentComparator(store.put())
 
         response = httpx_to_standard(crawler.get(route))
@@ -78,7 +78,7 @@ class TestDocumentRouteList:
         route: QueryRoute,
         crawler: WebCrawler,
     ):
-        store = DocumentStore(db)
+        store = DocumentStore(db=db, project_id=crawler.user_api_key.project_id)
         limit = len(store.fill(self._ndocs))
         skip = limit // 2
 
