@@ -73,7 +73,6 @@ def test_credential_data(db: Session) -> CredsCreate:
 
     Use this when you just need credential input data without persisting it to the database.
     """
-    project = create_test_project(db)
     api_key = "sk-" + generate_random_string(10)
     creds_data = CredsCreate(
         is_active=True,

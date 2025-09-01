@@ -197,4 +197,5 @@ def remove_creds_for_org(
         session.delete(cred)
 
     session.commit()
-    return creds
+    # Return empty list since we're doing hard deletes
+    return []

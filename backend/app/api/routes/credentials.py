@@ -182,15 +182,23 @@ def delete_all_credentials(
     session: SessionDep,
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
-    creds = remove_creds_for_org(
+    # First check if there are any credentials to delete
+    existing_creds = get_creds_by_org(
         session=session,
         org_id=_current_user.organization_id,
         project_id=_current_user.project_id,
     )
-    if not creds:
+    if not existing_creds:
         raise HTTPException(
             status_code=404, detail="Credentials for organization/project not found"
         )
+
+    # Delete all credentials
+    remove_creds_for_org(
+        session=session,
+        org_id=_current_user.organization_id,
+        project_id=_current_user.project_id,
+    )
 
     return APIResponse.success_response(
         {"message": "All credentials deleted successfully"}
