@@ -9,6 +9,7 @@ This module contains:
 All fixtures are automatically available from conftest.py in the same directory.
 Test files can import these base classes and use fixtures without additional imports.
 """
+from pathlib import Path
 from typing import List
 from urllib.parse import urlparse
 
@@ -112,7 +113,11 @@ class MockHelpers:
             call_count += 1
             if call_count <= fail_count:
                 raise Exception("Transient error")
-            return "Success after retries"
+            output_path = args[1] if len(args) > 1 else kwargs.get('output_path')
+            if output_path:
+                output_path.write_text("Success after retries", encoding='utf-8')
+                return output_path
+            raise ValueError("output_path is required")
         return failing_convert_document
     
     @staticmethod

@@ -95,9 +95,10 @@ def resolve_transformer(source_format: str, target_format: str, transformer_name
     
     return available_transformers[transformer_name]
 
-def convert_document(input_path: Path, transformer_name: str = "default") -> str:
+def convert_document(input_path: Path, output_path: Path, transformer_name: str = "default") -> Path:
     """
-    Select and run the specified transformer on the input_path, returning text.
+    Select and run the specified transformer on the input_path, writing to output_path.
+    Returns the path to the transformed file.
     """
     try:
         transformer_cls = TRANSFORMERS[transformer_name]
@@ -107,7 +108,7 @@ def convert_document(input_path: Path, transformer_name: str = "default") -> str
 
     transformer = transformer_cls()
     try:
-        return transformer.transform(input_path)
+        return transformer.transform(input_path, output_path)
     except Exception as e:
         raise TransformationError(
             f"Error applying transformer '{transformer_name}': {e}"

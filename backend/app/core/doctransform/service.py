@@ -70,15 +70,14 @@ def execute_job(
         with open(tmp_in, "wb") as f:
             shutil.copyfileobj(body, f)
 
-        # transform document
-        transformed_text = convert_document(tmp_in, transformer_name)
-
-        # write transformed output with appropriate extension
+        # prepare output file path
         fname_no_ext = Path(source_doc_fname).stem
         target_extension = FORMAT_TO_EXTENSION.get(target_format, f".{target_format}")
         transformed_doc_id = uuid4()
         tmp_out = tmp_dir / f"<transformed>{fname_no_ext}{target_extension}"
-        tmp_out.write_text(transformed_text)
+
+        # transform document - now returns the output file path
+        convert_document(tmp_in, tmp_out, transformer_name)
 
         # Determine content type based on target format
         content_type_map = {
