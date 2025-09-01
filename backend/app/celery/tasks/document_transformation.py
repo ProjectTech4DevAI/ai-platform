@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 @celery_app.task(bind=True, queue="long_running")
-def transform_document_task(self, job_id: str, transformer_name: str, target_format: str):
+def transform_document_task(self, job_id: str, transformer_name: str, target_format: str, user_id: int):
     """
     Celery task to handle document transformation.
     """
@@ -44,6 +44,7 @@ def transform_document_task(self, job_id: str, transformer_name: str, target_for
                 job_id=job_uuid,
                 transformer_name=transformer_name,
                 target_format=target_format,
+                user_id=user_id,
             )
             
             # Update job status to completed

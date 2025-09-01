@@ -25,6 +25,9 @@ def start_job(
     """
     Start a document transformation job using Celery.
     """
+    # Extract user_id from current_user
+    user_id = current_user.id
+    
     # Create the job record
     job_crud = DocTransformationJobCrud(db)
     job = job_crud.create(source_document_id=source_document_id)
@@ -37,6 +40,7 @@ def start_job(
         job_id=str(job.id),
         transformer_name=transformer_name,
         target_format=target_format,
+        user_id=user_id,
     )
     
     # Update job with task ID
@@ -53,6 +57,7 @@ def execute_job(
     job_id: UUID,
     transformer_name: str,
     target_format: str,
+    user_id: int,
 ) -> Document:
     """
     Execute the actual document transformation.
@@ -62,7 +67,7 @@ def execute_job(
     job = job_crud.read_one(job_id)
     
     # Get the source document
-    doc_crud = DocumentCrud(session, job.source_document.owner_id)
+    doc_crud = DocumentCrud(session, user_id)
     source_document = doc_crud.read_one(job.source_document_id)
     
     logger.info(f"Executing transformation job {job_id} for document {source_document.id}")

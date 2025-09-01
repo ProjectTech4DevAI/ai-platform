@@ -106,20 +106,9 @@ async def upload_doc(
         db=session,
         current_user=current_user,
         source_document_id=source_document.id,
-        transformer_name=actual_transformer,
+        transformer_name=transformer,
         target_format=target_format,
     )
-
-    # Compose response with full document metadata and job info
-    # response_data = {
-    #     "message": f"Document accepted for transformation from {source_format} to {target_format}.",
-    #     "original_document": APIResponse.success_response(source_document),
-    #     "transformation_job_id": str(job_id),
-    #     "source_format": source_format,
-    #     "target_format": target_format,
-    #     "transformer": actual_transformer,
-    #     "status_check_url": f"/documents/transformations/{job_id}"
-    # }
 
     response_data = {
         "message": f"Document accepted for transformation from {source_format} to {target_format}.",
