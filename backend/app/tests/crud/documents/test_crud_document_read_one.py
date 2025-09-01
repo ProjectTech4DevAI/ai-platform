@@ -6,6 +6,7 @@ from app.crud import DocumentCrud
 
 from app.tests.utils.document import DocumentStore
 from app.tests.utils.utils import get_project
+from app.tests.utils.test_data import create_test_project
 from app.core.exception_handlers import HTTPException
 
 
@@ -37,7 +38,7 @@ class TestDatabaseReadOne:
 
     def test_cannot_read_others_documents(self, db: Session, store: DocumentStore):
         document = store.put()
-        other_project = get_project(db, name="Dalgo")  # Different project
+        other_project = create_test_project(db)
 
         crud = DocumentCrud(db, other_project.id)
         with pytest.raises(HTTPException) as exc_info:

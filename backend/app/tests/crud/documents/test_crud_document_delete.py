@@ -7,6 +7,7 @@ from app.models import Document
 
 from app.tests.utils.document import DocumentStore
 from app.tests.utils.utils import get_project
+from app.tests.utils.test_data import create_test_project
 from app.core.exception_handlers import HTTPException
 
 
@@ -37,9 +38,9 @@ class TestDatabaseDelete:
         project = get_project(db)
         store = DocumentStore(db, project.id)
         document = store.put()
-        other_project_id = project.id + 1
+        other_project = create_test_project(db)
 
-        crud = DocumentCrud(db, other_project_id)
+        crud = DocumentCrud(db, other_project.id)
         with pytest.raises(HTTPException) as exc_info:
             crud.delete(document.id)
 

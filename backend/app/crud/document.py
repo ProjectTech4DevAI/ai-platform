@@ -49,7 +49,7 @@ class DocumentCrud:
                     raise ValueError(f"Negative skip: {skip}")
                 except ValueError as err:
                     logger.error(
-                        f"[DocumentCrud.read_many] Invalid skip value | {{'owner_id': {self.project_id}, 'skip': {skip}, 'error': '{str(err)}'}}",
+                        f"[DocumentCrud.read_many] Invalid skip value | {{'project_id': {self.project_id}, 'skip': {skip}, 'error': '{str(err)}'}}",
                         exc_info=True,
                     )
                     raise
@@ -61,7 +61,7 @@ class DocumentCrud:
                     raise ValueError(f"Negative limit: {limit}")
                 except ValueError as err:
                     logger.error(
-                        f"[DocumentCrud.read_many] Invalid limit value | {{'owner_id': {self.project_id}, 'limit': {limit}, 'error': '{str(err)}'}}",
+                        f"[DocumentCrud.read_many] Invalid limit value | {{'project_id': {self.project_id}, 'limit': {limit}, 'error': '{str(err)}'}}",
                         exc_info=True,
                     )
                     raise

@@ -55,7 +55,6 @@ class DocumentMaker:
 class DocumentStore:
     def __init__(self, db: Session, project_id: int):
         self.db = db
-        self.project_id = project_id
         self.documents = DocumentMaker(project_id=project_id, session=db)
         self.clear(self.db)
 
