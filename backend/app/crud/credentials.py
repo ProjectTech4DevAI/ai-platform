@@ -1,14 +1,9 @@
 from typing import Optional, Dict, Any, List, Union
 from sqlmodel import Session, select
 from sqlalchemy.exc import IntegrityError
-from datetime import datetime, timezone
 
 from app.models import Credential, CredsCreate, CredsUpdate
-from app.core.providers import (
-    validate_provider,
-    validate_provider_credentials,
-    get_supported_providers,
-)
+from app.core.providers import validate_provider, validate_provider_credentials
 from app.core.security import encrypt_credentials, decrypt_credentials
 from app.core.util import now
 from app.core.exception_handlers import HTTPException
@@ -82,7 +77,6 @@ def get_creds_by_org(
     """Fetches all credentials for an organization."""
     statement = select(Credential).where(
         Credential.organization_id == org_id,
-        Credential.is_active == True,
         Credential.project_id == project_id if project_id is not None else True,
     )
     creds = session.exec(statement).all()
@@ -110,7 +104,6 @@ def get_provider_credential(
     statement = select(Credential).where(
         Credential.organization_id == org_id,
         Credential.provider == provider,
-        Credential.is_active == True,
         Credential.project_id == project_id if project_id is not None else True,
     )
     creds = session.exec(statement).first()
@@ -168,7 +161,7 @@ def update_creds_for_org(
 
 def remove_provider_credential(
     session: Session, org_id: int, provider: str, project_id: Optional[int] = None
-) -> Credential:
+) -> None:
     """Remove credentials for a specific provider."""
     validate_provider(provider)
 
@@ -179,15 +172,10 @@ def remove_provider_credential(
     )
     creds = session.exec(statement).first()
 
-    # Soft delete
-    creds.is_active = False
-    creds.updated_at = now()
-
-    session.add(creds)
-    session.commit()
-    session.refresh(creds)
-
-    return creds
+    if creds:
+        # Hard delete - remove from database
+        session.delete(creds)
+        session.commit()
 
 
 def remove_creds_for_org(
@@ -196,15 +184,13 @@ def remove_creds_for_org(
     """Removes all credentials for an organization."""
     statement = select(Credential).where(
         Credential.organization_id == org_id,
-        Credential.is_active == True,
         Credential.project_id == project_id if project_id is not None else True,
     )
     creds = session.exec(statement).all()
 
     for cred in creds:
-        cred.is_active = False
-        cred.updated_at = now()
-        session.add(cred)
+        session.delete(cred)
 
     session.commit()
-    return creds
+    # Return empty list since we're doing hard deletes
+    return []

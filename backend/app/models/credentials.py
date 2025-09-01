@@ -66,9 +66,6 @@ class Credential(CredsBase, table=True):
         default_factory=now,
         sa_column=sa.Column(sa.DateTime, onupdate=datetime.utcnow, nullable=False),
     )
-    deleted_at: Optional[datetime] = Field(
-        default=None, sa_column=sa.Column(sa.DateTime, nullable=True)
-    )
 
     organization: Optional["Organization"] = Relationship(back_populates="creds")
     project: Optional["Project"] = Relationship(back_populates="creds")
@@ -88,7 +85,6 @@ class Credential(CredsBase, table=True):
             else None,
             inserted_at=self.inserted_at,
             updated_at=self.updated_at,
-            deleted_at=self.deleted_at,
         )
 
 
@@ -100,4 +96,3 @@ class CredsPublic(CredsBase):
     credential: Optional[Dict[str, Any]] = None
     inserted_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime]
