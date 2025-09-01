@@ -12,8 +12,8 @@ class ZeroxTransformer(Transformer):
     def __init__(self, model: str = "gpt-4o"):
         self.model = model
 
-    def transform(self, input_path: Path) -> str:
-        logging.info(f"ZeroxTransformer: {input_path} (model={self.model})")
+    def transform(self, input_path: Path, output_path: Path) -> Path:
+        logging.info(f"ZeroxTransformer Started: {input_path} (model={self.model})")
         try:
             with Runner() as runner:
                 result = runner.run(zerox(
@@ -22,10 +22,16 @@ class ZeroxTransformer(Transformer):
                 ))
             if result is None or not hasattr(result, "pages") or result.pages is None:
                 raise RuntimeError("Zerox returned no pages. This may indicate a PDF/image conversion failure (is Poppler installed and in PATH?)")
-            output = '\n\n'.join(x.content for x in result.pages)
-            if not output:
-                raise ValueError('Empty output from zerox')
-            return output
+
+            with output_path.open("w", encoding="utf-8") as output_file:
+                for page in result.pages:
+                    if not getattr(page, "content", None):
+                        continue    
+                    output_file.write(page.content)
+                    output_file.write("\n\n")
+
+            logging.info(f"[ZeroxTransformer.transform] Transformation completed, output written to: {output_path}")
+            return output_path
         except Exception as e:
             logging.error(
                 f"ZeroxTransformer failed for {input_path}: {e}\n"
