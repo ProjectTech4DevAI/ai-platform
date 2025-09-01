@@ -8,7 +8,7 @@ Upload a document to the AI platform.
 The following (source_format → target_format) transformations are supported:
 
 - pdf → markdown
-  - zerox 
+  - zerox
 
 ### Transformers
 

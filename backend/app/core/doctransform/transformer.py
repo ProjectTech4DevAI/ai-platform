@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+
 class Transformer(ABC):
     """Abstract base for document transformers."""
 

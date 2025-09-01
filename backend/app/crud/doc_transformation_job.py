@@ -10,6 +10,7 @@ from app.core.exception_handlers import HTTPException
 
 logger = logging.getLogger(__name__)
 
+
 class DocTransformationJobCrud:
     def __init__(self, session: Session, project_id: int):
         self.session = session
@@ -23,7 +24,9 @@ class DocTransformationJobCrud:
         self.session.add(job)
         self.session.commit()
         self.session.refresh(job)
-        logger.info(f"[DocTransformationJobCrud.create] Created new transformation job | id: {job.id}, source_document_id: {source_document_id}")
+        logger.info(
+            f"[DocTransformationJobCrud.create] Created new transformation job | id: {job.id}, source_document_id: {source_document_id}"
+        )
         return job
 
     def read_one(self, job_id: UUID) -> DocTransformationJob:
@@ -34,14 +37,16 @@ class DocTransformationJobCrud:
                 and_(
                     DocTransformationJob.id == job_id,
                     Document.project_id == self.project_id,
-                    Document.is_deleted.is_(False)
+                    Document.is_deleted.is_(False),
                 )
             )
         )
-        
+
         job = self.session.exec(statement).one_or_none()
         if not job:
-            logger.warning(f"[DocTransformationJobCrud.read_one] Job not found or Document is deleted | id: {job_id}, project_id: {self.project_id}")
+            logger.warning(
+                f"[DocTransformationJobCrud.read_one] Job not found or Document is deleted | id: {job_id}, project_id: {self.project_id}"
+            )
             raise HTTPException(status_code=404, detail="Transformation job not found")
         return job
 
@@ -53,7 +58,7 @@ class DocTransformationJobCrud:
                 and_(
                     DocTransformationJob.id.in_(list(job_ids)),
                     Document.project_id == self.project_id,
-                    Document.is_deleted.is_(False)
+                    Document.is_deleted.is_(False),
                 )
             )
         )
@@ -80,5 +85,7 @@ class DocTransformationJobCrud:
         self.session.add(job)
         self.session.commit()
         self.session.refresh(job)
-        logger.info(f"[DocTransformationJobCrud.update_status] Updated job status | id: {job.id}, status: {status}")
+        logger.info(
+            f"[DocTransformationJobCrud.update_status] Updated job status | id: {job.id}, status: {status}"
+        )
         return job

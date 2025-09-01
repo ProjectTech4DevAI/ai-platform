@@ -5,8 +5,10 @@ from .transformer import Transformer
 from .test_transformer import TestTransformer
 from .zerox_transformer import ZeroxTransformer
 
+
 class TransformationError(Exception):
     """Raised when a document transformation fails."""
+
 
 # Map transformer names to their classes
 TRANSFORMERS: Dict[str, Type[Transformer]] = {
@@ -30,7 +32,7 @@ SUPPORTED_TRANSFORMATIONS: Dict[Tuple[str, str], Dict[str, str]] = {
 EXTENSION_TO_FORMAT: Dict[str, str] = {
     ".pdf": "pdf",
     ".docx": "docx",
-    ".doc": "doc", 
+    ".doc": "doc",
     ".html": "html",
     ".htm": "html",
     ".txt": "text",
@@ -48,6 +50,7 @@ FORMAT_TO_EXTENSION: Dict[str, str] = {
     "markdown": ".md",
 }
 
+
 def get_file_format(filename: str) -> str:
     """Extract format from filename extension."""
     ext = Path(filename).suffix.lower()
@@ -56,46 +59,57 @@ def get_file_format(filename: str) -> str:
         raise ValueError(f"Unsupported file extension: {ext}")
     return format_name
 
+
 def get_supported_transformations() -> Dict[Tuple[str, str], Set[str]]:
     """Get all supported transformation combinations."""
     return {
-        key: set(transformers.keys()) 
+        key: set(transformers.keys())
         for key, transformers in SUPPORTED_TRANSFORMATIONS.items()
     }
+
 
 def is_transformation_supported(source_format: str, target_format: str) -> bool:
     """Check if a transformation from source_format to target_format is supported."""
     return (source_format, target_format) in SUPPORTED_TRANSFORMATIONS
 
-def get_available_transformers(source_format: str, target_format: str) -> Dict[str, str]:
+
+def get_available_transformers(
+    source_format: str, target_format: str
+) -> Dict[str, str]:
     """Get available transformers for a specific transformation."""
     return SUPPORTED_TRANSFORMATIONS.get((source_format, target_format), {})
 
-def resolve_transformer(source_format: str, target_format: str, transformer_name: Optional[str] = None) -> str:
+
+def resolve_transformer(
+    source_format: str, target_format: str, transformer_name: Optional[str] = None
+) -> str:
     """
     Resolve the actual transformer to use for a transformation.
     Returns the transformer name to use.
     """
     available_transformers = get_available_transformers(source_format, target_format)
-    
+
     if not available_transformers:
         raise ValueError(
             f"Transformation from {source_format} to {target_format} is not supported"
         )
-    
+
     if transformer_name is None:
         transformer_name = "default"
-    
+
     if transformer_name not in available_transformers:
         available = ", ".join(available_transformers.keys())
         raise ValueError(
             f"Transformer '{transformer_name}' not available for {source_format} to {target_format}. "
             f"Available: {available}"
         )
-    
+
     return available_transformers[transformer_name]
 
-def convert_document(input_path: Path, output_path: Path, transformer_name: str = "default") -> Path:
+
+def convert_document(
+    input_path: Path, output_path: Path, transformer_name: str = "default"
+) -> Path:
     """
     Select and run the specified transformer on the input_path, writing to output_path.
     Returns the path to the transformed file.
@@ -104,7 +118,9 @@ def convert_document(input_path: Path, output_path: Path, transformer_name: str 
         transformer_cls = TRANSFORMERS[transformer_name]
     except KeyError:
         available = ", ".join(TRANSFORMERS.keys())
-        raise ValueError(f"Transformer '{transformer_name}' not found. Available: {available}")
+        raise ValueError(
+            f"Transformer '{transformer_name}' not found. Available: {available}"
+        )
 
     transformer = transformer_cls()
     try:

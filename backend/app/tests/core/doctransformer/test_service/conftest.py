@@ -33,15 +33,21 @@ def aws_credentials() -> None:
 def fast_execute_job() -> Generator[Callable[[int, UUID, str, str], Any], None, None]:
     """Create a version of execute_job without retry delays for faster testing."""
     from app.core.doctransform import service
-    
+
     original_execute_job = service.execute_job
-    
-    @retry(stop=stop_after_attempt(2), wait=wait_fixed(0.01))  # Very fast retry for tests
-    def fast_execute_job_func(project_id: int, job_id: UUID, transformer_name: str, target_format: str) -> Any:
+
+    @retry(
+        stop=stop_after_attempt(2), wait=wait_fixed(0.01)
+    )  # Very fast retry for tests
+    def fast_execute_job_func(
+        project_id: int, job_id: UUID, transformer_name: str, target_format: str
+    ) -> Any:
         # Call the original function's implementation without the decorator
-        return original_execute_job.__wrapped__(project_id, job_id, transformer_name, target_format)
-    
-    with patch.object(service, 'execute_job', fast_execute_job_func):
+        return original_execute_job.__wrapped__(
+            project_id, job_id, transformer_name, target_format
+        )
+
+    with patch.object(service, "execute_job", fast_execute_job_func):
         yield fast_execute_job_func
 
 
@@ -64,7 +70,9 @@ def background_tasks() -> BackgroundTasks:
 
 
 @pytest.fixture
-def test_document(db: Session, current_user: UserProjectOrg) -> Tuple[Document, Project]:
+def test_document(
+    db: Session, current_user: UserProjectOrg
+) -> Tuple[Document, Project]:
     """Create a test document for the current user's project."""
     store = DocumentStore(db, current_user.project_id)
     project = get_project_by_id(session=db, project_id=current_user.project_id)

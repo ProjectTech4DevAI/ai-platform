@@ -33,7 +33,9 @@ def get_transformation_job(
 def get_multiple_transformation_jobs(
     session: SessionDep,
     current_user: CurrentUserOrgProject,
-    job_ids: str = Query(..., description="Comma-separated list of transformation job IDs"),
+    job_ids: str = Query(
+        ..., description="Comma-separated list of transformation job IDs"
+    ),
 ):
     job_id_list = []
     invalid_ids = []
@@ -55,4 +57,6 @@ def get_multiple_transformation_jobs(
     crud = DocTransformationJobCrud(session, project_id=current_user.project_id)
     jobs = crud.read_each(set(job_id_list))
     jobs_not_found = set(job_id_list) - {job.id for job in jobs}
-    return APIResponse.success_response(DocTransformationJobs(jobs=jobs, jobs_not_found=jobs_not_found))
+    return APIResponse.success_response(
+        DocTransformationJobs(jobs=jobs, jobs_not_found=jobs_not_found)
+    )

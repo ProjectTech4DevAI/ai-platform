@@ -1,6 +1,7 @@
 from pathlib import Path
 from .transformer import Transformer
 
+
 class TestTransformer(Transformer):
     """
     A test transformer that returns a hardcoded lorem ipsum string.
@@ -11,5 +12,5 @@ class TestTransformer(Transformer):
             "Lorem ipsum dolor sit amet, consectetur adipiscing elit, "
             "sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
         )
-        output_path.write_text(content, encoding='utf-8')
+        output_path.write_text(content, encoding="utf-8")
         return output_path

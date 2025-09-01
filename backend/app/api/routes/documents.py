@@ -64,13 +64,14 @@ async def upload_doc(
     current_user: CurrentUserOrgProject,
     background_tasks: BackgroundTasks,
     src: UploadFile = File(...),
-    target_format: str | None = Form(
+    target_format: str
+    | None = Form(
         None,
-        description="Desired output format for the uploaded document (e.g., pdf, docx, txt). "
+        description="Desired output format for the uploaded document (e.g., pdf, docx, txt). ",
     ),
-    transformer: str | None = Form(
-        None,
-        description="Name of the transformer to apply when converting. "
+    transformer: str
+    | None = Form(
+        None, description="Name of the transformer to apply when converting. "
     ),
 ):
     # Determine source file format
@@ -84,19 +85,23 @@ async def upload_doc(
         if not is_transformation_supported(source_format, target_format):
             raise HTTPException(
                 status_code=400,
-                detail=f"Transformation from {source_format} to {target_format} is not supported"
+                detail=f"Transformation from {source_format} to {target_format} is not supported",
             )
 
         # Resolve the transformer to use
         if not transformer:
             transformer = "default"
         try:
-            actual_transformer = resolve_transformer(source_format, target_format, transformer)
+            actual_transformer = resolve_transformer(
+                source_format, target_format, transformer
+            )
         except ValueError as e:
-            available_transformers = get_available_transformers(source_format, target_format)
+            available_transformers = get_available_transformers(
+                source_format, target_format
+            )
             raise HTTPException(
                 status_code=400,
-                detail=f"{str(e)}. Available transformers: {list(available_transformers.keys())}"
+                detail=f"{str(e)}. Available transformers: {list(available_transformers.keys())}",
             )
 
     storage = get_cloud_storage(session=session, project_id=current_user.project_id)
@@ -111,7 +116,6 @@ async def upload_doc(
         object_store_url=str(object_store_url),
     )
     source_document = crud.update(document)
-
 
     job_info: TransformationJobInfo | None = None
     if target_format and actual_transformer:
@@ -129,14 +133,17 @@ async def upload_doc(
             source_format=source_format,
             target_format=target_format,
             transformer=actual_transformer,
-            status_check_url=f"/documents/transformations/{job_id}"
+            status_check_url=f"/documents/transformations/{job_id}",
         )
 
-    document_schema = DocumentPublic.model_validate(source_document, from_attributes=True)
-    document_schema.signed_url = storage.get_signed_url(source_document.object_store_url)
+    document_schema = DocumentPublic.model_validate(
+        source_document, from_attributes=True
+    )
+    document_schema.signed_url = storage.get_signed_url(
+        source_document.object_store_url
+    )
     response = DocumentUploadResponse(
-        **document_schema.model_dump(),
-        transformation_job=job_info
+        **document_schema.model_dump(), transformation_job=job_info
     )
 
     return APIResponse.success_response(response)

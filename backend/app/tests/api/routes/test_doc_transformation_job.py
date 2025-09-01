@@ -9,22 +9,18 @@ from app.tests.utils.document import DocumentStore
 
 class TestGetTransformationJob:
     def test_get_existing_job_success(
-        self,
-        client: TestClient,
-        db: Session,
-        user_api_key: APIKeyPublic
+        self, client: TestClient, db: Session, user_api_key: APIKeyPublic
     ):
         """Test successfully retrieving an existing transformation job."""
         document = DocumentStore(db, user_api_key.project_id).put()
         job = DocTransformationJobCrud(db, user_api_key.project_id)
         created_job = job.create(document.id)
 
-        
         response = client.get(
             f"{settings.API_V1_STR}/documents/transformations/{created_job.id}",
-            headers={"X-API-KEY": user_api_key.key}
+            headers={"X-API-KEY": user_api_key.key},
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "data" in data
@@ -35,34 +31,29 @@ class TestGetTransformationJob:
         assert data["data"]["transformed_document_id"] is None
 
     def test_get_nonexistent_job_404(
-        self,
-        client: TestClient,
-        db: Session,
-        user_api_key: APIKeyPublic
+        self, client: TestClient, db: Session, user_api_key: APIKeyPublic
     ):
         """Test getting a non-existent transformation job returns 404."""
         fake_uuid = "00000000-0000-0000-0000-000000000001"
-        
+
         response = client.get(
             f"{settings.API_V1_STR}/documents/transformations/{fake_uuid}",
-            headers={"X-API-KEY": user_api_key.key}
+            headers={"X-API-KEY": user_api_key.key},
         )
-        
+
         assert response.status_code == 404
 
     def test_get_job_invalid_uuid_422(
-        self,
-        client: TestClient,
-        user_api_key: APIKeyPublic
+        self, client: TestClient, user_api_key: APIKeyPublic
     ):
         """Test getting a job with invalid UUID format returns 422."""
         invalid_uuid = "not-a-uuid"
-        
+
         response = client.get(
             f"{settings.API_V1_STR}/documents/transformations/{invalid_uuid}",
-            headers={"X-API-KEY": user_api_key.key}
+            headers={"X-API-KEY": user_api_key.key},
         )
-        
+
         assert response.status_code == 422
 
     def test_get_job_different_project_404(
@@ -70,27 +61,24 @@ class TestGetTransformationJob:
         client: TestClient,
         db: Session,
         user_api_key: APIKeyPublic,
-        superuser_api_key: APIKeyPublic
+        superuser_api_key: APIKeyPublic,
     ):
         """Test that jobs from different projects are not accessible."""
         store = DocumentStore(db, user_api_key.project_id)
         crud = DocTransformationJobCrud(db, user_api_key.project_id)
         document = store.put()
         job = crud.create(document.id)
-        
+
         # Try to access with user from different project (superuser)
         response = client.get(
             f"{settings.API_V1_STR}/documents/transformations/{job.id}",
-            headers={"X-API-KEY": superuser_api_key.key}
+            headers={"X-API-KEY": superuser_api_key.key},
         )
-        
+
         assert response.status_code == 404
 
     def test_get_completed_job_with_result(
-        self,
-        client: TestClient,
-        db: Session,
-        user_api_key: APIKeyPublic
+        self, client: TestClient, db: Session, user_api_key: APIKeyPublic
     ):
         """Test getting a completed job with transformation result."""
         store = DocumentStore(db, user_api_key.project_id)
@@ -98,29 +86,26 @@ class TestGetTransformationJob:
         source_document = store.put()
         transformed_document = store.put()
         job = crud.create(source_document.id)
-        
+
         # Update job to completed status
         crud.update_status(
             job.id,
             TransformationStatus.COMPLETED,
-            transformed_document_id=transformed_document.id
+            transformed_document_id=transformed_document.id,
         )
-        
+
         response = client.get(
             f"{settings.API_V1_STR}/documents/transformations/{job.id}",
-            headers={"X-API-KEY": user_api_key.key}
+            headers={"X-API-KEY": user_api_key.key},
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["data"]["status"] == TransformationStatus.COMPLETED
         assert data["data"]["transformed_document_id"] == str(transformed_document.id)
 
     def test_get_failed_job_with_error(
-        self,
-        client: TestClient,
-        db: Session,
-        user_api_key: APIKeyPublic
+        self, client: TestClient, db: Session, user_api_key: APIKeyPublic
     ):
         """Test getting a failed job with error message."""
         store = DocumentStore(db, user_api_key.project_id)
@@ -128,19 +113,15 @@ class TestGetTransformationJob:
         document = store.put()
         job = crud.create(document.id)
         error_msg = "Transformation failed due to invalid format"
-        
+
         # Update job to failed status
-        crud.update_status(
-            job.id,
-            TransformationStatus.FAILED,
-            error_message=error_msg
-        )
-        
+        crud.update_status(job.id, TransformationStatus.FAILED, error_message=error_msg)
+
         response = client.get(
             f"{settings.API_V1_STR}/documents/transformations/{job.id}",
-            headers={"X-API-KEY": user_api_key.key}
+            headers={"X-API-KEY": user_api_key.key},
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["data"]["status"] == TransformationStatus.FAILED
@@ -149,10 +130,7 @@ class TestGetTransformationJob:
 
 class TestGetMultipleTransformationJobs:
     def test_get_multiple_jobs_success(
-        self,
-        client: TestClient,
-        db: Session,
-        user_api_key: APIKeyPublic
+        self, client: TestClient, db: Session, user_api_key: APIKeyPublic
     ):
         """Test successfully retrieving multiple transformation jobs."""
         store = DocumentStore(db, user_api_key.project_id)
@@ -160,27 +138,24 @@ class TestGetMultipleTransformationJobs:
         documents = store.fill(3)
         jobs = [crud.create(doc.id) for doc in documents]
         job_ids_str = ",".join(str(job.id) for job in jobs)
-        
+
         response = client.get(
             f"{settings.API_V1_STR}/documents/transformations/?job_ids={job_ids_str}",
-            headers={"X-API-KEY": user_api_key.key}
+            headers={"X-API-KEY": user_api_key.key},
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "data" in data
         assert len(data["data"]["jobs"]) == 3
         assert len(data["data"]["jobs_not_found"]) == 0
-        
+
         returned_ids = {job["id"] for job in data["data"]["jobs"]}
         expected_ids = {str(job.id) for job in jobs}
         assert returned_ids == expected_ids
 
     def test_get_mixed_existing_nonexisting_jobs(
-        self,
-        client: TestClient,
-        db: Session,
-        user_api_key: APIKeyPublic
+        self, client: TestClient, db: Session, user_api_key: APIKeyPublic
     ):
         """Test retrieving a mix of existing and non-existing jobs."""
         store = DocumentStore(db, user_api_key.project_id)
@@ -188,14 +163,14 @@ class TestGetMultipleTransformationJobs:
         documents = store.fill(2)
         jobs = [crud.create(doc.id) for doc in documents]
         fake_uuid = "00000000-0000-0000-0000-000000000001"
-        
+
         job_ids_str = f"{jobs[0].id},{jobs[1].id},{fake_uuid}"
-        
+
         response = client.get(
             f"{settings.API_V1_STR}/documents/transformations/?job_ids={job_ids_str}",
-            headers={"X-API-KEY": user_api_key.key}
+            headers={"X-API-KEY": user_api_key.key},
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert len(data["data"]["jobs"]) == 2
@@ -203,89 +178,78 @@ class TestGetMultipleTransformationJobs:
         assert data["data"]["jobs_not_found"][0] == fake_uuid
 
     def test_get_jobs_with_empty_string(
-        self,
-        client: TestClient,
-        user_api_key: APIKeyPublic
+        self, client: TestClient, user_api_key: APIKeyPublic
     ):
         """Test retrieving jobs with empty job_ids parameter."""
         response = client.get(
             f"{settings.API_V1_STR}/documents/transformations/?job_ids=",
-            headers={"X-API-KEY": user_api_key.key}
+            headers={"X-API-KEY": user_api_key.key},
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert len(data["data"]["jobs"]) == 0
         assert len(data["data"]["jobs_not_found"]) == 0
 
     def test_get_jobs_with_whitespace_only(
-        self,
-        client: TestClient,
-        user_api_key: APIKeyPublic
+        self, client: TestClient, user_api_key: APIKeyPublic
     ):
         """Test retrieving jobs with whitespace-only job_ids."""
         response = client.get(
             f"{settings.API_V1_STR}/documents/transformations/?job_ids=   ,  , ",
-            headers={"X-API-KEY": user_api_key.key}
+            headers={"X-API-KEY": user_api_key.key},
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert len(data["data"]["jobs"]) == 0
         assert len(data["data"]["jobs_not_found"]) == 0
 
     def test_get_jobs_invalid_uuid_format_422(
-        self,
-        client: TestClient,
-        user_api_key: APIKeyPublic
+        self, client: TestClient, user_api_key: APIKeyPublic
     ):
         """Test that invalid UUID format returns 422."""
         invalid_uuids = "not-a-uuid,also-not-uuid"
-        
+
         response = client.get(
             f"{settings.API_V1_STR}/documents/transformations/?job_ids={invalid_uuids}",
-            headers={"X-API-KEY": user_api_key.key}
+            headers={"X-API-KEY": user_api_key.key},
         )
-        
+
         assert response.status_code == 422
         data = response.json()
         assert "Invalid UUID(s) provided" in data["error"]
 
     def test_get_jobs_mixed_valid_invalid_uuid_422(
-        self,
-        client: TestClient,
-        db: Session,
-        user_api_key: APIKeyPublic
+        self, client: TestClient, db: Session, user_api_key: APIKeyPublic
     ):
         """Test that mixed valid/invalid UUIDs returns 422."""
         store = DocumentStore(db, user_api_key.project_id)
         crud = DocTransformationJobCrud(db, user_api_key.project_id)
         document = store.put()
         job = crud.create(document.id)
-        
+
         job_ids_str = f"{job.id},not-a-uuid"
-        
+
         response = client.get(
             f"{settings.API_V1_STR}/documents/transformations/?job_ids={job_ids_str}",
-            headers={"X-API-KEY": user_api_key.key}
+            headers={"X-API-KEY": user_api_key.key},
         )
-        
+
         assert response.status_code == 422
         data = response.json()
         assert "Invalid UUID(s) provided" in data["error"]
         assert "not-a-uuid" in data["error"]
 
     def test_get_jobs_missing_parameter_422(
-        self,
-        client: TestClient,
-        user_api_key: APIKeyPublic
+        self, client: TestClient, user_api_key: APIKeyPublic
     ):
         """Test that missing job_ids parameter returns 422."""
         response = client.get(
             f"{settings.API_V1_STR}/documents/transformations/",
-            headers={"X-API-KEY": user_api_key.key}
+            headers={"X-API-KEY": user_api_key.key},
         )
-        
+
         assert response.status_code == 422
 
     def test_get_jobs_different_project_not_found(
@@ -293,20 +257,20 @@ class TestGetMultipleTransformationJobs:
         client: TestClient,
         db: Session,
         user_api_key: APIKeyPublic,
-        superuser_api_key: APIKeyPublic
+        superuser_api_key: APIKeyPublic,
     ):
         """Test that jobs from different projects are not returned."""
         store = DocumentStore(db, user_api_key.project_id)
         crud = DocTransformationJobCrud(db, user_api_key.project_id)
         document = store.put()
         job = crud.create(document.id)
-        
+
         # Try to access with user from different project (superuser)
         response = client.get(
             f"{settings.API_V1_STR}/documents/transformations/?job_ids={job.id}",
-            headers={"X-API-KEY": superuser_api_key.key}
+            headers={"X-API-KEY": superuser_api_key.key},
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert len(data["data"]["jobs"]) == 0
@@ -314,38 +278,41 @@ class TestGetMultipleTransformationJobs:
         assert data["data"]["jobs_not_found"][0] == str(job.id)
 
     def test_get_jobs_with_various_statuses(
-        self,
-        client: TestClient,
-        db: Session,
-        user_api_key: APIKeyPublic
+        self, client: TestClient, db: Session, user_api_key: APIKeyPublic
     ):
         """Test retrieving jobs with different statuses."""
         store = DocumentStore(db, user_api_key.project_id)
         crud = DocTransformationJobCrud(db, user_api_key.project_id)
         documents = store.fill(4)
         jobs = [crud.create(doc.id) for doc in documents]
-        
+
         crud.update_status(jobs[1].id, TransformationStatus.PROCESSING)
-        crud.update_status(jobs[2].id, TransformationStatus.COMPLETED, transformed_document_id=documents[2].id)
-        crud.update_status(jobs[3].id, TransformationStatus.FAILED, error_message="Test error")
-        
+        crud.update_status(
+            jobs[2].id,
+            TransformationStatus.COMPLETED,
+            transformed_document_id=documents[2].id,
+        )
+        crud.update_status(
+            jobs[3].id, TransformationStatus.FAILED, error_message="Test error"
+        )
+
         job_ids_str = ",".join(str(job.id) for job in jobs)
-        
+
         response = client.get(
             f"{settings.API_V1_STR}/documents/transformations/?job_ids={job_ids_str}",
-            headers={"X-API-KEY": user_api_key.key}
+            headers={"X-API-KEY": user_api_key.key},
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert len(data["data"]["jobs"]) == 4
-        
+
         # Check that all statuses are represented
         statuses = {job["status"] for job in data["data"]["jobs"]}
         expected_statuses = {
             TransformationStatus.PENDING,
             TransformationStatus.PROCESSING,
             TransformationStatus.COMPLETED,
-            TransformationStatus.FAILED
+            TransformationStatus.FAILED,
         }
         assert statuses == expected_statuses

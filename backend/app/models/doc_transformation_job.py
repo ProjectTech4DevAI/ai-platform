@@ -18,7 +18,9 @@ class DocTransformationJob(SQLModel, table=True):
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     source_document_id: UUID = Field(foreign_key="document.id")
-    transformed_document_id: Optional[UUID] = Field(default=None, foreign_key="document.id")
+    transformed_document_id: Optional[UUID] = Field(
+        default=None, foreign_key="document.id"
+    )
     status: TransformationStatus = Field(default=TransformationStatus.PENDING)
     error_message: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=now)

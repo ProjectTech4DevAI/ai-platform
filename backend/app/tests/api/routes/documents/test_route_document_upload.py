@@ -22,16 +22,22 @@ from app.tests.utils.document import (
 
 
 class WebUploader(WebCrawler):
-    def put(self, route: Route, scratch: Path, target_format: str = None, transformer: str = None):
+    def put(
+        self,
+        route: Route,
+        scratch: Path,
+        target_format: str = None,
+        transformer: str = None,
+    ):
         (mtype, _) = mimetypes.guess_type(str(scratch))
         files = {"src": (str(scratch), scratch.open("rb"), mtype)}
-        
+
         data = {}
         if target_format:
             data["target_format"] = target_format
         if transformer:
             data["transformer"] = transformer
-        
+
         return self.client.post(
             str(route),
             headers={"X-API-KEY": self.user_api_key.key},
@@ -55,7 +61,9 @@ def pdf_scratch():
         fp.write("2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n")
         fp.write("3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]>>endobj\n")
         fp.write("xref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n")
-        fp.write("0000000074 00000 n \n0000000120 00000 n \ntrailer<</Size 4/Root 1 0 R>>\n")
+        fp.write(
+            "0000000074 00000 n \n0000000120 00000 n \ntrailer<</Size 4/Root 1 0 R>>\n"
+        )
         fp.write("startxref\n202\n%%EOF")
         fp.flush()
         yield Path(fp.name)
@@ -137,13 +145,13 @@ class TestDocumentRouteUpload:
         aws.create()
 
         response = httpx_to_standard(uploader.put(route, scratch))
-        
+
         assert response.success is True
         assert response.data["transformation_job"] is None
         assert "id" in response.data
         assert "fname" in response.data
 
-    @patch('app.core.doctransform.service.start_job')
+    @patch("app.core.doctransform.service.start_job")
     def test_upload_with_transformation(
         self,
         mock_start_job,
@@ -155,25 +163,30 @@ class TestDocumentRouteUpload:
         """Test upload with valid transformation parameters."""
         aws = AmazonCloudStorageClient()
         aws.create()
-        
+
         # Mock the background job creation
         mock_job_id = "12345678-1234-5678-9abc-123456789012"
         mock_start_job.return_value = mock_job_id
 
-        response = httpx_to_standard(uploader.put(route, pdf_scratch, target_format="markdown"))
-        
+        response = httpx_to_standard(
+            uploader.put(route, pdf_scratch, target_format="markdown")
+        )
+
         assert response.success is True
         assert response.data["transformation_job"] is not None
-        
+
         transformation_job = response.data["transformation_job"]
         assert transformation_job["job_id"] == mock_job_id
         assert transformation_job["source_format"] == "pdf"
         assert transformation_job["target_format"] == "markdown"
         assert transformation_job["transformer"] == "zerox"  # Default transformer
-        assert transformation_job["status_check_url"] == f"/documents/transformations/{mock_job_id}"
+        assert (
+            transformation_job["status_check_url"]
+            == f"/documents/transformations/{mock_job_id}"
+        )
         assert "message" in transformation_job
 
-    @patch('app.core.doctransform.service.start_job')
+    @patch("app.core.doctransform.service.start_job")
     def test_upload_with_specific_transformer(
         self,
         mock_start_job,
@@ -185,14 +198,16 @@ class TestDocumentRouteUpload:
         """Test upload with specific transformer specified."""
         aws = AmazonCloudStorageClient()
         aws.create()
-        
+
         mock_job_id = "12345678-1234-5678-9abc-123456789012"
         mock_start_job.return_value = mock_job_id
 
-        response = httpx_to_standard(uploader.put(
-            route, pdf_scratch, target_format="markdown", transformer="zerox"
-        ))
-        
+        response = httpx_to_standard(
+            uploader.put(
+                route, pdf_scratch, target_format="markdown", transformer="zerox"
+            )
+        )
+
         assert response.success is True
         transformation_job = response.data["transformation_job"]
         assert transformation_job["transformer"] == "zerox"
@@ -209,7 +224,7 @@ class TestDocumentRouteUpload:
         aws.create()
 
         response = uploader.put(route, scratch, target_format="pdf")
-        
+
         assert response.status_code == 400
         error_data = response.json()
         assert "Transformation from text to pdf is not supported" in error_data["error"]
@@ -226,9 +241,12 @@ class TestDocumentRouteUpload:
         aws.create()
 
         response = uploader.put(
-            route, pdf_scratch, target_format="markdown", transformer="invalid_transformer"
+            route,
+            pdf_scratch,
+            target_format="markdown",
+            transformer="invalid_transformer",
         )
-        
+
         assert response.status_code == 400
         error_data = response.json()
         assert "Transformer 'invalid_transformer' not available" in error_data["error"]
@@ -258,7 +276,7 @@ class TestDocumentRouteUpload:
         finally:
             unsupported_file.unlink()
 
-    @patch('app.core.doctransform.service.start_job')
+    @patch("app.core.doctransform.service.start_job")
     def test_transformation_job_created_in_database(
         self,
         mock_start_job,
@@ -270,17 +288,19 @@ class TestDocumentRouteUpload:
         """Test that transformation job is properly stored in the database."""
         aws = AmazonCloudStorageClient()
         aws.create()
-        
+
         mock_job_id = "12345678-1234-5678-9abc-123456789012"
         mock_start_job.return_value = mock_job_id
 
-        response = httpx_to_standard(uploader.put(route, pdf_scratch, target_format="markdown"))
-        
+        response = httpx_to_standard(
+            uploader.put(route, pdf_scratch, target_format="markdown")
+        )
+
         mock_start_job.assert_called_once()
         args, kwargs = mock_start_job.call_args
-        
+
         # Check that start_job was called with the right arguments
-        assert 'transformer_name' in kwargs or len(args) >= 4
+        assert "transformer_name" in kwargs or len(args) >= 4
 
     def test_upload_response_structure_without_transformation(
         self,
@@ -294,9 +314,16 @@ class TestDocumentRouteUpload:
         aws.create()
 
         response = httpx_to_standard(uploader.put(route, scratch))
-        
-        required_fields = ["id", "project_id", "fname", "inserted_at", "updated_at", "source_document_id"]
+
+        required_fields = [
+            "id",
+            "project_id",
+            "fname",
+            "inserted_at",
+            "updated_at",
+            "source_document_id",
+        ]
         for field in required_fields:
             assert field in response.data
-        
+
         assert response.data["transformation_job"] is None

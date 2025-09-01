@@ -20,57 +20,52 @@ from app.models import Document, Project
 
 class DocTransformTestBase:
     """Base class for document transformation tests with common setup and utilities."""
-    
+
     def setup_aws_s3(self) -> AmazonCloudStorageClient:
         """Setup AWS S3 for testing."""
         aws = AmazonCloudStorageClient()
         aws.create()
         return aws
-    
+
     def create_s3_document_content(
-        self, 
-        aws: AmazonCloudStorageClient, 
-        project: Project, 
-        document: Document, 
-        content: bytes = b"Test document content"
+        self,
+        aws: AmazonCloudStorageClient,
+        project: Project,
+        document: Document,
+        content: bytes = b"Test document content",
     ) -> bytes:
         """Create content in S3 for a document."""
         parsed_url = urlparse(document.object_store_url)
-        s3_key = parsed_url.path.lstrip('/')
-        
-        aws.client.put_object(
-            Bucket=settings.AWS_S3_BUCKET,
-            Key=s3_key,
-            Body=content
-        )
+        s3_key = parsed_url.path.lstrip("/")
+
+        aws.client.put_object(Bucket=settings.AWS_S3_BUCKET, Key=s3_key, Body=content)
         return content
-    
+
     def verify_s3_content(
-        self, 
-        aws: AmazonCloudStorageClient, 
-        project: Project, 
+        self,
+        aws: AmazonCloudStorageClient,
+        project: Project,
         transformed_doc: Document,
-        expected_content: str = None
+        expected_content: str = None,
     ) -> None:
         """Verify the content stored in S3."""
         if expected_content is None:
             expected_content = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
-        
+
         parsed_url = urlparse(transformed_doc.object_store_url)
 
-        transformed_key = parsed_url.path.lstrip('/')
-        
+        transformed_key = parsed_url.path.lstrip("/")
+
         response = aws.client.get_object(
-            Bucket=settings.AWS_S3_BUCKET,
-            Key=transformed_key
+            Bucket=settings.AWS_S3_BUCKET, Key=transformed_key
         )
-        transformed_content = response['Body'].read().decode('utf-8')
+        transformed_content = response["Body"].read().decode("utf-8")
         assert transformed_content == expected_content
 
 
 class TestDataProvider:
     """Provides test data and configurations for document transformation tests."""
-    
+
     @staticmethod
     def get_format_test_cases() -> List[tuple]:
         """Get test cases for different document formats."""
@@ -79,7 +74,7 @@ class TestDataProvider:
             ("text", ".txt"),
             ("html", ".html"),
         ]
-    
+
     @staticmethod
     def get_content_type_test_cases() -> List[tuple]:
         """Get test cases for content types and extensions."""
@@ -87,9 +82,9 @@ class TestDataProvider:
             ("markdown", "text/markdown", ".md"),
             ("text", "text/plain", ".txt"),
             ("html", "text/html", ".html"),
-            ("unknown", "text/plain", ".unknown")  # Default fallback
+            ("unknown", "text/plain", ".unknown"),  # Default fallback
         ]
-    
+
     @staticmethod
     def get_test_transformer_names() -> List[str]:
         """Get list of test transformer names."""
@@ -103,26 +98,32 @@ class TestDataProvider:
 
 class MockHelpers:
     """Helper methods for creating mocks in tests."""
-    
+
     @staticmethod
     def create_failing_convert_document(fail_count: int = 1):
         """Create a side effect function that fails specified times then succeeds."""
         call_count = 0
+
         def failing_convert_document(*args, **kwargs):
             nonlocal call_count
             call_count += 1
             if call_count <= fail_count:
                 raise Exception("Transient error")
-            output_path = args[1] if len(args) > 1 else kwargs.get('output_path')
+            output_path = args[1] if len(args) > 1 else kwargs.get("output_path")
             if output_path:
-                output_path.write_text("Success after retries", encoding='utf-8')
+                output_path.write_text("Success after retries", encoding="utf-8")
                 return output_path
             raise ValueError("output_path is required")
+
         return failing_convert_document
-    
+
     @staticmethod
-    def create_persistent_failing_convert_document(error_message: str = "Persistent error"):
+    def create_persistent_failing_convert_document(
+        error_message: str = "Persistent error",
+    ):
         """Create a side effect function that always fails."""
+
         def persistent_failing_convert_document(*args, **kwargs):
             raise Exception(error_message)
+
         return persistent_failing_convert_document

@@ -53,35 +53,24 @@ class DocumentPublic(DocumentBase):
     )
     source_document_id: UUID | None = Field(
         default=None,
-        description="The ID of the source document if this document is a transformation"
+        description="The ID of the source document if this document is a transformation",
     )
     signed_url: str | None = Field(
-        default=None,
-        description="A signed URL for accessing the document"
+        default=None, description="A signed URL for accessing the document"
     )
 
 
 class TransformationJobInfo(SQLModel):
     message: str
-    job_id: UUID = Field(
-        description="The unique identifier of the transformation job"
-    )
-    source_format: str = Field(
-        description="The format of the source document"
-    )
-    target_format: str = Field(
-        description="The format of the target document"
-    )
-    transformer: str = Field(
-        description="The name of the transformer used"
-    )
+    job_id: UUID = Field(description="The unique identifier of the transformation job")
+    source_format: str = Field(description="The format of the source document")
+    target_format: str = Field(description="The format of the target document")
+    transformer: str = Field(description="The name of the transformer used")
     status_check_url: str = Field(
         description="The URL to check the status of the transformation job"
     )
 
 
 class DocumentUploadResponse(DocumentPublic):
-    signed_url: str = Field(
-        description="A signed URL for accessing the document"
-    )
+    signed_url: str = Field(description="A signed URL for accessing the document")
     transformation_job: TransformationJobInfo | None = None

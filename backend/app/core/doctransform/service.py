@@ -21,6 +21,7 @@ from app.core.db import engine
 
 logger = logging.getLogger(__name__)
 
+
 def start_job(
     db: Session,
     current_user: CurrentUserOrgProject,
@@ -31,12 +32,17 @@ def start_job(
 ) -> UUID:
     job_crud = DocTransformationJobCrud(session=db, project_id=current_user.project_id)
     job = job_crud.create(source_document_id=source_document_id)
-    
+
     # Extract the project ID before passing to background task
     project_id = current_user.project_id
-    background_tasks.add_task(execute_job, project_id, job.id, transformer_name, target_format)
-    logger.info(f"[start_job] Job scheduled for document transformation | id: {job.id}, project_id: {project_id}")
+    background_tasks.add_task(
+        execute_job, project_id, job.id, transformer_name, target_format
+    )
+    logger.info(
+        f"[start_job] Job scheduled for document transformation | id: {job.id}, project_id: {project_id}"
+    )
     return job.id
+
 
 @retry(wait=wait_exponential(multiplier=5, min=5, max=10), stop=stop_after_attempt(3))
 def execute_job(
@@ -47,7 +53,9 @@ def execute_job(
 ):
     tmp_dir: Path | None = None
     try:
-        logger.info(f"[execute_job started] Transformation Job started | job_id={job_id} | transformer_name={transformer_name} | target_format={target_format} | project_id={project_id}")
+        logger.info(
+            f"[execute_job started] Transformation Job started | job_id={job_id} | transformer_name={transformer_name} | target_format={target_format} | project_id={project_id}"
+        )
 
         # Update job status to PROCESSING and fetch source document info
         with Session(engine) as db:
@@ -55,9 +63,9 @@ def execute_job(
             job = job_crud.update_status(job_id, TransformationStatus.PROCESSING)
 
             doc_crud = DocumentCrud(session=db, project_id=project_id)
-            
+
             source_doc = doc_crud.read_one(job.source_document_id)
-            
+
             source_doc_id = source_doc.id
             source_doc_fname = source_doc.fname
             source_doc_object_store_url = source_doc.object_store_url
@@ -88,7 +96,6 @@ def execute_job(
         }
         content_type = content_type_map.get(target_format, "text/plain")
 
-
         # upload transformed file and create document record
         with open(tmp_out, "rb") as fobj:
             file_upload = UploadFile(
@@ -110,19 +117,33 @@ def execute_job(
             created = DocumentCrud(db, project_id).update(new_doc)
 
             job_crud = DocTransformationJobCrud(session=db, project_id=project_id)
-            job_crud.update_status(job_id, TransformationStatus.COMPLETED, transformed_document_id=created.id)
+            job_crud.update_status(
+                job_id,
+                TransformationStatus.COMPLETED,
+                transformed_document_id=created.id,
+            )
 
-            logger.info(f"[execute_job] Doc Transformation job completed | job_id={job_id} | transformed_doc_id={created.id} | project_id={project_id}")
+            logger.info(
+                f"[execute_job] Doc Transformation job completed | job_id={job_id} | transformed_doc_id={created.id} | project_id={project_id}"
+            )
 
     except Exception as e:
-        logger.error(f"Transformation job failed | job_id={job_id} | error={e}", exc_info=True)
+        logger.error(
+            f"Transformation job failed | job_id={job_id} | error={e}", exc_info=True
+        )
         try:
             with Session(engine) as db:
                 job_crud = DocTransformationJobCrud(session=db, project_id=project_id)
-                job_crud.update_status(job_id, TransformationStatus.FAILED, error_message=str(e))
-                logger.info(f"[execute_job] Doc Transformation job failed | job_id={job_id} | error={e}")
+                job_crud.update_status(
+                    job_id, TransformationStatus.FAILED, error_message=str(e)
+                )
+                logger.info(
+                    f"[execute_job] Doc Transformation job failed | job_id={job_id} | error={e}"
+                )
         except Exception as db_error:
-            logger.error(f"Failed to update job status to FAILED | job_id={job_id} | db_error={db_error}")
+            logger.error(
+                f"Failed to update job status to FAILED | job_id={job_id} | db_error={db_error}"
+            )
         raise
     finally:
         if tmp_dir and tmp_dir.exists():

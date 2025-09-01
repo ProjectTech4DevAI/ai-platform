@@ -15,7 +15,10 @@ from app.core.doctransform.registry import TransformationError
 from app.core.doctransform.service import execute_job
 from app.core.exception_handlers import HTTPException
 from app.models import Document, DocTransformationJob, Project, TransformationStatus
-from app.tests.core.doctransformer.test_service.base import DocTransformTestBase, TestDataProvider
+from app.tests.core.doctransformer.test_service.base import (
+    DocTransformTestBase,
+    TestDataProvider,
+)
 
 
 class TestExecuteJob(DocTransformTestBase):
@@ -37,7 +40,7 @@ class TestExecuteJob(DocTransformTestBase):
         """Test successful document transformation with multiple formats."""
         document, project = test_document
         aws = self.setup_aws_s3()
-        
+
         source_content = TestDataProvider.get_sample_document_content()
         self.create_s3_document_content(aws, project, document, source_content)
 
@@ -45,17 +48,17 @@ class TestExecuteJob(DocTransformTestBase):
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
         job = job_crud.create(source_document_id=document.id)
         db.commit()
-        
+
         # Mock the Session to use our existing database session
-        with patch('app.core.doctransform.service.Session') as mock_session_class:
+        with patch("app.core.doctransform.service.Session") as mock_session_class:
             mock_session_class.return_value.__enter__.return_value = db
             mock_session_class.return_value.__exit__.return_value = None
-            
+
             execute_job(
                 project_id=project.id,
                 job_id=job.id,
                 transformer_name="test",
-                target_format=target_format
+                target_format=target_format,
             )
 
         # Verify job completion
@@ -79,56 +82,56 @@ class TestExecuteJob(DocTransformTestBase):
     @mock_aws
     @pytest.mark.usefixtures("aws_credentials")
     def test_execute_job_with_nonexistent_job(
-        self, 
-        db: Session, 
-        test_document: Tuple[Document, Project], 
-        fast_execute_job: Callable[[int, UUID, str, str], Any]
+        self,
+        db: Session,
+        test_document: Tuple[Document, Project],
+        fast_execute_job: Callable[[int, UUID, str, str], Any],
     ) -> None:
         """Test job execution with non-existent job ID."""
         _, project = test_document
         self.setup_aws_s3()
         nonexistent_job_id = uuid4()
-        
-        with patch('app.core.doctransform.service.Session') as mock_session_class:
+
+        with patch("app.core.doctransform.service.Session") as mock_session_class:
             mock_session_class.return_value.__enter__.return_value = db
             mock_session_class.return_value.__exit__.return_value = None
-            
+
             # Execute job should fail because job doesn't exist
             with pytest.raises((HTTPException, RetryError)):
                 fast_execute_job(
                     project_id=project.id,
                     job_id=nonexistent_job_id,
                     transformer_name="test",
-                    target_format="markdown"
+                    target_format="markdown",
                 )
 
     @mock_aws
     @pytest.mark.usefixtures("aws_credentials")
     def test_execute_job_with_missing_source_document(
-        self, 
-        db: Session, 
-        test_document: Tuple[Document, Project], 
-        fast_execute_job: Callable[[int, UUID, str, str], Any]
+        self,
+        db: Session,
+        test_document: Tuple[Document, Project],
+        fast_execute_job: Callable[[int, UUID, str, str], Any],
     ) -> None:
         """Test job execution when source document is missing from S3."""
         document, project = test_document
         self.setup_aws_s3()
-        
+
         # Create job but don't upload document to S3
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
         job = job_crud.create(source_document_id=document.id)
         db.commit()
-        
-        with patch('app.core.doctransform.service.Session') as mock_session_class:
+
+        with patch("app.core.doctransform.service.Session") as mock_session_class:
             mock_session_class.return_value.__enter__.return_value = db
             mock_session_class.return_value.__exit__.return_value = None
-            
+
             with pytest.raises(Exception):
                 fast_execute_job(
                     project_id=project.id,
                     job_id=job.id,
                     transformer_name="test",
-                    target_format="markdown"
+                    target_format="markdown",
                 )
 
         # Verify job was marked as failed
@@ -140,10 +143,10 @@ class TestExecuteJob(DocTransformTestBase):
     @mock_aws
     @pytest.mark.usefixtures("aws_credentials")
     def test_execute_job_with_transformer_error(
-        self, 
-        db: Session, 
-        test_document: Tuple[Document, Project], 
-        fast_execute_job: Callable[[int, UUID, str, str], Any]
+        self,
+        db: Session,
+        test_document: Tuple[Document, Project],
+        fast_execute_job: Callable[[int, UUID, str, str], Any],
     ) -> None:
         """Test job execution when transformer raises an error."""
         document, project = test_document
@@ -153,22 +156,24 @@ class TestExecuteJob(DocTransformTestBase):
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
         job = job_crud.create(source_document_id=document.id)
         db.commit()
-        
+
         # Mock convert_document to raise TransformationError
-        with patch('app.core.doctransform.service.Session') as mock_session_class, \
-             patch('app.core.doctransform.service.convert_document') as mock_convert:
-            
+        with patch(
+            "app.core.doctransform.service.Session"
+        ) as mock_session_class, patch(
+            "app.core.doctransform.service.convert_document"
+        ) as mock_convert:
             mock_session_class.return_value.__enter__.return_value = db
             mock_session_class.return_value.__exit__.return_value = None
             mock_convert.side_effect = TransformationError("Mock transformation error")
-            
+
             # Due to retry mechanism, it will raise RetryError after exhausting retries
             with pytest.raises((TransformationError, RetryError)):
                 fast_execute_job(
                     project_id=project.id,
                     job_id=job.id,
                     transformer_name="test",
-                    target_format="markdown"
+                    target_format="markdown",
                 )
 
         # Verify job was marked as failed
@@ -180,9 +185,7 @@ class TestExecuteJob(DocTransformTestBase):
     @mock_aws
     @pytest.mark.usefixtures("aws_credentials")
     def test_execute_job_status_transitions(
-        self, 
-        db: Session, 
-        test_document: Tuple[Document, Project]
+        self, db: Session, test_document: Tuple[Document, Project]
     ) -> None:
         """Test that job status transitions correctly during execution."""
         document, project = test_document
@@ -193,16 +196,16 @@ class TestExecuteJob(DocTransformTestBase):
         job = job_crud.create(source_document_id=document.id)
         initial_status = job.status
         db.commit()
-        
-        with patch('app.core.doctransform.service.Session') as mock_session_class:
+
+        with patch("app.core.doctransform.service.Session") as mock_session_class:
             mock_session_class.return_value.__enter__.return_value = db
             mock_session_class.return_value.__exit__.return_value = None
-            
+
             execute_job(
                 project_id=project.id,
                 job_id=job.id,
                 transformer_name="test",
-                target_format="markdown"
+                target_format="markdown",
             )
 
         # Verify status progression by checking final job state
@@ -210,12 +213,10 @@ class TestExecuteJob(DocTransformTestBase):
         assert job.status == TransformationStatus.COMPLETED
         assert initial_status == TransformationStatus.PENDING
 
-    @mock_aws  
+    @mock_aws
     @pytest.mark.usefixtures("aws_credentials")
     def test_execute_job_with_different_content_types(
-        self, 
-        db: Session, 
-        test_document: Tuple[Document, Project]
+        self, db: Session, test_document: Tuple[Document, Project]
     ) -> None:
         """Test job execution produces correct content types for different formats."""
         document, project = test_document
@@ -223,23 +224,27 @@ class TestExecuteJob(DocTransformTestBase):
         self.create_s3_document_content(aws, project, document)
 
         format_extensions = TestDataProvider.get_content_type_test_cases()
-        
-        for target_format, expected_content_type, expected_extension in format_extensions:
+
+        for (
+            target_format,
+            expected_content_type,
+            expected_extension,
+        ) in format_extensions:
             job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
             job = job_crud.create(source_document_id=document.id)
             db.commit()
-            
-            with patch('app.core.doctransform.service.Session') as mock_session_class:
+
+            with patch("app.core.doctransform.service.Session") as mock_session_class:
                 mock_session_class.return_value.__enter__.return_value = db
                 mock_session_class.return_value.__exit__.return_value = None
-                
+
                 execute_job(
                     project_id=project.id,
                     job_id=job.id,
                     transformer_name="test",
-                    target_format=target_format
+                    target_format=target_format,
                 )
-            
+
             # Verify transformation completed and check file extension
             db.refresh(job)
             assert job.status == TransformationStatus.COMPLETED
