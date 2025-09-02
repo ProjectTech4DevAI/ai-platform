@@ -18,7 +18,7 @@ from app.models import (
     TransformationStatus,
     UserProjectOrg,
 )
-from app.tests.core.doctransformer.test_service.base import DocTransformTestBase
+from app.tests.core.doctransformer.test_service.utils import DocTransformTestBase
 
 
 class TestExecuteJobIntegration(DocTransformTestBase):
@@ -32,7 +32,7 @@ class TestExecuteJobIntegration(DocTransformTestBase):
         """Test complete end-to-end workflow from start_job to execute_job."""
         document, project = test_document
         aws = self.setup_aws_s3()
-        self.create_s3_document_content(aws, project, document)
+        self.create_s3_document_content(aws, document)
 
         # Start job using the service
         current_user = UserProjectOrg(
@@ -87,7 +87,7 @@ class TestExecuteJobIntegration(DocTransformTestBase):
         """Test multiple concurrent job executions don't interfere with each other."""
         document, project = test_document
         aws = self.setup_aws_s3()
-        self.create_s3_document_content(aws, project, document)
+        self.create_s3_document_content(aws, document)
 
         # Create multiple jobs
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
@@ -124,7 +124,7 @@ class TestExecuteJobIntegration(DocTransformTestBase):
         """Test transforming the same document to multiple formats."""
         document, project = test_document
         aws = self.setup_aws_s3()
-        self.create_s3_document_content(aws, project, document)
+        self.create_s3_document_content(aws, document)
 
         formats = ["markdown", "text", "html"]
         jobs = []

@@ -18,7 +18,9 @@ def patched_transformations(monkeypatch):
         ("docx", "pdf"): {"default": "pandoc", "pandoc": "pandoc"},
         ("pdf", "markdown"): {"default": "zerox", "zerox": "zerox"},
     }
-    monkeypatch.setattr("app.core.doctransform.registry.SUPPORTED_TRANSFORMATIONS", mapping)
+    monkeypatch.setattr(
+        "app.core.doctransform.registry.SUPPORTED_TRANSFORMATIONS", mapping
+    )
     return mapping
 
 

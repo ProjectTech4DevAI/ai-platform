@@ -1,7 +1,7 @@
 """
 Tests for the start_job function in document transformation service.
 """
-from typing import Any, Tuple
+from typing import Tuple
 from uuid import uuid4
 
 import pytest
@@ -17,10 +17,7 @@ from app.models import (
     TransformationStatus,
     UserProjectOrg,
 )
-from app.tests.core.doctransformer.test_service.base import (
-    DocTransformTestBase,
-    TestDataProvider,
-)
+from app.tests.core.doctransformer.test_service.utils import DocTransformTestBase
 
 
 class TestStartJob(DocTransformTestBase):
@@ -136,9 +133,7 @@ class TestStartJob(DocTransformTestBase):
             task = background_tasks.tasks[-1]
             assert task.args[3] == target_format
 
-    @pytest.mark.parametrize(
-        "transformer_name", TestDataProvider.get_test_transformer_names()
-    )
+    @pytest.mark.parametrize("transformer_name", ["test"])
     def test_start_job_with_different_transformers(
         self,
         db: Session,

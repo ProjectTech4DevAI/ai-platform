@@ -8,14 +8,13 @@ from unittest.mock import patch
 import pytest
 from moto import mock_aws
 from sqlmodel import Session
-from tenacity import RetryError
 
 from app.crud import DocTransformationJobCrud
-from app.core.doctransform.service import execute_job
 from app.models import Document, Project, TransformationStatus
-from app.tests.core.doctransformer.test_service.base import (
-    DocTransformTestBase,
-    MockHelpers,
+from app.tests.core.doctransformer.test_service.utils import DocTransformTestBase
+from app.tests.core.doctransformer.test_service.utils import (
+    create_failing_convert_document,
+    create_persistent_failing_convert_document,
 )
 
 
@@ -33,7 +32,7 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
         """Test job execution when S3 upload fails."""
         document, project = test_document
         aws = self.setup_aws_s3()
-        self.create_s3_document_content(aws, project, document)
+        self.create_s3_document_content(aws, document)
 
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
         job = job_crud.create(source_document_id=document.id)
@@ -77,16 +76,14 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
         """Test that retry mechanism works for transient failures."""
         document, project = test_document
         aws = self.setup_aws_s3()
-        self.create_s3_document_content(aws, project, document)
+        self.create_s3_document_content(aws, document)
 
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
         job = job_crud.create(source_document_id=document.id)
         db.commit()
 
         # Create a side effect that fails once then succeeds (fast retry will only try 2 times)
-        failing_convert_document = MockHelpers.create_failing_convert_document(
-            fail_count=1
-        )
+        failing_convert_document = create_failing_convert_document(fail_count=1)
 
         with patch(
             "app.core.doctransform.service.Session"
@@ -119,7 +116,7 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
         """Test behavior when all retry attempts are exhausted."""
         document, project = test_document
         aws = self.setup_aws_s3()
-        self.create_s3_document_content(aws, project, document)
+        self.create_s3_document_content(aws, document)
 
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
         job = job_crud.create(source_document_id=document.id)
@@ -127,7 +124,7 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
 
         # Mock convert_document to always fail
         persistent_failing_convert_document = (
-            MockHelpers.create_persistent_failing_convert_document("Persistent error")
+            create_persistent_failing_convert_document("Persistent error")
         )
 
         with patch(
@@ -163,7 +160,7 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
         """Test handling of database errors when updating job completion."""
         document, project = test_document
         aws = self.setup_aws_s3()
-        self.create_s3_document_content(aws, project, document)
+        self.create_s3_document_content(aws, document)
 
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
         job = job_crud.create(source_document_id=document.id)

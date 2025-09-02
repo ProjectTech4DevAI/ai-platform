@@ -14,11 +14,8 @@ from app.crud import DocTransformationJobCrud, DocumentCrud
 from app.core.doctransform.registry import TransformationError
 from app.core.doctransform.service import execute_job
 from app.core.exception_handlers import HTTPException
-from app.models import Document, DocTransformationJob, Project, TransformationStatus
-from app.tests.core.doctransformer.test_service.base import (
-    DocTransformTestBase,
-    TestDataProvider,
-)
+from app.models import Document, Project, TransformationStatus
+from app.tests.core.doctransformer.test_service.utils import DocTransformTestBase
 
 
 class TestExecuteJob(DocTransformTestBase):
@@ -26,7 +23,11 @@ class TestExecuteJob(DocTransformTestBase):
 
     @pytest.mark.parametrize(
         "target_format, expected_extension",
-        TestDataProvider.get_format_test_cases(),
+        [
+            ("markdown", ".md"),
+            ("text", ".txt"),
+            ("html", ".html"),
+        ],
     )
     @mock_aws
     @pytest.mark.usefixtures("aws_credentials")
@@ -41,8 +42,8 @@ class TestExecuteJob(DocTransformTestBase):
         document, project = test_document
         aws = self.setup_aws_s3()
 
-        source_content = TestDataProvider.get_sample_document_content()
-        self.create_s3_document_content(aws, project, document, source_content)
+        source_content = b"This is a test document for transformation."
+        self.create_s3_document_content(aws, document, source_content)
 
         # Create transformation job
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
@@ -77,7 +78,7 @@ class TestExecuteJob(DocTransformTestBase):
         assert transformed_doc.object_store_url is not None
 
         # Verify transformed content in S3
-        self.verify_s3_content(aws, project, transformed_doc)
+        self.verify_s3_content(aws, transformed_doc)
 
     @mock_aws
     @pytest.mark.usefixtures("aws_credentials")
@@ -151,7 +152,7 @@ class TestExecuteJob(DocTransformTestBase):
         """Test job execution when transformer raises an error."""
         document, project = test_document
         aws = self.setup_aws_s3()
-        self.create_s3_document_content(aws, project, document)
+        self.create_s3_document_content(aws, document)
 
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
         job = job_crud.create(source_document_id=document.id)
@@ -190,7 +191,7 @@ class TestExecuteJob(DocTransformTestBase):
         """Test that job status transitions correctly during execution."""
         document, project = test_document
         aws = self.setup_aws_s3()
-        self.create_s3_document_content(aws, project, document)
+        self.create_s3_document_content(aws, document)
 
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
         job = job_crud.create(source_document_id=document.id)
@@ -221,9 +222,14 @@ class TestExecuteJob(DocTransformTestBase):
         """Test job execution produces correct content types for different formats."""
         document, project = test_document
         aws = self.setup_aws_s3()
-        self.create_s3_document_content(aws, project, document)
+        self.create_s3_document_content(aws, document)
 
-        format_extensions = TestDataProvider.get_content_type_test_cases()
+        format_extensions = [
+            ("markdown", "text/markdown", ".md"),
+            ("text", "text/plain", ".txt"),
+            ("html", "text/html", ".html"),
+            ("unknown", "text/plain", ".unknown"),  # Default fallback
+        ]
 
         for (
             target_format,
