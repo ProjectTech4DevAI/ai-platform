@@ -20,6 +20,8 @@ class CorrelationIdFilter(logging.Filter):
         record.correlation_id = correlation_id.get() or "N/A"
         return True
 
+# Suppress info logs from LiteLLM
+logging.getLogger("LiteLLM").setLevel(logging.WARNING)
 
 # Create root logger
 logger = logging.getLogger()
