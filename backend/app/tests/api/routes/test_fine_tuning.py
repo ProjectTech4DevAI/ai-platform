@@ -35,7 +35,7 @@ class TestCreateFineTuningJobAPI:
         user_api_key_header,
     ):
         document = get_document(db, "dalgo_sample.json")
-        print("document = ", document)
+
         for path in ["/tmp/train.jsonl", "/tmp/test.jsonl"]:
             with open(path, "w") as f:
                 f.write("{}")

@@ -1,57 +1,30 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from app.tests.utils.test_data import (
     create_test_finetuning_job_with_extra_fields,
     create_test_model_evaluation,
 )
-from app.models import ModelEvaluation
 
 
-@patch("app.api.routes.model_evaluation.ModelEvaluator")
-@patch("app.api.routes.model_evaluation.get_cloud_storage")
-@patch("app.api.routes.model_evaluation.get_openai_client")
-def test_evaluate_model_background_success(
-    mock_get_client,
-    mock_get_storage,
-    mock_evaluator_cls,
-    client,
-    db,
-    user_api_key_header,
-):
+@patch("app.api.routes.model_evaluation.run_model_evaluation")
+def test_evaluate_model(mock_run_eval, client, db, user_api_key_header):
     fine_tuned, _ = create_test_finetuning_job_with_extra_fields(db, [0.5])
     body = {"fine_tuning_ids": [fine_tuned[0].id]}
 
-    evaluator = MagicMock()
-    evaluator.run.return_value = {
-        "evaluation_score": 0.87,
-        "prediction_data_s3_object": "s3://bucket/preds.csv",
-    }
-    mock_evaluator_cls.return_value = evaluator
-
-    with patch("app.api.routes.model_evaluation.Session") as SessionMock:
-        SessionMock.return_value.__enter__.return_value = db
-        SessionMock.return_value.__exit__.return_value = None
-
-        resp = client.post(
-            "/api/v1/model_evaluation/evaluate_models/",
-            json=body,
-            headers=user_api_key_header,
-        )
-
+    resp = client.post(
+        "/api/v1/model_evaluation/evaluate_models/",
+        json=body,
+        headers=user_api_key_header,
+    )
     assert resp.status_code == 200, resp.text
 
-    payload = resp.json()
+    j = resp.json()
+    evals = j["data"]["data"]
+    assert len(evals) == 1
+    assert evals[0]["status"] == "pending"
 
-    eval_id = payload["data"]["data"][0]["id"]
-
-    ev = db.get(ModelEvaluation, eval_id)
-    assert ev is not None, "evaluation row should exist after background task"
-    db.refresh(ev)
-
-    assert ev.status == "completed"
-    assert ev.score == 0.87
-    assert ev.prediction_data_s3_object == "s3://bucket/preds.csv"
-    assert not ev.error_message
+    mock_run_eval.assert_called_once()
+    assert mock_run_eval.call_args[0][0] == evals[0]["id"]
 
 
 def test_evaluate_model_finetuning_not_found(client, user_api_key_header):
@@ -75,7 +48,7 @@ def test_top_model_by_doc(client, db, user_api_key_header):
     model_eval = model_evals[0]
 
     model_eval.score = {
-        "mcc": 0.85,
+        "mcc_score": 0.85,
     }
     db.flush()
 
@@ -88,7 +61,7 @@ def test_top_model_by_doc(client, db, user_api_key_header):
     json_data = response.json()
 
     assert json_data["data"]["score"] == {
-        "mcc": 0.85,
+        "mcc_score": 0.85,
     }
     assert json_data["data"]["model_name"] == model_eval.model_name
     assert json_data["data"]["document_id"] == str(model_eval.document_id)

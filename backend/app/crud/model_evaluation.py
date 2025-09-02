@@ -128,7 +128,7 @@ def fetch_top_model_by_doc_id(
 
     for model_eval in model_evals:
         if model_eval.score is not None:
-            mcc = model_eval.score.get("mcc", None)
+            mcc = model_eval.score.get("mcc_score", None)
             if mcc is not None and mcc > highest_mcc:
                 highest_mcc = mcc
                 top_model = model_eval

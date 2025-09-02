@@ -311,6 +311,7 @@ def refresh_fine_tune_status(
 def retrieve_jobs_by_document(
     document_id: UUID, session: SessionDep, current_user: CurrentUserOrgProject
 ):
+    storage = get_cloud_storage(session=session, project_id=current_user.project_id)
     project_id = current_user.project_id
     jobs = fetch_by_document_id(session, document_id, project_id)
     if not jobs:
@@ -321,4 +322,25 @@ def retrieve_jobs_by_document(
             status_code=404,
             detail="No fine-tuning jobs found for the given document ID",
         )
-    return APIResponse.success_response(jobs)
+    updated_jobs = []
+    for job in jobs:
+        train_url = (
+            storage.get_signed_url(job.train_data_s3_object)
+            if job.train_data_s3_object
+            else None
+        )
+        test_url = (
+            storage.get_signed_url(job.test_data_s3_object)
+            if job.test_data_s3_object
+            else None
+        )
+
+        updated_job = job.model_copy(
+            update={
+                "train_data_file_url": train_url,
+                "test_data_file_url": test_url,
+            }
+        )
+        updated_jobs.append(updated_job)
+
+    return APIResponse.success_response(updated_jobs)

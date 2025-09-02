@@ -33,6 +33,19 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/model_evaluation", tags=["model_evaluation"])
 
 
+def attach_prediction_file_url(model_obj, storage):
+    """
+    Given a model-like object and a storage client,
+    attach a signed prediction data file URL (if available).
+    """
+    s3_key = getattr(model_obj, "prediction_data_s3_object", None)
+    prediction_data_file_url = storage.get_signed_url(s3_key) if s3_key else None
+
+    return model_obj.model_copy(
+        update={"prediction_data_file_url": prediction_data_file_url}
+    )
+
+
 def run_model_evaluation(
     eval_id: int,
     current_user: CurrentUserOrgProject,
@@ -161,8 +174,19 @@ def evaluate_models(
 
         background_tasks.add_task(run_model_evaluation, model_eval.id, current_user)
 
+    response_data = [
+        {
+            "id": ev.id,
+            "fine_tuning_id": ev.fine_tuning_id,
+            "model_name": getattr(ev, "model_name", None),
+            "document_id": getattr(ev, "document_id", None),
+            "status": ev.status,
+        }
+        for ev in evals
+    ]
+
     return APIResponse.success_response(
-        {"message": "Model evaluation(s) started successfully", "data": evals}
+        {"message": "Model evaluation(s) started successfully", "data": response_data}
     )
 
 
@@ -188,12 +212,7 @@ def get_top_model_by_doc_id(
     top_model = fetch_top_model_by_doc_id(session, document_id, current_user.project_id)
     storage = get_cloud_storage(session=session, project_id=current_user.project_id)
 
-    s3_key = getattr(top_model, "prediction_data_s3_object", None)
-    prediction_data_file_url = storage.get_signed_url(s3_key) if s3_key else None
-
-    top_model = top_model.model_copy(
-        update={"prediction_data_file_url": prediction_data_file_url}
-    )
+    top_model = attach_prediction_file_url(top_model, storage)
 
     return APIResponse.success_response(top_model)
 
@@ -219,12 +238,8 @@ def get_evals_by_doc_id(
     evaluations = fetch_eval_by_doc_id(session, document_id, current_user.project_id)
     storage = get_cloud_storage(session=session, project_id=current_user.project_id)
 
-    for ev in evaluations:
-        s3_key = getattr(ev, "prediction_data_s3_object", None)
-        prediction_data_file_url = storage.get_signed_url(s3_key) if s3_key else None
+    updated_evaluations = [
+        attach_prediction_file_url(ev, storage) for ev in evaluations
+    ]
 
-        ev = ev.model_copy(
-            update={"prediction_data_file_url": prediction_data_file_url}
-        )
-
-    return APIResponse.success_response(evaluations)
+    return APIResponse.success_response(updated_evaluations)
