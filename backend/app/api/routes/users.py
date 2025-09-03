@@ -1,4 +1,4 @@
-import uuid
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends
@@ -26,6 +26,7 @@ from app.models import (
 from app.utils import generate_new_account_email, send_email
 from app.core.exception_handlers import HTTPException
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/users", tags=["users"])
 
 
@@ -49,6 +50,9 @@ def read_users(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
 )
 def create_user_endpoint(*, session: SessionDep, user_in: UserCreate) -> Any:
     if get_user_by_email(session=session, email=user_in.email):
+        logger.error(
+            f"[create_user_endpoint] Attempting to create user with existing email | email: {user_in.email}"
+        )
         raise HTTPException(
             status_code=400,
             detail="The user with this email already exists in the system.",
@@ -75,6 +79,9 @@ def update_user_me(
     if user_in.email:
         existing_user = get_user_by_email(session=session, email=user_in.email)
         if existing_user and existing_user.id != current_user.id:
+            logger.error(
+                f"[update_user_me] Attempting to update user with existing email | email: {user_in.email}, user_id: {current_user.id}"
+            )
             raise HTTPException(
                 status_code=409, detail="User with this email already exists"
             )
@@ -83,6 +90,7 @@ def update_user_me(
     session.add(current_user)
     session.commit()
     session.refresh(current_user)
+    logger.info(f"[update_user_me] User updated | user_id: {current_user.id}")
     return current_user
 
 
@@ -102,6 +110,7 @@ def update_password_me(
     current_user.hashed_password = get_password_hash(body.new_password)
     session.add(current_user)
     session.commit()
+    logger.info(f"[update_password_me] Password updated | user_id: {current_user.id}")
     return Message(message="Password updated successfully")
 
 
@@ -113,11 +122,15 @@ def read_user_me(current_user: CurrentUser) -> Any:
 @router.delete("/me", response_model=Message)
 def delete_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
     if current_user.is_superuser:
+        logger.error(
+            f"[delete_user_me] Attempting to delete superuser account by itself | user_id: {current_user.id}"
+        )
         raise HTTPException(
             status_code=403, detail="Super users are not allowed to delete themselves"
         )
     session.delete(current_user)
     session.commit()
+    logger.info(f"[delete_user_me] User deleted | user_id: {current_user.id}")
     return Message(message="User deleted successfully")
 
 
@@ -131,6 +144,9 @@ def register_user(session: SessionDep, user_in: UserRegister) -> Any:
     This endpoint allows the registration of a new user and is accessible only by a superuser.
     """
     if get_user_by_email(session=session, email=user_in.email):
+        logger.error(
+            f"[register_user] Attempting to create user with existing email | email: {user_in.email}"
+        )
         raise HTTPException(
             status_code=400,
             detail="The user with this email already exists in the system",
@@ -171,6 +187,7 @@ def update_user_endpoint(
 ) -> Any:
     db_user = session.get(User, user_id)
     if not db_user:
+        logger.error(f"[update_user_endpoint] User not found | user_id: {user_id}")
         raise HTTPException(
             status_code=404,
             detail="The user with this id does not exist in the system",
@@ -179,6 +196,9 @@ def update_user_endpoint(
     if user_in.email:
         existing_user = get_user_by_email(session=session, email=user_in.email)
         if existing_user and existing_user.id != user_id:
+            logger.error(
+                f"[update_user_endpoint] Attempting to update user with existing email | email: {user_in.email}, user_id: {user_id}"
+            )
             raise HTTPException(
                 status_code=409, detail="User with this email already exists"
             )
@@ -196,13 +216,18 @@ def delete_user(
 ) -> Message:
     user = session.get(User, user_id)
     if not user:
+        logger.error(f"[delete_user] User not found | user_id: {user_id}")
         raise HTTPException(status_code=404, detail="User not found")
 
     if user == current_user:
+        logger.error(
+            f"[delete_user] Attempting to delete self by superuser | user_id: {current_user.id}"
+        )
         raise HTTPException(
             status_code=403, detail="Super users are not allowed to delete themselves"
         )
 
     session.delete(user)
     session.commit()
+    logger.info(f"[delete_user] User deleted | user_id: {user.id}")
     return Message(message="User deleted successfully")
