@@ -37,7 +37,7 @@ def create_model_evaluation(
         "system_prompt": fine_tuning_job.system_prompt,
         "base_model": fine_tuning_job.base_model,
         "split_ratio": fine_tuning_job.split_ratio,
-        "model_name": fine_tuning_job.fine_tuned_model,
+        "fine_tuned_model": fine_tuning_job.fine_tuned_model,
         "document_id": fine_tuning_job.document_id,
         "test_data_s3_object": fine_tuning_job.test_data_s3_object,
         "project_id": project_id,

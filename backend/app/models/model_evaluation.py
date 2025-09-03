@@ -46,7 +46,7 @@ class ModelEvaluation(ModelEvaluationBase, table=True):
         foreign_key="document.id",
         nullable=False,
     )
-    model_name: str = Field(description="fine tuned model name from OpenAI")
+    fine_tuned_model: str = Field(description="fine tuned model name from OpenAI")
     test_data_s3_object: str = Field(
         description="S3 URI of the testing data stored in S3"
     )
@@ -97,7 +97,7 @@ class ModelEvaluationPublic(ModelEvaluationBase):
 
     id: int
     document_id: UUID
-    model_name: str
+    fine_tuned_model: str
     split_ratio: float
     base_model: str
     prediction_data_file_url: str | None = None

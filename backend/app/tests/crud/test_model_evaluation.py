@@ -35,7 +35,7 @@ def test_create_model_evaluation(db: Session):
         fine_tuning_id=fine_tune.id,
         system_prompt=fine_tune.system_prompt,
         base_model=fine_tune.base_model,
-        model_name=fine_tune.fine_tuned_model,
+        fine_tuned_model=fine_tune.fine_tuned_model,
         document_id=fine_tune.document_id,
         test_data_s3_object=fine_tune.test_data_s3_object,
         status="pending",
@@ -51,7 +51,7 @@ def test_create_model_evaluation(db: Session):
     assert created_eval.id is not None
     assert created_eval.status == "pending"
     assert created_eval.document_id == fine_tune.document_id
-    assert created_eval.model_name == fine_tune.fine_tuned_model
+    assert created_eval.fine_tuned_model == fine_tune.fine_tuned_model
     assert created_eval.test_data_s3_object == fine_tune.test_data_s3_object
 
 

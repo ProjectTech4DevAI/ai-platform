@@ -25,13 +25,13 @@ class ModelEvaluator:
 
     def __init__(
         self,
-        model_name: str,
+        fine_tuned_model: str,
         test_data_s3_object: str,
         storage: AmazonCloudStorage,
         system_prompt: str,
         client: OpenAI,
     ):
-        self.model_name = model_name
+        self.fine_tuned_model = fine_tuned_model
         self.test_data_s3_object = test_data_s3_object
         self.storage = storage
         self.system_instruction = system_prompt
@@ -41,7 +41,7 @@ class ModelEvaluator:
         self.y_true: list[str] = []
         self.prompts: list[str] = []
 
-        logger.info(f"ModelEvaluator initialized with model: {model_name}")
+        logger.info(f"ModelEvaluator initialized with model: {fine_tuned_model}")
 
     def load_labels_and_prompts(self) -> None:
         """
@@ -133,7 +133,7 @@ class ModelEvaluator:
 
                 try:
                     response = self.client.responses.create(
-                        model=self.model_name,
+                        model=self.fine_tuned_model,
                         instructions=self.system_instruction,
                         input=prompt,
                     )
@@ -181,7 +181,7 @@ class ModelEvaluator:
         )
 
         unique_id = uuid.uuid4().hex
-        filename = f"predictions_{self.model_name}_{unique_id}.csv"
+        filename = f"predictions_{self.fine_tuned_model}_{unique_id}.csv"
         prediction_data_s3_object = DataPreprocessor.upload_csv_to_s3(
             self.storage, prediction_data, filename
         )

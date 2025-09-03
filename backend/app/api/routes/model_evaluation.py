@@ -70,7 +70,7 @@ def run_model_evaluation(
             )
 
             evaluator = ModelEvaluator(
-                model_name=model_eval.model_name,
+                fine_tuned_model=model_eval.fine_tuned_model,
                 test_data_s3_object=model_eval.test_data_s3_object,
                 system_prompt=model_eval.system_prompt,
                 client=client,
@@ -178,7 +178,7 @@ def evaluate_models(
         {
             "id": ev.id,
             "fine_tuning_id": ev.fine_tuning_id,
-            "model_name": getattr(ev, "model_name", None),
+            "fine_tuned_model": getattr(ev, "fine_tuned_model", None),
             "document_id": getattr(ev, "document_id", None),
             "status": ev.status,
         }

@@ -87,7 +87,9 @@ def upgrade():
         sa.Column("fine_tuning_id", sa.Integer(), nullable=False),
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("document_id", sa.Uuid(), nullable=False),
-        sa.Column("model_name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column(
+            "fine_tuned_model", sqlmodel.sql.sqltypes.AutoString(), nullable=False
+        ),
         sa.Column(
             "test_data_s3_object", sqlmodel.sql.sqltypes.AutoString(), nullable=False
         ),

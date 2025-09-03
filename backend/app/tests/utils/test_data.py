@@ -184,7 +184,7 @@ def create_test_model_evaluation(db) -> list[ModelEvaluation]:
             fine_tuning_id=fine_tune.id,
             system_prompt=fine_tune.system_prompt,
             base_model=fine_tune.base_model,
-            model_name=fine_tune.fine_tuned_model,
+            fine_tuned_model=fine_tune.fine_tuned_model,
             document_id=fine_tune.document_id,
             test_data_s3_object=fine_tune.test_data_s3_object,
         )
