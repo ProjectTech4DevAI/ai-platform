@@ -144,7 +144,7 @@ def process_response(
         name="generate_response_async",
         input={"question": request.question, "assistant_id": request.assistant_id},
         metadata={"callback_url": request.callback_url},
-        tags=[request.assistant_id]
+        tags=[request.assistant_id],
     )
 
     tracer.start_generation(
