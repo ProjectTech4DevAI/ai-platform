@@ -95,6 +95,7 @@ def run_model_evaluation(
             )
 
         except Exception as e:
+            error_msg = str(e)
             logger.error(
                 f"[run_model_evaluation] Failed | eval_id={eval_id}, project_id={current_user.project_id}: {e}"
             )
@@ -105,7 +106,8 @@ def run_model_evaluation(
                 project_id=current_user.project_id,
                 update=ModelEvaluationUpdate(
                     status=ModelEvaluationStatus.failed,
-                    error_message="failed during background job processing:" + str(e),
+                    error_message="failed during background job processing:"
+                    + error_msg,
                 ),
             )
 
@@ -141,20 +143,20 @@ def evaluate_models(
         )
         raise HTTPException(status_code=400, detail="No fine-tuned job IDs provided")
 
-    evals: list[ModelEvaluationPublic] = []
+    evaluations: list[ModelEvaluationPublic] = []
 
     for job_id in request.fine_tuning_ids:
         fine_tuning_job = fetch_by_id(session, job_id, current_user.project_id)
-        active_evals = fetch_active_model_evals(
+        active_evaluations = fetch_active_model_evals(
             session, job_id, current_user.project_id
         )
 
-        if active_evals:
+        if active_evaluations:
             logger.info(
                 f"[evaluate_model] Skipping creation for {job_id}. Active evaluation exists, project_id:{current_user.project_id}"
             )
-            evals.extend(
-                ModelEvaluationPublic.model_validate(ev) for ev in active_evals
+            evaluations.extend(
+                ModelEvaluationPublic.model_validate(ev) for ev in active_evaluations
             )
             continue
 
@@ -166,7 +168,7 @@ def evaluate_models(
             status=ModelEvaluationStatus.pending,
         )
 
-        evals.append(ModelEvaluationPublic.model_validate(model_eval))
+        evaluations.append(ModelEvaluationPublic.model_validate(model_eval))
 
         logger.info(
             f"[evaluate_model] Created evaluation for fine_tuning_id {job_id} with eval ID={model_eval.id}, project_id:{current_user.project_id}"
@@ -182,7 +184,7 @@ def evaluate_models(
             "document_id": getattr(ev, "document_id", None),
             "status": ev.status,
         }
-        for ev in evals
+        for ev in evaluations
     ]
 
     return APIResponse.success_response(
@@ -222,7 +224,7 @@ def get_top_model_by_doc_id(
     response_model=APIResponse[list[ModelEvaluationPublic]],
     response_model_exclude_none=True,
 )
-def get_evals_by_doc_id(
+def get_evaluations_by_doc_id(
     document_id: UUID,
     session: SessionDep,
     current_user: CurrentUserOrgProject,
@@ -231,7 +233,7 @@ def get_evals_by_doc_id(
     Return all model evaluations for the given document_id within the current project.
     """
     logger.info(
-        f"[get_evals_by_doc_id] Fetching evaluations for document_id={document_id}, "
+        f"[get_evaluations_by_doc_id] Fetching evaluations for document_id={document_id}, "
         f"project_id={current_user.project_id}"
     )
 

@@ -159,6 +159,7 @@ def process_fine_tuning_job(
             )
 
         except Exception as e:
+            error_msg = str(e)
             logger.error(
                 f"[process_fine_tuning_job] Background job failure: {e} | "
                 f"job_id={job_id}, project_id={project_id}|"
@@ -169,7 +170,7 @@ def process_fine_tuning_job(
                 update=FineTuningUpdate(
                     status=FineTuningStatus.failed,
                     error_message="Error while processing the background job : "
-                    + str(e),
+                    + error_msg,
                 ),
             )
 
