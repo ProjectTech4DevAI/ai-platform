@@ -59,8 +59,7 @@ class TestDocumentRoutePermanentRemove:
         aws = AmazonCloudStorageClient()
         aws.create()
 
-        # Setup document in DB and S3
-        store = DocumentStore(db)
+        store = DocumentStore(db=db, project_id=crawler.user_api_key.project_id)
         document = store.put()
         s3_key = Path(urlparse(document.object_store_url).path).relative_to("/")
         aws.client.put_object(
@@ -94,7 +93,7 @@ class TestDocumentRoutePermanentRemove:
     ):
         DocumentStore.clear(db)
 
-        maker = DocumentMaker(db)
+        maker = DocumentMaker(project_id=crawler.user_api_key.project_id, session=db)
         response = crawler.delete(route.append(next(maker), suffix="permanent"))
 
         assert response.is_error

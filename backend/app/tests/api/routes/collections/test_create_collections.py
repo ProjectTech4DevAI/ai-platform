@@ -6,6 +6,7 @@ from sqlmodel import Session
 from fastapi.testclient import TestClient
 from unittest.mock import patch
 
+from app.models import APIKeyPublic
 from app.core.config import settings
 from app.tests.utils.document import DocumentStore
 from app.tests.utils.utils import get_user_from_api_key
@@ -35,7 +36,7 @@ def mock_s3(monkeypatch):
         def head_object(self, Bucket, Key):
             return {"ContentLength": 1024}
 
-    monkeypatch.setattr("app.api.routes.collections.AmazonCloudStorage", FakeStorage)
+    monkeypatch.setattr("app.api.routes.collections.get_cloud_storage", FakeStorage)
     monkeypatch.setattr("boto3.client", lambda service: FakeS3Client())
 
 
@@ -48,9 +49,9 @@ class TestCollectionRouteCreate:
         mock_get_openai_client,
         client: TestClient,
         db: Session,
-        user_api_key_header,
+        user_api_key: APIKeyPublic,
     ):
-        store = DocumentStore(db)
+        store = DocumentStore(db, project_id=user_api_key.project_id)
         documents = store.fill(self._n_documents)
         doc_ids = [str(doc.id) for doc in documents]
 
@@ -62,7 +63,7 @@ class TestCollectionRouteCreate:
             "temperature": 0.1,
         }
 
-        headers = user_api_key_header
+        headers = {"X-API-KEY": user_api_key.key}
 
         mock_openai_client = get_mock_openai_client_with_vector_store()
         mock_get_openai_client.return_value = mock_openai_client

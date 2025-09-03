@@ -35,8 +35,7 @@ def create_project(*, session: Session, project_create: ProjectCreate) -> Projec
 
 
 def get_project_by_id(*, session: Session, project_id: int) -> Optional[Project]:
-    statement = select(Project).where(Project.id == project_id)
-    return session.exec(statement).first()
+    return session.get(Project, project_id)
 
 
 def get_project_by_name(
