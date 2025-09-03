@@ -123,7 +123,7 @@ def read_user_me(current_user: CurrentUser) -> Any:
 def delete_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
     if current_user.is_superuser:
         logger.error(
-            f"[delete_user_me] Attempt to delete superuser account by itself | user_id: {current_user.id}"
+            f"[delete_user_me] Attempting to delete superuser account by itself | user_id: {current_user.id}"
         )
         raise HTTPException(
             status_code=403, detail="Super users are not allowed to delete themselves"
@@ -145,7 +145,7 @@ def register_user(session: SessionDep, user_in: UserRegister) -> Any:
     """
     if get_user_by_email(session=session, email=user_in.email):
         logger.error(
-            f"[register_user] Attempt to create user with existing email | email: {user_in.email}"
+            f"[register_user] Attempting to create user with existing email | email: {user_in.email}"
         )
         raise HTTPException(
             status_code=400,
@@ -197,7 +197,7 @@ def update_user_endpoint(
         existing_user = get_user_by_email(session=session, email=user_in.email)
         if existing_user and existing_user.id != user_id:
             logger.error(
-                f"[update_user_endpoint] Attempt to update user with existing email | email: {user_in.email}, user_id: {user_id}"
+                f"[update_user_endpoint] Attempting to update user with existing email | email: {user_in.email}, user_id: {user_id}"
             )
             raise HTTPException(
                 status_code=409, detail="User with this email already exists"
@@ -221,7 +221,7 @@ def delete_user(
 
     if user == current_user:
         logger.error(
-            f"[delete_user] Attempt to delete self by superuser | user_id: {current_user.id}"
+            f"[delete_user] Attempting to delete self by superuser | user_id: {current_user.id}"
         )
         raise HTTPException(
             status_code=403, detail="Super users are not allowed to delete themselves"
