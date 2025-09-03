@@ -37,6 +37,8 @@ modelevaluation_status_enum = postgresql.ENUM(
 
 
 def upgrade():
+    finetuning_status_enum.create(op.get_bind(), checkfirst=True)
+    modelevaluation_status_enum.create(op.get_bind(), checkfirst=True)
     op.create_table(
         "fine_tuning",
         sa.Column("base_model", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
