@@ -50,3 +50,8 @@ class DocTransformationJobCrud:
     def read_many(self, skip: int = 0, limit: int = 100) -> List[DocTransformationJob]:
         statement = select(DocTransformationJob).offset(skip).limit(limit)
         return self.session.exec(statement).all()
+        return job
+
+    def read_many(self, skip: int = 0, limit: int = 100) -> List[DocTransformationJob]:
+        statement = select(DocTransformationJob).offset(skip).limit(limit)
+        return self.session.exec(statement).all()

@@ -24,40 +24,37 @@ def start_job(
     target_format: str,
 ) -> UUID:
     """
-    Start a document transformation job using Celery.
+    Start a document transformation job using Celery (low priority queue).
+    Returns the job ID.
     """
     # Extract user_id from current_user
     user_id = current_user.id
     
-    # Create the job record
+    # Create the job record and commit immediately
     job_crud = DocTransformationJobCrud(db)
     job = job_crud.create(source_document_id=source_document_id)
     
     # Import here to avoid circular imports
-    from app.celery.tasks.generic_task import execute_job_task
+    from app.celery.utils import start_low_priority_job
     
-    # Start the generic Celery task
-    task = execute_job_task.delay(
-        job_id=str(job.id),
+    # Start the low priority Celery task, passing job_id
+    task_id = start_low_priority_job(
         function_path="app.core.doctransform.service.execute_job",
         user_id=user_id,
+        job_id=str(job.id),
         transformer_name=transformer_name,
         target_format=target_format,
     )
     
-    # Update job with task ID
-    job.celery_task_id = task.id
-    db.add(job)
-    db.commit()
-    
-    logger.info(f"Started transformation job {job.id} with Celery task {task.id}")
+    logger.info(f"Started transformation job {job.id} with Celery task {task_id}")
     return job.id
 
 
 def execute_job(
-    job_id: UUID,
     user_id: int,
-    celery_task_id: str = None,
+    job_id: str,
+    task_id: str,
+    task_instance=None,
     transformer_name: str = None,
     target_format: str = None,
 ) -> dict:
@@ -65,29 +62,36 @@ def execute_job(
     Execute the actual document transformation.
     Handles all DB updates and error handling.
     Creates its own DB session.
-    
-    Note: transformer_name and target_format are now passed as kwargs
     """
+    # Convert job_id to UUID for job lookup
+    job_uuid = UUID(job_id)
+    
     engine = get_engine()
     with Session(engine) as session:
         job_crud = DocTransformationJobCrud(session)
-        job = job_crud.read_one(job_id)
+        job = job_crud.read_one(job_uuid)
 
-        # Update job status to processing and store celery task ID
+        # Update job status to processing and store current celery task ID
         job_crud.update_status(
-            job_id=job_id,
+            job_id=job_uuid,
             status=TransformationStatus.PROCESSING,
         )
-        if celery_task_id:
-            job.celery_task_id = celery_task_id
-            session.add(job)
-            session.commit()
+        job.celery_task_id = task_id
+        session.add(job)
+        session.commit()
 
         # Get the source document
         doc_crud = DocumentCrud(session, user_id)
         source_document = doc_crud.read_one(job.source_document_id)
 
-        logger.info(f"Executing transformation job {job_id} for document {source_document.id}")
+        logger.info(f"Executing transformation job {job_id} (task {task_id}) for document {source_document.id}")
+
+        # Optional: Update progress using task_instance
+        if task_instance:
+            task_instance.update_state(
+                state="PROGRESS",
+                meta={"status": "Processing document transformation..."}
+            )
 
         # Create storage client
         from app.models import User
@@ -140,20 +144,20 @@ def execute_job(
 
             # Update job status to completed
             job_crud.update_status(
-                job_id=job_id,
+                job_id=job_uuid,
                 status=TransformationStatus.COMPLETED,
                 transformed_document_id=saved_document.id,
             )
 
-            logger.info(f"Transformation job {job_id} completed, created document {saved_document.id}")
+            logger.info(f"Transformation job {job_id} (task {task_id}) completed, created document {saved_document.id}")
             return {"status": "completed", "transformed_document_id": str(saved_document.id)}
 
         except Exception as exc:
             error_message = str(exc)
-            logger.error(f"Transformation job {job_id} failed: {error_message}", exc_info=True)
+            logger.error(f"Transformation job {job_id} (task {task_id}) failed: {error_message}", exc_info=True)
             # Update job status to failed
             job_crud.update_status(
-                job_id=job_id,
+                job_id=job_uuid,
                 status=TransformationStatus.FAILED,
                 error_message=error_message,
             )
