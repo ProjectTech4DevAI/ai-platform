@@ -106,7 +106,6 @@ def sync_assistant(
     Insert an assistant into the database by converting OpenAI Assistant to local Assistant model.
     """
     assistant_id = openai_assistant.id
-
     existing_assistant = get_assistant_by_id(session, assistant_id, project_id)
     if existing_assistant:
         logger.warning(
@@ -148,7 +147,9 @@ def sync_assistant(
         instructions=openai_assistant.instructions,
         model=openai_assistant.model,
         vector_store_ids=vector_store_ids,
-        temperature=openai_assistant.temperature or 0.1,
+        temperature=openai_assistant.temperature
+        if openai_assistant.temperature is not None
+        else 0,
         max_num_results=max_num_results,
         project_id=project_id,
         organization_id=organization_id,
