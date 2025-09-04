@@ -1,5 +1,4 @@
 from celery import Celery
-import os
 from kombu import Queue, Exchange
 from app.core.config import settings
 
@@ -17,7 +16,7 @@ celery_app = Celery(
 # Define exchanges and queues with priority
 default_exchange = Exchange('default', type='direct')
 
-# Celery configuration
+# Celery configuration using environment variables
 celery_app.conf.update(
     # Queue configuration with priority support
     task_queues=(
@@ -41,50 +40,48 @@ celery_app.conf.update(
     
     # Enable priority support
     task_inherit_parent_priority=True,
-    worker_prefetch_multiplier=1,  # Required for priority queues
+    worker_prefetch_multiplier=settings.CELERY_WORKER_PREFETCH_MULTIPLIER,
     
-    # Worker configuration
-    worker_concurrency=os.cpu_count(),
-    worker_max_tasks_per_child=1000,
+    # Worker configuration from environment
+    worker_concurrency=settings.CELERY_WORKER_CONCURRENCY,
+    worker_max_tasks_per_child=settings.CELERY_WORKER_MAX_TASKS_PER_CHILD,
+    worker_max_memory_per_child=settings.CELERY_WORKER_MAX_MEMORY_PER_CHILD,
     
     # Security
     worker_hijack_root_logger=False,
     worker_log_color=False,
     
-    # Task execution
-    task_soft_time_limit=300,          # Soft timeout (5 min)
-    task_time_limit=600,               # Hard timeout (10 min)
-    task_reject_on_worker_lost=True,   # Reject tasks if worker dies
-    task_ignore_result=False,          # Store task results
-    task_acks_late=True,               # Acknowledge task after completion
+    # Task execution from environment
+    task_soft_time_limit=settings.CELERY_TASK_SOFT_TIME_LIMIT,
+    task_time_limit=settings.CELERY_TASK_TIME_LIMIT,
+    task_reject_on_worker_lost=True,
+    task_ignore_result=False,
+    task_acks_late=True,
     
-    # Retry configuration
-    task_default_retry_delay=60,       # Default retry delay
-    task_max_retries=3,                # Max retries per task
+    # Retry configuration from environment
+    task_default_retry_delay=settings.CELERY_TASK_DEFAULT_RETRY_DELAY,
+    task_max_retries=settings.CELERY_TASK_MAX_RETRIES,
     
-    # Task configuration
+    # Task configuration from environment
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
-    timezone="UTC",
-    enable_utc=True,
+    timezone=settings.CELERY_TIMEZONE,
+    enable_utc=settings.CELERY_ENABLE_UTC,
     task_track_started=True,
     task_always_eager=False,
     
-    # Result backend settings
-    result_expires=3600,               # Results expire after 1 hour
-    result_compression='gzip',         # Compress results
+    # Result backend settings from environment
+    result_expires=settings.CELERY_RESULT_EXPIRES,
+    result_compression='gzip',
     
     # Monitoring
-    worker_send_task_events=True,      # Enable task events
-    task_send_sent_event=True,         # Send task sent events
+    worker_send_task_events=True,
+    task_send_sent_event=True,
     
-    # Memory management
-    worker_max_memory_per_child=200000,  # 200MB per worker
-    
-    # Connection settings
+    # Connection settings from environment
     broker_connection_retry_on_startup=True,
-    broker_pool_limit=10,
+    broker_pool_limit=settings.CELERY_BROKER_POOL_LIMIT,
     
     # Beat configuration (for future cron jobs)
     beat_schedule={

@@ -103,6 +103,20 @@ class Settings(BaseSettings):
 
     LOG_DIR: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
 
+    # Celery Configuration
+    CELERY_WORKER_CONCURRENCY: int | None = None
+    CELERY_WORKER_MAX_TASKS_PER_CHILD: int = 1000
+    CELERY_WORKER_MAX_MEMORY_PER_CHILD: int = 200000
+    CELERY_TASK_SOFT_TIME_LIMIT: int = 300
+    CELERY_TASK_TIME_LIMIT: int = 600
+    CELERY_TASK_MAX_RETRIES: int = 3
+    CELERY_TASK_DEFAULT_RETRY_DELAY: int = 60
+    CELERY_RESULT_EXPIRES: int = 3600
+    CELERY_BROKER_POOL_LIMIT: int = 10
+    CELERY_WORKER_PREFETCH_MULTIPLIER: int = 1
+    CELERY_ENABLE_UTC: bool = True
+    CELERY_TIMEZONE: str = "UTC"
+
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
             message = (

@@ -7,6 +7,7 @@ import sys
 import multiprocessing
 from celery.bin import worker
 from app.celery.celery_app import celery_app
+from app.core.config import settings
 
 def start_worker(
     queues: str = "default,long_running,cron",
@@ -18,11 +19,11 @@ def start_worker(
     
     Args:
         queues: Comma-separated list of queues to consume
-        concurrency: Number of worker processes (defaults to CPU count)
+        concurrency: Number of worker processes (defaults to settings or CPU count)
         loglevel: Logging level
     """
     if concurrency is None:
-        concurrency = multiprocessing.cpu_count()
+        concurrency = settings.CELERY_WORKER_CONCURRENCY or multiprocessing.cpu_count()
     
     print(f"Starting Celery worker with {concurrency} processes")
     print(f"Consuming queues: {queues}")
@@ -52,7 +53,7 @@ if __name__ == "__main__":
         "--concurrency",
         type=int,
         default=None,
-        help="Number of worker processes (defaults to CPU count)"
+        help="Number of worker processes (defaults to config or CPU count)"
     )
     parser.add_argument(
         "--loglevel",
@@ -63,4 +64,3 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     start_worker(args.queues, args.concurrency, args.loglevel)
-    celery_app.start()
