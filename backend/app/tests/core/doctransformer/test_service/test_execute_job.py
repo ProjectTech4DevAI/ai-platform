@@ -15,7 +15,10 @@ from app.core.doctransform.registry import TransformationError
 from app.core.doctransform.service import execute_job
 from app.core.exception_handlers import HTTPException
 from app.models import Document, Project, TransformationStatus
-from app.tests.core.doctransformer.test_service.utils import DocTransformTestBase
+from app.tests.core.doctransformer.test_service.utils import (
+    DocTransformTestBase,
+    MockTestTransformer,
+)
 
 
 class TestExecuteJob(DocTransformTestBase):
@@ -51,7 +54,11 @@ class TestExecuteJob(DocTransformTestBase):
         db.commit()
 
         # Mock the Session to use our existing database session
-        with patch("app.core.doctransform.service.Session") as mock_session_class:
+        with patch(
+            "app.core.doctransform.service.Session"
+        ) as mock_session_class, patch(
+            "app.core.doctransform.registry.TRANSFORMERS", {"test": MockTestTransformer}
+        ):
             mock_session_class.return_value.__enter__.return_value = db
             mock_session_class.return_value.__exit__.return_value = None
 
@@ -93,7 +100,11 @@ class TestExecuteJob(DocTransformTestBase):
         self.setup_aws_s3()
         nonexistent_job_id = uuid4()
 
-        with patch("app.core.doctransform.service.Session") as mock_session_class:
+        with patch(
+            "app.core.doctransform.service.Session"
+        ) as mock_session_class, patch(
+            "app.core.doctransform.registry.TRANSFORMERS", {"test": MockTestTransformer}
+        ):
             mock_session_class.return_value.__enter__.return_value = db
             mock_session_class.return_value.__exit__.return_value = None
 
@@ -123,7 +134,11 @@ class TestExecuteJob(DocTransformTestBase):
         job = job_crud.create(source_document_id=document.id)
         db.commit()
 
-        with patch("app.core.doctransform.service.Session") as mock_session_class:
+        with patch(
+            "app.core.doctransform.service.Session"
+        ) as mock_session_class, patch(
+            "app.core.doctransform.registry.TRANSFORMERS", {"test": MockTestTransformer}
+        ):
             mock_session_class.return_value.__enter__.return_value = db
             mock_session_class.return_value.__exit__.return_value = None
 
@@ -163,7 +178,9 @@ class TestExecuteJob(DocTransformTestBase):
             "app.core.doctransform.service.Session"
         ) as mock_session_class, patch(
             "app.core.doctransform.service.convert_document"
-        ) as mock_convert:
+        ) as mock_convert, patch(
+            "app.core.doctransform.registry.TRANSFORMERS", {"test": MockTestTransformer}
+        ):
             mock_session_class.return_value.__enter__.return_value = db
             mock_session_class.return_value.__exit__.return_value = None
             mock_convert.side_effect = TransformationError("Mock transformation error")
@@ -198,7 +215,11 @@ class TestExecuteJob(DocTransformTestBase):
         initial_status = job.status
         db.commit()
 
-        with patch("app.core.doctransform.service.Session") as mock_session_class:
+        with patch(
+            "app.core.doctransform.service.Session"
+        ) as mock_session_class, patch(
+            "app.core.doctransform.registry.TRANSFORMERS", {"test": MockTestTransformer}
+        ):
             mock_session_class.return_value.__enter__.return_value = db
             mock_session_class.return_value.__exit__.return_value = None
 
@@ -240,7 +261,12 @@ class TestExecuteJob(DocTransformTestBase):
             job = job_crud.create(source_document_id=document.id)
             db.commit()
 
-            with patch("app.core.doctransform.service.Session") as mock_session_class:
+            with patch(
+                "app.core.doctransform.service.Session"
+            ) as mock_session_class, patch(
+                "app.core.doctransform.registry.TRANSFORMERS",
+                {"test": MockTestTransformer},
+            ):
                 mock_session_class.return_value.__enter__.return_value = db
                 mock_session_class.return_value.__exit__.return_value = None
 

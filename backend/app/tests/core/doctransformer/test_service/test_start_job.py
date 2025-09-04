@@ -9,6 +9,7 @@ from fastapi import BackgroundTasks
 from sqlmodel import Session
 
 from app.core.doctransform.service import execute_job, start_job
+from app.core.doctransform.registry import TRANSFORMERS
 from app.core.exception_handlers import HTTPException
 from app.models import (
     Document,
@@ -17,7 +18,10 @@ from app.models import (
     TransformationStatus,
     UserProjectOrg,
 )
-from app.tests.core.doctransformer.test_service.utils import DocTransformTestBase
+from app.tests.core.doctransformer.test_service.utils import (
+    DocTransformTestBase,
+    MockTestTransformer,
+)
 
 
 class TestStartJob(DocTransformTestBase):
@@ -111,8 +115,12 @@ class TestStartJob(DocTransformTestBase):
         current_user: UserProjectOrg,
         test_document: Tuple[Document, Project],
         background_tasks: BackgroundTasks,
+        monkeypatch,
     ) -> None:
         """Test job creation with different target formats."""
+        # Add the test transformer to the registry for this test
+        monkeypatch.setitem(TRANSFORMERS, "test", MockTestTransformer)
+
         document, _ = test_document
         formats = ["markdown", "text", "html"]
 
@@ -141,8 +149,12 @@ class TestStartJob(DocTransformTestBase):
         test_document: Tuple[Document, Project],
         background_tasks: BackgroundTasks,
         transformer_name: str,
+        monkeypatch,
     ) -> None:
         """Test job creation with different transformer names."""
+        # Add the test transformer to the registry for this test
+        monkeypatch.setitem(TRANSFORMERS, "test", MockTestTransformer)
+
         document, _ = test_document
 
         job_id = start_job(

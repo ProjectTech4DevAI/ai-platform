@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Type, Dict, Set, Tuple, Optional
 
 from app.core.doctransform.transformer import Transformer
-from app.core.doctransform.test_transformer import TestTransformer
 from app.core.doctransform.zerox_transformer import ZeroxTransformer
 
 
@@ -13,7 +12,6 @@ class TransformationError(Exception):
 # Map transformer names to their classes
 TRANSFORMERS: Dict[str, Type[Transformer]] = {
     "default": ZeroxTransformer,
-    "test": TestTransformer,
     "zerox": ZeroxTransformer,
 }
 

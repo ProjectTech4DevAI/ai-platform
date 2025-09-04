@@ -18,7 +18,10 @@ from app.models import (
     TransformationStatus,
     UserProjectOrg,
 )
-from app.tests.core.doctransformer.test_service.utils import DocTransformTestBase
+from app.tests.core.doctransformer.test_service.utils import (
+    DocTransformTestBase,
+    MockTestTransformer,
+)
 
 
 class TestExecuteJobIntegration(DocTransformTestBase):
@@ -57,7 +60,11 @@ class TestExecuteJobIntegration(DocTransformTestBase):
         assert job.status == TransformationStatus.PENDING
 
         # Execute the job manually (simulating background execution)
-        with patch("app.core.doctransform.service.Session") as mock_session_class:
+        with patch(
+            "app.core.doctransform.service.Session"
+        ) as mock_session_class, patch(
+            "app.core.doctransform.registry.TRANSFORMERS", {"test": MockTestTransformer}
+        ):
             mock_session_class.return_value.__enter__.return_value = db
             mock_session_class.return_value.__exit__.return_value = None
 
@@ -99,7 +106,12 @@ class TestExecuteJobIntegration(DocTransformTestBase):
 
         # Execute all jobs
         for job in jobs:
-            with patch("app.core.doctransform.service.Session") as mock_session_class:
+            with patch(
+                "app.core.doctransform.service.Session"
+            ) as mock_session_class, patch(
+                "app.core.doctransform.registry.TRANSFORMERS",
+                {"test": MockTestTransformer},
+            ):
                 mock_session_class.return_value.__enter__.return_value = db
                 mock_session_class.return_value.__exit__.return_value = None
 
@@ -138,7 +150,12 @@ class TestExecuteJobIntegration(DocTransformTestBase):
 
         # Execute all jobs
         for job, target_format in jobs:
-            with patch("app.core.doctransform.service.Session") as mock_session_class:
+            with patch(
+                "app.core.doctransform.service.Session"
+            ) as mock_session_class, patch(
+                "app.core.doctransform.registry.TRANSFORMERS",
+                {"test": MockTestTransformer},
+            ):
                 mock_session_class.return_value.__enter__.return_value = db
                 mock_session_class.return_value.__exit__.return_value = None
 

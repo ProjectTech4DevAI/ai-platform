@@ -11,7 +11,10 @@ from sqlmodel import Session
 
 from app.crud import DocTransformationJobCrud
 from app.models import Document, Project, TransformationStatus
-from app.tests.core.doctransformer.test_service.utils import DocTransformTestBase
+from app.tests.core.doctransformer.test_service.utils import (
+    DocTransformTestBase,
+    MockTestTransformer,
+)
 from app.tests.core.doctransformer.test_service.utils import (
     create_failing_convert_document,
     create_persistent_failing_convert_document,
@@ -43,7 +46,9 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
             "app.core.doctransform.service.Session"
         ) as mock_session_class, patch(
             "app.core.doctransform.service.get_cloud_storage"
-        ) as mock_storage_class:
+        ) as mock_storage_class, patch(
+            "app.core.doctransform.registry.TRANSFORMERS", {"test": MockTestTransformer}
+        ):
             mock_session_class.return_value.__enter__.return_value = db
             mock_session_class.return_value.__exit__.return_value = None
 
@@ -90,6 +95,8 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
         ) as mock_session_class, patch(
             "app.core.doctransform.service.convert_document",
             side_effect=failing_convert_document,
+        ), patch(
+            "app.core.doctransform.registry.TRANSFORMERS", {"test": MockTestTransformer}
         ):
             mock_session_class.return_value.__enter__.return_value = db
             mock_session_class.return_value.__exit__.return_value = None
@@ -132,6 +139,8 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
         ) as mock_session_class, patch(
             "app.core.doctransform.service.convert_document",
             side_effect=persistent_failing_convert_document,
+        ), patch(
+            "app.core.doctransform.registry.TRANSFORMERS", {"test": MockTestTransformer}
         ):
             mock_session_class.return_value.__enter__.return_value = db
             mock_session_class.return_value.__exit__.return_value = None
@@ -166,7 +175,11 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
         job = job_crud.create(source_document_id=document.id)
         db.commit()
 
-        with patch("app.core.doctransform.service.Session") as mock_session_class:
+        with patch(
+            "app.core.doctransform.service.Session"
+        ) as mock_session_class, patch(
+            "app.core.doctransform.registry.TRANSFORMERS", {"test": MockTestTransformer}
+        ):
             mock_session_class.return_value.__enter__.return_value = db
             mock_session_class.return_value.__exit__.return_value = None
 

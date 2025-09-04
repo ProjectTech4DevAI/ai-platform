@@ -4,11 +4,27 @@ Base test class for DocTransform service tests.
 This module contains DocTransformTestBase with common AWS S3 setup and utilities.
 All fixtures are automatically available from conftest.py in the same directory.
 """
+from pathlib import Path
 from urllib.parse import urlparse
 
 from app.core.cloud import AmazonCloudStorageClient
 from app.core.config import settings
+from app.core.doctransform.transformer import Transformer
 from app.models import Document
+
+
+class MockTestTransformer(Transformer):
+    """
+    A mock transformer for testing that returns a hardcoded lorem ipsum string.
+    """
+
+    def transform(self, input_path: Path, output_path: Path) -> Path:
+        content = (
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit, "
+            "sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+        )
+        output_path.write_text(content, encoding="utf-8")
+        return output_path
 
 
 class DocTransformTestBase:
