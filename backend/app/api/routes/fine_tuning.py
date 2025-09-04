@@ -4,7 +4,6 @@ import time
 from uuid import UUID
 
 import openai
-from openai import OpenAI
 from sqlmodel import Session
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 
@@ -14,7 +13,7 @@ from app.models import (
     FineTuningUpdate,
     FineTuningStatus,
 )
-from app.core.cloud import get_cloud_storage, storage
+from app.core.cloud import get_cloud_storage
 from app.crud.document import DocumentCrud
 from app.utils import get_openai_client, APIResponse, mask_string, load_description
 from app.crud import (

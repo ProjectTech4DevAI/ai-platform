@@ -174,14 +174,12 @@ def update_model_eval(
     session: Session, eval_id: int, project_id: int, update: ModelEvaluationUpdate
 ) -> ModelEvaluation:
     model_eval = fetch_by_eval_id(session, eval_id, project_id)
-    if model_eval is None:
-        raise HTTPException(status_code=404, detail="Model evaluation not found")
 
     logger.info(
         f"[update_model_eval] Updating model evaluation ID={model_eval.id} with status={update.status}"
     )
 
-    for key, value in update.dict(exclude_unset=True).items():
+    for key, value in update.model_dump(exclude_unset=True).items():
         setattr(model_eval, key, value)
 
     model_eval.updated_at = now()

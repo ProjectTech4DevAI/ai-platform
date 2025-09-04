@@ -167,7 +167,7 @@ def update_finetune_job(
     job: Fine_Tuning,
     update: FineTuningUpdate,
 ) -> Fine_Tuning:
-    for key, value in update.dict(exclude_unset=True).items():
+    for key, value in update.model_dump(exclude_unset=True).items():
         setattr(job, key, value)
 
     job.updated_at = now()
