@@ -66,11 +66,29 @@ from .threads import OpenAI_Thread, OpenAIThreadBase, OpenAIThreadCreate
 
 from .assistants import Assistant, AssistantBase, AssistantCreate, AssistantUpdate
 
+from .fine_tuning import (
+    FineTuningJobBase,
+    Fine_Tuning,
+    FineTuningJobCreate,
+    FineTuningJobPublic,
+    FineTuningUpdate,
+    FineTuningStatus,
+)
+
 from .openai_conversation import (
     OpenAIConversationPublic,
     OpenAIConversation,
     OpenAIConversationBase,
     OpenAIConversationCreate,
+)
+
+from .model_evaluation import (
+    ModelEvaluation,
+    ModelEvaluationBase,
+    ModelEvaluationCreate,
+    ModelEvaluationPublic,
+    ModelEvaluationStatus,
+    ModelEvaluationUpdate,
 )
 
 from .onboarding import OnboardingRequest, OnboardingResponse

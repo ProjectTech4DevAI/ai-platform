@@ -8,16 +8,28 @@ from app.models import (
     OrganizationCreate,
     ProjectCreate,
     CredsCreate,
+    FineTuningJobCreate,
+    Fine_Tuning,
+    ModelEvaluation,
+    ModelEvaluationBase,
+    ModelEvaluationStatus,
 )
 from app.crud import (
     create_organization,
     create_project,
     create_api_key,
     set_creds_for_org,
+    create_fine_tuning_job,
+    create_model_evaluation,
 )
 from app.core.providers import Provider
 from app.tests.utils.user import create_random_user
-from app.tests.utils.utils import random_lower_string, generate_random_string
+from app.tests.utils.utils import (
+    random_lower_string,
+    generate_random_string,
+    get_document,
+    get_project,
+)
 
 
 def create_test_organization(db: Session) -> Organization:
@@ -116,3 +128,75 @@ def create_test_credential(db: Session) -> tuple[list[Credential], Project]:
         ),
         project,
     )
+
+
+def create_test_fine_tuning_jobs(
+    db: Session,
+    ratios: list[float],
+) -> tuple[list[Fine_Tuning], bool]:
+    project = get_project(db, "Dalgo")
+    document = get_document(db, "dalgo_sample.json")
+    jobs = []
+    any_created = False
+
+    for ratio in ratios:
+        job_request = FineTuningJobCreate(
+            document_id=document.id,
+            base_model="gpt-4",
+            split_ratio=[ratio],
+            system_prompt="str",
+        )
+        job, created = create_fine_tuning_job(
+            session=db,
+            request=job_request,
+            split_ratio=ratio,
+            project_id=project.id,
+            organization_id=project.organization_id,
+        )
+        jobs.append(job)
+        if created:
+            any_created = True
+
+    return jobs, any_created
+
+
+def create_test_finetuning_job_with_extra_fields(
+    db: Session,
+    ratios: list[float],
+) -> tuple[list[Fine_Tuning], bool]:
+    jobs, _ = create_test_fine_tuning_jobs(db, ratios)
+
+    if jobs:
+        for job in jobs:
+            job.test_data_s3_object = "test_data_s3_object_example"
+            job.fine_tuned_model = "fine_tuned_model_name"
+
+    return jobs, True
+
+
+def create_test_model_evaluation(db) -> list[ModelEvaluation]:
+    fine_tune_jobs, _ = create_test_finetuning_job_with_extra_fields(db, [0.5, 0.7])
+
+    model_evaluations = []
+
+    for fine_tune in fine_tune_jobs:
+        request = ModelEvaluationBase(
+            fine_tuning_id=fine_tune.id,
+            system_prompt=fine_tune.system_prompt,
+            base_model=fine_tune.base_model,
+            fine_tuned_model=fine_tune.fine_tuned_model,
+            document_id=fine_tune.document_id,
+            test_data_s3_object=fine_tune.test_data_s3_object,
+        )
+
+        model_eval = create_model_evaluation(
+            session=db,
+            request=request,
+            project_id=fine_tune.project_id,
+            organization_id=fine_tune.organization_id,
+            status=ModelEvaluationStatus.pending,
+        )
+
+        model_evaluations.append(model_eval)
+
+    return model_evaluations

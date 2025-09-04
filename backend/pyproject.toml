@@ -29,7 +29,9 @@ dependencies = [
     "openai_responses",
     "langfuse>=2.60.3",
     "asgi-correlation-id>=4.3.4",
-    "py-zerox>=0.0.7,<1.0.0"
+    "py-zerox>=0.0.7,<1.0.0",
+    "pandas>=2.3.2",
+    "scikit-learn>=1.7.1",
 ]
 
 [tool.uv]
