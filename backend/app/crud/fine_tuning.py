@@ -12,6 +12,7 @@ from app.models import (
     FineTuningUpdate,
     FineTuningStatus,
 )
+from app.crud import DocumentCrud
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,11 @@ def create_fine_tuning_job(
             f"[Create_fine_tuning_job]Active fine-tune job exists; returning it. document_id={request.document_id}, split_ratio={split_ratio}, base_model={request.base_model}, project_id={project_id}"
         )
         return existing, False
+
+    document_crud = DocumentCrud(
+        session, project_id
+    )  # to check if the given document is present in the document table or not
+    document = document_crud.read_one(request.document_id)
 
     fine_tune_data = request.model_dump(exclude_unset=True)
     base_data = {

@@ -17,7 +17,7 @@ from app.tests.utils.utils import get_project, get_document
 
 def test_create_fine_tuning_job(db: Session):
     project = get_project(db, "Dalgo")
-    document = get_document(db)
+    document = get_document(db, "dalgo_sample.json")
 
     job_request = FineTuningJobCreate(
         document_id=document.id,
@@ -100,7 +100,7 @@ def test_update_finetune_job(db: Session):
 
 def test_fetch_active_jobs_by_document_id(db: Session):
     project = get_project(db, "Dalgo")
-    document = get_document(db)
+    document = get_document(db, "dalgo_sample.json")
 
     job_request = FineTuningJobCreate(
         document_id=document.id,

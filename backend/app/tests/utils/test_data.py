@@ -135,7 +135,7 @@ def create_test_fine_tuning_jobs(
     ratios: list[float],
 ) -> tuple[list[Fine_Tuning], bool]:
     project = get_project(db, "Dalgo")
-    document = get_document(db)
+    document = get_document(db, "dalgo_sample.json")
     jobs = []
     any_created = False
 

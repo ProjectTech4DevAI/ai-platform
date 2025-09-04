@@ -160,7 +160,7 @@ class TestRetriveFineTuningJobAPI:
 class TestFetchJob:
     def test_fetch_jobs_document(self, client, db, user_api_key_header):
         jobs, _ = create_test_fine_tuning_jobs(db, [0.3, 0.4])
-        document = get_document(db)
+        document = get_document(db, "dalgo_sample.json")
 
         response = client.get(
             f"/api/v1/fine_tuning/{document.id}", headers=user_api_key_header
