@@ -55,6 +55,7 @@ class LangfuseTracer:
         name: str,
         input: Dict[str, Any],
         metadata: Optional[Dict[str, Any]] = None,
+        tags: list[str] | None = None,
     ):
         metadata = metadata or {}
         metadata["request_id"] = correlation_id.get() or "N/A"
@@ -64,6 +65,7 @@ class LangfuseTracer:
             input=input,
             metadata=metadata,
             session_id=self.session_id,
+            tags=tags,
         )
 
     def start_generation(
