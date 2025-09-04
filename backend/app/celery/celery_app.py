@@ -8,10 +8,11 @@ celery_app = Celery(
     "ai_platform",
     broker=settings.RABBITMQ_URL,
     backend=settings.REDIS_URL,
-    include=["app.celery.tasks.document_transformation"]
+    include=["app.celery.tasks.generic_task"]
 )
 
 # Celery configuration
+# TODO: put these in settings/config
 celery_app.conf.update(
     # Task routing
     task_routes={
@@ -27,10 +28,10 @@ celery_app.conf.update(
     ),
     
     # Worker configuration
-    worker_concurrency=os.cpu_count(),  # Use all available cores
-    worker_prefetch_multiplier=1,
-    task_acks_late=True,
-    worker_max_tasks_per_child=1000,
+    worker_concurrency=os.cpu_count(),    # Number of worker processes
+    worker_prefetch_multiplier=1,         # Tasks prefetched per worker
+    task_acks_late=True,                  # Acknowledge task after completion
+    worker_max_tasks_per_child=1000,      # Restart worker after N tasks
     
     # Task configuration
     task_serializer="json",

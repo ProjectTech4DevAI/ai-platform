@@ -11,6 +11,7 @@ from app.models.doc_transformation_job import TransformationStatus
 from app.models import Document
 from app.core.cloud import AmazonCloudStorage
 from app.core.doctransform.registry import resolve_transformer, get_file_format
+from app.core.db import get_engine
 
 logger = logging.getLogger(__name__)
 
@@ -33,14 +34,15 @@ def start_job(
     job = job_crud.create(source_document_id=source_document_id)
     
     # Import here to avoid circular imports
-    from app.celery.tasks.document_transformation import transform_document_task
+    from app.celery.tasks.generic_task import execute_job_task
     
-    # Start the Celery task
-    task = transform_document_task.delay(
+    # Start the generic Celery task
+    task = execute_job_task.delay(
         job_id=str(job.id),
+        function_path="app.core.doctransform.service.execute_job",
+        user_id=user_id,
         transformer_name=transformer_name,
         target_format=target_format,
-        user_id=user_id,
     )
     
     # Update job with task ID
@@ -53,79 +55,111 @@ def start_job(
 
 
 def execute_job(
-    session: Session,
     job_id: UUID,
-    transformer_name: str,
-    target_format: str,
     user_id: int,
-) -> Document:
+    celery_task_id: str = None,
+    transformer_name: str = None,
+    target_format: str = None,
+) -> dict:
     """
     Execute the actual document transformation.
-    This function is called by the Celery worker.
+    Handles all DB updates and error handling.
+    Creates its own DB session.
+    
+    Note: transformer_name and target_format are now passed as kwargs
     """
-    job_crud = DocTransformationJobCrud(session)
-    job = job_crud.read_one(job_id)
-    
-    # Get the source document
-    doc_crud = DocumentCrud(session, user_id)
-    source_document = doc_crud.read_one(job.source_document_id)
-    
-    logger.info(f"Executing transformation job {job_id} for document {source_document.id}")
-    
-    # Create storage client
-    from app.models import User
-    mock_user = User(id=source_document.owner_id)
-    storage = AmazonCloudStorage(mock_user)
-    
-    # Download source document to temporary file
-    with tempfile.NamedTemporaryFile(suffix=f'.{get_file_format(source_document.fname)}', delete=False) as temp_file:
-        source_stream = storage.stream(source_document.object_store_url)
-        temp_file.write(source_stream.read())
-        temp_file_path = temp_file.name
-    
-    try:
-        # Get the transformer and transform the document
-        transformer_class = resolve_transformer(
-            source_format=get_file_format(source_document.fname),
-            target_format=target_format,
-            transformer_name=transformer_name,
+    engine = get_engine()
+    with Session(engine) as session:
+        job_crud = DocTransformationJobCrud(session)
+        job = job_crud.read_one(job_id)
+
+        # Update job status to processing and store celery task ID
+        job_crud.update_status(
+            job_id=job_id,
+            status=TransformationStatus.PROCESSING,
         )
-        
-        transformer = transformer_class()
-        result_path = transformer.transform(temp_file_path, target_format)
-        
-        # Upload transformed document to storage
-        transformed_id = uuid4()
-        transformed_filename = f"{Path(source_document.fname).stem}_transformed.{target_format}"
-        
-        with open(result_path, 'rb') as f:
-            # Create a mock UploadFile-like object
-            class MockUploadFile:
-                def __init__(self, file, filename, content_type="text/plain"):
-                    self.file = file
-                    self.filename = filename
-                    self.content_type = content_type
-            
-            mock_upload = MockUploadFile(f, transformed_filename)
-            transformed_url = storage.put(mock_upload, Path(str(transformed_id)))
-        
-        # Create document record
-        transformed_document = Document(
-            id=transformed_id,
-            fname=transformed_filename,
-            object_store_url=str(transformed_url),
-            owner_id=source_document.owner_id,
-            source_document_id=source_document.id,
-        )
-        
-        # Save to database
-        saved_document = doc_crud.update(transformed_document)
-        
-        logger.info(f"Transformation job {job_id} completed, created document {saved_document.id}")
-        return saved_document
-        
-    finally:
-        # Clean up temporary files
-        Path(temp_file_path).unlink(missing_ok=True)
-        if 'result_path' in locals():
-            Path(result_path).unlink(missing_ok=True)
+        if celery_task_id:
+            job.celery_task_id = celery_task_id
+            session.add(job)
+            session.commit()
+
+        # Get the source document
+        doc_crud = DocumentCrud(session, user_id)
+        source_document = doc_crud.read_one(job.source_document_id)
+
+        logger.info(f"Executing transformation job {job_id} for document {source_document.id}")
+
+        # Create storage client
+        from app.models import User
+        mock_user = User(id=source_document.owner_id)
+        storage = AmazonCloudStorage(mock_user)
+
+        # Download source document to temporary file
+        with tempfile.NamedTemporaryFile(suffix=f'.{get_file_format(source_document.fname)}', delete=False) as temp_file:
+            source_stream = storage.stream(source_document.object_store_url)
+            temp_file.write(source_stream.read())
+            temp_file_path = temp_file.name
+
+        try:
+            # Get the transformer and transform the document
+            transformer_class = resolve_transformer(
+                source_format=get_file_format(source_document.fname),
+                target_format=target_format,
+                transformer_name=transformer_name,
+            )
+
+            transformer = transformer_class()
+            result_path = transformer.transform(temp_file_path, target_format)
+
+            # Upload transformed document to storage
+            transformed_id = uuid4()
+            transformed_filename = f"{Path(source_document.fname).stem}_transformed.{target_format}"
+
+            with open(result_path, 'rb') as f:
+                # Create a mock UploadFile-like object
+                class MockUploadFile:
+                    def __init__(self, file, filename, content_type="text/plain"):
+                        self.file = file
+                        self.filename = filename
+                        self.content_type = content_type
+
+                mock_upload = MockUploadFile(f, transformed_filename)
+                transformed_url = storage.put(mock_upload, Path(str(transformed_id)))
+
+            # Create document record
+            transformed_document = Document(
+                id=transformed_id,
+                fname=transformed_filename,
+                object_store_url=str(transformed_url),
+                owner_id=source_document.owner_id,
+                source_document_id=source_document.id,
+            )
+
+            # Save to database
+            saved_document = doc_crud.update(transformed_document)
+
+            # Update job status to completed
+            job_crud.update_status(
+                job_id=job_id,
+                status=TransformationStatus.COMPLETED,
+                transformed_document_id=saved_document.id,
+            )
+
+            logger.info(f"Transformation job {job_id} completed, created document {saved_document.id}")
+            return {"status": "completed", "transformed_document_id": str(saved_document.id)}
+
+        except Exception as exc:
+            error_message = str(exc)
+            logger.error(f"Transformation job {job_id} failed: {error_message}", exc_info=True)
+            # Update job status to failed
+            job_crud.update_status(
+                job_id=job_id,
+                status=TransformationStatus.FAILED,
+                error_message=error_message,
+            )
+            raise
+        finally:
+            # Clean up temporary files
+            Path(temp_file_path).unlink(missing_ok=True)
+            if 'result_path' in locals():
+                Path(result_path).unlink(missing_ok=True)
