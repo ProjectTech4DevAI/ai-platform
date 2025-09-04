@@ -25,14 +25,14 @@ class ModelEvaluator:
 
     def __init__(
         self,
-        model_name: str,
-        test_data_s3_url: str,
+        fine_tuned_model: str,
+        test_data_s3_object: str,
         storage: AmazonCloudStorage,
         system_prompt: str,
         client: OpenAI,
     ):
-        self.model_name = model_name
-        self.test_data_s3_url = test_data_s3_url
+        self.fine_tuned_model = fine_tuned_model
+        self.test_data_s3_object = test_data_s3_object
         self.storage = storage
         self.system_instruction = system_prompt
         self.client = client
@@ -41,7 +41,7 @@ class ModelEvaluator:
         self.y_true: list[str] = []
         self.prompts: list[str] = []
 
-        logger.info(f"ModelEvaluator initialized with model: {model_name}")
+        logger.info(f"ModelEvaluator initialized with model: {fine_tuned_model}")
 
     def load_labels_and_prompts(self) -> None:
         """
@@ -51,9 +51,9 @@ class ModelEvaluator:
           - 'label'
         """
         logger.info(
-            f"[ModelEvaluator.load_labels_and_prompts] Loading CSV from: {self.test_data_s3_url}"
+            f"[ModelEvaluator.load_labels_and_prompts] Loading CSV from: {self.test_data_s3_object}"
         )
-        file_obj = self.storage.stream(self.test_data_s3_url)
+        file_obj = self.storage.stream(self.test_data_s3_object)
         try:
             df = pd.read_csv(file_obj)
             df.columns = [c.strip().lower() for c in df.columns]
@@ -133,7 +133,7 @@ class ModelEvaluator:
 
                 try:
                     response = self.client.responses.create(
-                        model=self.model_name,
+                        model=self.fine_tuned_model,
                         instructions=self.system_instruction,
                         input=prompt,
                     )
@@ -181,29 +181,29 @@ class ModelEvaluator:
         )
 
         unique_id = uuid.uuid4().hex
-        filename = f"predictions_{self.model_name}_{unique_id}.csv"
-        prediction_data_s3_url = DataPreprocessor.upload_csv_to_s3(
+        filename = f"predictions_{self.fine_tuned_model}_{unique_id}.csv"
+        prediction_data_s3_object = DataPreprocessor.upload_csv_to_s3(
             self.storage, prediction_data, filename
         )
-        self.prediction_data_s3_url = prediction_data_s3_url
+        self.prediction_data_s3_object = prediction_data_s3_object
 
         logger.info(
-            f"[generate_predictions] Predictions CSV uploaded to S3 | url={prediction_data_s3_url}"
+            f"[generate_predictions] Predictions CSV uploaded to S3 | url={prediction_data_s3_object}"
         )
 
-        return predictions, prediction_data_s3_url
+        return predictions, prediction_data_s3_object
 
     def evaluate(self) -> dict:
         """Evaluate using the predictions CSV previously uploaded to S3."""
-        if not getattr(self, "prediction_data_s3_url", None):
+        if not getattr(self, "prediction_data_s3_object", None):
             raise RuntimeError(
-                "[evaluate] predictions_s3_url not set. Call generate_predictions() first."
+                "[evaluate] predictions_s3_object not set. Call generate_predictions() first."
             )
 
         logger.info(
-            f"[evaluate] Streaming predictions CSV from: {self.prediction_data_s3_url}"
+            f"[evaluate] Streaming predictions CSV from: {self.prediction_data_s3_object}"
         )
-        prediction_obj = self.storage.stream(self.prediction_data_s3_url)
+        prediction_obj = self.storage.stream(self.prediction_data_s3_object)
         try:
             df = pd.read_csv(prediction_obj)
         finally:
@@ -229,12 +229,12 @@ class ModelEvaluator:
         """Run the full evaluation process: load data, generate predictions, evaluate results."""
         try:
             self.load_labels_and_prompts()
-            predictions, prediction_data_s3_url = self.generate_predictions()
+            predictions, prediction_data_s3_object = self.generate_predictions()
             evaluation_results = self.evaluate()
             logger.info("[evaluate] Model evaluation completed successfully.")
             return {
                 "evaluation_score": evaluation_results,
-                "prediction_data_s3_url": prediction_data_s3_url,
+                "prediction_data_s3_object": prediction_data_s3_object,
             }
         except Exception as e:
             logger.error(f"[evaluate] Error in running ModelEvaluator: {str(e)}")

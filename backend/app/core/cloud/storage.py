@@ -269,4 +269,11 @@ def get_cloud_storage(session: Session, project_id: int) -> CloudStorage:
 
     storage_path = project.storage_path
 
-    return AmazonCloudStorage(project_id=project_id, storage_path=storage_path)
+    try:
+        return AmazonCloudStorage(project_id=project_id, storage_path=storage_path)
+    except Exception as err:
+        logger.error(
+            f"[get_cloud_storage] Failed to initialize storage for project_id={project_id}: {err}",
+            exc_info=True,
+        )
+        raise

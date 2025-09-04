@@ -60,10 +60,10 @@ def upgrade():
             "fine_tuned_model", sqlmodel.sql.sqltypes.AutoString(), nullable=True
         ),
         sa.Column(
-            "train_data_s3_url", sqlmodel.sql.sqltypes.AutoString(), nullable=True
+            "train_data_s3_object", sqlmodel.sql.sqltypes.AutoString(), nullable=True
         ),
         sa.Column(
-            "test_data_s3_url", sqlmodel.sql.sqltypes.AutoString(), nullable=True
+            "test_data_s3_object", sqlmodel.sql.sqltypes.AutoString(), nullable=True
         ),
         sa.Column("error_message", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column("project_id", sa.Integer(), nullable=False),
@@ -87,16 +87,20 @@ def upgrade():
         sa.Column("fine_tuning_id", sa.Integer(), nullable=False),
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("document_id", sa.Uuid(), nullable=False),
-        sa.Column("model_name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column(
-            "test_data_s3_url", sqlmodel.sql.sqltypes.AutoString(), nullable=False
+            "fine_tuned_model", sqlmodel.sql.sqltypes.AutoString(), nullable=False
+        ),
+        sa.Column(
+            "test_data_s3_object", sqlmodel.sql.sqltypes.AutoString(), nullable=False
         ),
         sa.Column("base_model", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("split_ratio", sa.Float(), nullable=False),
         sa.Column("system_prompt", sa.Text(), nullable=False),
         sa.Column("score", postgresql.JSON(astext_type=sa.Text()), nullable=True),
         sa.Column(
-            "prediction_data_s3_url", sqlmodel.sql.sqltypes.AutoString(), nullable=True
+            "prediction_data_s3_object",
+            sqlmodel.sql.sqltypes.AutoString(),
+            nullable=True,
         ),
         sa.Column(
             "status",

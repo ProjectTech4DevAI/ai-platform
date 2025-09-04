@@ -135,7 +135,7 @@ def create_test_fine_tuning_jobs(
     ratios: list[float],
 ) -> tuple[list[Fine_Tuning], bool]:
     project = get_project(db, "Dalgo")
-    document = get_document(db)
+    document = get_document(db, "dalgo_sample.json")
     jobs = []
     any_created = False
 
@@ -168,7 +168,7 @@ def create_test_finetuning_job_with_extra_fields(
 
     if jobs:
         for job in jobs:
-            job.test_data_s3_url = "test_data_s3_url_example"
+            job.test_data_s3_object = "test_data_s3_object_example"
             job.fine_tuned_model = "fine_tuned_model_name"
 
     return jobs, True
@@ -184,9 +184,9 @@ def create_test_model_evaluation(db) -> list[ModelEvaluation]:
             fine_tuning_id=fine_tune.id,
             system_prompt=fine_tune.system_prompt,
             base_model=fine_tune.base_model,
-            model_name=fine_tune.fine_tuned_model,
+            fine_tuned_model=fine_tune.fine_tuned_model,
             document_id=fine_tune.document_id,
-            test_data_s3_url=fine_tune.test_data_s3_url,
+            test_data_s3_object=fine_tune.test_data_s3_object,
         )
 
         model_eval = create_model_evaluation(

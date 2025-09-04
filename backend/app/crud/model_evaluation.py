@@ -26,7 +26,7 @@ def create_model_evaluation(
 ) -> ModelEvaluation:
     fine_tuning_job = fetch_by_id(session, request.fine_tuning_id, project_id)
 
-    if fine_tuning_job.fine_tuned_model and fine_tuning_job.test_data_s3_url is None:
+    if fine_tuning_job.fine_tuned_model and fine_tuning_job.test_data_s3_object is None:
         logger.error(
             f"[create_model_evaluation] No fine tuned model or test data found for the given fine tuning ID | fine_tuning_id={request.fine_tuning_id}, project_id={project_id}"
         )
@@ -37,9 +37,9 @@ def create_model_evaluation(
         "system_prompt": fine_tuning_job.system_prompt,
         "base_model": fine_tuning_job.base_model,
         "split_ratio": fine_tuning_job.split_ratio,
-        "model_name": fine_tuning_job.fine_tuned_model,
+        "fine_tuned_model": fine_tuning_job.fine_tuned_model,
         "document_id": fine_tuning_job.document_id,
-        "test_data_s3_url": fine_tuning_job.test_data_s3_url,
+        "test_data_s3_object": fine_tuning_job.test_data_s3_object,
         "project_id": project_id,
         "organization_id": organization_id,
         "status": status,
@@ -128,7 +128,7 @@ def fetch_top_model_by_doc_id(
 
     for model_eval in model_evals:
         if model_eval.score is not None:
-            mcc = model_eval.score.get("mcc", None)
+            mcc = model_eval.score.get("mcc_score", None)
             if mcc is not None and mcc > highest_mcc:
                 highest_mcc = mcc
                 top_model = model_eval

@@ -35,9 +35,9 @@ def test_create_model_evaluation(db: Session):
         fine_tuning_id=fine_tune.id,
         system_prompt=fine_tune.system_prompt,
         base_model=fine_tune.base_model,
-        model_name=fine_tune.fine_tuned_model,
+        fine_tuned_model=fine_tune.fine_tuned_model,
         document_id=fine_tune.document_id,
-        test_data_s3_url=fine_tune.test_data_s3_url,
+        test_data_s3_object=fine_tune.test_data_s3_object,
         status="pending",
     )
 
@@ -51,8 +51,8 @@ def test_create_model_evaluation(db: Session):
     assert created_eval.id is not None
     assert created_eval.status == "pending"
     assert created_eval.document_id == fine_tune.document_id
-    assert created_eval.model_name == fine_tune.fine_tuned_model
-    assert created_eval.test_data_s3_url == fine_tune.test_data_s3_url
+    assert created_eval.fine_tuned_model == fine_tune.fine_tuned_model
+    assert created_eval.test_data_s3_object == fine_tune.test_data_s3_object
 
 
 def test_fetch_by_eval_id_success(db: Session):
@@ -92,7 +92,7 @@ def test_fetch_eval_by_doc_id_not_found(db: Session):
 def test_fetch_top_model_by_doc_id_success(db: Session):
     model_evals = create_test_model_evaluation(db)
     model_eval = model_evals[0]
-    model_eval.score = {"mcc": 0.8}
+    model_eval.score = {"mcc_score": 0.8}
     db.flush()
 
     doc_id = model_eval.document_id

@@ -14,7 +14,7 @@ from app.models import (
     FineTuningUpdate,
     FineTuningStatus,
 )
-from app.core.cloud import AmazonCloudStorage
+from app.core.cloud import get_cloud_storage, storage
 from app.crud.document import DocumentCrud
 from app.utils import get_openai_client, APIResponse, mask_string, load_description
 from app.crud import (
@@ -69,16 +69,18 @@ def process_fine_tuning_job(
             client = get_openai_client(
                 session, current_user.organization_id, project_id
             )
-            storage = AmazonCloudStorage(current_user)
-            document_crud = DocumentCrud(session=session, owner_id=current_user.id)
+            storage = get_cloud_storage(
+                session=session, project_id=current_user.project_id
+            )
+            document_crud = DocumentCrud(session, current_user.project_id)
             document = document_crud.read_one(request.document_id)
             preprocessor = DataPreprocessor(
                 document, storage, ratio, request.system_prompt
             )
             result = preprocessor.process()
             train_data_temp_filepath = result["train_jsonl_temp_filepath"]
-            train_data_s3_url = result["train_csv_s3_url"]
-            test_data_s3_url = result["test_csv_s3_url"]
+            train_data_s3_object = result["train_csv_s3_object"]
+            test_data_s3_object = result["test_csv_s3_object"]
 
             try:
                 with open(train_data_temp_filepath, "rb") as train_f:
@@ -100,7 +102,8 @@ def process_fine_tuning_job(
                     job=fine_tune,
                     update=FineTuningUpdate(
                         status=FineTuningStatus.failed,
-                        error_message="Failed during background job processing",
+                        error_message="Error while uploading file to openai : "
+                        + error_msg,
                     ),
                 )
                 return
@@ -128,7 +131,8 @@ def process_fine_tuning_job(
                     job=fine_tune,
                     update=FineTuningUpdate(
                         status=FineTuningStatus.failed,
-                        error_message="Failed during background job processing",
+                        error_message="Error while creating an openai fine tuning job : "
+                        + error_msg,
                     ),
                 )
                 return
@@ -138,8 +142,8 @@ def process_fine_tuning_job(
                 job=fine_tune,
                 update=FineTuningUpdate(
                     training_file_id=training_file_id,
-                    train_data_s3_url=train_data_s3_url,
-                    test_data_s3_url=test_data_s3_url,
+                    train_data_s3_object=train_data_s3_object,
+                    test_data_s3_object=test_data_s3_object,
                     split_ratio=ratio,
                     provider_job_id=job.id,
                     status=FineTuningStatus.running,
@@ -155,6 +159,7 @@ def process_fine_tuning_job(
             )
 
         except Exception as e:
+            error_msg = str(e)
             logger.error(
                 f"[process_fine_tuning_job] Background job failure: {e} | "
                 f"job_id={job_id}, project_id={project_id}|"
@@ -164,7 +169,8 @@ def process_fine_tuning_job(
                 job=fine_tune,
                 update=FineTuningUpdate(
                     status=FineTuningStatus.failed,
-                    error_message="Failed during background job processing",
+                    error_message="Error while processing the background job : "
+                    + error_msg,
                 ),
             )
 
@@ -186,6 +192,7 @@ def fine_tune_from_CSV(
         current_user.organization_id,
         current_user.project_id,
     )
+
     results = []
 
     for ratio in request.split_ratio:
@@ -235,21 +242,19 @@ def fine_tune_from_CSV(
 
 
 @router.get(
-    "/{job_id}/refresh",
+    "/{fine_tuning_id}/refresh",
     description=load_description("fine_tuning/retrieve.md"),
     response_model=APIResponse[FineTuningJobPublic],
 )
 def refresh_fine_tune_status(
-    job_id: int, session: SessionDep, current_user: CurrentUserOrgProject
+    fine_tuning_id: int, session: SessionDep, current_user: CurrentUserOrgProject
 ):
     project_id = current_user.project_id
-    job = fetch_by_id(session, job_id, project_id)
+    job = fetch_by_id(session, fine_tuning_id, project_id)
     client = get_openai_client(session, current_user.organization_id, project_id)
+    storage = get_cloud_storage(session=session, project_id=current_user.project_id)
 
-    if job.provider_job_id is None:
-        return APIResponse.success_response(job)
-
-    else:
+    if job.provider_job_id is not None:
         try:
             openai_job = client.fine_tuning.jobs.retrieve(job.provider_job_id)
         except openai.OpenAIError as e:
@@ -257,7 +262,7 @@ def refresh_fine_tune_status(
             logger.error(
                 f"[Retrieve_fine_tune_status] Failed to retrieve OpenAI job | "
                 f"provider_job_id={mask_string(job.provider_job_id)}, "
-                f"error={error_msg}, job_id={job_id}, project_id={project_id}"
+                f"error={error_msg}, fine_tuning_id={fine_tuning_id}, project_id={project_id}"
             )
             raise HTTPException(
                 status_code=502, detail=f"OpenAI API error: {error_msg}"
@@ -285,6 +290,17 @@ def refresh_fine_tune_status(
         ):
             job = update_finetune_job(session=session, job=job, update=update_payload)
 
+    job = job.model_copy(
+        update={
+            "train_data_file_url": storage.get_signed_url(job.train_data_s3_object)
+            if job.train_data_s3_object
+            else None,
+            "test_data_file_url": storage.get_signed_url(job.test_data_s3_object)
+            if job.test_data_s3_object
+            else None,
+        }
+    )
+
     return APIResponse.success_response(job)
 
 
@@ -296,6 +312,7 @@ def refresh_fine_tune_status(
 def retrieve_jobs_by_document(
     document_id: UUID, session: SessionDep, current_user: CurrentUserOrgProject
 ):
+    storage = get_cloud_storage(session=session, project_id=current_user.project_id)
     project_id = current_user.project_id
     jobs = fetch_by_document_id(session, document_id, project_id)
     if not jobs:
@@ -306,4 +323,25 @@ def retrieve_jobs_by_document(
             status_code=404,
             detail="No fine-tuning jobs found for the given document ID",
         )
-    return APIResponse.success_response(jobs)
+    updated_jobs = []
+    for job in jobs:
+        train_url = (
+            storage.get_signed_url(job.train_data_s3_object)
+            if job.train_data_s3_object
+            else None
+        )
+        test_url = (
+            storage.get_signed_url(job.test_data_s3_object)
+            if job.test_data_s3_object
+            else None
+        )
+
+        updated_job = job.model_copy(
+            update={
+                "train_data_file_url": train_url,
+                "test_data_file_url": test_url,
+            }
+        )
+        updated_jobs.append(updated_job)
+
+    return APIResponse.success_response(updated_jobs)
