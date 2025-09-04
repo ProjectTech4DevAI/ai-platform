@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Type, Dict, Set, Tuple, Optional
 
 from app.core.doctransform.transformer import Transformer
 from app.core.doctransform.zerox_transformer import ZeroxTransformer
@@ -10,13 +9,13 @@ class TransformationError(Exception):
 
 
 # Map transformer names to their classes
-TRANSFORMERS: Dict[str, Type[Transformer]] = {
+TRANSFORMERS: dict[str, type[Transformer]] = {
     "default": ZeroxTransformer,
     "zerox": ZeroxTransformer,
 }
 
 # Define supported transformations: (source_format, target_format) -> [available_transformers]
-SUPPORTED_TRANSFORMATIONS: Dict[Tuple[str, str], Dict[str, str]] = {
+SUPPORTED_TRANSFORMATIONS: dict[tuple[str, str], dict[str, str]] = {
     ("pdf", "markdown"): {
         "default": "zerox",
         "zerox": "zerox",
@@ -27,7 +26,7 @@ SUPPORTED_TRANSFORMATIONS: Dict[Tuple[str, str], Dict[str, str]] = {
 }
 
 # Map file extensions to format names
-EXTENSION_TO_FORMAT: Dict[str, str] = {
+EXTENSION_TO_FORMAT: dict[str, str] = {
     ".pdf": "pdf",
     ".docx": "docx",
     ".doc": "doc",
@@ -39,7 +38,7 @@ EXTENSION_TO_FORMAT: Dict[str, str] = {
 }
 
 # Map format names to file extensions
-FORMAT_TO_EXTENSION: Dict[str, str] = {
+FORMAT_TO_EXTENSION: dict[str, str] = {
     "pdf": ".pdf",
     "docx": ".docx",
     "doc": ".doc",
@@ -58,7 +57,7 @@ def get_file_format(filename: str) -> str:
     return format_name
 
 
-def get_supported_transformations() -> Dict[Tuple[str, str], Set[str]]:
+def get_supported_transformations() -> dict[tuple[str, str], set[str]]:
     """Get all supported transformation combinations."""
     return {
         key: set(transformers.keys())
@@ -73,13 +72,13 @@ def is_transformation_supported(source_format: str, target_format: str) -> bool:
 
 def get_available_transformers(
     source_format: str, target_format: str
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Get available transformers for a specific transformation."""
     return SUPPORTED_TRANSFORMATIONS.get((source_format, target_format), {})
 
 
 def resolve_transformer(
-    source_format: str, target_format: str, transformer_name: Optional[str] = None
+    source_format: str, target_format: str, transformer_name: str | None = None
 ) -> str:
     """
     Resolve the actual transformer to use for a transformation.
