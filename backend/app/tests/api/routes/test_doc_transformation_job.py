@@ -137,10 +137,10 @@ class TestGetMultipleTransformationJobs:
         crud = DocTransformationJobCrud(db, user_api_key.project_id)
         documents = store.fill(3)
         jobs = [crud.create(doc.id) for doc in documents]
-        job_ids_str = ",".join(str(job.id) for job in jobs)
+        job_ids_params = "&".join(f"job_ids={job.id}" for job in jobs)
 
         response = client.get(
-            f"{settings.API_V1_STR}/documents/transformations/?job_ids={job_ids_str}",
+            f"{settings.API_V1_STR}/documents/transformations/?{job_ids_params}",
             headers={"X-API-KEY": user_api_key.key},
         )
 
@@ -164,10 +164,12 @@ class TestGetMultipleTransformationJobs:
         jobs = [crud.create(doc.id) for doc in documents]
         fake_uuid = "00000000-0000-0000-0000-000000000001"
 
-        job_ids_str = f"{jobs[0].id},{jobs[1].id},{fake_uuid}"
+        job_ids_params = (
+            f"job_ids={jobs[0].id}&job_ids={jobs[1].id}&job_ids={fake_uuid}"
+        )
 
         response = client.get(
-            f"{settings.API_V1_STR}/documents/transformations/?job_ids={job_ids_str}",
+            f"{settings.API_V1_STR}/documents/transformations/?{job_ids_params}",
             headers={"X-API-KEY": user_api_key.key},
         )
 
@@ -186,39 +188,33 @@ class TestGetMultipleTransformationJobs:
             headers={"X-API-KEY": user_api_key.key},
         )
 
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["data"]["jobs"]) == 0
-        assert len(data["data"]["jobs_not_found"]) == 0
+        assert response.status_code == 422
 
     def test_get_jobs_with_whitespace_only(
         self, client: TestClient, user_api_key: APIKeyPublic
     ):
         """Test retrieving jobs with whitespace-only job_ids."""
         response = client.get(
-            f"{settings.API_V1_STR}/documents/transformations/?job_ids=   ,  , ",
+            f"{settings.API_V1_STR}/documents/transformations/?job_ids=   ",
             headers={"X-API-KEY": user_api_key.key},
         )
 
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["data"]["jobs"]) == 0
-        assert len(data["data"]["jobs_not_found"]) == 0
+        assert response.status_code == 422
 
     def test_get_jobs_invalid_uuid_format_422(
         self, client: TestClient, user_api_key: APIKeyPublic
     ):
         """Test that invalid UUID format returns 422."""
-        invalid_uuids = "not-a-uuid,also-not-uuid"
+        invalid_uuid = "not-a-uuid"
 
         response = client.get(
-            f"{settings.API_V1_STR}/documents/transformations/?job_ids={invalid_uuids}",
+            f"{settings.API_V1_STR}/documents/transformations/?job_ids={invalid_uuid}",
             headers={"X-API-KEY": user_api_key.key},
         )
 
         assert response.status_code == 422
         data = response.json()
-        assert "Invalid UUID(s) provided" in data["error"]
+        assert "Input should be a valid UUID" in data["error"]
 
     def test_get_jobs_mixed_valid_invalid_uuid_422(
         self, client: TestClient, db: Session, user_api_key: APIKeyPublic
@@ -229,22 +225,22 @@ class TestGetMultipleTransformationJobs:
         document = store.put()
         job = crud.create(document.id)
 
-        job_ids_str = f"{job.id},not-a-uuid"
+        job_ids_params = f"job_ids={job.id}&job_ids=not-a-uuid"
 
         response = client.get(
-            f"{settings.API_V1_STR}/documents/transformations/?job_ids={job_ids_str}",
+            f"{settings.API_V1_STR}/documents/transformations/?{job_ids_params}",
             headers={"X-API-KEY": user_api_key.key},
         )
 
         assert response.status_code == 422
         data = response.json()
-        assert "Invalid UUID(s) provided" in data["error"]
-        assert "not-a-uuid" in data["error"]
+        assert "Input should be a valid UUID" in data["error"]
+        assert "job_ids" in data["error"]
 
     def test_get_jobs_missing_parameter_422(
         self, client: TestClient, user_api_key: APIKeyPublic
     ):
-        """Test that missing job_ids parameter returns 422."""
+        """Test that missing job_ids parameter returns empty results."""
         response = client.get(
             f"{settings.API_V1_STR}/documents/transformations/",
             headers={"X-API-KEY": user_api_key.key},
@@ -296,10 +292,10 @@ class TestGetMultipleTransformationJobs:
             jobs[3].id, TransformationStatus.FAILED, error_message="Test error"
         )
 
-        job_ids_str = ",".join(str(job.id) for job in jobs)
+        job_ids_params = "&".join(f"job_ids={job.id}" for job in jobs)
 
         response = client.get(
-            f"{settings.API_V1_STR}/documents/transformations/?job_ids={job_ids_str}",
+            f"{settings.API_V1_STR}/documents/transformations/?{job_ids_params}",
             headers={"X-API-KEY": user_api_key.key},
         )
 
