@@ -33,7 +33,9 @@ def get_transformation_job(
 def get_multiple_transformation_jobs(
     session: SessionDep,
     current_user: CurrentUserOrgProject,
-    job_ids: list[UUID] = Query(description="List of transformation job IDs"),
+    job_ids: list[UUID] = Query(
+        description="List of transformation job IDs", min=1, max_length=100
+    ),
 ):
     crud = DocTransformationJobCrud(session, project_id=current_user.project_id)
     jobs = crud.read_each(set(job_ids))
