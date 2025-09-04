@@ -27,18 +27,15 @@ class DocumentMaker:
     def __init__(self, project_id: int, session: Session):
         self.project_id = project_id
         self.session = session
-        self.project: Project = None
+        self.project: Project = get_project_by_id(
+            session=self.session, project_id=self.project_id
+        )
         self.index = SequentialUuidGenerator()
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        if self.project is None:
-            self.project = get_project_by_id(
-                session=self.session, project_id=self.project_id
-            )
-
         doc_id = next(self.index)
         key = f"{self.project.storage_path}/{doc_id}.txt"
         object_store_url = f"s3://{settings.AWS_S3_BUCKET}/{key}"

@@ -21,6 +21,9 @@ class CorrelationIdFilter(logging.Filter):
         return True
 
 
+# Suppress info logs from LiteLLM
+logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+
 # Create root logger
 logger = logging.getLogger()
 logger.setLevel(LOGGING_LEVEL)
