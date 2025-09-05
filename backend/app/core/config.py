@@ -1,6 +1,7 @@
 import secrets
 import warnings
 import os
+import multiprocessing
 from typing import Any, Literal
 
 from pydantic import (
@@ -116,6 +117,15 @@ class Settings(BaseSettings):
     CELERY_WORKER_PREFETCH_MULTIPLIER: int = 1
     CELERY_ENABLE_UTC: bool = True
     CELERY_TIMEZONE: str = "UTC"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def COMPUTED_CELERY_WORKER_CONCURRENCY(self) -> int:
+        """Auto-calculate worker concurrency if not set explicitly."""
+        if self.CELERY_WORKER_CONCURRENCY is not None:
+            return self.CELERY_WORKER_CONCURRENCY
+        # Use CPU cores * 2 as default
+        return multiprocessing.cpu_count() * 2
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":

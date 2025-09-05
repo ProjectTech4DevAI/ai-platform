@@ -43,7 +43,7 @@ celery_app.conf.update(
     worker_prefetch_multiplier=settings.CELERY_WORKER_PREFETCH_MULTIPLIER,
     
     # Worker configuration from environment
-    worker_concurrency=settings.CELERY_WORKER_CONCURRENCY,
+    worker_concurrency=settings.COMPUTED_CELERY_WORKER_CONCURRENCY,
     worker_max_tasks_per_child=settings.CELERY_WORKER_MAX_TASKS_PER_CHILD,
     worker_max_memory_per_child=settings.CELERY_WORKER_MAX_MEMORY_PER_CHILD,
     
