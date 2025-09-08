@@ -35,6 +35,35 @@ services:
     networks:
       - app-network
 
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - ENVIRONMENT=development
+      - POSTGRES_SERVER=postgres
+      - POSTGRES_DB=mydatabase
+      - POSTGRES_USER=myuser
+      - POSTGRES_PASSWORD=mypassword
+      - REDIS_HOST=redis
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+    env_file:
+      - ./.env
+    ports:
+      - "8000:80"
+    volumes:
+      - ./backend:/app  # Mount for live code changes
+      - /app/.venv  # Exclude .venv from volume mount
+    networks:
+      - app-network
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    command: ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80", "--reload"]
+
   celery-worker:
     build:
       context: ./backend
@@ -53,12 +82,14 @@ services:
       - ./.env
     volumes:
       - ./backend:/app  # Mount for live code changes
+      - /app/.venv  # Exclude .venv from volume mount
     networks:
       - app-network
     depends_on:
       - postgres
       - redis
       - rabbitmq
+      - backend
     command: ["uv", "run", "celery", "-A", "app.celery.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
 
 networks:

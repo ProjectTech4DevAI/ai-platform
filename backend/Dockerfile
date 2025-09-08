@@ -16,8 +16,11 @@ RUN apt-get update && apt-get install -y \
 # Install uv package manager
 COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /uvx /bin/
 
+# Use a different venv path to avoid conflicts with volume mounts
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv
+
 # Place executables in the environment at the front of the path
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="/opt/venv/bin:$PATH"
 
 # Enable bytecode compilation and efficient dependency linking
 ENV UV_COMPILE_BYTECODE=1
