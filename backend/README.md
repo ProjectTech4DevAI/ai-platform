@@ -176,14 +176,12 @@ Once you have the MJML extension installed, you can create a new email template 
 
 ### Setup venv (if not already done) in backend/
 
-- Remove the broken venv:
-```shell
-rm -rf .venv
-```
-- Recreate it using the correct Python version:
+
+- Create .venv (in backend/):
 ```shell
 python3.12 -m venv .venv
 ```
+Note: If venv is broken, remove it first before running above command: ```rm -rf .venv```
 - Activate it:
 ```shell
 source .venv/bin/activate
