@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 def start_high_priority_job(
     function_path: str,
-    user_id: int,
+    project_id: int,
     job_id: str,
     **kwargs
 ) -> str:
@@ -22,7 +22,7 @@ def start_high_priority_job(
     
     Args:
         function_path: Import path to the execute_job function (e.g., "app.core.doctransform.service.execute_job")
-        user_id: ID of the user executing the job
+        project_id: ID of the project executing the job
         job_id: ID of the job (should already exist in database)
         **kwargs: Additional arguments to pass to the execute_job function
         
@@ -31,7 +31,7 @@ def start_high_priority_job(
     """
     task = execute_high_priority_task.delay(
         function_path=function_path,
-        user_id=user_id,
+        project_id=project_id,
         job_id=job_id,
         **kwargs
     )
@@ -42,7 +42,7 @@ def start_high_priority_job(
 
 def start_low_priority_job(
     function_path: str,
-    user_id: int,
+    project_id: int,
     job_id: str,
     **kwargs
 ) -> str:
@@ -51,7 +51,7 @@ def start_low_priority_job(
     
     Args:
         function_path: Import path to the execute_job function (e.g., "app.core.doctransform.service.execute_job")
-        user_id: ID of the user executing the job
+        project_id: ID of the project executing the job
         job_id: ID of the job (should already exist in database)
         **kwargs: Additional arguments to pass to the execute_job function
         
@@ -60,7 +60,7 @@ def start_low_priority_job(
     """
     task = execute_low_priority_task.delay(
         function_path=function_path,
-        user_id=user_id,
+        project_id=project_id,
         job_id=job_id,
         **kwargs
     )
@@ -107,5 +107,5 @@ def revoke_task(task_id: str, terminate: bool = False) -> bool:
     except Exception as e:
         logger.error(f"Failed to revoke task {task_id}: {e}")
         return False
-        
+
 
