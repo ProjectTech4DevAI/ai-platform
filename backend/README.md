@@ -170,3 +170,45 @@ The email templates are in `./backend/app/email-templates/`. Here, there are two
 Before continuing, ensure you have the [MJML extension](https://marketplace.visualstudio.com/items?itemName=attilabuti.vscode-mjml) installed in your VS Code.
 
 Once you have the MJML extension installed, you can create a new email template in the `src` directory. After creating the new email template and with the `.mjml` file open in your editor, open the command palette with `Ctrl+Shift+P` and search for `MJML: Export to HTML`. This will convert the `.mjml` file to a `.html` file and now you can save it in the build directory.
+
+
+## Dev setup (September-2025)
+
+### Setup venv (if not already done) in backend/
+
+- Remove the broken venv:
+```shell
+rm -rf .venv
+```
+- Recreate it using the correct Python version:
+```shell
+python3.12 -m venv .venv
+```
+- Activate it:
+```shell
+source .venv/bin/activate
+```
+- Reinstall dependencies:
+```shell
+uv sync
+```
+
+### Run everything in docker: infrastructure + backend + celery
+
+- In root folder:
+
+If source code in backend has changed since last run, use ```--build``` else skip tag
+```shell
+docker compose -f docker-compose.dev.yml up --build
+```
+
+- Run database migrations and upgrade head from backend/ (optional - only if any change in db models since last run)
+
+```shell
+alembic revision --autogenerate -m "your-revision-message"
+```
+
+```shell
+alembic upgrade head
+```
+
