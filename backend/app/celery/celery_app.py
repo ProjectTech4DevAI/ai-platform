@@ -8,8 +8,7 @@ celery_app = Celery(
     broker=settings.RABBITMQ_URL,
     backend=settings.REDIS_URL,
     include=[
-        "app.celery.tasks.job_execution",
-        "app.celery.tasks.example_tasks"
+        "app.celery.tasks.job_execution"
     ]
 )
 
