@@ -21,6 +21,7 @@ class DocTransformationJob(SQLModel, table=True):
     transformed_document_id: Optional[UUID] = Field(
         default=None, foreign_key="document.id"
     )
+    task_id: Optional[str] = Field(default=None, description="Celery task ID")
     status: TransformationStatus = Field(default=TransformationStatus.PENDING)
     error_message: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=now)

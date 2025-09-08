@@ -73,6 +73,7 @@ class DocTransformationJobCrud:
         *,
         error_message: Optional[str] = None,
         transformed_document_id: Optional[UUID] = None,
+        task_id: Optional[str] = None,
     ) -> DocTransformationJob:
         job = self.read_one(job_id)
         job.status = status
@@ -81,6 +82,8 @@ class DocTransformationJobCrud:
             job.error_message = error_message
         if transformed_document_id is not None:
             job.transformed_document_id = transformed_document_id
+        if task_id is not None:
+            job.task_id = task_id
 
         self.session.add(job)
         self.session.commit()

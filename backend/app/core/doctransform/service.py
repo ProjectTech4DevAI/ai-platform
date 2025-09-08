@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from uuid import uuid4, UUID
 
-from fastapi import BackgroundTasks, UploadFile
+from fastapi import UploadFile
 from tenacity import retry, wait_exponential, stop_after_attempt
 from sqlmodel import Session
 from starlette.datastructures import Headers
@@ -13,11 +13,11 @@ from app.crud.doc_transformation_job import DocTransformationJobCrud
 from app.crud.document import DocumentCrud
 from app.models.document import Document
 from app.models.doc_transformation_job import TransformationStatus
-from app.models import User
-from app.core.cloud import get_cloud_storage
 from app.api.deps import CurrentUserOrgProject
+from app.core.cloud import get_cloud_storage
 from app.core.doctransform.registry import convert_document, FORMAT_TO_EXTENSION
 from app.core.db import engine
+from app.celery.utils import start_low_priority_job
 
 logger = logging.getLogger(__name__)
 
@@ -28,18 +28,27 @@ def start_job(
     source_document_id: UUID,
     transformer_name: str,
     target_format: str,
-    background_tasks: BackgroundTasks,
 ) -> UUID:
     job_crud = DocTransformationJobCrud(session=db, project_id=current_user.project_id)
     job = job_crud.create(source_document_id=source_document_id)
 
-    # Extract the project ID before passing to background task
+    # Extract the project ID before passing to Celery task
     project_id = current_user.project_id
-    background_tasks.add_task(
-        execute_job, project_id, job.id, transformer_name, target_format
+    
+    # Start the low priority Celery task, passing job_id
+    task_id = start_low_priority_job(
+        function_path="app.core.doctransform.service.execute_job",
+        project_id=project_id,
+        job_id=str(job.id),
+        transformer_name=transformer_name,
+        target_format=target_format,
     )
+    
+    # Note: We don't update task_id here to avoid race condition
+    # execute_job will update both task_id and status atomically
+    
     logger.info(
-        f"[start_job] Job scheduled for document transformation | id: {job.id}, project_id: {project_id}"
+        f"[start_job] Job scheduled for document transformation | id: {job.id}, project_id: {project_id}, task_id: {task_id}"
     )
     return job.id
 
@@ -47,20 +56,29 @@ def start_job(
 @retry(wait=wait_exponential(multiplier=5, min=5, max=10), stop=stop_after_attempt(3))
 def execute_job(
     project_id: int,
-    job_id: UUID,
+    job_id: str,
+    task_id: str,
+    task_instance,
     transformer_name: str,
     target_format: str,
 ):
     tmp_dir: Path | None = None
+    job_uuid = UUID(job_id)
+    
     try:
         logger.info(
-            f"[execute_job started] Transformation Job started | job_id={job_id} | transformer_name={transformer_name} | target_format={target_format} | project_id={project_id}"
+            f"[execute_job started] Transformation Job started | job_id={job_id} | task_id={task_id} | transformer_name={transformer_name} | target_format={target_format} | project_id={project_id}"
         )
 
-        # Update job status to PROCESSING and fetch source document info
+        # Update job status to PROCESSING and set task_id atomically
         with Session(engine) as db:
             job_crud = DocTransformationJobCrud(session=db, project_id=project_id)
-            job = job_crud.update_status(job_id, TransformationStatus.PROCESSING)
+            # This single database call updates both status and task_id atomically
+            job = job_crud.update_status(
+                job_uuid, 
+                TransformationStatus.PROCESSING,
+                task_id=task_id
+            )
 
             doc_crud = DocumentCrud(session=db, project_id=project_id)
 
@@ -118,31 +136,34 @@ def execute_job(
 
             job_crud = DocTransformationJobCrud(session=db, project_id=project_id)
             job_crud.update_status(
-                job_id,
+                job_uuid,
                 TransformationStatus.COMPLETED,
                 transformed_document_id=created.id,
             )
 
             logger.info(
-                f"[execute_job] Doc Transformation job completed | job_id={job_id} | transformed_doc_id={created.id} | project_id={project_id}"
+                f"[execute_job] Doc Transformation job completed | job_id={job_id} | task_id={task_id} | transformed_doc_id={created.id} | project_id={project_id}"
             )
 
     except Exception as e:
         logger.error(
-            f"Transformation job failed | job_id={job_id} | error={e}", exc_info=True
+            f"Transformation job failed | job_id={job_id} | task_id={task_id} | error={e}", exc_info=True
         )
         try:
             with Session(engine) as db:
                 job_crud = DocTransformationJobCrud(session=db, project_id=project_id)
                 job_crud.update_status(
-                    job_id, TransformationStatus.FAILED, error_message=str(e)
+                    job_uuid, 
+                    TransformationStatus.FAILED, 
+                    error_message=str(e),
+                    task_id=task_id  # Ensure task_id is set even on failure
                 )
                 logger.info(
-                    f"[execute_job] Doc Transformation job failed | job_id={job_id} | error={e}"
+                    f"[execute_job] Doc Transformation job failed | job_id={job_id} | task_id={task_id} | error={e}"
                 )
         except Exception as db_error:
             logger.error(
-                f"Failed to update job status to FAILED | job_id={job_id} | db_error={db_error}"
+                f"Failed to update job status to FAILED | job_id={job_id} | task_id={task_id} | db_error={db_error}"
             )
         raise
     finally:

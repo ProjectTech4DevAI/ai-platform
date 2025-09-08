@@ -4,7 +4,6 @@ from uuid import UUID, uuid4
 
 from fastapi import (
     APIRouter,
-    BackgroundTasks,
     File,
     Form,
     HTTPException,
@@ -62,7 +61,6 @@ def list_docs(
 async def upload_doc(
     session: SessionDep,
     current_user: CurrentUserOrgProject,
-    background_tasks: BackgroundTasks,
     src: UploadFile = File(...),
     target_format: str
     | None = Form(
@@ -125,7 +123,6 @@ async def upload_doc(
             source_document_id=source_document.id,
             transformer_name=actual_transformer,
             target_format=target_format,
-            background_tasks=background_tasks,
         )
         job_info = TransformationJobInfo(
             message=f"Document accepted for transformation from {source_format} to {target_format}.",
