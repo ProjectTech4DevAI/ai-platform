@@ -156,8 +156,8 @@ def test_remove_provider_credential(db: Session) -> None:
         session=db, org_id=credential.organization_id, provider="openai"
     )
 
-    assert removed.is_active is False
-    assert removed.updated_at is not None
+    # Function now returns None since it's a hard delete
+    assert removed is None
 
     # Verify the credentials are no longer retrievable
     retrieved_cred = get_provider_credential(
@@ -194,9 +194,8 @@ def test_remove_creds_for_org(db: Session) -> None:
     # Remove all credentials
     removed = remove_creds_for_org(session=db, org_id=project.organization_id)
 
-    assert len(removed) == 2
-    assert all(not cred.is_active for cred in removed)
-    assert all(cred.updated_at is not None for cred in removed)
+    # Function now returns empty list since it's a hard delete
+    assert len(removed) == 0
 
     # Verify no credentials are retrievable
     retrieved_credentials = get_creds_by_org(session=db, org_id=project.organization_id)
