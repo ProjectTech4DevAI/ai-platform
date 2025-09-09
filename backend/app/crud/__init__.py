@@ -8,6 +8,7 @@ from .collection import CollectionCrud
 
 from .document import DocumentCrud
 from .document_collection import DocumentCollectionCrud
+from .doc_transformation_job import DocTransformationJobCrud
 
 from .organization import (
     create_organization,
@@ -65,6 +66,24 @@ from .openai_conversation import (
     get_conversations_count_by_project,
     create_conversation,
     delete_conversation,
+)
+
+from .fine_tuning import (
+    create_fine_tuning_job,
+    fetch_by_id,
+    fetch_by_provider_job_id,
+    fetch_by_document_id,
+    update_finetune_job,
+    fetch_active_jobs_by_document_id,
+)
+
+from .model_evaluation import (
+    create_model_evaluation,
+    fetch_active_model_evals,
+    fetch_by_eval_id,
+    fetch_eval_by_doc_id,
+    fetch_top_model_by_doc_id,
+    update_model_eval,
 )
 
 from .onboarding import onboard_project

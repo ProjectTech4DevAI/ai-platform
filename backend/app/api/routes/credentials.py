@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends
 
 from app.api.deps import SessionDep, get_current_user_org_project
@@ -14,6 +16,7 @@ from app.utils import APIResponse
 from app.core.providers import validate_provider
 from app.core.exception_handlers import HTTPException
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/credentials", tags=["credentials"])
 
 
@@ -40,6 +43,9 @@ def create_new_credential(
             project_id=_current_user.project_id,
         )
         if existing_cred:
+            logger.warning(
+                f"[create_new_credential] Credentials for provider already exist | organization_id: {_current_user.organization_id}, project_id: {_current_user.project_id}, provider: {provider}"
+            )
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -56,7 +62,10 @@ def create_new_credential(
         project_id=_current_user.project_id,
     )
     if not created_creds:
-        raise Exception(status_code=500, detail="Failed to create credentials")
+        logger.error(
+            f"[create_new_credential] Failed to create credentials | organization_id: {_current_user.organization_id}, project_id: {_current_user.project_id}"
+        )
+        raise HTTPException(status_code=500, detail="Failed to create credentials")
 
     return APIResponse.success_response([cred.to_public() for cred in created_creds])
 
@@ -78,6 +87,9 @@ def read_credential(
         project_id=_current_user.project_id,
     )
     if not creds:
+        logger.error(
+            f"[read_credential] No credentials found | organization_id: {_current_user.organization_id}, project_id: {_current_user.project_id}"
+        )
         raise HTTPException(status_code=404, detail="Credentials not found")
 
     return APIResponse.success_response([cred.to_public() for cred in creds])
@@ -121,6 +133,9 @@ def update_credential(
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
     if not creds_in or not creds_in.provider or not creds_in.credential:
+        logger.error(
+            f"[update_credential] Invalid input | organization_id: {_current_user.organization_id}, project_id: {_current_user.project_id}"
+        )
         raise HTTPException(
             status_code=400, detail="Provider and credential must be provided"
         )
@@ -157,6 +172,9 @@ def delete_provider_credential(
         project_id=_current_user.project_id,
     )
     if provider_creds is None:
+        logger.error(
+            f"[delete_provider_credential] Provider credentials not found | organization_id: {_current_user.organization_id}, provider: {provider}, project_id: {_current_user.project_id}"
+        )
         raise HTTPException(status_code=404, detail="Provider credentials not found")
 
     remove_provider_credential(
@@ -189,6 +207,9 @@ def delete_all_credentials(
         project_id=_current_user.project_id,
     )
     if not existing_creds:
+        logger.error(
+            f"[delete_all_credentials] Credentials not found | organization_id: {_current_user.organization_id}, project_id: {_current_user.project_id}"
+        )
         raise HTTPException(
             status_code=404, detail="Credentials for organization/project not found"
         )

@@ -11,6 +11,7 @@
 
 - [docker](https://docs.docker.com/get-started/get-docker/) Docker
 - [uv](https://docs.astral.sh/uv/) for Python package and environment management.
+- **Poppler** – Install Poppler, required for PDF processing.
 
 ## Project Setup
 

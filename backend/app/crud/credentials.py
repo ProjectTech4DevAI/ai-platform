@@ -1,3 +1,4 @@
+import logging
 from typing import Optional, Dict, Any, List, Union
 from sqlmodel import Session, select
 from sqlalchemy.exc import IntegrityError
@@ -8,6 +9,8 @@ from app.core.security import encrypt_credentials, decrypt_credentials
 from app.core.util import now
 from app.core.exception_handlers import HTTPException
 
+logger = logging.getLogger(__name__)
+
 
 def set_creds_for_org(
     *, session: Session, creds_add: CredsCreate, organization_id: int, project_id: int
@@ -16,6 +19,9 @@ def set_creds_for_org(
     created_credentials = []
 
     if not creds_add.credential:
+        logger.error(
+            f"[set_creds_for_org] No credentials provided | project_id: {project_id}"
+        )
         raise HTTPException(400, "No credentials provided")
 
     for provider, credentials in creds_add.credential.items():
@@ -42,10 +48,16 @@ def set_creds_for_org(
             created_credentials.append(credential)
         except IntegrityError as e:
             session.rollback()
+            logger.error(
+                f"[set_creds_for_org] Integrity error while adding credentials | organization_id {organization_id}, project_id {project_id}, provider {provider}: {str(e)}",
+                exc_info=True,
+            )
             raise ValueError(
                 f"Error while adding credentials for provider {provider}: {str(e)}"
             )
-
+    logger.info(
+        f"[set_creds_for_org] Successfully created credentials | organization_id {organization_id}, project_id {project_id}"
+    )
     return created_credentials
 
 
@@ -146,6 +158,9 @@ def update_creds_for_org(
     )
     creds = session.exec(statement).first()
     if creds is None:
+        logger.error(
+            f"[update_creds_for_org] Credentials not found | organization {org_id}, provider {creds_in.provider}, project_id {project_id}"
+        )
         raise HTTPException(
             status_code=404, detail="Credentials not found for this provider"
         )
@@ -155,7 +170,9 @@ def update_creds_for_org(
     session.add(creds)
     session.commit()
     session.refresh(creds)
-
+    logger.info(
+        f"[update_creds_for_org] Successfully updated credentials | organization_id {org_id}, provider {creds_in.provider}, project_id {project_id}"
+    )
     return [creds]
 
 
@@ -193,4 +210,8 @@ def remove_creds_for_org(
 
     session.commit()
     # Return empty list since we're doing hard deletes
+    logger.info(
+        f"[remove_creds_for_org] Successfully removed all the credentials | organization_id {org_id}, project_id {project_id}"
+    )
+
     return []

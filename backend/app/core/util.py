@@ -9,13 +9,15 @@ from langfuse import Langfuse
 from langfuse.decorators import langfuse_context
 from openai import OpenAI
 
+logger = logging.getLogger(__name__)
+
 
 def now():
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def raise_from_unknown(error: Exception, status_code=500):
-    warnings.warn(
+    logger.warning(
         'Unexpected exception "{}": {}'.format(
             type(error).__name__,
             error,
@@ -31,7 +33,7 @@ def post_callback(url: HttpUrl, payload: BaseModel):
         try:
             response.raise_for_status()
         except RequestException as err:
-            warnings.warn(f"Callback failure: {err}")
+            logger.warning(f"Callback failure: {err}")
             errno += 1
 
     return not errno
@@ -67,7 +69,7 @@ def configure_langfuse(credentials: dict) -> tuple[Langfuse, bool]:
 
         return langfuse, True
     except Exception as e:
-        warnings.warn(f"Failed to configure Langfuse: {str(e)}")
+        logger.error(f"Failed to configure Langfuse: {str(e)}")
         return None, False
 
 
@@ -89,5 +91,5 @@ def configure_openai(credentials: dict) -> tuple[OpenAI, bool]:
         client = OpenAI(api_key=credentials["api_key"])
         return client, True
     except Exception as e:
-        warnings.warn(f"Failed to configure OpenAI client: {str(e)}")
+        logger.error(f"Failed to configure OpenAI client: {str(e)}")
         return None, False

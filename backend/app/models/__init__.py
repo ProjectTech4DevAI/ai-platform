@@ -2,7 +2,17 @@ from sqlmodel import SQLModel
 
 from .auth import Token, TokenPayload
 from .collection import Collection
-from .document import Document, DocumentPublic
+from .document import (
+    Document,
+    DocumentPublic,
+    DocumentUploadResponse,
+    TransformationJobInfo,
+)
+from .doc_transformation_job import (
+    DocTransformationJob,
+    DocTransformationJobs,
+    TransformationStatus,
+)
 from .document_collection import DocumentCollection
 from .message import Message
 
@@ -56,11 +66,29 @@ from .threads import OpenAI_Thread, OpenAIThreadBase, OpenAIThreadCreate
 
 from .assistants import Assistant, AssistantBase, AssistantCreate, AssistantUpdate
 
+from .fine_tuning import (
+    FineTuningJobBase,
+    Fine_Tuning,
+    FineTuningJobCreate,
+    FineTuningJobPublic,
+    FineTuningUpdate,
+    FineTuningStatus,
+)
+
 from .openai_conversation import (
     OpenAIConversationPublic,
     OpenAIConversation,
     OpenAIConversationBase,
     OpenAIConversationCreate,
+)
+
+from .model_evaluation import (
+    ModelEvaluation,
+    ModelEvaluationBase,
+    ModelEvaluationCreate,
+    ModelEvaluationPublic,
+    ModelEvaluationStatus,
+    ModelEvaluationUpdate,
 )
 
 from .onboarding import OnboardingRequest, OnboardingResponse

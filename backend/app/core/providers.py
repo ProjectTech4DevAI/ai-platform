@@ -1,6 +1,9 @@
+import logging
 from typing import Dict, List, Optional
 from enum import Enum
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 
 class Provider(str, Enum):
@@ -46,6 +49,9 @@ def validate_provider(provider: str) -> Provider:
         return Provider(provider.lower())
     except ValueError:
         supported = ", ".join(p.value for p in Provider)
+        logger.error(
+            f"[validate_provider] Unsupported provider | provider: {provider}, supported_providers: {supported}"
+        )
         raise ValueError(
             f"Unsupported provider: {provider}. Supported providers are: {supported}"
         )
@@ -67,6 +73,9 @@ def validate_provider_credentials(provider: str, credentials: Dict[str, str]) ->
     if missing_fields := [
         field for field in required_fields if field not in credentials
     ]:
+        logger.error(
+            f"[validate_provider_credentials] Missing required fields | provider: {provider}, missing_fields: {', '.join(missing_fields)}"
+        )
         raise ValueError(
             f"Missing required fields for {provider}: {', '.join(missing_fields)}"
         )
