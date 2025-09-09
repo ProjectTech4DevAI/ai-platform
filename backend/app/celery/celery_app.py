@@ -15,7 +15,7 @@ celery_app = Celery(
 # Define exchanges and queues with priority
 default_exchange = Exchange('default', type='direct')
 
-# Celery configuration using environment variables
+# Base Celery configuration
 celery_app.conf.update(
     # Queue configuration with priority support
     task_queues=(
@@ -91,6 +91,36 @@ celery_app.conf.update(
         # },
     },
 )
+
+# Production-specific configuration
+if settings.ENVIRONMENT == "production":
+    celery_app.conf.update(
+        # Production-specific settings
+        worker_prefetch_multiplier=1,  # Better for long-running tasks
+        task_acks_late=True,
+        task_reject_on_worker_lost=True,
+        
+        # Enhanced monitoring
+        worker_send_task_events=True,
+        task_send_sent_event=True,
+        
+        # Better error handling and rate limiting
+        task_annotations={
+            '*': {
+                'rate_limit': '100/m',  # Global rate limit
+                'time_limit': 1800,     # 30 minutes
+                'soft_time_limit': 1500, # 25 minutes
+            },
+            'app.celery.tasks.job_execution.execute_high_priority_task': {
+                'rate_limit': '200/m',  # Higher limit for high priority
+                'priority': 9,
+            },
+            'app.celery.tasks.job_execution.execute_low_priority_task': {
+                'rate_limit': '50/m',   # Lower limit for low priority
+                'priority': 1,
+            }
+        }
+    )
 
 # Auto-discover tasks
 celery_app.autodiscover_tasks()

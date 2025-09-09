@@ -64,10 +64,10 @@ services:
       - rabbitmq
     command: ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80", "--reload"]
 
-  celery-worker:
+  celery-worker-high:
     build:
       context: ./backend
-      dockerfile: Dockerfile.celery
+      dockerfile: Dockerfile.celery-high
     environment:
       - ENVIRONMENT=development
       - POSTGRES_SERVER=postgres
@@ -90,7 +90,60 @@ services:
       - redis
       - rabbitmq
       - backend
-    command: ["uv", "run", "celery", "-A", "app.celery.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
+
+  celery-worker-low:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.celery-low
+    environment:
+      - ENVIRONMENT=development
+      - POSTGRES_SERVER=postgres
+      - POSTGRES_USER=myuser
+      - POSTGRES_PASSWORD=mypassword
+      - POSTGRES_DB=mydatabase
+      - REDIS_HOST=redis
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+    env_file:
+      - ./.env
+    volumes:
+      - ./backend:/app  # Mount for live code changes
+      - /app/.venv  # Exclude .venv from volume mount
+    networks:
+      - app-network
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+      - backend
+
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.celery-beat
+    environment:
+      - ENVIRONMENT=development
+      - POSTGRES_SERVER=postgres
+      - POSTGRES_USER=myuser
+      - POSTGRES_PASSWORD=mypassword
+      - POSTGRES_DB=mydatabase
+      - REDIS_HOST=redis
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+    env_file:
+      - ./.env
+    volumes:
+      - ./backend:/app  # Mount for live code changes
+      - /app/.venv  # Exclude .venv from volume mount
+    networks:
+      - app-network
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+      - backend
 
 networks:
   app-network:

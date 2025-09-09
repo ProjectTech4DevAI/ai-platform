@@ -31,14 +31,33 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
 
-      - name: Build and Push Docker Image
+      - name: Build and Push Docker Images
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          REPOSITORY: ${{ github.event.repository.name }}-staging-repo
+          REPOSITORY_BASE: ${{ github.event.repository.name }}-staging
         run: |
-          docker build -t $REGISTRY/$REPOSITORY:latest ./backend
-          docker push $REGISTRY/$REPOSITORY:latest
+          # Build and push main backend
+          docker build -t $REGISTRY/$REPOSITORY_BASE-repo:latest ./backend
+          docker push $REGISTRY/$REPOSITORY_BASE-repo:latest
+          
+          # Build and push high priority celery workers
+          docker build -f ./backend/Dockerfile.celery-high -t $REGISTRY/$REPOSITORY_BASE-celery-high:latest ./backend
+          docker push $REGISTRY/$REPOSITORY_BASE-celery-high:latest
+          
+          # Build and push low priority celery workers
+          docker build -f ./backend/Dockerfile.celery-low -t $REGISTRY/$REPOSITORY_BASE-celery-low:latest ./backend
+          docker push $REGISTRY/$REPOSITORY_BASE-celery-low:latest
+          
+          # Build and push celery beat scheduler
+          docker build -f ./backend/Dockerfile.celery-beat -t $REGISTRY/$REPOSITORY_BASE-celery-beat:latest ./backend
+          docker push $REGISTRY/$REPOSITORY_BASE-celery-beat:latest
 
-      - name: Deploy to ECS
+      - name: Deploy All Services to ECS
         run: |
+          # Deploy main backend
           aws ecs update-service --cluster ${{ github.event.repository.name }}-staging-cluster --service ${{ github.event.repository.name }}-staging-service --force-new-deployment
+          
+          # Deploy celery services
+          aws ecs update-service --cluster ${{ github.event.repository.name }}-staging-cluster --service ${{ github.event.repository.name }}-staging-celery-high-service --force-new-deployment
+          aws ecs update-service --cluster ${{ github.event.repository.name }}-staging-cluster --service ${{ github.event.repository.name }}-staging-celery-low-service --force-new-deployment
+          aws ecs update-service --cluster ${{ github.event.repository.name }}-staging-cluster --service ${{ github.event.repository.name }}-staging-celery-beat-service --force-new-deployment
