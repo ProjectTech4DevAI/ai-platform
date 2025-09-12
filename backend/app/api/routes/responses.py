@@ -18,7 +18,7 @@ from app.crud.openai_conversation import (
     get_conversation_by_ancestor_id,
 )
 from app.models import UserProjectOrg, OpenAIConversationCreate, OpenAIConversation
-from app.utils import APIResponse, mask_string
+from app.utils import APIResponse, mask_string, get_openai_client
 from app.core.langfuse.langfuse import LangfuseTracer
 
 logger = logging.getLogger(__name__)
@@ -139,9 +139,7 @@ def process_response(
         f"[process_response] Starting generating response for assistant_id={mask_string(assistant_id)}, project_id={project_id}"
     )
 
-    # Reconstruct complex objects from IDs at the start of the job
     with Session(engine) as session:
-        # Get assistant
         assistant = get_assistant_by_id(session, assistant_id, project_id)
         if not assistant:
             logger.error(
@@ -149,22 +147,8 @@ def process_response(
             )
             return
 
-        # Get OpenAI credentials and create client
-        credentials = get_provider_credential(
-            session=session,
-            org_id=organization_id,
-            provider="openai",
-            project_id=project_id,
-        )
-        if not credentials or "api_key" not in credentials:
-            logger.error(
-                f"[process_response] OpenAI API key not configured for org_id={organization_id}, project_id={project_id}"
-            )
-            return
+        client = get_openai_client(session, organization_id, project_id)
 
-        client = OpenAI(api_key=credentials["api_key"])
-
-        # Get Langfuse credentials and create tracer
         langfuse_credentials = get_provider_credential(
             session=session,
             org_id=organization_id,
