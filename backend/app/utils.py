@@ -10,6 +10,7 @@ import emails
 from jinja2 import Template
 from jwt.exceptions import InvalidTokenError
 from fastapi import HTTPException
+import openai
 from openai import OpenAI
 from pydantic import BaseModel
 from sqlmodel import Session
@@ -198,6 +199,23 @@ def get_openai_client(session: Session, org_id: int, project_id: int) -> OpenAI:
             status_code=500,
             detail=f"Failed to configure OpenAI client: {str(e)}",
         )
+
+
+def handle_openai_error(e: openai.OpenAIError) -> str:
+	if hasattr(e, "body") and isinstance(e.body, dict) and "message" in e.body:
+		return e.body["message"]
+	elif hasattr(e, "message"):
+		return e.message
+	elif hasattr(e, "response") and hasattr(e.response, "json"):
+		try:
+			error_data = e.response.json()
+			if isinstance(error_data, dict) and "error" in error_data:
+				error_info = error_data["error"]
+				if isinstance(error_info, dict) and "message" in error_info:
+					return error_info["message"]
+		except:
+			pass
+	return str(e)
 
 
 @ft.singledispatch
