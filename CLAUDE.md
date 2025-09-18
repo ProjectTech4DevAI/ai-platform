@@ -27,9 +27,6 @@ uv run pre-commit run --all-files
 # Activate virtual environment
 source .venv/bin/activate
 
-# Run linting and type checking
-cd backend && bash scripts/lint.sh
-
 # Generate new Migration
 alembic revision --autogenerate -m 'Add new meta'
 ```
