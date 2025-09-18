@@ -209,4 +209,3 @@ alembic revision --autogenerate -m "your-revision-message"
 ```shell
 alembic upgrade head
 ```
-
