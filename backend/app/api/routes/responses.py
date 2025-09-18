@@ -17,7 +17,7 @@ from app.models import (
     UserProjectOrg,
     OpenAIConversationCreate,
 )
-from app.service.response import get_additional_data, get_file_search_results
+from app.services.response import get_additional_data, get_file_search_results, start_job
 from app.utils import APIResponse, get_openai_client, handle_openai_error, mask_string
 
 
@@ -36,11 +36,15 @@ async def responses(
         _current_user.project_id,
         _current_user.organization_id,
     )
+
+    start_job(
+        db=_session,
+        request=request,
+        project_id=project_id,
+        organization_id=organization_id,
+    )
     request_dict = request.model_dump()
 
-    logger.info(
-        f"[response] Celery task scheduled for response processing: assistant_id={mask_string(request.assistant_id)}, project_id={project_id}, organization_id={organization_id}, task_id={celery_task.id}"
-    )
     additional_data = get_additional_data(request_dict)
     return {
         "success": True,

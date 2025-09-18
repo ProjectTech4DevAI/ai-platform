@@ -1,26 +1,60 @@
 import logging
+from uuid import UUID
 import openai
 from fastapi import HTTPException
 from sqlmodel import Session
 from app.core.db import engine
 from app.core.langfuse.langfuse import LangfuseTracer
-from app.crud.assistants import get_assistant_by_id
-from app.crud.credentials import get_provider_credential
-from app.crud.openai_conversation import (
+from app.crud import (
+	JobCrud,
+	get_assistant_by_id,
+	get_provider_credential,
 	create_conversation,
 	get_ancestor_id_from_response,
 	get_conversation_by_ancestor_id,
+
 )
 from app.models import (
 	CallbackResponse,
 	Diagnostics,
 	FileResultChunk,
+	JobType,
+	JobStatus,
+	JobUpdate,
 	ResponsesAPIRequest,
 	OpenAIConversationCreate,
 )
 from app.utils import APIResponse, get_openai_client, handle_openai_error, mask_string
+from app.celery.utils import start_high_priority_job
+from app.api.routes.threads import send_callback
 
 logger = logging.getLogger(__name__)
+
+
+def start_job(
+    db: Session,
+    request: ResponsesAPIRequest,
+    project_id: int,
+    organization_id: int,
+) -> UUID:
+    """Create a response job and schedule Celery task."""
+
+    job_crud = JobCrud(session=db)
+    job = job_crud.create(job_type=JobType.RESPONSE, trace_id="Aviraj")
+
+    # Schedule the Celery task
+    task_id = start_high_priority_job(
+        function_path="app.services.response.execute_job",
+        project_id=project_id,
+        job_id=str(job.id),
+        request_data=request.model_dump(),
+        organization_id=organization_id,
+    )
+
+    logger.info(
+        f"[start_job] Job scheduled to generate response  | job_id={job.id}, project_id={project_id}, task_id={task_id}"
+    )
+    return job.id
 
 
 def get_file_search_results(response):
@@ -51,11 +85,81 @@ def get_additional_data(request: dict) -> dict:
 	return {k: v for k, v in request.items() if k not in exclude_keys}
 
 
-def process_response_task(request_data: dict, project_id: int, organization_id: int):
+def send_response_callback(
+    callback_url: str,
+    callback_response: APIResponse,
+    request_dict: dict,
+) -> None:
+    """Send a standardized callback response to the provided callback URL."""
+
+    # Convert Pydantic model to dict
+    callback_response = callback_response.model_dump()
+
+    send_callback(
+        callback_url,
+        {
+            "success": callback_response.get("success", False),
+            "data": {
+                **(callback_response.get("data") or {}),
+                **get_additional_data(request_dict),
+            },
+            "error": callback_response.get("error"),
+            "metadata": None,
+        },
+    )
+
+
+def execute_job(
+	request_data: dict,
+	project_id: int,
+	organization_id: int,
+	job_id: str,
+	task_id: str,
+	task_instance,
+) -> APIResponse | None:
+	"""Celery task to process a response request asynchronously."""
+	request_data = ResponsesAPIRequest(**request_data)
+	job_id = UUID(job_id)
+	response = process_response(
+		request=request_data,
+		project_id=project_id,
+		organization_id=organization_id,
+		job_id=job_id,
+		task_id=task_id,
+		task_instance=task_instance,
+	)
+	if response is None:
+		response = APIResponse.failure_response(error="Unknown error occurred")
+
+	with Session(engine) as session:
+		job_crud = JobCrud(session=session)
+		if response.success:
+			job_update = JobUpdate(status=JobStatus.SUCCESS)
+		else:
+			job_update = JobUpdate(status=JobStatus.FAILED, error_message=response.error)
+		job_crud.update(job_id=job_id, job_update=job_update)
+
+
+	if request_data.callback_url:
+		send_response_callback(
+			callback_url=request_data.callback_url,
+			callback_response=response,
+			request_dict=request_data.model_dump(),
+		)
+
+	return response.model_dump()
+
+
+def process_response(
+	request: ResponsesAPIRequest,
+    project_id: int,
+    organization_id: int,
+	job_id: UUID,
+    task_id: str,
+    task_instance,
+)-> APIResponse:
 	"""Process a response and return callback payload, for Celery use."""
-	request = ResponsesAPIRequest(**request_data)
 	assistant_id = request.assistant_id
-	request_dict = request.model_dump()
 
 	logger.info(
 		f"[process_response_task] Generating response for assistant_id={mask_string(assistant_id)}, project_id={project_id}"
@@ -66,6 +170,11 @@ def process_response_task(request_data: dict, project_id: int, organization_id: 
 
 	try:
 		with Session(engine) as session:
+			job_crud = JobCrud(session=session)
+
+			job_update = JobUpdate(status=JobStatus.PROCESSING, task_id=UUID(task_id))
+			job_crud.update(job_id=job_id, job_update=job_update)
+			
 			assistant = get_assistant_by_id(session, assistant_id, project_id)
 			if not assistant:
 				msg = f"Assistant not found: assistant_id={mask_string(assistant_id)}, project_id={project_id}"
@@ -176,6 +285,9 @@ def process_response_task(request_data: dict, project_id: int, organization_id: 
 				project_id=project_id,
 				organization_id=organization_id,
 			)
+			job_crud = JobCrud(session=session)
+			job_update = JobUpdate(status=JobStatus.SUCCESS)
+			job_crud.update(job_id=job_id, job_update=job_update)
 
 		callback_response = APIResponse.success_response(
 			data=CallbackResponse(
@@ -200,6 +312,7 @@ def process_response_task(request_data: dict, project_id: int, organization_id: 
 		)
 		if tracer:
 			tracer.log_error(error_message, response_id=request.response_id)
+		
 		callback_response = APIResponse.failure_response(error=error_message)
 
 	finally:

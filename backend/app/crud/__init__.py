@@ -10,6 +10,8 @@ from .document import DocumentCrud
 from .document_collection import DocumentCollectionCrud
 from .doc_transformation_job import DocTransformationJobCrud
 
+from .jobs import JobCrud
+
 from .organization import (
     create_organization,
     get_organization_by_id,
@@ -59,6 +61,7 @@ from .assistants import (
 )
 
 from .openai_conversation import (
+    get_ancestor_id_from_response,
     get_conversation_by_id,
     get_conversation_by_response_id,
     get_conversation_by_ancestor_id,
