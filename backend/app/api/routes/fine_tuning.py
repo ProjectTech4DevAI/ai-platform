@@ -1,17 +1,19 @@
 from typing import Optional
 import logging
 import time
-from uuid import UUID
+from uuid import UUID, uuid4
+from pathlib import Path
 
 import openai
 from sqlmodel import Session
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, File, Form, UploadFile
 
 from app.models import (
     FineTuningJobCreate,
     FineTuningJobPublic,
     FineTuningUpdate,
     FineTuningStatus,
+    Document,
 )
 from app.core.cloud import get_cloud_storage
 from app.crud.document import DocumentCrud
@@ -179,12 +181,40 @@ def process_fine_tuning_job(
     description=load_description("fine_tuning/create.md"),
     response_model=APIResponse,
 )
-def fine_tune_from_CSV(
+async def fine_tune_from_CSV(
     session: SessionDep,
     current_user: CurrentUserOrgProject,
-    request: FineTuningJobCreate,
     background_tasks: BackgroundTasks,
+    file: UploadFile = File(..., description="CSV file to use for fine-tuning"),
+    base_model: str = Form(
+        ..., description="Base model for fine-tuning (e.g., gpt-3.5-turbo)"
+    ),
+    split_ratio: str = Form(
+        ..., description="Comma-separated split ratios (e.g., '0.8' or '0.7,0.8,0.9')"
+    ),
+    system_prompt: str = Form(..., description="System prompt for the fine-tuning job"),
 ):
+    # Validate and parse split ratios
+    try:
+        split_ratios = [float(r.strip()) for r in split_ratio.split(",")]
+        for ratio in split_ratios:
+            if not (0 < ratio < 1):
+                raise ValueError(
+                    f"Invalid split_ratio: {ratio}. Must be between 0 and 1."
+                )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Validate system prompt
+    if not system_prompt.strip():
+        raise HTTPException(
+            status_code=400, detail="System prompt must be a non-empty string"
+        )
+
+    # Validate file is CSV
+    if not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="File must be a CSV file")
+
     client = get_openai_client(  # Used here only to validate the user's OpenAI key;
         # the actual client is re-initialized separately inside the background task
         session,
@@ -192,9 +222,31 @@ def fine_tune_from_CSV(
         current_user.project_id,
     )
 
+    # Upload the file to storage and create document
+    storage = get_cloud_storage(session=session, project_id=current_user.project_id)
+    document_id = uuid4()
+    object_store_url = storage.put(file, Path(str(document_id)))
+
+    # Create document in database
+    document_crud = DocumentCrud(session, current_user.project_id)
+    document = Document(
+        id=document_id,
+        fname=file.filename,
+        object_store_url=str(object_store_url),
+    )
+    created_document = document_crud.update(document)
+
+    # Create FineTuningJobCreate request object
+    request = FineTuningJobCreate(
+        document_id=created_document.id,
+        base_model=base_model,
+        split_ratio=split_ratios,
+        system_prompt=system_prompt.strip(),
+    )
+
     results = []
 
-    for ratio in request.split_ratio:
+    for ratio in split_ratios:
         job, created = create_fine_tuning_job(
             session=session,
             request=request,
@@ -237,7 +289,9 @@ def fine_tune_from_CSV(
         else f"Started {created_count} job(s); {total - created_count} active fine-tuning job(s) already exists."
     )
 
-    return APIResponse.success_response({"message": message, "jobs": job_infos})
+    return APIResponse.success_response(
+        {"message": message, "document_id": str(created_document.id), "jobs": job_infos}
+    )
 
 
 @router.get(
