@@ -39,7 +39,10 @@ class APIResponse(BaseModel, Generic[T]):
 
     @classmethod
     def failure_response(
-        cls, error: str | list, data:Optional[T]= None, metadata: Optional[Dict[str, Any]] = None
+        cls,
+        error: str | list,
+        data: Optional[T] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> "APIResponse[None]":
         if isinstance(error, list):  # to handle cases when error is a list of errors
             error_message = "\n".join([f"{err['loc']}: {err['msg']}" for err in error])
@@ -202,20 +205,20 @@ def get_openai_client(session: Session, org_id: int, project_id: int) -> OpenAI:
 
 
 def handle_openai_error(e: openai.OpenAIError) -> str:
-	if hasattr(e, "body") and isinstance(e.body, dict) and "message" in e.body:
-		return e.body["message"]
-	elif hasattr(e, "message"):
-		return e.message
-	elif hasattr(e, "response") and hasattr(e.response, "json"):
-		try:
-			error_data = e.response.json()
-			if isinstance(error_data, dict) and "error" in error_data:
-				error_info = error_data["error"]
-				if isinstance(error_info, dict) and "message" in error_info:
-					return error_info["message"]
-		except:
-			pass
-	return str(e)
+    if hasattr(e, "body") and isinstance(e.body, dict) and "message" in e.body:
+        return e.body["message"]
+    elif hasattr(e, "message"):
+        return e.message
+    elif hasattr(e, "response") and hasattr(e.response, "json"):
+        try:
+            error_data = e.response.json()
+            if isinstance(error_data, dict) and "error" in error_data:
+                error_info = error_data["error"]
+                if isinstance(error_info, dict) and "message" in error_info:
+                    return error_info["message"]
+        except:
+            pass
+    return str(e)
 
 
 @ft.singledispatch

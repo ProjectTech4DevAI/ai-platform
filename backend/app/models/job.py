@@ -5,6 +5,7 @@ from uuid import uuid4, UUID
 from sqlmodel import SQLModel, Field
 from app.core.util import now
 
+
 class JobStatus(str, Enum):
     PENDING = "PENDING"
     PROCESSING = "PROCESSING"
@@ -24,20 +25,16 @@ class Job(SQLModel, table=True):
         primary_key=True,
     )
     task_id: UUID | None = Field(
-        nullable=True,
-        description="Celery task ID returned when job is queued."
+        nullable=True, description="Celery task ID returned when job is queued."
     )
     trace_id: str | None = Field(
-        default=None,
-        description="Tracing ID for correlating logs and traces."
+        default=None, description="Tracing ID for correlating logs and traces."
     )
     error_message: str | None = Field(
-        default=None,
-        description="Error details if the job fails."
+        default=None, description="Error details if the job fails."
     )
     status: JobStatus = Field(
-        default=JobStatus.PENDING,
-        description="Current state of the job."
+        default=JobStatus.PENDING, description="Current state of the job."
     )
     job_type: JobType = Field(
         description="Job type or classification (e.g., response job, ingestion job)."

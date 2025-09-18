@@ -4,8 +4,8 @@ from sqlmodel import SQLModel
 class ResponsesAPIRequest(SQLModel):
     assistant_id: str
     question: str
-    callback_url: str | None= None
-    response_id: str | None= None
+    callback_url: str | None = None
+    response_id: str | None = None
 
     class Config:
         extra = "allow"

@@ -7,6 +7,7 @@ from app.core.util import now
 
 logger = logging.getLogger(__name__)
 
+
 class JobCrud:
     def __init__(self, session: Session):
         self.session = session
@@ -21,9 +22,7 @@ class JobCrud:
         self.session.refresh(new_job)
         return new_job
 
-
     def update(self, job_id: UUID, job_update: JobUpdate) -> Job:
-
         job = self.session.get(Job, job_id)
         if not job:
             raise ValueError(f"Job not found with the given job_id {job_id}")
