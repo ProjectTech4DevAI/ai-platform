@@ -54,7 +54,7 @@ def start_job(
     )
 
     logger.info(
-        f"[start_job] Job scheduled to generate response  | job_id={job.id}, project_id={project_id}, task_id={task_id}"
+        f"[start_job] Job scheduled to generate response  | job_id={job.id}, project_id={project_id}, task_id={task_id}, job_id={job.id}"
     )
     return job.id
 
@@ -165,7 +165,7 @@ def process_response(
     assistant_id = request.assistant_id
 
     logger.info(
-        f"[process_response_task] Generating response for assistant_id={mask_string(assistant_id)}, project_id={project_id}"
+        f"[process_response_task] Generating response for assistant_id={mask_string(assistant_id)}, project_id={project_id}, task_id={task_id}, job_id={job_id}"
     )
 
     callback_response: APIResponse | None = None
