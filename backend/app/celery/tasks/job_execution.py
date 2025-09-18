@@ -2,6 +2,7 @@ import logging
 import importlib
 from typing import Any, Dict
 from celery import current_task
+from asgi_correlation_id import correlation_id
 
 from app.celery.celery_app import celery_app
 
@@ -10,7 +11,12 @@ logger = logging.getLogger(__name__)
 
 @celery_app.task(bind=True, queue="high_priority")
 def execute_high_priority_task(
-    self, function_path: str, project_id: int, job_id: str, **kwargs
+    self,
+    function_path: str,
+    project_id: int,
+    job_id: str,
+    trace_id: str,
+    **kwargs,
 ):
     """
     High priority Celery task to execute any job function.
@@ -20,16 +26,22 @@ def execute_high_priority_task(
         function_path: Import path to the execute_job function (e.g., "app.core.doctransform.service.execute_job")
         project_id: ID of the project executing the job
         job_id: ID of the job (should already exist in database)
+        trace_id: Trace/correlation ID to preserve context across Celery tasks
         **kwargs: Additional arguments to pass to the execute_job function
     """
     return _execute_job_internal(
-        self, function_path, project_id, job_id, "high_priority", **kwargs
+        self, function_path, project_id, job_id, "high_priority", trace_id, **kwargs
     )
 
 
 @celery_app.task(bind=True, queue="low_priority")
 def execute_low_priority_task(
-    self, function_path: str, project_id: int, job_id: str, **kwargs
+    self,
+    function_path: str,
+    project_id: int,
+    job_id: str,
+    trace_id: str,
+    **kwargs,
 ):
     """
     Low priority Celery task to execute any job function.
@@ -39,10 +51,11 @@ def execute_low_priority_task(
         function_path: Import path to the execute_job function (e.g., "app.core.doctransform.service.execute_job")
         project_id: ID of the project executing the job
         job_id: ID of the job (should already exist in database)
+        trace_id: Trace/correlation ID to preserve context across Celery tasks
         **kwargs: Additional arguments to pass to the execute_job function
     """
     return _execute_job_internal(
-        self, function_path, project_id, job_id, "low_priority", **kwargs
+        self, function_path, project_id, job_id, "low_priority", trace_id, **kwargs
     )
 
 
@@ -52,6 +65,7 @@ def _execute_job_internal(
     project_id: int,
     job_id: str,
     priority: str,
+    trace_id: str,
     **kwargs,
 ):
     """
@@ -63,9 +77,13 @@ def _execute_job_internal(
         project_id: ID of the project executing the job
         job_id: ID of the job (should already exist in database)
         priority: Priority level ("high_priority" or "low_priority")
+        trace_id: Trace/correlation ID to preserve context across Celery tasks
         **kwargs: Additional arguments to pass to the execute_job function
     """
     task_id = current_task.request.id
+
+    correlation_id.set(trace_id)
+    logger.info(f"Set correlation ID context: {trace_id} for job {job_id}")
 
     try:
         # Dynamically import and resolve the function

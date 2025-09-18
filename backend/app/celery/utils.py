@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def start_high_priority_job(
-    function_path: str, project_id: int, job_id: str, **kwargs
+    function_path: str, project_id: int, job_id: str, trace_id: str = "N/A", **kwargs
 ) -> str:
     """
     Start a high priority job using Celery.
@@ -24,13 +24,18 @@ def start_high_priority_job(
         function_path: Import path to the execute_job function (e.g., "app.core.doctransform.service.execute_job")
         project_id: ID of the project executing the job
         job_id: ID of the job (should already exist in database)
+        trace_id: Trace/correlation ID to preserve context across Celery tasks
         **kwargs: Additional arguments to pass to the execute_job function
 
     Returns:
         Celery task ID (different from job_id)
     """
     task = execute_high_priority_task.delay(
-        function_path=function_path, project_id=project_id, job_id=job_id, **kwargs
+        function_path=function_path,
+        project_id=project_id,
+        job_id=job_id,
+        trace_id=trace_id,
+        **kwargs,
     )
 
     logger.info(f"Started high priority job {job_id} with Celery task {task.id}")
@@ -38,7 +43,7 @@ def start_high_priority_job(
 
 
 def start_low_priority_job(
-    function_path: str, project_id: int, job_id: str, **kwargs
+    function_path: str, project_id: int, job_id: str, trace_id: str = "N/A", **kwargs
 ) -> str:
     """
     Start a low priority job using Celery.
@@ -47,13 +52,18 @@ def start_low_priority_job(
         function_path: Import path to the execute_job function (e.g., "app.core.doctransform.service.execute_job")
         project_id: ID of the project executing the job
         job_id: ID of the job (should already exist in database)
+        trace_id: Trace/correlation ID to preserve context across Celery tasks
         **kwargs: Additional arguments to pass to the execute_job function
 
     Returns:
         Celery task ID (different from job_id)
     """
     task = execute_low_priority_task.delay(
-        function_path=function_path, project_id=project_id, job_id=job_id, **kwargs
+        function_path=function_path,
+        project_id=project_id,
+        job_id=job_id,
+        trace_id=trace_id,
+        **kwargs,
     )
 
     logger.info(f"Started low priority job {job_id} with Celery task {task.id}")
