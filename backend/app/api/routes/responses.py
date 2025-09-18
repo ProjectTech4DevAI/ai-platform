@@ -17,7 +17,11 @@ from app.models import (
     UserProjectOrg,
     OpenAIConversationCreate,
 )
-from app.services.response import get_additional_data, get_file_search_results, start_job
+from app.services.response import (
+    get_additional_data,
+    get_file_search_results,
+    start_job,
+)
 from app.utils import APIResponse, get_openai_client, handle_openai_error, mask_string
 
 
@@ -82,7 +86,7 @@ async def responses_sync(
                 "data": additional_data if additional_data else None,
                 "error": str(e.detail),
                 "metadata": None,
-            }
+            },
         )
 
     langfuse_credentials = get_provider_credential(
@@ -189,5 +193,5 @@ async def responses_sync(
                 "data": additional_data if additional_data else None,
                 "error": error_message,
                 "metadata": None,
-            }
+            },
         )
