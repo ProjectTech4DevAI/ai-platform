@@ -27,6 +27,7 @@ from app.models import (
 from app.utils import APIResponse, get_openai_client, handle_openai_error, mask_string
 from app.celery.utils import start_high_priority_job
 from app.api.routes.threads import send_callback
+from asgi_correlation_id import correlation_id
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +40,9 @@ def start_job(
 ) -> UUID:
     """Create a response job and schedule Celery task."""
 
+    trace_id = correlation_id.get() or "N/A"
     job_crud = JobCrud(session=db)
-    job = job_crud.create(job_type=JobType.RESPONSE, trace_id="Aviraj")
+    job = job_crud.create(job_type=JobType.RESPONSE, trace_id=trace_id)
 
     # Schedule the Celery task
     task_id = start_high_priority_job(
