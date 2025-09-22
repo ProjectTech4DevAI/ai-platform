@@ -1,6 +1,5 @@
 import logging
 import importlib
-from typing import Any, Dict
 from celery import current_task
 from asgi_correlation_id import correlation_id
 

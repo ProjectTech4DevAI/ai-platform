@@ -6,6 +6,7 @@ import logging
 from typing import Any, Dict, Optional
 from celery.result import AsyncResult
 
+from app.celery.celery_app import celery_app
 from app.celery.tasks.job_execution import (
     execute_high_priority_task,
     execute_low_priority_task,
@@ -101,8 +102,6 @@ def revoke_task(task_id: str, terminate: bool = False) -> bool:
         True if task was revoked successfully
     """
     try:
-        from app.celery.celery_app import celery_app
-
         celery_app.control.revoke(task_id, terminate=terminate)
         logger.info(f"Revoked task {task_id}")
         return True

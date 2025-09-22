@@ -1,9 +1,11 @@
-#!/usr/bin/env python3
 """
 Celery beat scheduler for cron jobs.
 """
+import logging
 from celery import Celery
 from app.celery.celery_app import celery_app
+
+logger = logging.getLogger(__name__)
 
 
 def start_beat(loglevel: str = "info"):
@@ -13,9 +15,7 @@ def start_beat(loglevel: str = "info"):
     Args:
         loglevel: Logging level
     """
-    print(f"Starting Celery beat scheduler")
-    print(f"Log level: {loglevel}")
-
+    logger.info(f"Starting Celery beat scheduler")
     # Start the beat scheduler
     celery_app.start(["celery", "beat", "-l", loglevel])
 
