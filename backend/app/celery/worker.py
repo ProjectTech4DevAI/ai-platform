@@ -1,12 +1,13 @@
 """
 Celery worker management script.
 """
-import os
-import sys
+import logging
 import multiprocessing
 from celery.bin import worker
 from app.celery.celery_app import celery_app
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def start_worker(
@@ -25,9 +26,9 @@ def start_worker(
     if concurrency is None:
         concurrency = settings.CELERY_WORKER_CONCURRENCY or multiprocessing.cpu_count()
 
-    print(f"Starting Celery worker with {concurrency} processes")
-    print(f"Consuming queues: {queues}")
-    print(f"Log level: {loglevel}")
+    logger.info(f"Starting Celery worker with {concurrency} processes")
+    logger.info(f"Consuming queues: {queues}")
+
 
     # Start the worker
     worker_instance = worker.worker(app=celery_app)
