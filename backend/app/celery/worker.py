@@ -29,7 +29,6 @@ def start_worker(
     logger.info(f"Starting Celery worker with {concurrency} processes")
     logger.info(f"Consuming queues: {queues}")
 
-
     # Start the worker
     worker_instance = worker.worker(app=celery_app)
     worker_instance.run(
