@@ -99,6 +99,7 @@ from .response import (
     Diagnostics,
     FileResultChunk,
     ResponsesAPIRequest,
+    ResponseJobStatus,
     ResponsesSyncAPIRequest,
 )
 
