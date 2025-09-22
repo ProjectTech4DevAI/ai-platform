@@ -8,7 +8,6 @@ from app.tests.utils.utils import get_project
 
 
 def test_start_job(db: Session):
-
     request = ResponsesAPIRequest(
         assistant_id="assistant_123",
         question="What is the capital of France?",

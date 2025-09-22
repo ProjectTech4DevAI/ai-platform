@@ -4,6 +4,7 @@ from sqlmodel import Session
 from app.crud import JobCrud
 from app.models import JobUpdate, JobStatus, JobType
 
+
 @pytest.fixture
 def dummy_jobs(db: Session):
     """Create and return a list of dummy jobs for testing."""
@@ -16,6 +17,7 @@ def dummy_jobs(db: Session):
     ]
 
     return jobs
+
 
 def test_create_job(db: Session):
     crud = JobCrud(db)
