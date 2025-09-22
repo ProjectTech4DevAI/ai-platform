@@ -11,17 +11,13 @@ from app.crud.credentials import get_provider_credential
 from app.models import (
     CallbackResponse,
     Diagnostics,
-    FileResultChunk,
     ResponsesAPIRequest,
     ResponsesSyncAPIRequest,
     UserProjectOrg,
-    OpenAIConversationCreate,
 )
-from app.services.response import (
-    get_additional_data,
-    get_file_search_results,
-    start_job,
-)
+from app.services.response.jobs import start_job
+from app.services.response.response import get_file_search_results
+from app.services.response.callbacks import get_additional_data
 from app.utils import APIResponse, get_openai_client, handle_openai_error, mask_string
 
 
