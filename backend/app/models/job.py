@@ -24,7 +24,7 @@ class Job(SQLModel, table=True):
         default_factory=uuid4,
         primary_key=True,
     )
-    task_id: UUID | None = Field(
+    task_id: str | None = Field(
         nullable=True, description="Celery task ID returned when job is queued."
     )
     trace_id: str | None = Field(
@@ -46,4 +46,4 @@ class Job(SQLModel, table=True):
 class JobUpdate(SQLModel):
     status: JobStatus | None = None
     error_message: str | None = None
-    task_id: UUID | None = None
+    task_id: str | None = None

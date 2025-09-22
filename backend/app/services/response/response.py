@@ -84,7 +84,7 @@ def generate_response(
     client: OpenAI,
     assistant: Assistant,
     request: ResponsesAPIRequest,
-    ancestor_id: str,
+    ancestor_id: str | None,
 ) -> tuple[Response | None, str | None]:
     """Generate a response using OpenAI and track with Langfuse."""
     response: Response | None = None
@@ -218,9 +218,7 @@ def process_response(
         with Session(engine) as session:
             JobCrud(session=session).update(
                 job_id=job_id,
-                job_update=JobUpdate(
-                    status=JobStatus.PROCESSING, task_id=UUID(task_id)
-                ),
+                job_update=JobUpdate(status=JobStatus.PROCESSING, task_id=task_id),
             )
 
             assistant = get_assistant_by_id(session, assistant_id, project_id)
