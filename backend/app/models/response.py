@@ -24,6 +24,14 @@ class ResponsesSyncAPIRequest(SQLModel):
         extra = "allow"
 
 
+class ResponseJobStatus(SQLModel):
+    status: str
+    message: str | None = None
+
+    class Config:
+        extra = "allow"
+
+
 class Diagnostics(SQLModel):
     input_tokens: int
     output_tokens: int

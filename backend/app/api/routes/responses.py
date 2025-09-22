@@ -12,6 +12,7 @@ from app.models import (
     CallbackResponse,
     Diagnostics,
     ResponsesAPIRequest,
+    ResponseJobStatus,
     ResponsesSyncAPIRequest,
     UserProjectOrg,
 )
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["responses"])
 
 
-@router.post("/responses", response_model=dict)
+@router.post("/responses", response_model=APIResponse[ResponseJobStatus])
 async def responses(
     request: ResponsesAPIRequest,
     _session: Session = Depends(get_db),
@@ -46,16 +47,13 @@ async def responses(
     request_dict = request.model_dump()
 
     additional_data = get_additional_data(request_dict)
-    return {
-        "success": True,
-        "data": {
-            "status": "processing",
-            "message": "Response creation started",
-            **additional_data,
-        },
-        "error": None,
-        "metadata": None,
-    }
+
+    response = ResponseJobStatus(
+        status="processing",
+        message="Your request is being processed. You will receive a callback once it's complete.",
+        **additional_data,
+    )
+    return APIResponse.success_response(data=response)
 
 
 @router.post("/responses/sync", response_model=APIResponse[CallbackResponse])
