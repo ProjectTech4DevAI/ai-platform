@@ -11,7 +11,7 @@ from sklearn.metrics import (
     matthews_corrcoef,
 )
 from app.core.cloud import AmazonCloudStorage
-from app.api.routes.fine_tuning import handle_openai_error
+from app.utils import handle_openai_error
 from app.core.finetune.preprocessing import DataPreprocessor
 
 

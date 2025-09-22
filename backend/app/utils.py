@@ -7,6 +7,7 @@ from typing import Any, Dict, Generic, Optional, TypeVar
 
 import jwt
 import emails
+import openai
 from jinja2 import Template
 from jwt.exceptions import InvalidTokenError
 from fastapi import HTTPException
@@ -46,6 +47,13 @@ class APIResponse(BaseModel, Generic[T]):
             error_message = error
 
         return cls(success=False, data=None, error=error_message, metadata=metadata)
+
+
+def handle_openai_error(e: openai.OpenAIError) -> str:
+    """Extract error message from OpenAI error."""
+    if hasattr(e, "body") and isinstance(e.body, dict) and "message" in e.body:
+        return e.body["message"]
+    return str(e)
 
 
 @dataclass

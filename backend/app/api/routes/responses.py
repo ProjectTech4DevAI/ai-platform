@@ -18,30 +18,11 @@ from app.crud.openai_conversation import (
     get_conversation_by_ancestor_id,
 )
 from app.models import UserProjectOrg, OpenAIConversationCreate, OpenAIConversation
-from app.utils import APIResponse, mask_string
+from app.utils import APIResponse, mask_string, handle_openai_error
 from app.core.langfuse.langfuse import LangfuseTracer
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["responses"])
-
-
-def handle_openai_error(e: openai.OpenAIError) -> str:
-    """Extract error message from OpenAI error."""
-    # Try to get error message from different possible attributes
-    if hasattr(e, "body") and isinstance(e.body, dict) and "message" in e.body:
-        return e.body["message"]
-    elif hasattr(e, "message"):
-        return e.message
-    elif hasattr(e, "response") and hasattr(e.response, "json"):
-        try:
-            error_data = e.response.json()
-            if isinstance(error_data, dict) and "error" in error_data:
-                error_info = error_data["error"]
-                if isinstance(error_info, dict) and "message" in error_info:
-                    return error_info["message"]
-        except:
-            pass
-    return str(e)
 
 
 class ResponsesAPIRequest(BaseModel):

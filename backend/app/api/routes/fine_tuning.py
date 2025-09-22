@@ -14,19 +14,30 @@ from app.models import (
     FineTuningUpdate,
     FineTuningStatus,
     Document,
+    ModelEvaluationBase,
+    ModelEvaluationStatus,
 )
 from app.core.cloud import get_cloud_storage
 from app.crud.document import DocumentCrud
-from app.utils import get_openai_client, APIResponse, mask_string, load_description
+from app.utils import (
+    get_openai_client,
+    APIResponse,
+    mask_string,
+    load_description,
+    handle_openai_error,
+)
 from app.crud import (
     create_fine_tuning_job,
     fetch_by_id,
     update_finetune_job,
     fetch_by_document_id,
+    create_model_evaluation,
+    fetch_active_model_evals,
 )
 from app.core.db import engine
 from app.api.deps import CurrentUserOrgProject, SessionDep
 from app.core.finetune.preprocessing import DataPreprocessor
+from app.api.routes.model_evaluation import run_model_evaluation
 
 
 logger = logging.getLogger(__name__)
@@ -41,13 +52,6 @@ OPENAI_TO_INTERNAL_STATUS = {
     "succeeded": FineTuningStatus.completed,
     "failed": FineTuningStatus.failed,
 }
-
-
-def handle_openai_error(e: openai.OpenAIError) -> str:
-    """Extract error message from OpenAI error."""
-    if isinstance(e.body, dict) and "message" in e.body:
-        return e.body["message"]
-    return str(e)
 
 
 def process_fine_tuning_job(
@@ -300,7 +304,10 @@ async def fine_tune_from_CSV(
     response_model=APIResponse[FineTuningJobPublic],
 )
 def refresh_fine_tune_status(
-    fine_tuning_id: int, session: SessionDep, current_user: CurrentUserOrgProject
+    fine_tuning_id: int,
+    background_tasks: BackgroundTasks,
+    session: SessionDep,
+    current_user: CurrentUserOrgProject,
 ):
     project_id = current_user.project_id
     job = fetch_by_id(session, fine_tuning_id, project_id)
@@ -336,12 +343,55 @@ def refresh_fine_tune_status(
             error_message=openai_error_msg,
         )
 
+        # Check if status is changing from running to completed
+        is_newly_completed = (
+            job.status == FineTuningStatus.running
+            and update_payload.status == FineTuningStatus.completed
+        )
+
         if (
             job.status != update_payload.status
             or job.fine_tuned_model != update_payload.fine_tuned_model
             or job.error_message != update_payload.error_message
         ):
             job = update_finetune_job(session=session, job=job, update=update_payload)
+
+        # If the job just completed, automatically trigger evaluation
+        if is_newly_completed:
+            logger.info(
+                f"[refresh_fine_tune_status] Fine-tuning job completed, triggering evaluation | "
+                f"fine_tuning_id={fine_tuning_id}, project_id={project_id}"
+            )
+
+            # Check if there's already an active evaluation for this job
+            active_evaluations = fetch_active_model_evals(
+                session, fine_tuning_id, project_id
+            )
+
+            if not active_evaluations:
+                # Create a new evaluation
+                model_eval = create_model_evaluation(
+                    session=session,
+                    request=ModelEvaluationBase(fine_tuning_id=fine_tuning_id),
+                    project_id=project_id,
+                    organization_id=current_user.organization_id,
+                    status=ModelEvaluationStatus.pending,
+                )
+
+                # Queue the evaluation task
+                background_tasks.add_task(
+                    run_model_evaluation, model_eval.id, current_user
+                )
+
+                logger.info(
+                    f"[refresh_fine_tune_status] Created and queued evaluation | "
+                    f"eval_id={model_eval.id}, fine_tuning_id={fine_tuning_id}, project_id={project_id}"
+                )
+            else:
+                logger.info(
+                    f"[refresh_fine_tune_status] Skipping evaluation creation - active evaluation exists | "
+                    f"fine_tuning_id={fine_tuning_id}, project_id={project_id}"
+                )
 
     job = job.model_copy(
         update={
