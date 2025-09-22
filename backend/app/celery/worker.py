@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def start_worker(
-    queues: str = "default,long_running,cron",
+    queues: str = "default,high_priority,low_priority,cron",
     concurrency: int = None,
     loglevel: str = "info",
 ):
@@ -37,7 +37,6 @@ def start_worker(
         loglevel=loglevel,
         without_gossip=True,
         without_mingle=True,
-        without_heartbeat=True,
     )
 
 
@@ -47,7 +46,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Start Celery worker")
     parser.add_argument(
         "--queues",
-        default="default,long_running,cron",
+        default="default,high_priority,low_priority,cron",
         help="Comma-separated list of queues to consume",
     )
     parser.add_argument(
