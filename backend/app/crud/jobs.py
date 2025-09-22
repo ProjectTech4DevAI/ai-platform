@@ -37,3 +37,6 @@ class JobCrud:
         self.session.refresh(job)
 
         return job
+
+    def get(self, job_id: UUID) -> Job | None:
+        return self.session.get(Job, job_id)
