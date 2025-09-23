@@ -33,6 +33,8 @@ alembic revision --autogenerate -m 'Add new meta'
 
 ### Testing
 
+We also use .env.test to keep environment variable separate for test environment and can use it in testcases
+
 ```bash
 # Run backend tests
 uv run bash scripts/tests-start.sh
