@@ -51,6 +51,7 @@ OPENAI_TO_INTERNAL_STATUS = {
     "running": FineTuningStatus.running,
     "succeeded": FineTuningStatus.completed,
     "failed": FineTuningStatus.failed,
+    "cancelled": FineTuningStatus.cancelled,
 }
 
 
@@ -191,7 +192,7 @@ async def fine_tune_from_CSV(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="CSV file to use for fine-tuning"),
     base_model: str = Form(
-        ..., description="Base model for fine-tuning (e.g., gpt-3.5-turbo)"
+        ..., description="Base model for fine-tuning (e.g., gpt-4.1-2025-04-14)"
     ),
     split_ratio: str = Form(
         ..., description="Comma-separated split ratios (e.g., '0.8' or '0.7,0.8,0.9')"

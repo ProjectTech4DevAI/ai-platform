@@ -125,7 +125,7 @@ class TestRetriveFineTuningJobAPI:
     ):
         jobs, _ = create_test_fine_tuning_jobs(db, [0.3])
         job = jobs[0]
-        job.provider_job_id = "ft_mock_job_123"
+        job.provider_job_id = "ftjob-mock_job_123"
         db.flush()
 
         mock_openai_job = MagicMock(
@@ -154,7 +154,7 @@ class TestRetriveFineTuningJobAPI:
     ):
         jobs, _ = create_test_fine_tuning_jobs(db, [0.3])
         job = jobs[0]
-        job.provider_job_id = "ft_mock_job_123"
+        job.provider_job_id = "ftjob-mock_job_123"
         db.flush()
 
         mock_openai_job = MagicMock(
@@ -226,7 +226,7 @@ class TestAutoEvaluationTrigger:
         jobs, _ = create_test_fine_tuning_jobs(db, [0.7])
         job = jobs[0]
         job.status = FineTuningStatus.running
-        job.provider_job_id = "ft_mock_job_123"
+        job.provider_job_id = "ftjob-mock_job_123"
         # Add required fields for model evaluation
         job.test_data_s3_object = "test-bucket/test-data.csv"
         job.system_prompt = "You are a helpful assistant"
@@ -289,7 +289,7 @@ class TestAutoEvaluationTrigger:
         jobs, _ = create_test_fine_tuning_jobs(db, [0.7])
         job = jobs[0]
         job.status = FineTuningStatus.running
-        job.provider_job_id = "ft_mock_job_123"
+        job.provider_job_id = "ftjob-mock_job_123"
         # Add required fields for model evaluation
         job.test_data_s3_object = "test-bucket/test-data.csv"
         job.system_prompt = "You are a helpful assistant"
@@ -365,7 +365,7 @@ class TestAutoEvaluationTrigger:
         jobs, _ = create_test_fine_tuning_jobs(db, [0.7])
         job = jobs[0]
         job.status = FineTuningStatus.pending
-        job.provider_job_id = "ft_mock_job_123"
+        job.provider_job_id = "ftjob-mock_job_123"
         db.add(job)
         db.commit()
 
@@ -425,7 +425,7 @@ class TestAutoEvaluationTrigger:
         jobs, _ = create_test_fine_tuning_jobs(db, [0.7])
         job = jobs[0]
         job.status = FineTuningStatus.completed
-        job.provider_job_id = "ft_mock_job_123"
+        job.provider_job_id = "ftjob-mock_job_123"
         job.fine_tuned_model = "ft:gpt-4:custom-model:12345"
         db.add(job)
         db.commit()
