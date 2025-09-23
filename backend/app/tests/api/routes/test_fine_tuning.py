@@ -1,10 +1,30 @@
+import os
+import io
 import pytest
-
+from moto import mock_aws
 from unittest.mock import patch, MagicMock
+import boto3
 
 from app.tests.utils.test_data import create_test_fine_tuning_jobs
 from app.tests.utils.utils import get_document
-from app.models import Fine_Tuning
+from app.models import (
+    Fine_Tuning,
+    FineTuningStatus,
+    ModelEvaluation,
+    ModelEvaluationStatus,
+)
+from app.core.config import settings
+
+
+@pytest.fixture(scope="function")
+def aws_credentials():
+    """Set up AWS credentials for moto."""
+    os.environ["AWS_ACCESS_KEY_ID"] = "testing"
+    os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
+    os.environ["AWS_SECURITY_TOKEN"] = "testing"
+    os.environ["AWS_SESSION_TOKEN"] = "testing"
+    os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
+    os.environ["AWS_S3_BUCKET_PREFIX"] = "test-bucket"
 
 
 def create_file_mock(file_type):
@@ -22,73 +42,78 @@ def create_file_mock(file_type):
     return _side_effect
 
 
-@pytest.mark.usefixtures("client", "db", "user_api_key_header")
-@patch("app.api.routes.fine_tuning.DataPreprocessor")
-@patch("app.api.routes.fine_tuning.get_openai_client")
+@pytest.mark.usefixtures("client", "db", "user_api_key_header", "aws_credentials")
 class TestCreateFineTuningJobAPI:
+    @mock_aws
     def test_finetune_from_csv_multiple_split_ratio(
         self,
-        mock_get_openai_client,
-        mock_preprocessor_cls,
         client,
         db,
         user_api_key_header,
     ):
-        document = get_document(db, "dalgo_sample.json")
+        # Setup S3 bucket for moto
+        s3 = boto3.client("s3", region_name="us-east-1")
+        s3.create_bucket(Bucket="test-bucket")
 
+        # Create a test CSV file content
+        csv_content = "prompt,label\ntest1,label1\ntest2,label2\ntest3,label3"
+
+        # Setup test files for preprocessing
         for path in ["/tmp/train.jsonl", "/tmp/test.jsonl"]:
             with open(path, "w") as f:
-                f.write("{}")
+                f.write('{"prompt": "test", "completion": "label"}')
 
-        mock_preprocessor = MagicMock()
-        mock_preprocessor.process.return_value = {
-            "train_jsonl_temp_filepath": "/tmp/train.jsonl",
-            "train_csv_s3_object": "s3://bucket/train.csv",
-            "test_csv_s3_object": "s3://bucket/test.csv",
-        }
-        mock_preprocessor.cleanup = MagicMock()
-        mock_preprocessor_cls.return_value = mock_preprocessor
+        with patch(
+            "app.api.routes.fine_tuning.get_cloud_storage"
+        ) as mock_get_cloud_storage:
+            with patch(
+                "app.api.routes.fine_tuning.get_openai_client"
+            ) as mock_get_openai_client:
+                with patch(
+                    "app.api.routes.fine_tuning.process_fine_tuning_job"
+                ) as mock_process_job:
+                    # Mock cloud storage
+                    mock_storage = MagicMock()
+                    mock_storage.put.return_value = "s3://test-bucket/test.csv"
+                    mock_get_cloud_storage.return_value = mock_storage
 
-        mock_openai = MagicMock()
-        mock_openai.files.create.side_effect = create_file_mock("fine-tune")
-        mock_openai.fine_tuning.jobs.create.side_effect = [
-            MagicMock(id=f"ft_mock_job_{i}", status="running") for i in range(1, 4)
-        ]
-        mock_get_openai_client.return_value = mock_openai
+                    # Mock OpenAI client (for validation only)
+                    mock_openai = MagicMock()
+                    mock_get_openai_client.return_value = mock_openai
 
-        body = {
-            "document_id": str(document.id),
-            "base_model": "gpt-4",
-            "split_ratio": [0.5, 0.7, 0.9],
-            "system_prompt": "you are a model able to classify",
-        }
-
-        with patch("app.api.routes.fine_tuning.Session") as SessionMock:
-            SessionMock.return_value.__enter__.return_value = db
-            SessionMock.return_value.__exit__.return_value = None
-
-            response = client.post(
-                "/api/v1/fine_tuning/fine_tune",
-                json=body,
-                headers=user_api_key_header,
-            )
+                    # Create file upload data
+                    csv_file = io.BytesIO(csv_content.encode())
+                    response = client.post(
+                        "/api/v1/fine_tuning/fine_tune",
+                        files={"file": ("test.csv", csv_file, "text/csv")},
+                        data={
+                            "base_model": "gpt-4",
+                            "split_ratio": "0.5,0.7,0.9",
+                            "system_prompt": "you are a model able to classify",
+                        },
+                        headers=user_api_key_header,
+                    )
 
         assert response.status_code == 200
         json_data = response.json()
         assert json_data["success"] is True
         assert json_data["data"]["message"] == "Fine-tuning job(s) started."
         assert json_data["metadata"] is None
+        assert "document_id" in json_data["data"]
+        assert "jobs" in json_data["data"]
+        assert len(json_data["data"]["jobs"]) == 3
+
+        # Verify that the background task was called for each split ratio
+        assert mock_process_job.call_count == 3
 
         jobs = db.query(Fine_Tuning).all()
         assert len(jobs) == 3
 
-        for i, job in enumerate(jobs, start=1):
+        for job in jobs:
             db.refresh(job)
-            assert job.status == "running"
-            assert job.provider_job_id == f"ft_mock_job_{i}"
-            assert job.training_file_id is not None
-            assert job.train_data_s3_object == "s3://bucket/train.csv"
-            assert job.test_data_s3_object == "s3://bucket/test.csv"
+            assert (
+                job.status == "pending"
+            )  # Since background processing is mocked, status remains pending
             assert job.split_ratio in [0.5, 0.7, 0.9]
 
 
