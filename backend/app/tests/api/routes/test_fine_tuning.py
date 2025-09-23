@@ -1,4 +1,3 @@
-import os
 import io
 import pytest
 from moto import mock_aws
@@ -16,17 +15,6 @@ from app.models import (
 from app.core.config import settings
 
 
-@pytest.fixture(scope="function")
-def aws_credentials():
-    """Set up AWS credentials for moto."""
-    os.environ["AWS_ACCESS_KEY_ID"] = "testing"
-    os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
-    os.environ["AWS_SECURITY_TOKEN"] = "testing"
-    os.environ["AWS_SESSION_TOKEN"] = "testing"
-    os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
-    os.environ["AWS_S3_BUCKET_PREFIX"] = "test-bucket"
-
-
 def create_file_mock(file_type):
     counter = {"train": 0, "test": 0}
 
@@ -42,7 +30,7 @@ def create_file_mock(file_type):
     return _side_effect
 
 
-@pytest.mark.usefixtures("client", "db", "user_api_key_header", "aws_credentials")
+@pytest.mark.usefixtures("client", "db", "user_api_key_header")
 class TestCreateFineTuningJobAPI:
     @mock_aws
     def test_finetune_from_csv_multiple_split_ratio(
@@ -52,8 +40,17 @@ class TestCreateFineTuningJobAPI:
         user_api_key_header,
     ):
         # Setup S3 bucket for moto
-        s3 = boto3.client("s3", region_name="us-east-1")
-        s3.create_bucket(Bucket="test-bucket")
+        s3 = boto3.client("s3", region_name=settings.AWS_DEFAULT_REGION)
+        bucket_name = settings.AWS_S3_BUCKET_PREFIX
+        if settings.AWS_DEFAULT_REGION == "us-east-1":
+            s3.create_bucket(Bucket=bucket_name)
+        else:
+            s3.create_bucket(
+                Bucket=bucket_name,
+                CreateBucketConfiguration={
+                    "LocationConstraint": settings.AWS_DEFAULT_REGION
+                },
+            )
 
         # Create a test CSV file content
         csv_content = "prompt,label\ntest1,label1\ntest2,label2\ntest3,label3"
@@ -74,7 +71,9 @@ class TestCreateFineTuningJobAPI:
                 ) as mock_process_job:
                     # Mock cloud storage
                     mock_storage = MagicMock()
-                    mock_storage.put.return_value = "s3://test-bucket/test.csv"
+                    mock_storage.put.return_value = (
+                        f"s3://{settings.AWS_S3_BUCKET_PREFIX}/test.csv"
+                    )
                     mock_get_cloud_storage.return_value = mock_storage
 
                     # Mock OpenAI client (for validation only)
@@ -228,7 +227,7 @@ class TestAutoEvaluationTrigger:
         job.status = FineTuningStatus.running
         job.provider_job_id = "ftjob-mock_job_123"
         # Add required fields for model evaluation
-        job.test_data_s3_object = "test-bucket/test-data.csv"
+        job.test_data_s3_object = f"{settings.AWS_S3_BUCKET_PREFIX}/test-data.csv"
         job.system_prompt = "You are a helpful assistant"
         db.add(job)
         db.commit()
@@ -291,7 +290,7 @@ class TestAutoEvaluationTrigger:
         job.status = FineTuningStatus.running
         job.provider_job_id = "ftjob-mock_job_123"
         # Add required fields for model evaluation
-        job.test_data_s3_object = "test-bucket/test-data.csv"
+        job.test_data_s3_object = f"{settings.AWS_S3_BUCKET_PREFIX}/test-data.csv"
         job.system_prompt = "You are a helpful assistant"
         db.add(job)
         db.commit()
@@ -304,7 +303,7 @@ class TestAutoEvaluationTrigger:
             organization_id=job.organization_id,
             document_id=job.document_id,
             fine_tuned_model="ft:gpt-4:test-model:123",
-            test_data_s3_object="test-bucket/test-data.csv",
+            test_data_s3_object=f"{settings.AWS_S3_BUCKET_PREFIX}/test-data.csv",
             base_model="gpt-4",
             split_ratio=0.7,
             system_prompt="You are a helpful assistant",
