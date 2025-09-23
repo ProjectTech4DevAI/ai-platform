@@ -217,7 +217,7 @@ async def fine_tune_from_CSV(
         )
 
     # Validate file is CSV
-    if not file.filename.lower().endswith(".csv"):
+    if not file.filename.lower().endswith(".csv") and file.content_type != "text/csv":
         raise HTTPException(status_code=400, detail="File must be a CSV file")
 
     client = get_openai_client(  # Used here only to validate the user's OpenAI key;
