@@ -1,290 +1,37 @@
-import inspect
-import logging
-import time
+import re
 import json
 import ast
-import re
-from uuid import UUID, uuid4
-from typing import Any, List, Optional
-from dataclasses import dataclass, field, fields, asdict, replace
+import inspect
+import logging
+from uuid import UUID
+from typing import List
+from dataclasses import asdict
 
-from openai import OpenAIError, OpenAI
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
+from fastapi import APIRouter, BackgroundTasks, Query
 from fastapi import Path as FastPath
-from pydantic import BaseModel, Field, HttpUrl
-from sqlalchemy.exc import SQLAlchemyError
+
 
 from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
-from app.core.cloud import get_cloud_storage
-from app.api.routes.responses import handle_openai_error
-from app.core.util import now, post_callback
 from app.crud import (
-    DocumentCrud,
     CollectionCrud,
     DocumentCollectionCrud,
 )
-from app.crud.rag import OpenAIVectorStoreCrud, OpenAIAssistantCrud
-from app.models import Collection, Document, DocumentPublic
-from app.models.collection import CollectionStatus
+from app.models import Collection, DocumentPublic
+from app.models.collection import (
+    CollectionStatus,
+    CreationRequest,
+    ResponsePayload,
+    DeletionRequest,
+)
 from app.utils import APIResponse, load_description, get_openai_client
+from app.services.collections.helpers import extract_error_message
+from app.services.collections import (
+    create_collection as create_services,
+    delete_collection as delete_services,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/collections", tags=["collections"])
-
-
-def extract_error_message(err: Exception) -> str:
-    err_str = str(err).strip()
-
-    body = re.sub(r"^Error code:\s*\d+\s*-\s*", "", err_str)
-    message = None
-    try:
-        payload = json.loads(body)
-        if isinstance(payload, dict):
-            message = payload.get("error", {}).get("message")
-    except Exception:
-        pass
-
-    if message is None:
-        try:
-            payload = ast.literal_eval(body)
-            if isinstance(payload, dict):
-                message = payload.get("error", {}).get("message")
-        except Exception:
-            pass
-
-    if not message:
-        message = body
-
-    return message.strip()[:1000]
-
-
-@dataclass
-class ResponsePayload:
-    status: str
-    route: str
-    key: str = field(default_factory=lambda: str(uuid4()))
-    time: str = field(default_factory=lambda: now().strftime("%c"))
-
-    @classmethod
-    def now(cls):
-        attr = "time"
-        for i in fields(cls):
-            if i.name == attr:
-                return i.default_factory()
-
-        raise AttributeError(f'Expected attribute "{attr}" does not exist')
-
-
-class DocumentOptions(BaseModel):
-    documents: List[UUID] = Field(
-        description="List of document IDs",
-    )
-    batch_size: int = Field(
-        default=1,
-        description=(
-            "Number of documents to send to OpenAI in a single "
-            "transaction. See the `file_ids` parameter in the "
-            "vector store [create batch](https://platform.openai.com/docs/api-reference/vector-stores-file-batches/createBatch)."
-        ),
-    )
-
-    def model_post_init(self, __context: Any):
-        self.documents = list(set(self.documents))
-
-    def __call__(self, crud: DocumentCrud):
-        logger.info(
-            f"[DocumentOptions.call] Starting batch iteration for documents | {{'batch_size': {self.batch_size}, 'total_documents': {len(self.documents)}}}"
-        )
-        (start, stop) = (0, self.batch_size)
-        while True:
-            view = self.documents[start:stop]
-            if not view:
-                break
-            yield crud.read_each(view)
-            start = stop
-            stop += self.batch_size
-
-
-class AssistantOptions(BaseModel):
-    # Fields to be passed along to OpenAI. They must be a subset of
-    # parameters accepted by the OpenAI.clien.beta.assistants.create
-    # API.
-    model: str = Field(
-        description=(
-            "OpenAI model to attach to this assistant. The model "
-            "must compatable with the assistants API; see the "
-            "OpenAI [model documentation](https://platform.openai.com/docs/models/compare) for more."
-        ),
-    )
-    instructions: str = Field(
-        description=(
-            "Assistant instruction. Sometimes referred to as the " '"system" prompt.'
-        ),
-    )
-    temperature: float = Field(
-        default=1e-6,
-        description=(
-            "Model temperature. The default is slightly "
-            "greater-than zero because it is [unknown how OpenAI "
-            "handles zero](https://community.openai.com/t/clarifications-on-setting-temperature-0/886447/5)."
-        ),
-    )
-
-
-class CallbackRequest(BaseModel):
-    callback_url: Optional[HttpUrl] = Field(
-        default=None,
-        description="URL to call to report endpoint status",
-    )
-
-
-class CreationRequest(
-    DocumentOptions,
-    AssistantOptions,
-    CallbackRequest,
-):
-    def extract_super_type(self, cls: "CreationRequest"):
-        for field_name in cls.__fields__.keys():
-            field_value = getattr(self, field_name)
-            yield (field_name, field_value)
-
-
-class DeletionRequest(CallbackRequest):
-    collection_id: UUID = Field("Collection to delete")
-
-
-class CallbackHandler:
-    def __init__(self, payload: ResponsePayload):
-        self.payload = payload
-
-    def fail(self, body):
-        raise NotImplementedError()
-
-    def success(self, body):
-        raise NotImplementedError()
-
-
-class SilentCallback(CallbackHandler):
-    def fail(self, body):
-        logger.info(f"[SilentCallback.fail] Silent callback failure")
-        return
-
-    def success(self, body):
-        logger.info(f"[SilentCallback.success] Silent callback success")
-        return
-
-
-class WebHookCallback(CallbackHandler):
-    def __init__(self, url: HttpUrl, payload: ResponsePayload):
-        super().__init__(payload)
-        self.url = url
-        logger.info(
-            f"[WebHookCallback.init] Initialized webhook callback | {{'url': '{url}'}}"
-        )
-
-    def __call__(self, response: APIResponse, status: str):
-        time = ResponsePayload.now()
-        payload = replace(self.payload, status=status, time=time)
-        response.metadata = asdict(payload)
-        logger.info(
-            f"[WebHookCallback.call] Posting callback | {{'url': '{self.url}', 'status': '{status}'}}"
-        )
-        post_callback(self.url, response)
-
-    def fail(self, body):
-        logger.warning(f"[WebHookCallback.fail] Callback failed | {{'body': '{body}'}}")
-        self(APIResponse.failure_response(body), "incomplete")
-
-    def success(self, body):
-        logger.info(f"[WebHookCallback.success] Callback succeeded")
-        self(APIResponse.success_response(body), "complete")
-
-
-def _backout(crud: OpenAIAssistantCrud, assistant_id: str):
-    try:
-        crud.delete(assistant_id)
-    except OpenAIError as err:
-        logger.error(
-            f"[backout] Failed to delete assistant | {{'assistant_id': '{assistant_id}', 'error': '{str(err)}'}}",
-            exc_info=True,
-        )
-
-
-def do_create_collection(
-    session: SessionDep,
-    current_user: CurrentUserOrgProject,
-    request: CreationRequest,
-    payload: ResponsePayload,
-    client: OpenAI,
-):
-    start_time = time.time()
-
-    callback = (
-        SilentCallback(payload)
-        if request.callback_url is None
-        else WebHookCallback(request.callback_url, payload)
-    )
-
-    storage = get_cloud_storage(session=session, project_id=current_user.project_id)
-    document_crud = DocumentCrud(session, current_user.project_id)
-    assistant_crud = OpenAIAssistantCrud(client)
-    vector_store_crud = OpenAIVectorStoreCrud(client)
-    collection_crud = CollectionCrud(session, current_user.id)
-
-    try:
-        vector_store = vector_store_crud.create()
-
-        docs = list(request(document_crud))
-        flat_docs = [doc for sublist in docs for doc in sublist]
-
-        file_exts = {doc.fname.split(".")[-1] for doc in flat_docs if "." in doc.fname}
-        file_sizes_kb = [
-            storage.get_file_size_kb(doc.object_store_url) for doc in flat_docs
-        ]
-
-        list(vector_store_crud.update(vector_store.id, storage, docs))
-
-        assistant_options = dict(request.extract_super_type(AssistantOptions))
-        assistant = assistant_crud.create(vector_store.id, **assistant_options)
-
-        collection = collection_crud.read_one(UUID(payload.key))
-        collection.llm_service_id = assistant.id
-        collection.llm_service_name = request.model
-        collection.status = CollectionStatus.successful
-        collection.updated_at = now()
-
-        if flat_docs:
-            DocumentCollectionCrud(session).create(collection, flat_docs)
-
-        collection_crud._update(collection)
-
-        elapsed = time.time() - start_time
-        logger.info(
-            f"[do_create_collection] Collection created: {collection.id} | Time: {elapsed:.2f}s | "
-            f"Files: {len(flat_docs)} | Sizes: {file_sizes_kb} KB | Types: {list(file_exts)}"
-        )
-        callback.success(collection.model_dump(mode="json"))
-
-    except Exception as err:
-        logger.error(
-            f"[do_create_collection] Collection Creation Failed | {{'collection_id': '{payload.key}', 'error': '{str(err)}'}}",
-            exc_info=True,
-        )
-        if "assistant" in locals():
-            _backout(assistant_crud, assistant.id)
-        try:
-            collection = collection_crud.read_one(UUID(payload.key))
-            collection.status = CollectionStatus.failed
-            collection.updated_at = now()
-            message = extract_error_message(err)
-            collection.error_message = message
-
-            collection_crud._update(collection)
-        except Exception as suberr:
-            logger.warning(
-                f"[do_create_collection] Failed to update collection status | {{'collection_id': '{payload.key}', 'reason': '{str(suberr)}'}}"
-            )
-        callback.fail(str(err))
 
 
 @router.post(
@@ -297,27 +44,27 @@ def create_collection(
     request: CreationRequest,
     background_tasks: BackgroundTasks,
 ):
-    client = get_openai_client(
-        session, current_user.organization_id, current_user.project_id
-    )
-
     this = inspect.currentframe()
     route = router.url_path_for(this.f_code.co_name)
     payload = ResponsePayload("processing", route)
 
     collection = Collection(
         id=UUID(payload.key),
-        owner_id=current_user.id,
         organization_id=current_user.organization_id,
         project_id=current_user.project_id,
         status=CollectionStatus.processing,
     )
 
-    collection_crud = CollectionCrud(session, current_user.id)
+    collection_crud = CollectionCrud(session, current_user.project_id)
     collection_crud.create(collection)
 
-    background_tasks.add_task(
-        do_create_collection, session, current_user, request, payload, client
+    create_services.start_job(
+        db=session,
+        request=request.model_dump(),
+        payload=asdict(payload),
+        collection=collection,
+        project_id=current_user.project_id,
+        organization_id=current_user.organization_id,
     )
 
     logger.info(
@@ -325,41 +72,6 @@ def create_collection(
         f"{{'collection_id': '{collection.id}'}}"
     )
     return APIResponse.success_response(data=None, metadata=asdict(payload))
-
-
-def do_delete_collection(
-    session: SessionDep,
-    current_user: CurrentUserOrgProject,
-    request: DeletionRequest,
-    payload: ResponsePayload,
-    client: OpenAI,
-):
-    if request.callback_url is None:
-        callback = SilentCallback(payload)
-    else:
-        callback = WebHookCallback(request.callback_url, payload)
-
-    collection_crud = CollectionCrud(session, current_user.id)
-    try:
-        collection = collection_crud.read_one(request.collection_id)
-        assistant = OpenAIAssistantCrud(client)
-        data = collection_crud.delete(collection, assistant)
-        logger.info(
-            f"[do_delete_collection] Collection deleted successfully | {{'collection_id': '{collection.id}'}}"
-        )
-        callback.success(data.model_dump(mode="json"))
-    except (ValueError, PermissionError, SQLAlchemyError) as err:
-        logger.error(
-            f"[do_delete_collection] Failed to delete collection | {{'collection_id': '{request.collection_id}', 'error': '{str(err)}'}}",
-            exc_info=True,
-        )
-        callback.fail(str(err))
-    except Exception as err:
-        logger.error(
-            f"[do_delete_collection] Unexpected error during deletion | {{'collection_id': '{request.collection_id}', 'error': '{str(err)}', 'error_type': '{type(err).__name__}'}}",
-            exc_info=True,
-        )
-        callback.fail(str(err))
 
 
 @router.post(
@@ -376,12 +88,20 @@ def delete_collection(
         session, current_user.organization_id, current_user.project_id
     )
 
+    collection_crud = CollectionCrud(session, current_user.project_id)
+    collection = collection_crud.read_one(request.collection_id)
+
     this = inspect.currentframe()
     route = router.url_path_for(this.f_code.co_name)
     payload = ResponsePayload("processing", route)
 
-    background_tasks.add_task(
-        do_delete_collection, session, current_user, request, payload, client
+    delete_services.start_job(
+        db=session,
+        request=request.model_dump(),
+        payload=asdict(payload),
+        collection=collection,
+        project_id=current_user.project_id,
+        organization_id=current_user.organization_id,
     )
 
     logger.info(
@@ -398,11 +118,16 @@ def delete_collection(
 )
 def collection_info(
     session: SessionDep,
-    current_user: CurrentUser,
+    current_user: CurrentUserOrgProject,
     collection_id: UUID = FastPath(description="Collection to retrieve"),
 ):
-    collection_crud = CollectionCrud(session, current_user.id)
+    collection_crud = CollectionCrud(session, current_user.project_id)
     data = collection_crud.read_one(collection_id)
+
+    err = getattr(data, "error_message", None)
+    if err:
+        data.error_message = extract_error_message(err)
+
     return APIResponse.success_response(data)
 
 
@@ -413,11 +138,16 @@ def collection_info(
 )
 def list_collections(
     session: SessionDep,
-    current_user: CurrentUser,
+    current_user: CurrentUserOrgProject,
 ):
-    collection_crud = CollectionCrud(session, current_user.id)
-    data = collection_crud.read_all()
-    return APIResponse.success_response(data)
+    collection_crud = CollectionCrud(session, current_user.project_id)
+    rows = collection_crud.read_all()
+
+    for c in rows:
+        if getattr(c, "error_message", None):
+            c.error_message = extract_error_message(c.error_message)
+
+    return APIResponse.success_response(rows)
 
 
 @router.post(

@@ -3,6 +3,7 @@ import functools as ft
 from uuid import UUID
 from typing import Optional
 import logging
+
 from sqlmodel import Session, func, select, and_
 
 from app.models import Document, Collection, DocumentCollection
@@ -15,17 +16,17 @@ logger = logging.getLogger(__name__)
 
 
 class CollectionCrud:
-    def __init__(self, session: Session, owner_id: int):
+    def __init__(self, session: Session, project_id: int):
         self.session = session
-        self.owner_id = owner_id
+        self.project_id = project_id
 
     def _update(self, collection: Collection):
-        if not collection.owner_id:
-            collection.owner_id = self.owner_id
-        elif collection.owner_id != self.owner_id:
-            err = "Invalid collection ownership: owner={} attempter={}".format(
-                self.owner_id,
-                collection.owner_id,
+        if not collection.project_id:
+            collection.project_id = self.project_id
+        elif collection.project_id != self.project_id:
+            err = "Invalid collection ownership: owner_project={} attempter={}".format(
+                self.project_id,
+                collection.project_id,
             )
             try:
                 raise PermissionError(err)
@@ -84,18 +85,19 @@ class CollectionCrud:
     def read_one(self, collection_id: UUID):
         statement = select(Collection).where(
             and_(
-                Collection.owner_id == self.owner_id,
+                Collection.project_id == self.project_id,
                 Collection.id == collection_id,
             )
         )
 
         collection = self.session.exec(statement).one()
+
         return collection
 
     def read_all(self):
         statement = select(Collection).where(
             and_(
-                Collection.owner_id == self.owner_id,
+                Collection.project_id == self.project_id,
                 Collection.deleted_at.is_(None),
             )
         )
