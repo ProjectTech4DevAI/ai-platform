@@ -11,7 +11,6 @@ from app.core.util import now
 from .organization import Organization
 from .project import Project
 from app.core.util import now
-from app.crud.document import DocumentCrud
 
 
 class CollectionStatus(str, enum.Enum):
@@ -67,7 +66,7 @@ class ResponsePayload:
         raise AttributeError(f'Expected attribute "{attr}" does not exist')
 
 
-# pydantic models
+# pydantic models -
 class DocumentOptions(BaseModel):
     documents: List[UUID] = Field(
         description="List of document IDs",
@@ -83,16 +82,6 @@ class DocumentOptions(BaseModel):
 
     def model_post_init(self, __context: Any):
         self.documents = list(set(self.documents))
-
-    def __call__(self, crud: DocumentCrud):
-        (start, stop) = (0, self.batch_size)
-        while True:
-            view = self.documents[start:stop]
-            if not view:
-                break
-            yield crud.read_each(view)
-            start = stop
-            stop += self.batch_size
 
 
 class AssistantOptions(BaseModel):

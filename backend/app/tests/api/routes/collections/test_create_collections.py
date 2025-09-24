@@ -1,97 +1,46 @@
-import pytest
 from uuid import UUID
-import io
 
-from sqlmodel import Session
 from fastapi.testclient import TestClient
 from unittest.mock import patch
 
-from app.models import APIKeyPublic
-from app.core.config import settings
-from app.tests.utils.document import DocumentStore
-from app.tests.utils.utils import get_user_from_api_key
-from app.crud.collection import CollectionCrud
-from app.models.collection import CollectionStatus
-from app.tests.utils.openai import get_mock_openai_client_with_vector_store
+from app.models.collection import Collection, CollectionStatus, CreationRequest
 
 
-@pytest.fixture(autouse=True)
-def mock_s3(monkeypatch):
-    class FakeStorage:
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def upload(self, file_obj, path: str, **kwargs):
-            return f"s3://fake-bucket/{path or 'mock-file.txt'}"
-
-        def stream(self, file_obj):
-            fake_file = io.BytesIO(b"dummy content")
-            fake_file.name = "fake.txt"
-            return fake_file
-
-        def get_file_size_kb(self, url: str) -> float:
-            return 1.0
-
-    class FakeS3Client:
-        def head_object(self, Bucket, Key):
-            return {"ContentLength": 1024}
-
-    monkeypatch.setattr("app.api.routes.collections.get_cloud_storage", FakeStorage)
-    monkeypatch.setattr("boto3.client", lambda service: FakeS3Client())
-
-
-class TestCollectionRouteCreate:
-    _n_documents = 5
-
-    @patch("app.api.routes.collections.get_openai_client")
-    def test_create_collection_success(
-        self,
-        mock_get_openai_client,
-        client: TestClient,
-        db: Session,
-        user_api_key: APIKeyPublic,
-    ):
-        store = DocumentStore(db, project_id=user_api_key.project_id)
-        documents = store.fill(self._n_documents)
-        doc_ids = [str(doc.id) for doc in documents]
-
-        body = {
-            "documents": doc_ids,
-            "batch_size": 2,
-            "model": "gpt-4o",
-            "instructions": "Test collection assistant.",
-            "temperature": 0.1,
-        }
-
-        headers = {"X-API-KEY": user_api_key.key}
-
-        mock_openai_client = get_mock_openai_client_with_vector_store()
-        mock_get_openai_client.return_value = mock_openai_client
-
-        response = client.post(
-            f"{settings.API_V1_STR}/collections/create", json=body, headers=headers
+def test_collection_creation_success(
+    client: TestClient, user_api_key_header: dict[str, str]
+):
+    with patch(
+        "app.api.routes.collections.create_services.start_job"
+    ) as mock_job_start:
+        creation_data = CreationRequest(
+            model="gpt-4o",
+            instructions="string",
+            temperature=0.000001,
+            documents=[UUID("f3e86a17-1e6f-41ec-b020-5b08eebef928")],
+            batch_size=1,
+            callback_url=None,
         )
 
-        assert response.status_code == 200
-        json = response.json()
-        assert json["success"] is True
-        metadata = json.get("metadata", {})
-        assert metadata["status"] == CollectionStatus.processing.value
-        assert UUID(metadata["key"])
-
-        # Confirm collection metadata in DB
-        collection_id = UUID(metadata["key"])
-        user = get_user_from_api_key(db, headers)
-        collection = CollectionCrud(db, user.user_id).read_one(collection_id)
-
-        info_response = client.post(
-            f"{settings.API_V1_STR}/collections/info/{collection_id}",
-            headers=headers,
+        api_response = client.post(
+            "/api/v1/collections/create",
+            json=creation_data.model_dump(mode="json"),
+            headers=user_api_key_header,
         )
-        assert info_response.status_code == 200
-        info_data = info_response.json()["data"]
 
-        assert collection.status == CollectionStatus.successful.value
-        assert collection.owner_id == user.user_id
-        assert collection.llm_service_id is not None
-        assert collection.llm_service_name == "gpt-4o"
+        assert api_response.status_code == 200
+        response_body = api_response.json()
+
+        assert response_body["success"] is True
+        assert response_body["metadata"]["status"] == "processing"
+        assert response_body["metadata"]["key"] is not None
+        assert UUID(response_body["metadata"]["key"])  # Verify UUID format
+        assert response_body["data"] is None
+
+        mock_job_start.assert_called_once()
+        job_args = mock_job_start.call_args[1]
+        assert job_args["request"] == creation_data.model_dump()
+        assert job_args["payload"]["status"] == "processing"
+        assert isinstance(job_args["collection"], Collection)
+        assert job_args["collection"].status == CollectionStatus.processing
+        assert job_args["project_id"] == job_args["collection"].project_id
+        assert job_args["organization_id"] == job_args["collection"].organization_id

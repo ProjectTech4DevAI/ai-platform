@@ -17,12 +17,13 @@ class TestCollectionDelete:
 
     @openai_responses.mock()
     def test_delete_marks_deleted(self, db: Session):
+        project = get_project(db)
         client = OpenAI(api_key="sk-test-key")
 
         assistant = OpenAIAssistantCrud(client)
-        collection = get_collection(db, client)
+        collection = get_collection(db, client, project_id=project.id)
 
-        crud = CollectionCrud(db, collection.owner_id)
+        crud = CollectionCrud(db, collection.project_id)
         collection_ = crud.delete(collection, assistant)
 
         assert collection_.deleted_at is not None
@@ -32,9 +33,10 @@ class TestCollectionDelete:
         client = OpenAI(api_key="sk-test-key")
 
         assistant = OpenAIAssistantCrud(client)
-        collection = get_collection(db, client)
+        project = get_project(db)
+        collection = get_collection(db, project_id=project.id)
 
-        crud = CollectionCrud(db, collection.owner_id)
+        crud = CollectionCrud(db, collection.project_id)
         collection_ = crud.delete(collection, assistant)
 
         assert collection_.created_at <= collection_.deleted_at
@@ -44,7 +46,8 @@ class TestCollectionDelete:
         client = OpenAI(api_key="sk-test-key")
 
         assistant = OpenAIAssistantCrud(client)
-        collection = get_collection(db, client)
+        project = get_project(db)
+        collection = get_collection(db, project_id=project.id)
         c_id = uuid_increment(collection.id)
 
         crud = CollectionCrud(db, c_id)
@@ -61,13 +64,12 @@ class TestCollectionDelete:
             APIKey.project_id == project.id, APIKey.is_deleted == False
         )
         api_key = db.exec(stmt).first()
-        owner_id = api_key.user_id
 
         client = OpenAI(api_key="sk-test-key")
         resources = []
         for _ in range(self._n_collections):
-            coll = get_collection(db, client, owner_id=owner_id)
-            crud = CollectionCrud(db, owner_id=owner_id)
+            coll = get_collection(db, client, project_id=project.id)
+            crud = CollectionCrud(db, project_id=project.id)
             collection = crud.create(coll, documents)
             resources.append((crud, collection))
 

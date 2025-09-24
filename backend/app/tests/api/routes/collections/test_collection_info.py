@@ -17,7 +17,6 @@ def create_collection(
     now = datetime.now(timezone.utc)
     collection = Collection(
         id=uuid4(),
-        owner_id=user.user_id,
         organization_id=user.organization_id,
         project_id=user.project_id,
         status=status,

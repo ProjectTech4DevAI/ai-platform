@@ -2,12 +2,15 @@ import logging
 import json
 import ast
 import re
+from uuid import UUID
+from typing import List
 from dataclasses import asdict, replace
 
 from pydantic import HttpUrl
 from openai import OpenAIError
 
 from app.core.util import post_callback
+from app.crud.document import DocumentCrud
 from app.models.collection import ResponsePayload
 from app.crud.rag import OpenAIAssistantCrud
 from app.utils import APIResponse
@@ -16,6 +19,7 @@ from app.utils import APIResponse
 logger = logging.getLogger(__name__)
 
 
+# function to extract cleaned up error message from the error body for the user -
 def extract_error_message(err: Exception) -> str:
     err_str = str(err).strip()
 
@@ -42,6 +46,27 @@ def extract_error_message(err: Exception) -> str:
     return message.strip()[:1000]
 
 
+# batching the documents according to the given batch size
+def batch_documents(
+    document_crud: DocumentCrud, documents: List[UUID], batch_size: int
+):
+    logger.info(
+        f"[batch_documents] Starting batch iteration for documents | {{'batch_size': {batch_size}, 'total_documents': {len(documents)}}}"
+    )
+    docs_batches = []
+    start, stop = 0, batch_size
+    while True:
+        view = documents[start:stop]
+        if not view:
+            break
+        batch_docs = document_crud.read_each(view)
+        docs_batches.append(batch_docs)
+        start = stop
+        stop += batch_size
+    return docs_batches
+
+
+# functions related to callback handling -
 class CallbackHandler:
     def __init__(self, payload: ResponsePayload):
         self.payload = payload

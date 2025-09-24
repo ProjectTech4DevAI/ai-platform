@@ -10,11 +10,15 @@ from app.crud import (
     CollectionCrud,
 )
 from app.crud.rag import OpenAIAssistantCrud
-from app.models import Collection
-from app.models.collection import ResponsePayload, DeletionRequest
-from app.services.collections.helpers import SilentCallback, WebHookCallback
+from app.models.collection import Collection, DeletionRequest
+from app.services.collections.helpers import (
+    SilentCallback,
+    WebHookCallback,
+    ResponsePayload,
+)
 from app.celery.utils import start_low_priority_job
 from app.utils import get_openai_client
+
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +44,7 @@ def start_job(
     )
 
     logger.info(
-        "[start_job] Job scheduled to delete collection | "
+        "[delete_collection.start_job] Job scheduled to delete collection | "
         f"collection_id={collection.id}, project_id={project_id}, task_id={task_id}, job_id={collection.id}"
     )
     return collection.id
@@ -78,14 +82,14 @@ def execute_job(
             result = collection_crud.delete(collection, assistant_crud)
 
             logger.info(
-                "[do_delete_collection] Collection deleted successfully | {'collection_id': '%s'}",
+                "[delete_collection.execute_job] Collection deleted successfully | {'collection_id': '%s'}",
                 str(collection.id),
             )
             callback.success(result.model_dump(mode="json"))
 
         except (ValueError, PermissionError, SQLAlchemyError) as err:
             logger.error(
-                "[do_delete_collection] Failed to delete collection | {'collection_id': '%s', 'error': '%s'}",
+                "[delete_collection.execute_job] Failed to delete collection | {'collection_id': '%s', 'error': '%s'}",
                 str(collection.id),
                 str(err),
                 exc_info=True,
@@ -94,7 +98,7 @@ def execute_job(
 
         except Exception as err:
             logger.error(
-                "[do_delete_collection] Unexpected error during deletion | "
+                "[delete_collection.execute_job] Unexpected error during deletion | "
                 "{'collection_id': '%s', 'error': '%s', 'error_type': '%s'}",
                 str(collection.id),
                 str(err),

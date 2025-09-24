@@ -1,6 +1,3 @@
-import re
-import json
-import ast
 import inspect
 import logging
 from uuid import UUID
@@ -11,7 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, Query
 from fastapi import Path as FastPath
 
 
-from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
+from app.api.deps import SessionDep, CurrentUserOrgProject
 from app.crud import (
     CollectionCrud,
     DocumentCollectionCrud,
@@ -19,8 +16,8 @@ from app.crud import (
 from app.models import Collection, DocumentPublic
 from app.models.collection import (
     CollectionStatus,
-    CreationRequest,
     ResponsePayload,
+    CreationRequest,
     DeletionRequest,
 )
 from app.utils import APIResponse, load_description, get_openai_client
@@ -29,6 +26,7 @@ from app.services.collections import (
     create_collection as create_services,
     delete_collection as delete_services,
 )
+
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/collections", tags=["collections"])
@@ -157,12 +155,12 @@ def list_collections(
 )
 def collection_documents(
     session: SessionDep,
-    current_user: CurrentUser,
+    current_user: CurrentUserOrgProject,
     collection_id: UUID = FastPath(description="Collection to retrieve"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, gt=0, le=100),
 ):
-    collection_crud = CollectionCrud(session, current_user.id)
+    collection_crud = CollectionCrud(session, current_user.project_id)
     document_collection_crud = DocumentCollectionCrud(session)
     collection = collection_crud.read_one(collection_id)
     data = document_collection_crud.read(collection, skip, limit)

@@ -21,7 +21,12 @@ from app.models.collection import (
     CreationRequest,
     AssistantOptions,
 )
-from app.services.collections.helpers import _backout, SilentCallback, WebHookCallback
+from app.services.collections.helpers import (
+    _backout,
+    batch_documents,
+    SilentCallback,
+    WebHookCallback,
+)
 from app.celery.utils import start_low_priority_job
 from app.utils import get_openai_client
 
@@ -29,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 def start_job(
-    db: Session,  # kept for signature compatibility, even if unused here
+    db: Session,
     request: dict,
     collection: Collection,
     project_id: int,
@@ -39,7 +44,6 @@ def start_job(
     trace_id = correlation_id.get() or "N/A"
 
     task_id = start_low_priority_job(
-        # keep the function path in sync with the worker entrypoint below
         function_path="app.services.collections.create_collection.execute_job",
         project_id=project_id,
         job_id=collection.id,
@@ -50,7 +54,7 @@ def start_job(
     )
 
     logger.info(
-        "[start_job] Job scheduled to create collection | "
+        "[create_collection.start_job] Job scheduled to create collection | "
         f"collection_id={collection.id}, project_id={project_id}, task_id={task_id}, job_id={collection.id}"
     )
     return collection.id
@@ -71,7 +75,6 @@ def execute_job(
     start_time = time.time()
 
     with Session(engine) as session:
-        # Parse/validate incoming data
         creation_request = CreationRequest(**request)
         payload = ResponsePayload(**payload_data)
 
@@ -96,7 +99,9 @@ def execute_job(
         try:
             vector_store = vector_store_crud.create()
 
-            docs_batches = list(creation_request(document_crud))
+            docs_batches = batch_documents(
+                document_crud, creation_request.documents, creation_request.batch_size
+            )
             flat_docs = [doc for batch in docs_batches for doc in batch]
 
             file_exts = {
@@ -126,7 +131,7 @@ def execute_job(
 
             elapsed = time.time() - start_time
             logger.info(
-                "[do_create_collection] Collection created: %s | Time: %.2fs | Files: %d | Sizes: %s KB | Types: %s",
+                "[create_collection.execute_job] Collection created: %s | Time: %.2fs | Files: %d | Sizes: %s KB | Types: %s",
                 collection.id,
                 elapsed,
                 len(flat_docs),
@@ -138,7 +143,7 @@ def execute_job(
 
         except Exception as err:
             logger.error(
-                "[do_create_collection] Collection Creation Failed | {'collection_id': '%s', 'error': '%s'}",
+                "[create_collection.execute_job] Collection Creation Failed | {'collection_id': '%s', 'error': '%s'}",
                 collection.id,
                 str(err),
                 exc_info=True,
@@ -155,7 +160,7 @@ def execute_job(
                 collection_crud._update(collection)
             except Exception as suberr:
                 logger.warning(
-                    "[do_create_collection] Failed to update collection status | "
+                    "[create_collection.execute_job] Failed to update collection status | "
                     "{'collection_id': '%s', 'reason': '%s'}",
                     collection.id,
                     str(suberr),

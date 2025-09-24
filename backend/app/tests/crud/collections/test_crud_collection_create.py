@@ -4,6 +4,7 @@ from sqlmodel import Session, select
 from app.crud import CollectionCrud
 from app.models import DocumentCollection
 from app.tests.utils.document import DocumentStore
+from app.tests.utils.utils import get_project
 from app.tests.utils.collection import get_collection
 
 
@@ -12,11 +13,12 @@ class TestCollectionCreate:
 
     @openai_responses.mock()
     def test_create_associates_documents(self, db: Session):
-        collection = get_collection(db)
+        project = get_project(db)
+        collection = get_collection(db, project_id=project.id)
         store = DocumentStore(db, project_id=collection.project_id)
 
         documents = store.fill(self._n_documents)
-        crud = CollectionCrud(db, collection.owner_id)
+        crud = CollectionCrud(db, collection.project_id)
         collection = crud.create(collection, documents)
 
         statement = select(DocumentCollection).where(
