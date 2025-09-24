@@ -229,7 +229,12 @@ def send_callback(callback_url: str, data: dict):
             # uncomment this to run locally without SSL
             # session.verify = False
             response = session.post(
-                callback_url, json=data, timeout=settings.CALLBACK_TIMEOUT
+                callback_url,
+                json=data,
+                timeout=(
+                    settings.CALLBACK_CONNECT_TIMEOUT,
+                    settings.CALLBACK_READ_TIMEOUT,
+                ),
             )
             response.raise_for_status()
             logger.info(f"[send_callback] Callback sent successfully to {callback_url}")

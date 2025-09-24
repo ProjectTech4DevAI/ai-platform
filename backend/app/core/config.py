@@ -117,7 +117,10 @@ class Settings(BaseSettings):
     CELERY_WORKER_PREFETCH_MULTIPLIER: int = 1
     CELERY_ENABLE_UTC: bool = True
     CELERY_TIMEZONE: str = "UTC"
-    CALLBACK_TIMEOUT: tuple[int, int] = (3, 10)  # seconds
+
+    # callback timeouts
+    CALLBACK_CONNECT_TIMEOUT: int = 3
+    CALLBACK_READ_TIMEOUT: int = 10
 
     @computed_field  # type: ignore[prop-decorator]
     @property
