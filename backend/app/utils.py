@@ -225,13 +225,15 @@ def handle_openai_error(e: openai.OpenAIError) -> str:
 def send_callback(callback_url: str, data: dict):
     """Send results to the callback URL (synchronously)."""
     try:
-        session = requests.Session()
-        # uncomment this to run locally without SSL
-        # session.verify = False
-        response = session.post(callback_url, json=data)
-        response.raise_for_status()
-        logger.info(f"[send_callback] Callback sent successfully to {callback_url}")
-        return True
+        with requests.Session() as session:
+            # uncomment this to run locally without SSL
+            # session.verify = False
+            response = session.post(
+                callback_url, json=data, timeout=settings.CALLBACK_TIMEOUT
+            )
+            response.raise_for_status()
+            logger.info(f"[send_callback] Callback sent successfully to {callback_url}")
+            return True
     except requests.RequestException as e:
         logger.error(f"[send_callback] Callback failed: {str(e)}", exc_info=True)
         return False
