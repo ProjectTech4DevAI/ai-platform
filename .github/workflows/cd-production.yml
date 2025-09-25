@@ -1,4 +1,4 @@
-name: Deploy AI Platform to ECS Production
+name: Deploy AI Platform to Production
 
 on:
   push:
@@ -29,7 +29,7 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and Push Docker Image
+      - name: Build and Push Backend Docker Image
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: ${{ github.event.repository.name }}-repo
@@ -38,9 +38,78 @@ jobs:
           docker build -t $REGISTRY/$REPOSITORY:latest ./backend
           docker push $REGISTRY/$REPOSITORY:latest
 
-      - name: Deploy to ECS
+      - name: Build and Push Celery Docker Image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ github.event.repository.name }}-celery-repo
+        run: |
+          docker build -f ./backend/Dockerfile.celery -t $REGISTRY/$REPOSITORY:production ./backend
+          docker push $REGISTRY/$REPOSITORY:production
+
+      - name: Deploy Backend to ECS
         run: |
           aws ecs update-service \
             --cluster ${{ github.event.repository.name }}-cluster \
             --service ${{ github.event.repository.name }}-service \
             --force-new-deployment
+
+      - name: Deploy Celery Workers to EC2
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ github.event.repository.name }}-celery-repo
+        run: |
+          # Create deployment script
+          cat > deploy-celery.sh << 'EOF'
+          #!/bin/bash
+          
+          # Stop existing containers
+          docker stop celery-prod-high celery-prod-other || true
+          docker rm celery-prod-high celery-prod-other || true
+          
+          # Pull latest image
+          aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin $1
+          docker pull $1/$2:production
+          
+          # Start high priority worker
+          docker run -d --name celery-prod-high --restart unless-stopped \
+            --env-file /home/ubuntu/.env.production \
+            $1/$2:production \
+            uv run celery -A app.celery.celery_app worker --queues=high_priority --loglevel=info --concurrency=2 --hostname=prod-high@%h
+          
+          # Start other queues worker  
+          docker run -d --name celery-prod-other --restart unless-stopped \
+            --env-file /home/ubuntu/.env.production \
+            $1/$2:production \
+            uv run celery -A app.celery.celery_app worker --queues=default,low_priority,cron --loglevel=info --concurrency=2 --hostname=prod-other@%h
+          EOF
+          
+          # Copy script to EC2 and execute
+          echo "${{ secrets.EC2_PRODUCTION_PRIVATE_KEY }}" > production_key.pem
+          chmod 600 production_key.pem
+          scp -i production_key.pem -o StrictHostKeyChecking=no deploy-celery.sh ubuntu@${{ secrets.EC2_PRODUCTION_HOST }}:/tmp/
+          ssh -i production_key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_PRODUCTION_HOST }} "chmod +x /tmp/deploy-celery.sh && /tmp/deploy-celery.sh $REGISTRY $REPOSITORY"
+
+      - name: Deploy Flower to EC2
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ github.event.repository.name }}-celery-repo
+        run: |
+          # Create flower deployment script
+          cat > deploy-flower.sh << 'EOF'
+          #!/bin/bash
+          
+          # Stop existing flower container
+          docker stop flower-production || true
+          docker rm flower-production || true
+          
+          # Start flower using the same celery image
+          docker run -d --name flower-production --restart unless-stopped \
+            --env-file /home/ubuntu/.env.production \
+            -p 5555:5555 \
+            $1/$2:production \
+            uv run celery -A app.celery.celery_app flower --port=5555
+          EOF
+          
+          # Copy script to EC2 and execute
+          scp -i production_key.pem -o StrictHostKeyChecking=no deploy-flower.sh ubuntu@${{ secrets.EC2_PRODUCTION_HOST }}:/tmp/
+          ssh -i production_key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_PRODUCTION_HOST }} "chmod +x /tmp/deploy-flower.sh && /tmp/deploy-flower.sh $REGISTRY $REPOSITORY"
