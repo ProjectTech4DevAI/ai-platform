@@ -48,7 +48,6 @@ class CallbackResponse(SQLModel):
     status: str
     response_id: str
     message: str
-    chunks: list[FileResultChunk]
     diagnostics: Diagnostics | None = None
 
     class Config:
