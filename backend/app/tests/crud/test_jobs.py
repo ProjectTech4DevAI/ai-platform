@@ -42,7 +42,7 @@ def test_update_job(db: Session, dummy_jobs):
     crud = JobCrud(db)
     job = dummy_jobs[1]
 
-    update_data = JobUpdate(status=JobStatus.FAILED, error_message="Errror occurred")
+    update_data = JobUpdate(status=JobStatus.FAILED, error_message="Error occurred")
     updated_job = crud.update(job.id, update_data)
 
     assert updated_job.status == JobStatus.FAILED
