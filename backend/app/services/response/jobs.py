@@ -3,12 +3,9 @@ from uuid import UUID
 from fastapi import HTTPException
 from sqlmodel import Session
 from asgi_correlation_id import correlation_id
-from app.core.db import engine
 from app.crud import JobCrud
 from app.models import JobType, JobStatus, JobUpdate, ResponsesAPIRequest
-from app.utils import APIResponse
 from app.celery.utils import start_high_priority_job
-from app.api.routes.threads import send_callback
 
 from app.services.response.response import process_response
 from app.services.response.callbacks import send_response_callback

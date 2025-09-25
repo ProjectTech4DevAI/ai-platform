@@ -106,11 +106,12 @@ def generate_response(
 
         params: dict = {
             "model": assistant.model,
-            "previous_response_id": ancestor_id,
             "instructions": assistant.instructions,
             "temperature": assistant.temperature,
             "input": [{"role": "user", "content": request.question}],
         }
+        if ancestor_id:
+            params["previous_response_id"] = ancestor_id
 
         if assistant.vector_store_ids:
             params["tools"] = [
