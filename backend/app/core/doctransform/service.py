@@ -89,9 +89,7 @@ def execute_job(
         convert_document(tmp_in, tmp_out, transformer_name)
 
         # Determine content type based on target format
-        content_type_map = {
-            "markdown": "text/markdown; charset=utf-8"
-        }
+        content_type_map = {"markdown": "text/markdown; charset=utf-8"}
         content_type = content_type_map.get(target_format, "text/plain")
 
         # upload transformed file and create document record
