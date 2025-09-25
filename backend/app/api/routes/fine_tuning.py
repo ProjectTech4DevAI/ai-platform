@@ -19,13 +19,7 @@ from app.models import (
 )
 from app.core.cloud import get_cloud_storage
 from app.crud.document import DocumentCrud
-from app.utils import (
-    get_openai_client,
-    APIResponse,
-    mask_string,
-    load_description,
-    handle_openai_error,
-)
+from app.utils import get_openai_client, APIResponse, mask_string, load_description
 from app.crud import (
     create_fine_tuning_job,
     fetch_by_id,
