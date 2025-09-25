@@ -90,9 +90,7 @@ def execute_job(
 
         # Determine content type based on target format
         content_type_map = {
-            "markdown": "text/markdown",
-            "text": "text/plain",
-            "html": "text/html",
+            "markdown": "text/markdown; charset=utf-8"
         }
         content_type = content_type_map.get(target_format, "text/plain")
 
