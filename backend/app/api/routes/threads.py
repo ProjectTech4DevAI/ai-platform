@@ -13,7 +13,7 @@ from app.api.deps import get_current_user_org, get_db, get_current_user_org_proj
 from app.core import logging, settings
 from app.models import UserOrganization, OpenAIThreadCreate, UserProjectOrg
 from app.crud import upsert_thread_result, get_thread_result
-from app.utils import APIResponse, mask_string, handle_openai_error
+from app.utils import APIResponse, mask_string
 from app.crud.credentials import get_provider_credential
 from app.core.util import configure_openai
 from app.core.langfuse.langfuse import LangfuseTracer
@@ -47,6 +47,13 @@ def send_callback(callback_url: str, data: dict):
     except requests.RequestException as e:
         logger.error(f"[send_callback] Callback failed: {str(e)}", exc_info=True)
         return False
+
+
+def handle_openai_error(e: openai.OpenAIError) -> str:
+    """Extract error message from OpenAI error."""
+    if isinstance(e.body, dict) and "message" in e.body:
+        return e.body["message"]
+    return str(e)
 
 
 def validate_thread(client: OpenAI, thread_id: str) -> tuple[bool, str]:

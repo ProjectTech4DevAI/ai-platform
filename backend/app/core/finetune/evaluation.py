@@ -11,7 +11,6 @@ from sklearn.metrics import (
     matthews_corrcoef,
 )
 from app.core.cloud import AmazonCloudStorage
-from app.utils import handle_openai_error
 from app.core.finetune.preprocessing import DataPreprocessor
 
 
@@ -151,7 +150,7 @@ class ModelEvaluator:
                     break
 
                 except openai.OpenAIError as e:
-                    error_msg = handle_openai_error(e)
+                    error_msg = str(e)
                     logger.error(
                         f"[generate_predictions] OpenAI API error at prompt {idx}/{total_prompts}: {error_msg}"
                     )
