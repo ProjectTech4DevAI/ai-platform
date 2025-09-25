@@ -52,12 +52,10 @@ def get_file_search_results(response: Response) -> list[FileResultChunk]:
 
 def _build_callback_response(response: Response) -> CallbackResponse:
     """Build callback response with diagnostics and search results."""
-    response_chunks = get_file_search_results(response)
     return CallbackResponse(
         status="success",
         response_id=response.id,
         message=response.output_text,
-        chunks=response_chunks,
         diagnostics=Diagnostics(
             input_tokens=response.usage.input_tokens,
             output_tokens=response.usage.output_tokens,
@@ -93,9 +91,12 @@ def generate_response(
     try:
         tracer.start_trace(
             name="generate_response_async",
-            input={"question": request.question, "assistant_id": assistant.id},
+            input={
+                "question": request.question,
+                "assistant_id": assistant.assistant_id,
+            },
             metadata={"callback_url": request.callback_url},
-            tags=[assistant.id],
+            tags=[assistant.assistant_id],
         )
         tracer.start_generation(
             name="openai_response",
@@ -105,11 +106,12 @@ def generate_response(
 
         params: dict = {
             "model": assistant.model,
-            "previous_response_id": ancestor_id,
             "instructions": assistant.instructions,
             "temperature": assistant.temperature,
             "input": [{"role": "user", "content": request.question}],
         }
+        if ancestor_id:
+            params["previous_response_id"] = ancestor_id
 
         if assistant.vector_store_ids:
             params["tools"] = [

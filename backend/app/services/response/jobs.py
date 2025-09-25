@@ -3,12 +3,9 @@ from uuid import UUID
 from fastapi import HTTPException
 from sqlmodel import Session
 from asgi_correlation_id import correlation_id
-from app.core.db import engine
 from app.crud import JobCrud
 from app.models import JobType, JobStatus, JobUpdate, ResponsesAPIRequest
-from app.utils import APIResponse
 from app.celery.utils import start_high_priority_job
-from app.api.routes.threads import send_callback
 
 from app.services.response.response import process_response
 from app.services.response.callbacks import send_response_callback
@@ -24,14 +21,25 @@ def start_job(
     job_crud = JobCrud(session=db)
     job = job_crud.create(job_type=JobType.RESPONSE, trace_id=trace_id)
 
-    task_id = start_high_priority_job(
-        function_path="app.services.response.jobs.execute_job",
-        project_id=project_id,
-        job_id=str(job.id),
-        trace_id=trace_id,
-        request_data=request.model_dump(),
-        organization_id=organization_id,
-    )
+    try:
+        task_id = start_high_priority_job(
+            function_path="app.services.response.jobs.execute_job",
+            project_id=project_id,
+            job_id=str(job.id),
+            trace_id=trace_id,
+            request_data=request.model_dump(),
+            organization_id=organization_id,
+        )
+    except Exception as e:
+        logger.error(
+            f"[start_job] Error starting Celery task : {str(e)} | job_id={job.id}, project_id={project_id}",
+            exc_info=True,
+        )
+        job_update = JobUpdate(status=JobStatus.FAILED, error_message=str(e))
+        job_crud.update(job_id=job.id, job_update=job_update)
+        raise HTTPException(
+            status_code=500, detail="Internal server error while generating response"
+        )
 
     logger.info(
         f"[start_job] Job scheduled to generate response | job_id={job.id}, project_id={project_id}, task_id={task_id}"

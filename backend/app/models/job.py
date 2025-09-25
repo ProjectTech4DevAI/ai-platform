@@ -37,7 +37,7 @@ class Job(SQLModel, table=True):
         default=JobStatus.PENDING, description="Current state of the job."
     )
     job_type: JobType = Field(
-        description="Job type or classification (e.g., response job, ingestion job)."
+        description="Type of job being executed (e.g., response, ingestion)."
     )
     created_at: datetime = Field(default_factory=now)
     updated_at: datetime = Field(default_factory=now)

@@ -118,6 +118,10 @@ class Settings(BaseSettings):
     CELERY_ENABLE_UTC: bool = True
     CELERY_TIMEZONE: str = "UTC"
 
+    # callback timeouts
+    CALLBACK_CONNECT_TIMEOUT: int = 3
+    CALLBACK_READ_TIMEOUT: int = 10
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def COMPUTED_CELERY_WORKER_CONCURRENCY(self) -> int:

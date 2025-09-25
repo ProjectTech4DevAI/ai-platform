@@ -26,8 +26,6 @@ def assistant_mock() -> Assistant:
 
 def test_generate_response_success(db: Session, assistant_mock: Assistant):
     """Test successful OpenAI response generation."""
-    mock_response = MagicMock()
-
     mock_client = MagicMock()
 
     request = ResponsesAPIRequest(
