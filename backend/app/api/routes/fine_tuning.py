@@ -220,7 +220,7 @@ async def fine_tune_from_CSV(
     if not file.filename.lower().endswith(".csv") and file.content_type != "text/csv":
         raise HTTPException(status_code=400, detail="File must be a CSV file")
 
-    client = get_openai_client(  # Used here only to validate the user's OpenAI key;
+    get_openai_client(  # Used here only to validate the user's OpenAI key;
         # the actual client is re-initialized separately inside the background task
         session,
         current_user.organization_id,
