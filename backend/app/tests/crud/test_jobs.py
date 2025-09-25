@@ -42,11 +42,11 @@ def test_update_job(db: Session, dummy_jobs):
     crud = JobCrud(db)
     job = dummy_jobs[1]
 
-    update_data = JobUpdate(status=JobStatus.SUCCESS, error_message="All good now")
+    update_data = JobUpdate(status=JobStatus.FAILED, error_message="Errror occurred")
     updated_job = crud.update(job.id, update_data)
 
-    assert updated_job.status == JobStatus.SUCCESS
-    assert updated_job.error_message == "All good now"
+    assert updated_job.status == JobStatus.FAILED
+    assert updated_job.error_message == "Error occurred"
     assert updated_job.updated_at is not None
     assert updated_job.updated_at >= job.updated_at
 
