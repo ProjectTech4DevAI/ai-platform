@@ -1,6 +1,7 @@
 import secrets
 import warnings
 import os
+import multiprocessing
 from typing import Any, Literal
 
 from pydantic import (
@@ -71,12 +72,60 @@ class Settings(BaseSettings):
     AWS_DEFAULT_REGION: str = ""
     AWS_S3_BUCKET_PREFIX: str = ""
 
+    # RabbitMQ configuration for Celery broker
+    RABBITMQ_HOST: str = "localhost"
+    RABBITMQ_PORT: int = 5672
+    RABBITMQ_USER: str = "guest"
+    RABBITMQ_PASSWORD: str = "guest"
+    RABBITMQ_VHOST: str = "/"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def RABBITMQ_URL(self) -> str:
+        return f"amqp://{self.RABBITMQ_USER}:{self.RABBITMQ_PASSWORD}@{self.RABBITMQ_HOST}:{self.RABBITMQ_PORT}/{self.RABBITMQ_VHOST}"
+
+    # Redis configuration for Celery result backend
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+    REDIS_PASSWORD: str = ""
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def REDIS_URL(self) -> str:
+        if self.REDIS_PASSWORD:
+            return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def AWS_S3_BUCKET(self) -> str:
         return f"{self.AWS_S3_BUCKET_PREFIX}-{self.ENVIRONMENT}"
 
     LOG_DIR: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
+
+    # Celery Configuration
+    CELERY_WORKER_CONCURRENCY: int | None = None
+    CELERY_WORKER_MAX_TASKS_PER_CHILD: int = 1000
+    CELERY_WORKER_MAX_MEMORY_PER_CHILD: int = 200000
+    CELERY_TASK_SOFT_TIME_LIMIT: int = 300
+    CELERY_TASK_TIME_LIMIT: int = 600
+    CELERY_TASK_MAX_RETRIES: int = 3
+    CELERY_TASK_DEFAULT_RETRY_DELAY: int = 60
+    CELERY_RESULT_EXPIRES: int = 3600
+    CELERY_BROKER_POOL_LIMIT: int = 10
+    CELERY_WORKER_PREFETCH_MULTIPLIER: int = 1
+    CELERY_ENABLE_UTC: bool = True
+    CELERY_TIMEZONE: str = "UTC"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def COMPUTED_CELERY_WORKER_CONCURRENCY(self) -> int:
+        """Auto-calculate worker concurrency if not set explicitly."""
+        if self.CELERY_WORKER_CONCURRENCY is not None:
+            return self.CELERY_WORKER_CONCURRENCY
+        # Use CPU cores * 2 as default
+        return multiprocessing.cpu_count() * 2
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
