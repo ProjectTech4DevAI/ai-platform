@@ -1,4 +1,4 @@
-version: "3.9"
+version: "0.1"
 
 services:
   db:
@@ -81,6 +81,7 @@ services:
 
   prestart:
     image: "${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}"
+    container_name: prestart
     build:
       context: ./backend
     depends_on:
@@ -91,19 +92,7 @@ services:
     env_file:
       - .env
     environment:
-      ENVIRONMENT: ${ENVIRONMENT:?Variable not set}
-      SECRET_KEY: ${SECRET_KEY}
-      FIRST_SUPERUSER: ${FIRST_SUPERUSER:?Variable not set}
-      FIRST_SUPERUSER_PASSWORD: ${FIRST_SUPERUSER_PASSWORD:?Variable not set}
-      EMAIL_TEST_USER: ${EMAIL_TEST_USER}
-
-      # Database
       POSTGRES_SERVER: db
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      POSTGRES_DB: ${POSTGRES_DB:?Variable not set}
-      POSTGRES_USER: ${POSTGRES_USER:?Variable not set}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Variable not set}
-
 
   backend:
     image: "${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG:-latest}"
@@ -121,61 +110,9 @@ services:
     env_file:
       - .env
     environment:
-      # General
-      DOMAIN: ${DOMAIN}
-      ENVIRONMENT: ${ENVIRONMENT:?Variable not set}
-      SECRET_KEY: ${SECRET_KEY}
-      FIRST_SUPERUSER: ${FIRST_SUPERUSER:?Variable not set}
-      FIRST_SUPERUSER_PASSWORD: ${FIRST_SUPERUSER_PASSWORD:?Variable not set}
-      EMAIL_TEST_USER: ${EMAIL_TEST_USER}
-
-      # Database
       POSTGRES_SERVER: db
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      POSTGRES_DB: ${POSTGRES_DB:?Variable not set}
-      POSTGRES_USER: ${POSTGRES_USER:?Variable not set}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Variable not set}
-
-      # Redis
       REDIS_HOST: redis
-      REDIS_PORT: ${REDIS_PORT}
-      REDIS_DB: ${REDIS_DB}
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-
-      # RabbitMQ (Celery Broker)
       RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: ${RABBITMQ_PORT}
-      RABBITMQ_USER: ${RABBITMQ_USER}
-      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
-      RABBITMQ_VHOST: ${RABBITMQ_VHOST}
-
-      # Celery
-      CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY}
-      CELERY_WORKER_MAX_TASKS_PER_CHILD: ${CELERY_WORKER_MAX_TASKS_PER_CHILD}
-      CELERY_WORKER_MAX_MEMORY_PER_CHILD: ${CELERY_WORKER_MAX_MEMORY_PER_CHILD}
-      CELERY_TASK_SOFT_TIME_LIMIT: ${CELERY_TASK_SOFT_TIME_LIMIT}
-      CELERY_TASK_TIME_LIMIT: ${CELERY_TASK_TIME_LIMIT}
-      CELERY_TASK_MAX_RETRIES: ${CELERY_TASK_MAX_RETRIES}
-      CELERY_TASK_DEFAULT_RETRY_DELAY: ${CELERY_TASK_DEFAULT_RETRY_DELAY}
-      CELERY_RESULT_EXPIRES: ${CELERY_RESULT_EXPIRES}
-      CELERY_BROKER_POOL_LIMIT: ${CELERY_BROKER_POOL_LIMIT}
-      CELERY_WORKER_PREFETCH_MULTIPLIER: ${CELERY_WORKER_PREFETCH_MULTIPLIER}
-      CELERY_ENABLE_UTC: ${CELERY_ENABLE_UTC}
-      CELERY_TIMEZONE: ${CELERY_TIMEZONE}
-
-      # AWS
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
-      AWS_S3_BUCKET_PREFIX: ${AWS_S3_BUCKET_PREFIX}
-
-      # OpenAI
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      
-      # Optional
-      SENTRY_DSN: ${SENTRY_DSN}
-      CALLBACK_CONNECT_TIMEOUT: ${CALLBACK_CONNECT_TIMEOUT}
-      CALLBACK_READ_TIMEOUT: ${CALLBACK_READ_TIMEOUT}
     build:
       context: ./backend
     ports:
@@ -185,6 +122,49 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  celery_worker:
+    image: "${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG:-latest}"
+    container_name: celery-worker
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      POSTGRES_SERVER: db
+      REDIS_HOST: redis
+      RABBITMQ_HOST: rabbitmq
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.celery
+
+  celery_beat:
+    image: "${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG:-latest}"
+    container_name: celery-beat
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      POSTGRES_SERVER: db
+      REDIS_HOST: redis
+      RABBITMQ_HOST: rabbitmq
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.celery
+    command: ["uv", "run", "celery", "-A", "app.celery.celery_app", "beat", "--loglevel=info"]
 
 volumes:
   kaapi-postgres:
