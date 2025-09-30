@@ -59,28 +59,28 @@ jobs:
           # Create deployment script
           cat > deploy-celery.sh << 'EOF'
           #!/bin/bash
-          
+
           # Stop existing containers
           docker stop celery-stg-high celery-stg-other || true
           docker rm celery-stg-high celery-stg-other || true
-          
+
           # Pull latest image
           aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin $1
           docker pull $1/$2:staging
-          
+
           # Start high priority worker
           docker run -d --name celery-stg-high --restart unless-stopped \
             --env-file /home/ubuntu/.env.staging \
             $1/$2:staging \
             uv run celery -A app.celery.celery_app worker --queues=high_priority --loglevel=info --concurrency=1 --hostname=stg-high@%h
-          
-          # Start other queues worker  
+
+          # Start other queues worker
           docker run -d --name celery-stg-other --restart unless-stopped \
             --env-file /home/ubuntu/.env.staging \
             $1/$2:staging \
             uv run celery -A app.celery.celery_app worker --queues=default,low_priority,cron --loglevel=info --concurrency=1 --hostname=stg-other@%h
           EOF
-          
+
           # Copy script to EC2 and execute
           echo "${{ secrets.EC2_STAGING_PRIVATE_KEY }}" > staging_key.pem
           chmod 600 staging_key.pem
@@ -95,11 +95,11 @@ jobs:
           # Create flower deployment script
           cat > deploy-flower.sh << 'EOF'
           #!/bin/bash
-          
+
           # Stop existing flower container
           docker stop flower-staging || true
           docker rm flower-staging || true
-          
+
           # Start flower using the same celery image
           docker run -d --name flower-staging --restart unless-stopped \
             --env-file /home/ubuntu/.env.staging \
@@ -107,7 +107,7 @@ jobs:
             $1/$2:staging \
             uv run celery -A app.celery.celery_app flower --port=5555
           EOF
-          
+
           # Copy script to EC2 and execute
           scp -i staging_key.pem -o StrictHostKeyChecking=no deploy-flower.sh ubuntu@${{ secrets.EC2_STAGING_HOST }}:/tmp/
           ssh -i staging_key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_STAGING_HOST }} "chmod +x /tmp/deploy-flower.sh && /tmp/deploy-flower.sh $REGISTRY $REPOSITORY"
