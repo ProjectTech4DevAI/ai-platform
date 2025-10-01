@@ -31,16 +31,15 @@ You can then update configs in the `.env` files to customize your configurations
 
 ⚠️ Some services depend on these values being set correctly. Missing or invalid values may cause startup issues.
 
-````bash
-
 ### Generate Secret Keys
 
-Some environment variables in the `.env` file have a default value of `changethis`.
 
 You have to change them with a secret key, to generate secret keys you can run the following command:
 
 ```bash
+
 python -c "import secrets; print(secrets.token_urlsafe(32))"
+
 ````
 
 Copy the content and use that as password / secret key. And run that again to generate another secure key.
