@@ -31,7 +31,7 @@ services:
       - .env
     command: >
       sh -c "if [ -n \"${REDIS_PASSWORD}\" ]; then
-               redis-server --requirepass ${REDIS_PASSWORD};
+               redis-server --requirepass \"${REDIS_PASSWORD}\";
              else
                redis-server;
              fi"
@@ -40,7 +40,7 @@ services:
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD-SHELL", "if [ -n \"${REDIS_PASSWORD}\" ]; then redis-cli -a ${REDIS_PASSWORD} ping; else redis-cli ping; fi"]
+      test: ["CMD-SHELL", "if [ -n \"${REDIS_PASSWORD}\" ]; then redis-cli -a \"${REDIS_PASSWORD}\" ping; else redis-cli ping; fi"]
       interval: 10s
       timeout: 10s
       retries: 5
