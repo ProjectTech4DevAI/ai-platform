@@ -73,7 +73,7 @@ def test_collection_info_processing(
     collection_job = create_collection_job(db, user_api_key)
 
     response = client.get(
-        f"{settings.API_V1_STR}/collections/info/{collection_job.id}",
+        f"{settings.API_V1_STR}/collections/info/collection_job/{collection_job.id}",
         headers=headers,
     )
 
@@ -97,7 +97,7 @@ def test_collection_info_successful(
     )
 
     response = client.get(
-        f"{settings.API_V1_STR}/collections/info/{collection_job.id}",
+        f"{settings.API_V1_STR}/collections/info/collection_job/{collection_job.id}",
         headers=headers,
     )
 
@@ -119,7 +119,7 @@ def test_collection_info_failed(
     )
 
     response = client.get(
-        f"{settings.API_V1_STR}/collections/info/{collection_job.id}",
+        f"{settings.API_V1_STR}/collections/info/collection_job/{collection_job.id}",
         headers=headers,
     )
 
