@@ -39,7 +39,7 @@ class TestCollectionDelete:
         crud = CollectionCrud(db, collection.project_id)
         collection_ = crud.delete(collection, assistant)
 
-        assert collection_.created_at <= collection_.deleted_at
+        assert collection_.inserted_at <= collection_.deleted_at
 
     @openai_responses.mock()
     def test_cannot_delete_others_collections(self, db: Session):

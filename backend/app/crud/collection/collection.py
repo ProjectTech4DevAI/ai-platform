@@ -8,9 +8,8 @@ from sqlmodel import Session, func, select, and_
 
 from app.models import Document, Collection, DocumentCollection
 from app.core.util import now
-from app.models.collection import CollectionStatus
 
-from .document_collection import DocumentCollectionCrud
+from ..document_collection import DocumentCollectionCrud
 
 logger = logging.getLogger(__name__)
 
@@ -68,10 +67,8 @@ class CollectionCrud:
     ):
         try:
             existing = self.read_one(collection.id)
-            if existing.status == CollectionStatus.failed:
-                self._update(collection)
-            else:
-                raise FileExistsError("Collection already present")
+
+            raise FileExistsError("Collection already present")
         except:
             self.session.add(collection)
             self.session.commit()

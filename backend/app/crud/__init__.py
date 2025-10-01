@@ -4,11 +4,12 @@ from .user import (
     get_user_by_email,
     update_user,
 )
-from .collection import CollectionCrud
+from .collection.collection import CollectionCrud
 
 from .document import DocumentCrud
 from .document_collection import DocumentCollectionCrud
 from .doc_transformation_job import DocTransformationJobCrud
+from .collection.collection_job import CollectionJobCrud
 
 from .jobs import JobCrud
 

@@ -13,12 +13,6 @@ from .project import Project
 from app.core.util import now
 
 
-class CollectionStatus(str, enum.Enum):
-    processing = "processing"
-    successful = "successful"
-    failed = "failed"
-
-
 class Collection(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
 
@@ -37,11 +31,7 @@ class Collection(SQLModel, table=True):
     llm_service_id: Optional[str] = Field(default=None, nullable=True)
     llm_service_name: Optional[str] = Field(default=None, nullable=True)
 
-    status: CollectionStatus = Field(default=CollectionStatus.processing)
-    error_message: Optional[str] = Field(default=None, nullable=True)
-    task_id: Optional[str] = Field(default=None, description="Celery task ID")
-
-    created_at: datetime = Field(default_factory=now)
+    inserted_at: datetime = Field(default_factory=now)
     updated_at: datetime = Field(default_factory=now)
     deleted_at: Optional[datetime] = None
 

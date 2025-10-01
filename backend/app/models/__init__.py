@@ -104,3 +104,11 @@ from .response import (
 )
 
 from .onboarding import OnboardingRequest, OnboardingResponse
+
+from .collection_job import (
+    CollectionActionType,
+    CollectionJob,
+    CollectionJobBase,
+    CollectionJobStatus,
+    CollectionJobUpdate,
+)

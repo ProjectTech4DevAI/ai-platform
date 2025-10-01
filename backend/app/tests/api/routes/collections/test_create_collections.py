@@ -1,9 +1,10 @@
 from uuid import UUID
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from unittest.mock import patch
 
-from app.models.collection import Collection, CollectionStatus, CreationRequest
+from app.models.collection import Collection, CreationRequest
 
 
 def test_collection_creation_success(
@@ -21,26 +22,28 @@ def test_collection_creation_success(
             callback_url=None,
         )
 
-        api_response = client.post(
+        resp = client.post(
             "/api/v1/collections/create",
             json=creation_data.model_dump(mode="json"),
             headers=user_api_key_header,
         )
 
-        assert api_response.status_code == 200
-        response_body = api_response.json()
+        assert resp.status_code == 200
+        body = resp.json()
 
-        assert response_body["success"] is True
-        assert response_body["metadata"]["status"] == "processing"
-        assert response_body["metadata"]["key"] is not None
-        assert UUID(response_body["metadata"]["key"])  # Verify UUID format
-        assert response_body["data"] is None
+        assert body["success"] is True
+        assert body["data"] is None
+
+        assert body["metadata"]["status"] == "processing"
+        assert body["metadata"]["route"] == "/collections/create"
+        assert body["metadata"]["key"] is not None
+        job_key = UUID(body["metadata"]["key"])
 
         mock_job_start.assert_called_once()
-        job_args = mock_job_start.call_args[1]
-        assert job_args["request"] == creation_data.model_dump()
-        assert job_args["payload"]["status"] == "processing"
-        assert isinstance(job_args["collection"], Collection)
-        assert job_args["collection"].status == CollectionStatus.processing
-        assert job_args["project_id"] == job_args["collection"].project_id
-        assert job_args["organization_id"] == job_args["collection"].organization_id
+        kwargs = mock_job_start.call_args.kwargs
+
+        assert "db" in kwargs
+        assert kwargs["request"] == creation_data.model_dump()
+        assert kwargs["payload"]["status"] == "processing"
+
+        assert kwargs["collection_job_id"] == job_key

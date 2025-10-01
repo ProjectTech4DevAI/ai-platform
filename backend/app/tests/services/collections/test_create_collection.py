@@ -1,28 +1,25 @@
-import pytest
+# tests/services/collections/test_create_collection_jobs.py
+
 import os
-from pathlib import Path
-from urllib.parse import urlparse
-from unittest.mock import patch
-from uuid import UUID
 from dataclasses import asdict
+from pathlib import Path
+from unittest.mock import patch
+from urllib.parse import urlparse
+from uuid import UUID, uuid4
 
-from sqlmodel import Session
+import pytest
 from moto import mock_aws
+from sqlmodel import Session
 
-from app.core.config import settings
-from app.models.collection import (
-    CreationRequest,
-    Collection,
-    ResponsePayload,
-    CollectionStatus,
-)
-from app.crud import CollectionCrud, DocumentCollectionCrud
-from app.tests.utils.utils import get_project
-from app.tests.utils.collection import get_collection
-from app.tests.utils.document import DocumentStore
-from app.tests.utils.openai import get_mock_openai_client_with_vector_store
-from app.services.collections.create_collection import start_job, execute_job
 from app.core.cloud import AmazonCloudStorageClient
+from app.core.config import settings
+from app.crud import CollectionCrud, CollectionJobCrud, DocumentCollectionCrud
+from app.models import CollectionJobStatus, CollectionJob
+from app.models.collection import CreationRequest, ResponsePayload
+from app.services.collections.create_collection import start_job, execute_job
+from app.tests.utils.openai import get_mock_openai_client_with_vector_store
+from app.tests.utils.utils import get_project
+from app.tests.utils.document import DocumentStore
 
 
 @pytest.fixture(scope="function")
@@ -34,7 +31,14 @@ def aws_credentials():
     os.environ["AWS_DEFAULT_REGION"] = settings.AWS_DEFAULT_REGION
 
 
-def test_start_job(db: Session):
+def test_start_job_creates_collection_job_and_schedules_task(db: Session):
+    """
+    start_job should:
+      - create a CollectionJob in 'processing'
+      - call start_low_priority_job with the correct kwargs
+      - return the job UUID (same one that was passed in)
+    """
+    project = get_project(db)
     request = CreationRequest(
         model="gpt-4o",
         instructions="string",
@@ -43,51 +47,65 @@ def test_start_job(db: Session):
         batch_size=1,
         callback_url=None,
     )
-    project = get_project(db)
-    collection = Collection(
-        id=UUID("42be84e8-d1b0-4e93-8b26-ebb74034674b"),
-        project_id=project.id,
-        organization_id=project.organization_id,
-        status="PENDING",
-    )
+    payload = {"some": "data"}
+    job_id = uuid4()
 
     with patch(
         "app.services.collections.create_collection.start_low_priority_job"
     ) as mock_schedule:
         mock_schedule.return_value = "fake-task-id"
 
-        job_id = start_job(
-            db,
-            request.model_dump(),
-            collection,
-            project.id,
-            {"some": "data"},  # payload
-            project.organization_id,
+        returned_job_id = start_job(
+            db=db,
+            request=request.model_dump(),
+            project_id=project.id,
+            payload=payload,
+            collection_job_id=job_id,
+            organization_id=project.organization_id,
         )
 
-        assert job_id == collection.id
+        assert returned_job_id == job_id
+
+        job = CollectionJobCrud(db, project.id).read_one(job_id)
+        assert job.id == job_id
+        assert job.project_id == project.id
+        assert job.status == CollectionJobStatus.processing
+        assert job.action_type == "create"
+        assert job.collection_id is None
 
         mock_schedule.assert_called_once()
-        _, kwargs = mock_schedule.call_args
+        kwargs = mock_schedule.call_args.kwargs
         assert (
             kwargs["function_path"]
             == "app.services.collections.create_collection.execute_job"
         )
         assert kwargs["project_id"] == project.id
         assert kwargs["organization_id"] == project.organization_id
-        assert kwargs["job_id"] == collection.id
+        assert kwargs["job_id"] == job_id
         assert kwargs["request"] == request.model_dump()
-        assert kwargs["payload_data"] == {"some": "data"}
+        assert kwargs["payload_data"] == payload
 
 
 @pytest.mark.usefixtures("aws_credentials")
 @mock_aws
 @patch("app.services.collections.create_collection.get_openai_client")
-def test_execute_job_success(mock_get_openai_client, db: Session):
+def test_execute_job_success_flow_updates_job_and_creates_collection(
+    mock_get_openai_client, db: Session
+):
+    """
+    execute_job should:
+      - set task_id on the CollectionJob
+      - ingest documents into a vector store
+      - create an OpenAI assistant
+      - create a Collection with llm fields filled
+      - link the CollectionJob -> collection_id, set status=successful
+      - create DocumentCollection links
+    """
     project = get_project(db)
 
     aws = AmazonCloudStorageClient()
     aws.create()
+
     store = DocumentStore(db=db, project_id=project.id)
     document = store.put()
     s3_key = Path(urlparse(document.object_store_url).path).relative_to("/")
@@ -106,13 +124,18 @@ def test_execute_job_success(mock_get_openai_client, db: Session):
     mock_client = get_mock_openai_client_with_vector_store()
     mock_get_openai_client.return_value = mock_client
 
-    collection_obj = get_collection(db, client=mock_client, project_id=project.id)
+    job_id = uuid4()
+    job_crud = CollectionJobCrud(db, project.id)
+    job_crud.create(
+        CollectionJob(
+            id=job_id,
+            project_id=project.id,
+            status=CollectionJobStatus.processing,
+            action_type="create",
+        )
+    )
 
-    crud = CollectionCrud(db, project_id=project.id)
-    collection = crud.create(collection_obj)
-
-    job_id = collection.id
-    task_id = "task-123"
+    task_id = uuid4()
 
     with patch("app.services.collections.create_collection.Session") as SessionCtor:
         SessionCtor.return_value.__enter__.return_value = db
@@ -121,20 +144,25 @@ def test_execute_job_success(mock_get_openai_client, db: Session):
         execute_job(
             request=sample_request.model_dump(),
             payload_data=asdict(sample_payload),
-            project_id=collection.project_id,
-            organization_id=collection.organization_id,
+            project_id=project.id,
+            organization_id=project.organization_id,
             task_id=task_id,
             job_id=job_id,
             task_instance=None,
         )
 
-    updated = CollectionCrud(db, collection.project_id).read_one(job_id)
-    assert updated.task_id == task_id
-    assert updated.status == CollectionStatus.successful
-    assert updated.llm_service_id == "mock_assistant_id"
-    assert updated.llm_service_name == sample_request.model
-    assert updated.updated_at is not None
+    updated_job = CollectionJobCrud(db, project.id).read_one(job_id)
+    assert updated_job.task_id == task_id
+    assert updated_job.status == CollectionJobStatus.successful
+    assert updated_job.collection_id is not None
 
-    docs = DocumentCollectionCrud(db).read(updated, skip=0, limit=10)
+    created_collection = CollectionCrud(db, project.id).read_one(
+        updated_job.collection_id
+    )
+    assert created_collection.llm_service_id == "mock_assistant_id"
+    assert created_collection.llm_service_name == sample_request.model
+    assert created_collection.updated_at is not None
+
+    docs = DocumentCollectionCrud(db).read(created_collection, skip=0, limit=10)
     assert len(docs) == 1
     assert docs[0].fname == document.fname

@@ -11,11 +11,11 @@ from fastapi import Path as FastPath
 from app.api.deps import SessionDep, CurrentUserOrgProject
 from app.crud import (
     CollectionCrud,
+    CollectionJobCrud,
     DocumentCollectionCrud,
 )
 from app.models import Collection, DocumentPublic
 from app.models.collection import (
-    CollectionStatus,
     ResponsePayload,
     CreationRequest,
     DeletionRequest,
@@ -46,28 +46,18 @@ def create_collection(
     route = router.url_path_for(this.f_code.co_name)
     payload = ResponsePayload("processing", route)
 
-    collection = Collection(
-        id=UUID(payload.key),
-        organization_id=current_user.organization_id,
-        project_id=current_user.project_id,
-        status=CollectionStatus.processing,
-    )
-
-    collection_crud = CollectionCrud(session, current_user.project_id)
-    collection_crud.create(collection)
-
     create_services.start_job(
         db=session,
         request=request.model_dump(),
         payload=asdict(payload),
-        collection=collection,
+        collection_job_id=UUID(payload.key),
         project_id=current_user.project_id,
         organization_id=current_user.organization_id,
     )
 
     logger.info(
         f"[create_collection] Background task for collection creation scheduled | "
-        f"{{'collection_id': '{collection.id}'}}"
+        f"{{'collection_job_id': '{payload.key}'}}"
     )
     return APIResponse.success_response(data=None, metadata=asdict(payload))
 
@@ -82,10 +72,6 @@ def delete_collection(
     request: DeletionRequest,
     background_tasks: BackgroundTasks,
 ):
-    client = get_openai_client(
-        session, current_user.organization_id, current_user.project_id
-    )
-
     collection_crud = CollectionCrud(session, current_user.project_id)
     collection = collection_crud.read_one(request.collection_id)
 
@@ -109,10 +95,36 @@ def delete_collection(
     return APIResponse.success_response(data=None, metadata=asdict(payload))
 
 
-@router.post(
+@router.get(
+    "/info/collection_job/{collection_job_id}",
+    description=load_description("collections/job_info.md"),
+    response_model=APIResponse,
+)
+def collection_job_info(
+    session: SessionDep,
+    current_user: CurrentUserOrgProject,
+    collection_job_id: UUID = FastPath(description="Collection job to retrieve"),
+):
+    collection_job_crud = CollectionJobCrud(session, current_user.project_id)
+    collection_job = collection_job_crud.read_one(collection_job_id)
+
+    if collection_job.status == "successful":
+        collection_crud = CollectionCrud(session, current_user.project_id)
+        collection = collection_crud.read_one(collection_job.collection_id)
+        return APIResponse.success_response(data=collection)
+
+    if collection_job.status in ["processing", "failed"]:
+        err = getattr(collection_job, "error_message", None)
+        if err:
+            collection_job.error_message = extract_error_message(err)
+
+        return APIResponse.success_response(data=collection_job)
+
+
+@router.get(
     "/info/{collection_id}",
     description=load_description("collections/info.md"),
-    response_model=APIResponse[Collection],
+    response_model=APIResponse,
 )
 def collection_info(
     session: SessionDep,
@@ -120,13 +132,9 @@ def collection_info(
     collection_id: UUID = FastPath(description="Collection to retrieve"),
 ):
     collection_crud = CollectionCrud(session, current_user.project_id)
-    data = collection_crud.read_one(collection_id)
+    collection = collection_crud.read_one(collection_id)
 
-    err = getattr(data, "error_message", None)
-    if err:
-        data.error_message = extract_error_message(err)
-
-    return APIResponse.success_response(data)
+    return APIResponse.success_response(collection)
 
 
 @router.post(
