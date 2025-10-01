@@ -121,6 +121,20 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    command: >
+      uv run uvicorn app.main:app --host 0.0.0.0 --port 80 --reload
+    develop:
+      watch:
+        # Sync backend source code into container immediately on change
+        - action: sync
+          path: ./backend/app
+          target: /app/app
+        # Rebuild image if dependencies change
+        - action: rebuild
+          path: ./backend/pyproject.toml
+        - action: rebuild
+          path: ./backend/uv.lock
+
 
   celery_worker:
     image: "${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG:-latest}"
