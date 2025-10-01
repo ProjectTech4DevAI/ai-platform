@@ -61,13 +61,14 @@ jobs:
           # Create deployment script
           cat > deploy-celery.sh << 'EOF'
           #!/bin/bash
+          set -e
 
           # Stop existing containers
-          docker stop celery-prod-high celery-prod-other || true
-          docker rm celery-prod-high celery-prod-other || true
+          docker stop celery-prod-high celery-prod-other 2>/dev/null || true
+          docker rm celery-prod-high celery-prod-other 2>/dev/null || true
 
           # Pull latest image
-          aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin $1
+          aws ecr get-login-password --region $3 | docker login --username AWS --password-stdin $1
           docker pull $1/$2:production
 
           # Start high priority worker
@@ -76,18 +77,28 @@ jobs:
             $1/$2:production \
             uv run celery -A app.celery.celery_app worker --queues=high_priority --loglevel=info --concurrency=2 --hostname=prod-high@%h
 
+          # Verify high priority worker started
+          sleep 2
+          docker ps | grep celery-prod-high || { echo "High priority worker failed to start"; exit 1; }
+
           # Start other queues worker
           docker run -d --name celery-prod-other --restart unless-stopped \
             --env-file /home/ubuntu/.env.production \
             $1/$2:production \
             uv run celery -A app.celery.celery_app worker --queues=default,low_priority,cron --loglevel=info --concurrency=2 --hostname=prod-other@%h
+
+          # Verify other queues worker started
+          sleep 2
+          docker ps | grep celery-prod-other || { echo "Other queues worker failed to start"; exit 1; }
           EOF
 
           # Copy script to EC2 and execute
-          echo "${{ secrets.EC2_PRODUCTION_PRIVATE_KEY }}" > production_key.pem
+          echo "${{ secrets.EC2_KEY }}" > production_key.pem
           chmod 600 production_key.pem
-          scp -i production_key.pem -o StrictHostKeyChecking=no deploy-celery.sh ubuntu@${{ secrets.EC2_PRODUCTION_HOST }}:/tmp/
-          ssh -i production_key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_PRODUCTION_HOST }} "chmod +x /tmp/deploy-celery.sh && /tmp/deploy-celery.sh $REGISTRY $REPOSITORY"
+          trap 'rm -f production_key.pem deploy-celery.sh' EXIT
+          scp -i production_key.pem -o StrictHostKeyChecking=no deploy-celery.sh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
+          ssh -i production_key.pem -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "chmod +x /tmp/deploy-celery.sh && /tmp/deploy-celery.sh $REGISTRY $REPOSITORY ap-south-1"
+          rm -f production_key.pem deploy-celery.sh
 
       - name: Deploy Flower to EC2
         env:
@@ -97,10 +108,11 @@ jobs:
           # Create flower deployment script
           cat > deploy-flower.sh << 'EOF'
           #!/bin/bash
+          set -e
 
           # Stop existing flower container
-          docker stop flower-production || true
-          docker rm flower-production || true
+          docker stop flower-production 2>/dev/null || true
+          docker rm flower-production 2>/dev/null || true
 
           # Start flower using the same celery image
           docker run -d --name flower-production --restart unless-stopped \
@@ -108,8 +120,19 @@ jobs:
             -p 5555:5555 \
             $1/$2:production \
             uv run celery -A app.celery.celery_app flower --port=5555
+
+          # Verify Flower started
+          sleep 2
+          docker ps | grep flower-production || { echo "Flower failed to start"; exit 1; }
+
+          # Health check
+          curl -f http://localhost:5555/healthcheck || { echo "Flower health check failed"; exit 1; }
           EOF
 
           # Copy script to EC2 and execute
-          scp -i production_key.pem -o StrictHostKeyChecking=no deploy-flower.sh ubuntu@${{ secrets.EC2_PRODUCTION_HOST }}:/tmp/
-          ssh -i production_key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_PRODUCTION_HOST }} "chmod +x /tmp/deploy-flower.sh && /tmp/deploy-flower.sh $REGISTRY $REPOSITORY"
+          echo "${{ secrets.EC2_KEY }}" > production_key.pem
+          chmod 600 production_key.pem
+          trap 'rm -f production_key.pem deploy-flower.sh' EXIT
+          scp -i production_key.pem -o StrictHostKeyChecking=no deploy-flower.sh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
+          ssh -i production_key.pem -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "chmod +x /tmp/deploy-flower.sh && /tmp/deploy-flower.sh $REGISTRY $REPOSITORY"
+          rm -f production_key.pem deploy-flower.sh
