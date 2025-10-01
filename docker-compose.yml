@@ -93,6 +93,7 @@ services:
       - .env
     environment:
       POSTGRES_SERVER: db
+    profiles: ["prestart"]
 
   backend:
     image: "${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG:-latest}"
@@ -105,8 +106,6 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      prestart:
-        condition: service_completed_successfully
     env_file:
       - .env
     environment:
@@ -143,28 +142,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.celery
-
-  celery_beat:
-    image: "${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG:-latest}"
-    container_name: celery-beat
-    restart: always
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    env_file:
-      - .env
-    environment:
-      POSTGRES_SERVER: db
-      REDIS_HOST: redis
-      RABBITMQ_HOST: rabbitmq
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.celery
-    command: ["uv", "run", "celery", "-A", "app.celery.celery_app", "beat", "--loglevel=info"]
+    command: ["uv", "run", "celery", "-A", "app.celery.celery_app", "worker", "--loglevel=info"]
 
 volumes:
   kaapi-postgres:
