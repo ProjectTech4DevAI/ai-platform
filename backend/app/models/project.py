@@ -39,6 +39,9 @@ class Project(ProjectBase, table=True):
     inserted_at: datetime = Field(default_factory=now, nullable=False)
     updated_at: datetime = Field(default_factory=now, nullable=False)
 
+    users: list["ProjectUser"] = Relationship(
+        back_populates="project", cascade_delete=True
+    )
     creds: list["Credential"] = Relationship(
         back_populates="project", cascade_delete=True
     )
