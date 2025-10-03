@@ -205,6 +205,9 @@ def get_user_context(
         raise HTTPException(status_code=401, detail="Invalid Authorization format")
 
 
+UserContextDep = Annotated[UserContext, Depends(get_user_context)]
+
+
 def verify_user_project_organization(
     db: SessionDep,
     current_user: CurrentUserOrg,

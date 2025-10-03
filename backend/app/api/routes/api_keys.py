@@ -2,19 +2,25 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session
 
-from app.api.deps import get_db, get_current_active_superuser, get_user_context
+from app.api.deps import SessionDep, UserContextDep
 from app.crud.api_key import APIKeyCrud
-from app.models import APIKeyPublic, APIKeyCreateResponse, User, UserContext
+from app.models import APIKeyPublic, APIKeyCreateResponse
 from app.utils import APIResponse
+from app.api.permissions import Permission, require_permission
 
 router = APIRouter(prefix="/api-keys", tags=["API Keys"])
 
 
-@router.post("/", response_model=APIResponse[APIKeyCreateResponse], status_code=201)
+@router.post(
+    "/",
+    response_model=APIResponse[APIKeyCreateResponse],
+    status_code=201,
+    dependencies=[Depends(require_permission(Permission.SUPERUSER))],
+)
 def create_api_key_route(
     project_id: int,
-    session: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_superuser),
+    current_user: UserContextDep,
+    session: SessionDep,
 ):
     """
     Create a new API key for the current project.
@@ -32,10 +38,14 @@ def create_api_key_route(
     return APIResponse.success_response(api_key)
 
 
-@router.get("/", response_model=APIResponse[list[APIKeyPublic]])
+@router.get(
+    "/",
+    response_model=APIResponse[list[APIKeyPublic]],
+    dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
+)
 def list_api_keys_route(
-    session: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_superuser),
+    current_user: UserContextDep,
+    session: SessionDep,
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=100, description="Maximum records to return"),
 ):
