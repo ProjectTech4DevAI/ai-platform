@@ -28,13 +28,16 @@ class APIKeyPublic(APIKeyBase):
 
 class APIKeyCreateResponse(APIKeyPublic):
     """Response model when creating an API key includes the raw key only once"""
+
     key: str
 
 
 class APIKey(APIKeyBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
 
-    key_prefix: str = Field(unique=True, index=True, nullable=False)  # Unique identifier from the key
+    key_prefix: str = Field(
+        unique=True, index=True, nullable=False
+    )  # Unique identifier from the key
     key_hash: str = Field(nullable=False)  # bcrypt hash of the full key
 
     last_used_at: datetime | None = Field(default=None, nullable=True)

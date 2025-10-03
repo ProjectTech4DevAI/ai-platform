@@ -53,7 +53,9 @@ def verify_api_key(session: Session, raw_key: str) -> Optional[APIKey]:
         return None
 
     except Exception as e:
-        logger.error(f"[verify_api_key] Error verifying API key: {str(e)}", exc_info=True)
+        logger.error(
+            f"[verify_api_key] Error verifying API key: {str(e)}", exc_info=True
+        )
         return None
 
 
@@ -110,16 +112,16 @@ class APIKeyCrud:
         )
         return self.session.exec(statement).all()
 
-    def create(
-        self, user_id: int
-    ) -> Tuple[str, APIKey]:
+    def create(self, user_id: int) -> Tuple[str, APIKey]:
         """
         Create a new API key for the project.
         """
         try:
             raw_key, key_prefix, key_hash = generate_api_key()
 
-            project = get_project_by_id(session=self.session, project_id=self.project_id)
+            project = get_project_by_id(
+                session=self.session, project_id=self.project_id
+            )
 
             api_key = APIKey(
                 key_prefix=key_prefix,

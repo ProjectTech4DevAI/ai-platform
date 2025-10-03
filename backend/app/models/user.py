@@ -55,6 +55,7 @@ class User(UserBase, table=True):
         back_populates="user", cascade_delete=True
     )
 
+
 class UserOrganization(UserBase):
     id: int
     organization_id: int | None

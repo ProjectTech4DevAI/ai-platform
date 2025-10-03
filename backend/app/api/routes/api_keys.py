@@ -27,9 +27,7 @@ def create_api_key_route(
         user_id=current_user.id,
     )
 
-    api_key = APIKeyCreateResponse(
-        **api_key.model_dump(), key=raw_key
-    )
+    api_key = APIKeyCreateResponse(**api_key.model_dump(), key=raw_key)
 
     return APIResponse.success_response(api_key)
 
