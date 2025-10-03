@@ -19,12 +19,6 @@ from .job import Job, JobType, JobStatus, JobUpdate
 
 from .message import Message
 
-from .project_user import (
-    ProjectUser,
-    ProjectUserPublic,
-    ProjectUsersPublic,
-)
-
 from .project import (
     Project,
     ProjectCreate,
