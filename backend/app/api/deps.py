@@ -14,10 +14,11 @@ from app.core.config import settings
 from app.core.db import engine
 from app.utils import APIResponse
 from app.crud.organization import validate_organization
-from app.crud.api_key import get_api_key_by_value
+from app.crud.api_key import verify_api_key
 from app.models import (
     TokenPayload,
     User,
+    UserContext,
     UserProjectOrg,
     UserOrganization,
     ProjectUser,
@@ -48,7 +49,7 @@ def get_current_user(
     """Authenticate user via API Key first, fallback to JWT token. Returns only User."""
 
     if api_key:
-        api_key_record = get_api_key_by_value(session, api_key)
+        api_key_record = verify_api_key(session, api_key)
         if not api_key_record:
             raise HTTPException(status_code=401, detail="Invalid API Key")
 
@@ -94,7 +95,7 @@ def get_current_user_org(
     organization_id = None
     api_key = request.headers.get("X-API-KEY")
     if api_key:
-        api_key_record = get_api_key_by_value(session, api_key)
+        api_key_record = verify_api_key(session, api_key)
         if api_key_record:
             validate_organization(session, api_key_record.organization_id)
             organization_id = api_key_record.organization_id
@@ -115,7 +116,7 @@ def get_current_user_org_project(
     project_id = None
 
     if api_key:
-        api_key_record = get_api_key_by_value(session, api_key)
+        api_key_record = verify_api_key(session, api_key)
         if api_key_record:
             validate_organization(session, api_key_record.organization_id)
             organization_id = api_key_record.organization_id
@@ -148,6 +149,60 @@ def get_current_active_superuser_org(current_user: CurrentUserOrg) -> User:
             status_code=403, detail="The user doesn't have enough privileges"
         )
     return current_user
+
+
+def get_user_context(
+    session: SessionDep,
+    token: TokenDep,
+    api_key: Annotated[str, Depends(api_key_header)],
+) -> UserContext:
+    """
+    Verify valid authentication (API Key or JWT token) and return authenticated user context.
+    Returns UserContext with user info, project_id, and organization_id.
+    Authorization logic should be handled in routes.
+    """
+    if api_key:
+        api_key_record = verify_api_key(session, api_key)
+        if not api_key_record:
+            raise HTTPException(status_code=401, detail="Invalid API Key")
+
+        user = session.get(User, api_key_record.user_id)
+        if not user:
+            raise HTTPException(
+                status_code=404, detail="User linked to API Key not found"
+            )
+
+        user_context = UserContext(
+            **user.model_dump(),
+            project_id=api_key_record.project_id,
+            organization_id=api_key_record.organization_id,
+        )
+        return user_context
+
+    elif token:
+        try:
+            payload = jwt.decode(
+                token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
+            )
+            token_data = TokenPayload(**payload)
+        except (InvalidTokenError, ValidationError):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Could not validate credentials",
+            )
+
+        user = session.get(User, token_data.sub)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        if not user.is_active:
+            raise HTTPException(status_code=400, detail="Inactive user")
+
+        user_context = UserContext(**user.model_dump())
+
+        return user_context
+
+    else:
+        raise HTTPException(status_code=401, detail="Invalid Authorization format")
 
 
 def verify_user_project_organization(

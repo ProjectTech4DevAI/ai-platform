@@ -90,15 +90,16 @@ def onboard_project(
         session.add(user)
         session.flush()
 
-    raw_key, _ = generate_api_key()
-    encrypted_key = encrypt_api_key(raw_key)
+    raw_key, key_prefix, key_hash = generate_api_key()
 
     api_key = APIKey(
-        key=encrypted_key,  # Store the encrypted raw key
-        organization_id=organization.id,
+        key_prefix=key_prefix,
+        key_hash=key_hash,
         user_id=user.id,
+        organization_id=project.organization_id,
         project_id=project.id,
     )
+
     session.add(api_key)
 
     credential = None

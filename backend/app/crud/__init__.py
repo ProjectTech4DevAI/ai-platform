@@ -27,16 +27,7 @@ from .project import (
     validate_project,
 )
 
-from .api_key import (
-    create_api_key,
-    generate_api_key,
-    get_api_key,
-    get_api_key_by_value,
-    get_api_keys_by_project,
-    get_api_key_by_project_user,
-    delete_api_key,
-    get_api_key_by_user_id,
-)
+from .api_key import APIKeyCrud, generate_api_key
 
 from .credentials import (
     set_creds_for_org,

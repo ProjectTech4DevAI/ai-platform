@@ -54,8 +54,6 @@ class User(UserBase, table=True):
     projects: list["ProjectUser"] = Relationship(
         back_populates="user", cascade_delete=True
     )
-    api_keys: list["APIKey"] = Relationship(back_populates="user", cascade_delete=True)
-
 
 class UserOrganization(UserBase):
     id: int
@@ -64,6 +62,12 @@ class UserOrganization(UserBase):
 
 class UserProjectOrg(UserOrganization):
     project_id: int
+
+
+class UserContext(UserBase):
+    id: int
+    project_id: int | None = None
+    organization_id: int | None = None
 
 
 # Properties to return via API, id is always required

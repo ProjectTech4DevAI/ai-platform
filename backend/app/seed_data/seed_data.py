@@ -9,7 +9,7 @@ from sqlmodel import Session, delete, select
 
 from app.core.db import engine
 from app.core import settings
-from app.core.security import encrypt_api_key, get_password_hash
+from app.core.security import get_password_hash, encrypt_credentials
 from app.models import (
     APIKey,
     Organization,
@@ -49,7 +49,6 @@ class APIKeyData(BaseModel):
     api_key: str
     is_deleted: bool
     deleted_at: Optional[str] = None
-    created_at: Optional[str] = None
 
 
 class CredentialData(BaseModel):
@@ -184,21 +183,34 @@ def create_api_key(session: Session, api_key_data_raw: dict) -> APIKey:
         ).first()
         if not user:
             raise ValueError(f"User '{api_key_data.user_email}' not found")
-        encrypted_api_key = encrypt_api_key(api_key_data.api_key)
+
+        # Extract key_prefix from the provided API key and hash the full key
+        # API key format: "ApiKey {key_prefix}{random_key}" where key_prefix is 16 chars
+        raw_key = api_key_data.api_key
+        if not raw_key.startswith("ApiKey "):
+            raise ValueError(f"Invalid API key format: {raw_key}")
+        
+        # Extract the key_prefix (first 16 characters after "ApiKey ")
+        key_portion = raw_key[7:]  # Remove "ApiKey " prefix
+
+        key_prefix = key_portion[:8]  # First 8 characters as prefix
+        
+        # Hash the full raw key
+        from passlib.context import CryptContext
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        key_hash = pwd_context.hash(raw_key)
+        
         api_key = APIKey(
             organization_id=organization.id,
             project_id=project.id,
             user_id=user.id,
-            key=encrypted_api_key,
+            key_prefix=key_prefix,
+            key_hash=key_hash,
             is_deleted=api_key_data.is_deleted,
             deleted_at=api_key_data.deleted_at,
         )
-        if api_key_data.created_at:
-            api_key.created_at = datetime.fromisoformat(
-                api_key_data.created_at.replace("Z", "+00:00")
-            )
         session.add(api_key)
-        session.flush()  # Ensure ID is assigned
+        session.flush()
         return api_key
     except Exception as e:
         logging.error(f"Error creating API key: {e}")
@@ -229,8 +241,9 @@ def create_credential(session: Session, credential_data_raw: dict) -> Credential
         if not project:
             raise ValueError(f"Project '{credential_data.project_name}' not found")
 
-        # Encrypt the credential data
-        encrypted_credential = encrypt_api_key(credential_data.credential)
+        # Encrypt the credential data - convert string to dict first, then encrypt
+        credential_dict = json.loads(credential_data.credential)
+        encrypted_credential = encrypt_credentials(credential_dict)
 
         credential = Credential(
             is_active=credential_data.is_active,

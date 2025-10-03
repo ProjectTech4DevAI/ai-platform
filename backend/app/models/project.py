@@ -48,9 +48,6 @@ class Project(ProjectBase, table=True):
     assistants: list["Assistant"] = Relationship(
         back_populates="project", cascade_delete=True
     )
-    api_keys: list["APIKey"] = Relationship(
-        back_populates="project", cascade_delete=True
-    )
     organization: Optional["Organization"] = Relationship(back_populates="project")
     collections: list["Collection"] = Relationship(
         back_populates="project", cascade_delete=True
