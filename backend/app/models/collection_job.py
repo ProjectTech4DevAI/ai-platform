@@ -1,12 +1,8 @@
 from enum import Enum
 from uuid import UUID, uuid4
 from datetime import datetime
-from typing import Optional
 
 from sqlmodel import Field, SQLModel, Column, Text
-
-# from sqlalchemy import Column, Text
-
 
 from app.core.util import now
 

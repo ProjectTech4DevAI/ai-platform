@@ -5,7 +5,7 @@ from typing import Optional
 import logging
 
 from fastapi import HTTPException
-from sqlmodel import Session, func, select, and_
+from sqlmodel import Session, select, and_
 
 from app.models import Document, Collection, DocumentCollection
 from app.core.util import now

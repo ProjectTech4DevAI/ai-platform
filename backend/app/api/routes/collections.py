@@ -2,7 +2,6 @@ import inspect
 import logging
 from uuid import UUID
 from typing import List, Union
-from dataclasses import asdict
 
 from fastapi import APIRouter, Query
 from fastapi import Path as FastPath
