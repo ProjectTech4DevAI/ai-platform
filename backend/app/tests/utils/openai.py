@@ -3,12 +3,15 @@ import secrets
 import string
 
 from typing import Optional
+from types import SimpleNamespace
 
 from unittest.mock import MagicMock
 from openai.types.beta import Assistant as OpenAIAssistant
 from openai.types.beta.assistant import ToolResources, ToolResourcesFileSearch
 from openai.types.beta.assistant_tool import FileSearchTool
 from openai.types.beta.file_search_tool import FileSearch
+from openai.types.responses.response import Response, ToolChoice, ResponseUsage
+from openai.types.responses.response_output_item import ResponseOutputItem
 
 
 def generate_openai_id(prefix: str, length: int = 40) -> str:
@@ -49,6 +52,39 @@ def mock_openai_assistant(
         top_p=1.0,
         reasoning_effort=None,
     )
+
+
+def mock_openai_response(
+    text: str = "Hello world",
+    previous_response_id: str | None = None,
+    model: str = "gpt-4",
+) -> SimpleNamespace:
+    """Return a minimal mock OpenAI-like response object for testing."""
+
+    usage = SimpleNamespace(
+        input_tokens=10,
+        output_tokens=20,
+        total_tokens=30,
+    )
+
+    output_item = SimpleNamespace(
+        id=generate_openai_id("out_"),
+        type="message",
+        role="assistant",
+        content=[{"type": "output_text", "text": text}],
+    )
+
+    response = SimpleNamespace(
+        id=generate_openai_id("resp_"),
+        created_at=int(time.time()),
+        model=model,
+        object="response",
+        output=[output_item],
+        output_text=text,
+        usage=usage,
+        previous_response_id=previous_response_id,
+    )
+    return response
 
 
 def get_mock_openai_client_with_vector_store():
