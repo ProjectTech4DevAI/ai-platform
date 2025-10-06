@@ -1,18 +1,17 @@
 import difflib
-import time
 import logging
+import time
+import uuid
 from typing import Set
 
 import openai
 import pandas as pd
 from openai import OpenAI
-import uuid
-from sklearn.metrics import (
-    matthews_corrcoef,
-)
+from sklearn.metrics import matthews_corrcoef
+
 from app.core.cloud import AmazonCloudStorage
 from app.core.finetune.preprocessing import DataPreprocessor
-
+from app.utils import handle_openai_error
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +49,8 @@ class ModelEvaluator:
           - 'label'
         """
         logger.info(
-            f"[ModelEvaluator.load_labels_and_prompts] Loading CSV from: {self.test_data_s3_object}"
+            f"[ModelEvaluator.load_labels_and_prompts] Loading CSV from: "
+            f"{self.test_data_s3_object}"
         )
         file_obj = self.storage.stream(self.test_data_s3_object)
         try:
@@ -65,11 +65,13 @@ class ModelEvaluator:
 
             if not query_col or not label_col:
                 logger.error(
-                    "[ModelEvaluator.load_labels_and_prompts] CSV must contain a 'label' column "
-                    f"and one of: {possible_query_columns}"
+                    "[ModelEvaluator.load_labels_and_prompts] CSV must "
+                    "contain a 'label' column and one of: "
+                    f"{possible_query_columns}"
                 )
                 raise ValueError(
-                    f"CSV must contain a 'label' column and one of: {possible_query_columns}"
+                    f"CSV must contain a 'label' column and one of: "
+                    f"{possible_query_columns}"
                 )
 
             prompts = df[query_col].astype(str).tolist()
@@ -84,12 +86,15 @@ class ModelEvaluator:
 
             logger.info(
                 "[ModelEvaluator.load_labels_and_prompts] "
-                f"Loaded {len(self.prompts)} prompts and {len(self.y_true)} labels; "
-                f"query_col={query_col}, label_col={label_col}, allowed_labels={self.allowed_labels}"
+                f"Loaded {len(self.prompts)} prompts and "
+                f"{len(self.y_true)} labels; "
+                f"query_col={query_col}, label_col={label_col}, "
+                f"allowed_labels={self.allowed_labels}"
             )
         except Exception as e:
             logger.error(
-                f"[ModelEvaluator.load_labels_and_prompts] Failed to load/parse test CSV: {e}",
+                f"[ModelEvaluator.load_labels_and_prompts] "
+                f"Failed to load/parse test CSV: {e}",
                 exc_info=True,
             )
             raise
@@ -110,13 +115,15 @@ class ModelEvaluator:
             return closest[0]
 
         logger.warning(
-            f"[normalize_prediction] No close match found for '{t}'. Using default label '{next(iter(self.allowed_labels))}'."
+            f"[normalize_prediction] No close match found for '{t}'. "
+            f"Using default label '{next(iter(self.allowed_labels))}'."
         )
         return next(iter(self.allowed_labels))
 
     def generate_predictions(self) -> tuple[list[str], str]:
         logger.info(
-            f"[generate_predictions] Generating predictions for {len(self.prompts)} prompts."
+            f"[generate_predictions] Generating predictions for "
+            f"{len(self.prompts)} prompts."
         )
         start_preds = time.time()
         predictions = []
@@ -127,7 +134,9 @@ class ModelEvaluator:
             while attempt < self.retries:
                 start_time = time.time()
                 logger.info(
-                    f"[generate_predictions] Processing prompt {idx}/{total_prompts} (Attempt {attempt + 1}/{self.retries})"
+                    f"[generate_predictions] Processing prompt "
+                    f"{idx}/{total_prompts} "
+                    f"(Attempt {attempt + 1}/{self.retries})"
                 )
 
                 try:
@@ -140,7 +149,8 @@ class ModelEvaluator:
                     elapsed_time = time.time() - start_time
                     if elapsed_time > self.max_latency:
                         logger.warning(
-                            f"[generate_predictions] Timeout exceeded for prompt {idx}/{total_prompts}. Retrying..."
+                            f"[generate_predictions] Timeout exceeded for "
+                            f"prompt {idx}/{total_prompts}. Retrying..."
                         )
                         continue
 
@@ -150,25 +160,31 @@ class ModelEvaluator:
                     break
 
                 except openai.OpenAIError as e:
-                    error_msg = str(e)
+                    error_msg = handle_openai_error(e)
                     logger.error(
-                        f"[generate_predictions] OpenAI API error at prompt {idx}/{total_prompts}: {error_msg}"
+                        f"[generate_predictions] OpenAI API error at prompt "
+                        f"{idx}/{total_prompts}: {error_msg}"
                     )
                     attempt += 1
                     if attempt == self.retries:
                         predictions.append("openai_error")
                         logger.error(
-                            f"[generate_predictions] Maximum retries reached for prompt {idx}/{total_prompts}. Appending 'openai_error'."
+                            f"[generate_predictions] Maximum retries reached "
+                            f"for prompt {idx}/{total_prompts}. "
+                            f"Appending 'openai_error'."
                         )
                     else:
                         logger.info(
-                            f"[generate_predictions] Retrying prompt {idx}/{total_prompts} after OpenAI error ({attempt}/{self.retries})."
+                            f"[generate_predictions] Retrying prompt "
+                            f"{idx}/{total_prompts} after OpenAI error "
+                            f"({attempt}/{self.retries})."
                         )
 
         total_elapsed = time.time() - start_preds
         logger.info(
-            f"[generate_predictions] Finished {total_prompts} prompts in {total_elapsed:.2f}s | "
-            f"Generated {len(predictions)} predictions."
+            f"[generate_predictions] Finished {total_prompts} prompts in "
+            f"{total_elapsed:.2f}s | Generated {len(predictions)} "
+            f"predictions."
         )
 
         prediction_data = pd.DataFrame(
@@ -187,7 +203,8 @@ class ModelEvaluator:
         self.prediction_data_s3_object = prediction_data_s3_object
 
         logger.info(
-            f"[generate_predictions] Predictions CSV uploaded to S3 | url={prediction_data_s3_object}"
+            f"[generate_predictions] Predictions CSV uploaded to S3 | "
+            f"url={prediction_data_s3_object}"
         )
 
         return predictions, prediction_data_s3_object
@@ -196,11 +213,13 @@ class ModelEvaluator:
         """Evaluate using the predictions CSV previously uploaded to S3."""
         if not getattr(self, "prediction_data_s3_object", None):
             raise RuntimeError(
-                "[evaluate] predictions_s3_object not set. Call generate_predictions() first."
+                "[evaluate] predictions_s3_object not set. "
+                "Call generate_predictions() first."
             )
 
         logger.info(
-            f"[evaluate] Streaming predictions CSV from: {self.prediction_data_s3_object}"
+            f"[evaluate] Streaming predictions CSV from: "
+            f"{self.prediction_data_s3_object}"
         )
         prediction_obj = self.storage.stream(self.prediction_data_s3_object)
         try:
@@ -210,7 +229,8 @@ class ModelEvaluator:
 
         if "true_label" not in df.columns or "prediction" not in df.columns:
             raise ValueError(
-                "[evaluate] prediction data CSV must contain 'true_label' and 'prediction' columns."
+                "[evaluate] prediction data CSV must contain 'true_label' "
+                "and 'prediction' columns."
             )
 
         y_true = df["true_label"].astype(str).str.strip().str.lower().tolist()
@@ -225,7 +245,10 @@ class ModelEvaluator:
             raise
 
     def run(self) -> dict:
-        """Run the full evaluation process: load data, generate predictions, evaluate results."""
+        """Run the full evaluation process.
+
+        Load data, generate predictions, and evaluate results.
+        """
         try:
             self.load_labels_and_prompts()
             predictions, prediction_data_s3_object = self.generate_predictions()
