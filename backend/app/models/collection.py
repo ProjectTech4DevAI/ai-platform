@@ -5,7 +5,7 @@ from typing import Any, List, Optional
 from dataclasses import dataclass, field, fields
 
 from sqlmodel import Field, Relationship, SQLModel
-from pydantic import HttpUrl, BaseModel
+from pydantic import HttpUrl
 
 from app.core.util import now
 from .organization import Organization
@@ -39,25 +39,20 @@ class Collection(SQLModel, table=True):
     project: Project = Relationship(back_populates="collections")
 
 
-@dataclass
-class ResponsePayload:
+class ResponsePayload(SQLModel):
     status: str
     route: str
-    key: str = field(default_factory=lambda: str(uuid4()))
-    time: str = field(default_factory=lambda: now().strftime("%c"))
+    key: str = Field(default_factory=lambda: str(uuid4()))
+    time: datetime = Field(default_factory=now)
 
     @classmethod
     def now(cls):
-        attr = "time"
-        for i in fields(cls):
-            if i.name == attr:
-                return i.default_factory()
-
-        raise AttributeError(f'Expected attribute "{attr}" does not exist')
+        """Returns current UTC time without timezone info"""
+        return now()
 
 
 # pydantic models -
-class DocumentOptions(BaseModel):
+class DocumentOptions(SQLModel):
     documents: List[UUID] = Field(
         description="List of document IDs",
     )
@@ -74,7 +69,7 @@ class DocumentOptions(BaseModel):
         self.documents = list(set(self.documents))
 
 
-class AssistantOptions(BaseModel):
+class AssistantOptions(SQLModel):
     # Fields to be passed along to OpenAI. They must be a subset of
     # parameters accepted by the OpenAI.clien.beta.assistants.create
     # API.
@@ -100,7 +95,7 @@ class AssistantOptions(BaseModel):
     )
 
 
-class CallbackRequest(BaseModel):
+class CallbackRequest(SQLModel):
     callback_url: Optional[HttpUrl] = Field(
         default=None,
         description="URL to call to report endpoint status",
@@ -120,3 +115,15 @@ class CreationRequest(
 
 class DeletionRequest(CallbackRequest):
     collection_id: UUID = Field("Collection to delete")
+
+
+class CollectionPublic(SQLModel):
+    id: UUID
+    llm_service_id: str
+    llm_service_name: str
+    project_id: int
+    organization_id: int
+
+    inserted_at: datetime
+    updated_at: datetime
+    deleted_at: datetime | None = None

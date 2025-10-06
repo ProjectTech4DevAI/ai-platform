@@ -1,24 +1,26 @@
 from enum import Enum
-from uuid import UUID
+from uuid import UUID, uuid4
 from datetime import datetime
 from typing import Optional
 
-from sqlmodel import Field, SQLModel
-from sqlalchemy import Column, Text
+from sqlmodel import Field, SQLModel, Column, Text
+
+# from sqlalchemy import Column, Text
 
 
 from app.core.util import now
 
 
 class CollectionJobStatus(str, Enum):
-    processing = "processing"
-    successful = "successful"
-    failed = "failed"
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    SUCCESSFUL = "SUCCESSFUL"
+    FAILED = "FAILED"
 
 
 class CollectionActionType(str, Enum):
-    create = "create"
-    delete = "delete"
+    CREATE = "CREATE"
+    DELETE = "DELETE"
 
 
 class CollectionJobBase(SQLModel):
@@ -38,10 +40,10 @@ class CollectionJob(CollectionJobBase, table=True):
 
     __tablename__ = "collection_jobs"
 
-    id: UUID = Field(primary_key=True)
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
 
     status: CollectionJobStatus = Field(
-        default=CollectionJobStatus.processing,
+        default=CollectionJobStatus.PENDING,
         nullable=False,
         description="Current job status",
     )
@@ -62,16 +64,25 @@ class CollectionJob(CollectionJobBase, table=True):
     )
 
 
+class CollectionJobCreate(SQLModel):
+    id: UUID
+    collection_id: UUID | None = None
+    status: CollectionJobStatus
+    action_type: CollectionActionType
+    project_id: int
+
+
 class CollectionJobUpdate(SQLModel):
     task_id: UUID | None = None
     status: CollectionJobStatus
     error_message: str | None = None
     collection_id: UUID | None = None
 
-    updated_at: datetime | None = None
+    updated_at: datetime
 
 
 class CollectionJobPublic(SQLModel):
+    id: UUID
     collection_id: UUID | None = None
     status: CollectionJobStatus
     error_message: str | None = None

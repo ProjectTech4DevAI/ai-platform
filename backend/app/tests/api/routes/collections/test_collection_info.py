@@ -41,8 +41,8 @@ def create_collection_job(
     db,
     user,
     collection_id: Optional[UUID] = None,
-    action_type=CollectionActionType.create,
-    status=CollectionJobStatus.processing,
+    action_type=CollectionActionType.CREATE,
+    status=CollectionJobStatus.PENDING,
 ):
     collection_job = CollectionJob(
         id=uuid4(),
@@ -54,7 +54,7 @@ def create_collection_job(
         updated_at=now(),
     )
 
-    if status == CollectionJobStatus.failed:
+    if status == CollectionJobStatus.FAILED:
         collection_job.error_message = (
             "Something went wrong during the collection job process."
         )
@@ -80,9 +80,9 @@ def test_collection_info_processing(
     assert response.status_code == 200
     data = response.json()["data"]
 
-    assert data["status"] == CollectionJobStatus.processing.value
+    assert data["status"] == CollectionJobStatus.PENDING
     assert data["inserted_at"] is not None
-    assert data["action_type"] == CollectionActionType.create.value
+    assert data["collection_id"] == collection_job.collection_id
     assert data["updated_at"] is not None
 
 
@@ -93,7 +93,7 @@ def test_collection_info_successful(
 
     collection = create_collection(db, user_api_key, with_llm=True)
     collection_job = create_collection_job(
-        db, user_api_key, collection.id, status=CollectionJobStatus.successful
+        db, user_api_key, collection.id, status=CollectionJobStatus.SUCCESSFUL
     )
 
     response = client.get(
@@ -115,7 +115,7 @@ def test_collection_info_failed(
     headers = user_api_key_header
 
     collection_job = create_collection_job(
-        db, user_api_key, status=CollectionJobStatus.failed
+        db, user_api_key, status=CollectionJobStatus.FAILED
     )
 
     response = client.get(
@@ -126,5 +126,5 @@ def test_collection_info_failed(
     assert response.status_code == 200
     data = response.json()["data"]
 
-    assert data["status"] == CollectionJobStatus.failed.value
+    assert data["status"] == CollectionJobStatus.FAILED
     assert data["error_message"] is not None

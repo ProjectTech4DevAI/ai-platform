@@ -14,7 +14,7 @@ from app.models.collection import (
 from app.tests.utils.utils import get_project
 from app.crud import CollectionCrud
 from app.crud import CollectionCrud, CollectionJobCrud
-from app.models import CollectionJobStatus, CollectionJob
+from app.models import CollectionJobStatus, CollectionJob, CollectionActionType
 from app.tests.utils.utils import get_project
 from app.services.collections.delete_collection import start_job, execute_job
 
@@ -36,10 +36,10 @@ def create_collection_job(db: Session, project, collection):
     job = job_crud.create(
         CollectionJob(
             id=job_id,
-            action_type="delete",
+            action_type=CollectionActionType.DELETE,
             project_id=project.id,
             collection_id=collection.id,
-            status=CollectionJobStatus.processing,
+            status=CollectionJobStatus.PENDING,
         )
     )
     return job
@@ -79,8 +79,8 @@ def test_start_job_creates_collection_job_and_schedules_task(db: Session):
         job = jobs[0]
         assert job.project_id == project.id
         assert job.collection_id == created_collection.id
-        assert job.status == CollectionJobStatus.processing
-        assert job.action_type == "delete"
+        assert job.status == CollectionJobStatus.PENDING
+        assert job.action_type == CollectionActionType.DELETE
 
         mock_schedule.assert_called_once()
         kwargs = mock_schedule.call_args.kwargs
@@ -140,7 +140,7 @@ def test_execute_job_delete_success_updates_job_and_calls_delete(
 
         execute_job(
             request=req.model_dump(),
-            payload_data=asdict(payload),
+            payload_data=payload.model_dump(),
             project_id=project.id,
             organization_id=project.organization_id,
             task_id=task_id,
@@ -151,7 +151,7 @@ def test_execute_job_delete_success_updates_job_and_calls_delete(
 
         updated_job = CollectionJobCrud(db, project.id).read_one(job.id)
         assert updated_job.task_id == task_id
-        assert updated_job.status == CollectionJobStatus.successful
+        assert updated_job.status == CollectionJobStatus.SUCCESSFUL
         assert updated_job.error_message in (None, "")
 
         MockCollectionCrud.assert_called_with(db, project.id)
@@ -199,7 +199,7 @@ def test_execute_job_delete_failure_marks_job_failed(
 
         execute_job(
             request=req.model_dump(),
-            payload_data=asdict(payload),
+            payload_data=payload.model_dump(),
             project_id=project.id,
             organization_id=project.organization_id,
             task_id=task_id,
@@ -210,7 +210,7 @@ def test_execute_job_delete_failure_marks_job_failed(
 
         failed_job = CollectionJobCrud(db, project.id).read_one(job.id)
         assert failed_job.task_id == task_id
-        assert failed_job.status == CollectionJobStatus.failed
+        assert failed_job.status == CollectionJobStatus.FAILED
         assert failed_job.error_message and "boom" in failed_job.error_message
 
         MockAssistantCrud.assert_called_once()

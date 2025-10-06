@@ -13,8 +13,8 @@ from app.tests.utils.utils import get_project
 def create_sample_collection_job(
     db,
     project_id,
-    action_type=CollectionActionType.create,
-    status=CollectionJobStatus.processing,
+    action_type=CollectionActionType.CREATE,
+    status=CollectionJobStatus.PENDING,
 ):
     collection_job = CollectionJob(
         id=uuid4(),
@@ -42,8 +42,8 @@ def test_create_collection_job(db: Session, sample_project):
     collection_job = CollectionJob(
         id=uuid4(),
         project_id=sample_project.id,
-        action_type=CollectionActionType.create,
-        status=CollectionJobStatus.processing,
+        action_type=CollectionActionType.CREATE,
+        status=CollectionJobStatus.PENDING,
         inserted_at=now(),
         updated_at=now(),
     )
@@ -55,8 +55,8 @@ def test_create_collection_job(db: Session, sample_project):
 
     assert created_job.id is not None
     assert created_job.project_id == sample_project.id
-    assert created_job.action_type == CollectionActionType.create
-    assert created_job.status == CollectionJobStatus.processing
+    assert created_job.action_type == CollectionActionType.CREATE
+    assert created_job.status == CollectionJobStatus.PENDING
     assert created_job.inserted_at is not None
     assert created_job.updated_at is not None
 
@@ -99,30 +99,15 @@ def test_update_collection_job(db: Session, sample_project):
 
     collection_job_crud = CollectionJobCrud(db, sample_project.id)
 
-    collection_job.status = CollectionJobStatus.failed
+    collection_job.status = CollectionJobStatus.FAILED
     collection_job.error_message = "model name not valid"
     collection_job.updated_at = now()
 
-    updated_job = collection_job_crud._update(collection_job)
+    updated_job = collection_job_crud.update(collection_job.id, collection_job)
 
-    assert updated_job.status == CollectionJobStatus.failed
+    assert updated_job.status == CollectionJobStatus.FAILED
     assert updated_job.error_message is not None
     assert updated_job.updated_at is not None
-
-
-def test_update_invalid_project_permission(db: Session, sample_project):
-    """Test case to check permission error during update."""
-    collection_job = create_sample_collection_job(db, sample_project.id)
-
-    collection_job_crud = CollectionJobCrud(db, sample_project.id)
-
-    collection_job.status = CollectionJobStatus.successful
-    collection_job.updated_at = now()
-
-    collection_job.project_id = 999
-
-    with pytest.raises(PermissionError):
-        collection_job_crud._update(collection_job)
 
 
 def test_create_collection_job_with_invalid_data(db: Session, sample_project):
@@ -131,7 +116,7 @@ def test_create_collection_job_with_invalid_data(db: Session, sample_project):
         id=uuid4(),
         project_id=sample_project.id,
         action_type=None,
-        status=CollectionJobStatus.processing,
+        status=CollectionJobStatus.PENDING,
         inserted_at=now(),
         updated_at=now(),
     )

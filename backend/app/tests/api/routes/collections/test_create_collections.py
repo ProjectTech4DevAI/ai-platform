@@ -10,9 +10,7 @@ from app.models.collection import Collection, CreationRequest
 def test_collection_creation_success(
     client: TestClient, user_api_key_header: dict[str, str]
 ):
-    with patch(
-        "app.api.routes.collections.create_services.start_job"
-    ) as mock_job_start:
+    with patch("app.api.routes.collections.create_service.start_job") as mock_job_start:
         creation_data = CreationRequest(
             model="gpt-4o",
             instructions="string",

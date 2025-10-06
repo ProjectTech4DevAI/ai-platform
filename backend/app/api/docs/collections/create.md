@@ -20,7 +20,7 @@ value being invalid. It can also fail due to document types not be
 accepted. This is especially true for PDFs that may not be parseable.
 
 The immediate response from the endpoint is a packet containing a
-`key`. Once the collection has been created, information about the
-collection will be returned to the user via the callback URL. If a
-callback URL is not provided, clients can poll the `info` endpoint
+`key` which is the collection job ID. Once the collection has been created,
+information about the collection will be returned to the user via the callback URL.
+If a callback URL is not provided, clients can poll the `collectionjob info` endpoint
 with the `key` to retrieve the same information.

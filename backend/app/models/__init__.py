@@ -1,7 +1,7 @@
 from sqlmodel import SQLModel
 
 from .auth import Token, TokenPayload
-from .collection import Collection
+from .collection import Collection, CollectionPublic
 from .document import (
     Document,
     DocumentPublic,
@@ -111,4 +111,6 @@ from .collection_job import (
     CollectionJobBase,
     CollectionJobStatus,
     CollectionJobUpdate,
+    CollectionJobPublic,
+    CollectionJobCreate,
 )

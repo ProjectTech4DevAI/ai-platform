@@ -1,8 +1,9 @@
 import pytest
+
 from openai import OpenAI
 from openai_responses import OpenAIMock
+from fastapi import HTTPException
 from sqlmodel import Session
-from sqlalchemy.exc import NoResultFound
 
 from app.crud import CollectionCrud
 from app.core.config import settings
@@ -36,5 +37,7 @@ class TestDatabaseReadOne:
         collection = mk_collection(db)
         other = collection.project_id + 1
         crud = CollectionCrud(db, other)
-        with pytest.raises(NoResultFound):
+        with pytest.raises(HTTPException) as excinfo:
             crud.read_one(collection.id)
+        assert excinfo.value.status_code == 404
+        assert excinfo.value.detail == "Collection not found"

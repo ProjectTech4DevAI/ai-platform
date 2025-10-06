@@ -1,10 +1,10 @@
 import inspect
 import logging
 from uuid import UUID
-from typing import List
+from typing import List, Union
 from dataclasses import asdict
 
-from fastapi import APIRouter, BackgroundTasks, Query
+from fastapi import APIRouter, Query
 from fastapi import Path as FastPath
 
 
@@ -14,17 +14,18 @@ from app.crud import (
     CollectionJobCrud,
     DocumentCollectionCrud,
 )
-from app.models import Collection, DocumentPublic
+from app.models import DocumentPublic, CollectionJobStatus, CollectionJobPublic
 from app.models.collection import (
     ResponsePayload,
     CreationRequest,
     DeletionRequest,
+    CollectionPublic,
 )
-from app.utils import APIResponse, load_description, get_openai_client
+from app.utils import APIResponse, load_description
 from app.services.collections.helpers import extract_error_message
 from app.services.collections import (
-    create_collection as create_services,
-    delete_collection as delete_services,
+    create_collection as create_service,
+    delete_collection as delete_service,
 )
 
 
@@ -40,16 +41,15 @@ def create_collection(
     session: SessionDep,
     current_user: CurrentUserOrgProject,
     request: CreationRequest,
-    background_tasks: BackgroundTasks,
 ):
     this = inspect.currentframe()
     route = router.url_path_for(this.f_code.co_name)
-    payload = ResponsePayload("processing", route)
+    payload = ResponsePayload(status="processing", route=route)
 
-    create_services.start_job(
+    create_service.start_job(
         db=session,
         request=request.model_dump(),
-        payload=asdict(payload),
+        payload=payload.model_dump(),
         collection_job_id=UUID(payload.key),
         project_id=current_user.project_id,
         organization_id=current_user.organization_id,
@@ -59,7 +59,9 @@ def create_collection(
         f"[create_collection] Background task for collection creation scheduled | "
         f"{{'collection_job_id': '{payload.key}'}}"
     )
-    return APIResponse.success_response(data=None, metadata=asdict(payload))
+    return APIResponse.success_response(
+        data=None, metadata=payload.model_dump(mode="json")
+    )
 
 
 @router.post(
@@ -70,19 +72,18 @@ def delete_collection(
     session: SessionDep,
     current_user: CurrentUserOrgProject,
     request: DeletionRequest,
-    background_tasks: BackgroundTasks,
 ):
     collection_crud = CollectionCrud(session, current_user.project_id)
     collection = collection_crud.read_one(request.collection_id)
 
     this = inspect.currentframe()
     route = router.url_path_for(this.f_code.co_name)
-    payload = ResponsePayload("processing", route)
+    payload = ResponsePayload(status="processing", route=route)
 
-    delete_services.start_job(
+    delete_service.start_job(
         db=session,
         request=request.model_dump(),
-        payload=asdict(payload),
+        payload=payload.model_dump(),
         collection=collection,
         project_id=current_user.project_id,
         organization_id=current_user.organization_id,
@@ -92,13 +93,17 @@ def delete_collection(
         f"[delete_collection] Background task for deletion scheduled | "
         f"{{'collection_id': '{request.collection_id}'}}"
     )
-    return APIResponse.success_response(data=None, metadata=asdict(payload))
+    return APIResponse.success_response(
+        data=None, metadata=payload.model_dump(mode="json")
+    )
 
 
 @router.get(
     "/info/collection_job/{collection_job_id}",
     description=load_description("collections/job_info.md"),
-    response_model=APIResponse,
+    response_model=Union[
+        APIResponse[CollectionPublic], APIResponse[CollectionJobPublic]
+    ],
 )
 def collection_job_info(
     session: SessionDep,
@@ -108,23 +113,31 @@ def collection_job_info(
     collection_job_crud = CollectionJobCrud(session, current_user.project_id)
     collection_job = collection_job_crud.read_one(collection_job_id)
 
-    if collection_job.status == "successful":
+    if collection_job.status == CollectionJobStatus.SUCCESSFUL:
         collection_crud = CollectionCrud(session, current_user.project_id)
         collection = collection_crud.read_one(collection_job.collection_id)
-        return APIResponse.success_response(data=collection)
+        return APIResponse.success_response(
+            data=CollectionPublic.model_validate(collection)
+        )
 
-    if collection_job.status in ["processing", "failed"]:
+    if collection_job.status == CollectionJobStatus.FAILED:
         err = getattr(collection_job, "error_message", None)
         if err:
             collection_job.error_message = extract_error_message(err)
 
-        return APIResponse.success_response(data=collection_job)
+        return APIResponse.success_response(
+            data=CollectionJobPublic.model_validate(collection_job)
+        )
+
+    return APIResponse.success_response(
+        data=CollectionJobPublic.model_validate(collection_job)
+    )
 
 
 @router.get(
     "/info/{collection_id}",
     description=load_description("collections/info.md"),
-    response_model=APIResponse,
+    response_model=APIResponse[CollectionPublic],
 )
 def collection_info(
     session: SessionDep,
@@ -137,10 +150,10 @@ def collection_info(
     return APIResponse.success_response(collection)
 
 
-@router.post(
+@router.get(
     "/list",
     description=load_description("collections/list.md"),
-    response_model=APIResponse[List[Collection]],
+    response_model=APIResponse[List[CollectionPublic]],
 )
 def list_collections(
     session: SessionDep,
@@ -148,10 +161,6 @@ def list_collections(
 ):
     collection_crud = CollectionCrud(session, current_user.project_id)
     rows = collection_crud.read_all()
-
-    for c in rows:
-        if getattr(c, "error_message", None):
-            c.error_message = extract_error_message(c.error_message)
 
     return APIResponse.success_response(rows)
 

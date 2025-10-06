@@ -15,7 +15,12 @@ from app.crud import (
     CollectionJobCrud,
 )
 from app.crud.rag import OpenAIVectorStoreCrud, OpenAIAssistantCrud
-from app.models import CollectionJobStatus, CollectionJob, Collection
+from app.models import (
+    CollectionJobStatus,
+    CollectionJob,
+    Collection,
+    CollectionActionType,
+)
 from app.models.collection import (
     ResponsePayload,
     CreationRequest,
@@ -45,9 +50,9 @@ def start_job(
 
     collection_job = CollectionJob(
         id=collection_job_id,
-        action_type="create",
+        action_type=CollectionActionType.CREATE,
         project_id=project_id,
-        status=CollectionJobStatus.processing,
+        status=CollectionJobStatus.PENDING,
     )
 
     job_crud = CollectionJobCrud(db, project_id)
@@ -93,7 +98,8 @@ def execute_job(
             collection_job_crud = CollectionJobCrud(session, project_id)
             collection_job = collection_job_crud.read_one(job_id)
             collection_job.task_id = task_id
-            collection_job_crud._update(collection_job)
+            collection_job.status = CollectionJobStatus.PROCESSING
+            collection_job_crud.update(collection_job.id, collection_job)
 
             client = get_openai_client(session, organization_id, project_id)
 
@@ -150,10 +156,10 @@ def execute_job(
 
                 collection_crud.create(collection_data)
 
-                collection_job.status = CollectionJobStatus.successful
+                collection_job.status = CollectionJobStatus.SUCCESSFUL
                 collection_job.collection_id = collection_id
                 collection_job.updated_at = now()
-                collection_job_crud._update(collection_job)
+                collection_job_crud.update(collection_job.id, collection_job)
 
                 elapsed = time.time() - start_time
                 logger.info(
@@ -179,10 +185,10 @@ def execute_job(
                 if "assistant" in locals():
                     _backout(assistant_crud, assistant.id)
 
-                collection_job.status = CollectionJobStatus.failed
+                collection_job.status = CollectionJobStatus.FAILED
                 collection_job.updated_at = now()
                 collection_job.error_message = str(err)
-                collection_job_crud._update(collection_job)
+                collection_job_crud.update(collection_job.id, collection_job)
 
                 callback.fail(str(err))
 
@@ -193,7 +199,7 @@ def execute_job(
             exc_info=True,
         )
 
-        collection_job.status = CollectionJobStatus.failed
+        collection_job.status = CollectionJobStatus.FAILED
         collection_job.updated_at = now()
         collection_job.error_message = str(err)
-        collection_job_crud._update(collection_job)
+        collection_job_crud.update(collection_job.id, collection_job)

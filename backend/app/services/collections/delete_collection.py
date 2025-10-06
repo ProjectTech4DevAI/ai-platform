@@ -8,7 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.core.db import engine
 from app.crud import CollectionCrud, CollectionJobCrud
 from app.crud.rag import OpenAIAssistantCrud
-from app.models import CollectionJob, CollectionJobStatus
+from app.models import CollectionJob, CollectionJobStatus, CollectionActionType
 from app.models.collection import Collection, DeletionRequest
 from app.services.collections.helpers import (
     SilentCallback,
@@ -36,10 +36,10 @@ def start_job(
 
     collection_job = CollectionJob(
         id=job_id,
-        action_type="delete",
+        action_type=CollectionActionType.DELETE,
         project_id=project_id,
         collection_id=collection.id,
-        status=CollectionJobStatus.processing,
+        status=CollectionJobStatus.PENDING,
     )
 
     job_crud = CollectionJobCrud(db, project_id)
@@ -97,9 +97,9 @@ def execute_job(
             try:
                 result = collection_crud.delete(collection, assistant_crud)
 
-                collection_job.status = CollectionJobStatus.successful
+                collection_job.status = CollectionJobStatus.SUCCESSFUL
                 collection_job.error_message = None
-                collection_job_crud._update(collection_job)
+                collection_job_crud.update(collection_job.id, collection_job)
 
                 logger.info(
                     "[delete_collection.execute_job] Collection deleted successfully | {'collection_id': '%s', 'job_id': '%s'}",
@@ -109,9 +109,9 @@ def execute_job(
                 callback.success(result.model_dump(mode="json"))
 
             except (ValueError, PermissionError, SQLAlchemyError) as err:
-                collection_job.status = CollectionJobStatus.failed
+                collection_job.status = CollectionJobStatus.FAILED
                 collection_job.error_message = str(err)
-                collection_job_crud._update(collection_job)
+                collection_job_crud.update(collection_job.id, collection_job)
 
                 logger.error(
                     "[delete_collection.execute_job] Failed to delete collection | {'collection_id': '%s', 'error': '%s', 'job_id': '%s'}",
@@ -123,9 +123,9 @@ def execute_job(
                 callback.fail(str(err))
 
     except Exception as err:
-        collection_job.status = CollectionJobStatus.failed
+        collection_job.status = CollectionJobStatus.FAILED
         collection_job.error_message = str(err)
-        collection_job_crud._update(collection_job)
+        collection_job_crud.update(collection_job)
 
         logger.error(
             "[delete_collection.execute_job] Unexpected error during deletion | "

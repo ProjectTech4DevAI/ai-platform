@@ -14,7 +14,7 @@ from sqlmodel import Session
 from app.core.cloud import AmazonCloudStorageClient
 from app.core.config import settings
 from app.crud import CollectionCrud, CollectionJobCrud, DocumentCollectionCrud
-from app.models import CollectionJobStatus, CollectionJob
+from app.models import CollectionJobStatus, CollectionJob, CollectionActionType
 from app.models.collection import CreationRequest, ResponsePayload
 from app.services.collections.create_collection import start_job, execute_job
 from app.tests.utils.openai import get_mock_openai_client_with_vector_store
@@ -69,8 +69,8 @@ def test_start_job_creates_collection_job_and_schedules_task(db: Session):
         job = CollectionJobCrud(db, project.id).read_one(job_id)
         assert job.id == job_id
         assert job.project_id == project.id
-        assert job.status == CollectionJobStatus.processing
-        assert job.action_type == "create"
+        assert job.status == CollectionJobStatus.PENDING
+        assert job.action_type == CollectionActionType.CREATE.value
         assert job.collection_id is None
 
         mock_schedule.assert_called_once()
@@ -130,8 +130,8 @@ def test_execute_job_success_flow_updates_job_and_creates_collection(
         CollectionJob(
             id=job_id,
             project_id=project.id,
-            status=CollectionJobStatus.processing,
-            action_type="create",
+            status=CollectionJobStatus.PENDING,
+            action_type=CollectionActionType.CREATE.value,
         )
     )
 
@@ -143,7 +143,7 @@ def test_execute_job_success_flow_updates_job_and_creates_collection(
 
         execute_job(
             request=sample_request.model_dump(),
-            payload_data=asdict(sample_payload),
+            payload_data=sample_payload.model_dump(),
             project_id=project.id,
             organization_id=project.organization_id,
             task_id=task_id,
@@ -153,7 +153,7 @@ def test_execute_job_success_flow_updates_job_and_creates_collection(
 
     updated_job = CollectionJobCrud(db, project.id).read_one(job_id)
     assert updated_job.task_id == task_id
-    assert updated_job.status == CollectionJobStatus.successful
+    assert updated_job.status == CollectionJobStatus.SUCCESSFUL
     assert updated_job.collection_id is not None
 
     created_collection = CollectionCrud(db, project.id).read_one(
