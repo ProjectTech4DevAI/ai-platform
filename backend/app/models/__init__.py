@@ -14,6 +14,9 @@ from .doc_transformation_job import (
     TransformationStatus,
 )
 from .document_collection import DocumentCollection
+
+from .job import Job, JobType, JobStatus, JobUpdate
+
 from .message import Message
 
 from .project_user import (
@@ -89,6 +92,15 @@ from .model_evaluation import (
     ModelEvaluationPublic,
     ModelEvaluationStatus,
     ModelEvaluationUpdate,
+)
+
+from .response import (
+    CallbackResponse,
+    Diagnostics,
+    FileResultChunk,
+    ResponsesAPIRequest,
+    ResponseJobStatus,
+    ResponsesSyncAPIRequest,
 )
 
 from .onboarding import OnboardingRequest, OnboardingResponse
