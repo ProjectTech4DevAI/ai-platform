@@ -7,7 +7,7 @@ from app.models import APIKeyPublic, APIKeyCreateResponse, Message
 from app.utils import APIResponse
 from app.api.permissions import Permission, require_permission
 
-router = APIRouter(prefix="/api-keys", tags=["API Keys"])
+router = APIRouter(prefix="/apikeys", tags=["API Keys"])
 
 
 @router.post(

@@ -8,6 +8,7 @@ from app.core.config import settings
 
 class AuthContext(SQLModel):
     """Authentication context for testing"""
+
     user_id: int
     project_id: int
     organization_id: int
@@ -26,7 +27,7 @@ def get_auth_context(
     user_email: str,
     project_name: str,
     raw_key: str,
-    user_type: str = "User"
+    user_type: str = "User",
 ) -> AuthContext:
     """
     Helper function to get authentication context from seeded data.
@@ -47,15 +48,21 @@ def get_auth_context(
     # Get user from seed data
     user = session.exec(select(User).where(User.email == user_email)).first()
     if not user:
-        raise ValueError(f"{user_type} with email {user_email} not found. Ensure seed data is loaded.")
+        raise ValueError(
+            f"{user_type} with email {user_email} not found. Ensure seed data is loaded."
+        )
 
     # Get project from seed data
     project = session.exec(select(Project).where(Project.name == project_name)).first()
     if not project:
-        raise ValueError(f"Project {project_name} not found. Ensure seed data is loaded.")
+        raise ValueError(
+            f"Project {project_name} not found. Ensure seed data is loaded."
+        )
 
     # Get organization
-    org = session.exec(select(Organization).where(Organization.id == project.organization_id)).first()
+    org = session.exec(
+        select(Organization).where(Organization.id == project.organization_id)
+    ).first()
     if not org:
         raise ValueError(f"Organization for project {project_name} not found.")
 
@@ -67,7 +74,9 @@ def get_auth_context(
         .where(APIKey.is_deleted == False)
     ).first()
     if not api_key:
-        raise ValueError(f"API key for {user_type.lower()} and project {project_name} not found.")
+        raise ValueError(
+            f"API key for {user_type.lower()} and project {project_name} not found."
+        )
 
     # Return complete auth context
     return AuthContext(
@@ -106,7 +115,7 @@ def get_superuser_auth_context(session: Session) -> AuthContext:
         user_email=settings.FIRST_SUPERUSER,
         project_name="Glific",
         raw_key="ApiKey No3x47A5qoIGhm0kVKjQ77dhCqEdWRIQZlEPzzzh7i8",
-        user_type="Superuser"
+        user_type="Superuser",
     )
 
 
@@ -133,5 +142,5 @@ def get_user_auth_context(session: Session) -> AuthContext:
         user_email=settings.EMAIL_TEST_USER,
         project_name="Dalgo",
         raw_key="ApiKey Px8y47B6roJHin1lWLkR88eiDrFdXSJRZmFQazzai8j",
-        user_type="User"
+        user_type="User",
     )
