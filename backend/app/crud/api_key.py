@@ -22,8 +22,8 @@ class APIKeyManager:
 
     # Configuration constants
     PREFIX_NAME = "ApiKey "
-    PREFIX_BYTES = 16  # Generates ~22 chars in urlsafe base64
-    SECRET_BYTES = 32  # Generates ~43 chars in urlsafe base64
+    PREFIX_BYTES = 16  # Generates 22 chars in urlsafe base64
+    SECRET_BYTES = 32  # Generates 43 chars in urlsafe base64
     PREFIX_LENGTH = 22
     KEY_LENGTH = 65  # Total length: 22 (prefix) + 43 (secret)
     HASH_ALGORITHM = "bcrypt"
@@ -34,12 +34,19 @@ class APIKeyManager:
     def generate(cls) -> Tuple[str, str, str]:
         """
         Generate a new API key with prefix and hashed value.
+        Ensures exact lengths: prefix=22 chars, secret=43 chars.
 
         Returns:
             Tuple of (raw_key, key_prefix, key_hash)
         """
-        key_prefix = secrets.token_urlsafe(cls.PREFIX_BYTES)
-        secret_key = secrets.token_urlsafe(cls.SECRET_BYTES)
+        # Generate tokens and ensure exact length
+        secret_length = cls.KEY_LENGTH - cls.PREFIX_LENGTH
+        key_prefix = secrets.token_urlsafe(cls.PREFIX_BYTES)[: cls.PREFIX_LENGTH].ljust(
+            cls.PREFIX_LENGTH, "A"
+        )
+        secret_key = secrets.token_urlsafe(cls.SECRET_BYTES)[:secret_length].ljust(
+            secret_length, "A"
+        )
 
         # Construct raw key: "ApiKey {prefix}{secret}"
         raw_key = f"{cls.PREFIX_NAME}{key_prefix}{secret_key}"
