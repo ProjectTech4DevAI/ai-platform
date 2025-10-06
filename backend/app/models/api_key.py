@@ -38,9 +38,8 @@ class APIKey(APIKeyBase, table=True):
     key_prefix: str = Field(
         unique=True, index=True, nullable=False
     )  # Unique identifier from the key
-    key_hash: str = Field(nullable=False)  # bcrypt hash of the full key
+    key_hash: str = Field(nullable=False)  # bcrypt hash of the secret portion
 
-    last_used_at: datetime | None = Field(default=None, nullable=True)
     inserted_at: datetime = Field(default_factory=now, nullable=False)
     updated_at: datetime = Field(default_factory=now, nullable=False)
     is_deleted: bool = Field(default=False, nullable=False)

@@ -1,10 +1,9 @@
-from typing import Annotated
+from uuid import UUID
 from fastapi import APIRouter, Depends, Query
-from sqlmodel import Session
 
 from app.api.deps import SessionDep, UserContextDep
 from app.crud.api_key import APIKeyCrud
-from app.models import APIKeyPublic, APIKeyCreateResponse
+from app.models import APIKeyPublic, APIKeyCreateResponse, Message
 from app.utils import APIResponse
 from app.api.permissions import Permission, require_permission
 
@@ -59,3 +58,22 @@ def list_api_keys_route(
     api_keys = crud.read_all(skip=skip, limit=limit)
 
     return APIResponse.success_response(api_keys)
+
+
+@router.delete(
+    "/{key_id}",
+    response_model=APIResponse[Message],
+    dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
+)
+def delete_api_key_route(
+    key_id: UUID,
+    current_user: UserContextDep,
+    session: SessionDep,
+):
+    """
+    Delete an API key by its ID.
+    """
+    api_key_crud = APIKeyCrud(session=session, project_id=current_user.project_id)
+    api_key_crud.delete(key_id=key_id)
+
+    return APIResponse.success_response(Message(message="API Key deleted successfully"))

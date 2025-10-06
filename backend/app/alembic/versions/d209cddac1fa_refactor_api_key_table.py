@@ -27,7 +27,6 @@ def upgrade():
         "apikey",
         sa.Column("key_hash", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     )
-    op.add_column("apikey", sa.Column("last_used_at", sa.DateTime(), nullable=True))
 
     op.add_column("apikey", sa.Column("new_id", sa.Uuid(), nullable=True))
     op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto;")

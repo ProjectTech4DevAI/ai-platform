@@ -4,7 +4,7 @@ from sqlmodel import Session
 
 from app.core.security import encrypt_api_key, encrypt_credentials, get_password_hash
 from app.crud import (
-    generate_api_key,
+    api_key_manager,
     get_organization_by_name,
     get_project_by_name,
     get_user_by_email,
@@ -90,7 +90,7 @@ def onboard_project(
         session.add(user)
         session.flush()
 
-    raw_key, key_prefix, key_hash = generate_api_key()
+    raw_key, key_prefix, key_hash = api_key_manager.generate()
 
     api_key = APIKey(
         key_prefix=key_prefix,

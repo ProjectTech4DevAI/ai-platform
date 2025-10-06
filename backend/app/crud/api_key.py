@@ -1,6 +1,7 @@
 import logging
 import secrets
-from typing import Optional, Tuple
+from uuid import UUID
+from typing import Tuple
 
 from sqlmodel import Session, select, and_
 from fastapi import HTTPException
@@ -8,69 +9,98 @@ from passlib.context import CryptContext
 
 from app.models import APIKey
 from app.crud import get_project_by_id
+from app.core.util import now
 
 logger = logging.getLogger(__name__)
 
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-def verify_api_key(session: Session, raw_key: str) -> Optional[APIKey]:
+class APIKeyManager:
     """
-    Verify an API key by extracting the prefix and checking the hash.
-    Returns the APIKey record if valid, None otherwise.
+    Handles API key generation and verification using secure hashing.
+
+    Key format: "ApiKey {22-char-prefix}{43-char-secret}"
+    - The prefix is stored plaintext for quick lookup
+    - Only the 43-char secret portion is hashed with bcrypt
     """
-    try:
-        # Check format: "ApiKey {key_prefix}{random_key}"
-        if not raw_key.startswith("ApiKey "):
-            return None
 
-        # Extract the key part after "ApiKey "
-        key_part = raw_key[7:]  # Remove "ApiKey " prefix
+    # Configuration constants
+    PREFIX_NAME = "ApiKey "
+    PREFIX_BYTES = 16  # Generates ~22 chars in urlsafe base64
+    SECRET_BYTES = 32  # Generates ~43 chars in urlsafe base64
+    PREFIX_LENGTH = 22
+    KEY_LENGTH = 65  # Total length: 22 (prefix) + 43 (secret)
+    HASH_ALGORITHM = "bcrypt"
 
-        # Extract key_prefix (first 22 chars - urlsafe base64 of 16 bytes)
-        if len(key_part) < 22:
-            return None
+    pwd_context = CryptContext(schemes=[HASH_ALGORITHM], deprecated="auto")
 
-        key_prefix = key_part[:22]
+    @classmethod
+    def generate(cls) -> Tuple[str, str, str]:
+        """
+        Generate a new API key with prefix and hashed value.
 
-        # Find API key by prefix
-        statement = select(APIKey).where(
-            and_(
-                APIKey.key_prefix == key_prefix,
-                APIKey.is_deleted.is_(False),
+        Returns:
+            Tuple of (raw_key, key_prefix, key_hash)
+        """
+        key_prefix = secrets.token_urlsafe(cls.PREFIX_BYTES)
+        secret_key = secrets.token_urlsafe(cls.SECRET_BYTES)
+
+        # Construct raw key: "ApiKey {prefix}{secret}"
+        raw_key = f"{cls.PREFIX_NAME}{key_prefix}{secret_key}"
+
+        key_hash = cls.pwd_context.hash(secret_key)
+
+        return raw_key, key_prefix, key_hash
+
+    @classmethod
+    def verify(cls, session: Session, raw_key: str) -> APIKey | None:
+        """
+        Verify an API key by checking its prefix and hashed value.
+
+        Args:
+            session: Database session
+            raw_key: The raw API key to verify
+
+        Returns:
+            The APIKey record if valid, None otherwise
+        """
+        try:
+            expected_prefix = cls.PREFIX_NAME
+            if not raw_key.startswith(expected_prefix):
+                return None
+
+            key_part = raw_key[len(expected_prefix) :]
+            if len(key_part) != cls.KEY_LENGTH:
+                return None
+
+            key_prefix = key_part[: cls.PREFIX_LENGTH]
+            secret_key = key_part[cls.PREFIX_LENGTH :]
+
+            statement = select(APIKey).where(
+                and_(
+                    APIKey.key_prefix == key_prefix,
+                    APIKey.is_deleted.is_(False),
+                )
             )
-        )
-        api_key_record = session.exec(statement).one_or_none()
+            api_key_record = session.exec(statement).one_or_none()
 
-        if not api_key_record:
+            if not api_key_record:
+                return None
+
+            # Verify only the secret portion (43 chars) against the stored hash
+            if cls.pwd_context.verify(secret_key, api_key_record.key_hash):
+                return api_key_record
+
             return None
 
-        # Verify hash
-        if pwd_context.verify(raw_key, api_key_record.key_hash):
-            return api_key_record
-
-        return None
-
-    except Exception as e:
-        logger.error(
-            f"[verify_api_key] Error verifying API key: {str(e)}", exc_info=True
-        )
-        return None
+        except Exception as e:
+            logger.error(
+                f"[APIKeyManager.verify] Error verifying API key: {str(e)}",
+                exc_info=True,
+            )
+            return None
 
 
-def generate_api_key() -> Tuple[str, str, str]:
-    """
-    Generate a new API key with key_prefix and hash.
-    """
-    random_key = secrets.token_urlsafe(32)
-    key_prefix = secrets.token_urlsafe(16)
-
-    raw_key = f"ApiKey {key_prefix}{random_key}"
-
-    key_hash = pwd_context.hash(raw_key)
-
-    return raw_key, key_prefix, key_hash
+api_key_manager = APIKeyManager()
 
 
 class APIKeyCrud:
@@ -82,13 +112,13 @@ class APIKeyCrud:
         self.session = session
         self.project_id = project_id
 
-    def read_one(self, key_prefix: str) -> Optional[APIKey]:
+    def read_one(self, key_id: UUID) -> APIKey | None:
         """
         Retrieve a single non-deleted API key by its key_prefix.
         """
         statement = select(APIKey).where(
             and_(
-                APIKey.key_prefix == key_prefix,
+                APIKey.id == key_id,
                 APIKey.project_id == self.project_id,
                 APIKey.is_deleted.is_(False),
             )
@@ -117,7 +147,7 @@ class APIKeyCrud:
         Create a new API key for the project.
         """
         try:
-            raw_key, key_prefix, key_hash = generate_api_key()
+            raw_key, key_prefix, key_hash = api_key_manager.generate()
 
             project = get_project_by_id(
                 session=self.session, project_id=self.project_id
@@ -152,3 +182,22 @@ class APIKeyCrud:
             raise HTTPException(
                 status_code=500, detail=f"Failed to create API key: {str(e)}"
             )
+
+    def delete(self, key_id: UUID) -> None:
+        """
+        Soft delete an API key by marking it as deleted.
+        """
+        api_key = self.read_one(key_id)
+        if not api_key:
+            raise HTTPException(status_code=404, detail="API Key not found")
+
+        api_key.is_deleted = True
+        api_key.deleted_at = now()
+        self.session.add(api_key)
+        self.session.commit()
+        self.session.refresh(api_key)
+
+        logger.info(
+            f"[APIKeyCrud.delete_api_key] API key deleted successfully | "
+            f"{{'api_key_id': '{api_key.id}', 'project_id': {self.project_id}}}"
+        )

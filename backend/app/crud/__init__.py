@@ -27,7 +27,7 @@ from .project import (
     validate_project,
 )
 
-from .api_key import APIKeyCrud, generate_api_key
+from .api_key import APIKeyCrud, api_key_manager
 
 from .credentials import (
     set_creds_for_org,

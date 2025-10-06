@@ -14,7 +14,7 @@ from app.core.config import settings
 from app.core.db import engine
 from app.utils import APIResponse
 from app.crud.organization import validate_organization
-from app.crud.api_key import verify_api_key
+from app.crud.api_key import api_key_manager
 from app.models import (
     TokenPayload,
     User,
@@ -49,7 +49,7 @@ def get_current_user(
     """Authenticate user via API Key first, fallback to JWT token. Returns only User."""
 
     if api_key:
-        api_key_record = verify_api_key(session, api_key)
+        api_key_record = api_key_manager.verify(session, api_key)
         if not api_key_record:
             raise HTTPException(status_code=401, detail="Invalid API Key")
 
@@ -95,7 +95,7 @@ def get_current_user_org(
     organization_id = None
     api_key = request.headers.get("X-API-KEY")
     if api_key:
-        api_key_record = verify_api_key(session, api_key)
+        api_key_record = api_key_manager.verify(session, api_key)
         if api_key_record:
             validate_organization(session, api_key_record.organization_id)
             organization_id = api_key_record.organization_id
@@ -116,7 +116,7 @@ def get_current_user_org_project(
     project_id = None
 
     if api_key:
-        api_key_record = verify_api_key(session, api_key)
+        api_key_record = api_key_manager.verify(session, api_key)
         if api_key_record:
             validate_organization(session, api_key_record.organization_id)
             organization_id = api_key_record.organization_id
@@ -162,7 +162,7 @@ def get_user_context(
     Authorization logic should be handled in routes.
     """
     if api_key:
-        api_key_record = verify_api_key(session, api_key)
+        api_key_record = api_key_manager.verify(session, api_key)
         if not api_key_record:
             raise HTTPException(status_code=401, detail="Invalid API Key")
 
