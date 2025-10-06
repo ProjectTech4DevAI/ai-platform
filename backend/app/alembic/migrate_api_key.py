@@ -47,7 +47,9 @@ def migrate_api_keys(session: Session, generate_uuid: bool = False) -> None:
         session: SQLAlchemy database session
         generate_uuid: Whether to generate and set UUID for new_id column
     """
-    logger.info("[migrate_api_keys] Starting API key migration from encrypted to hashed format")
+    logger.info(
+        "[migrate_api_keys] Starting API key migration from encrypted to hashed format"
+    )
 
     try:
         # Fetch all API keys that have the old 'key' column
@@ -83,7 +85,7 @@ def migrate_api_keys(session: Session, generate_uuid: bool = False) -> None:
                     continue
 
                 # Extract the key part (after "ApiKey ")
-                key_part = decrypted_key[len(OLD_PREFIX_NAME):]
+                key_part = decrypted_key[len(OLD_PREFIX_NAME) :]
 
                 if len(key_part) != OLD_KEY_LENGTH:
                     logger.error(
@@ -109,7 +111,12 @@ def migrate_api_keys(session: Session, generate_uuid: bool = False) -> None:
                             "UPDATE apikey SET key_prefix = :prefix, key_hash = :hash, new_id = :new_id "
                             "WHERE id = :id"
                         ),
-                        {"prefix": key_prefix, "hash": key_hash, "new_id": new_uuid, "id": key_id}
+                        {
+                            "prefix": key_prefix,
+                            "hash": key_hash,
+                            "new_id": new_uuid,
+                            "id": key_id,
+                        },
                     )
                 else:
                     # Update the record with prefix and hash only
@@ -118,7 +125,7 @@ def migrate_api_keys(session: Session, generate_uuid: bool = False) -> None:
                             "UPDATE apikey SET key_prefix = :prefix, key_hash = :hash "
                             "WHERE id = :id"
                         ),
-                        {"prefix": key_prefix, "hash": key_hash, "id": key_id}
+                        {"prefix": key_prefix, "hash": key_hash, "id": key_id},
                     )
 
                 migrated_count += 1
@@ -130,7 +137,7 @@ def migrate_api_keys(session: Session, generate_uuid: bool = False) -> None:
             except Exception as e:
                 logger.error(
                     f"[migrate_api_keys] Failed to migrate key ID {key_id}: {str(e)}",
-                    exc_info=True
+                    exc_info=True,
                 )
                 failed_count += 1
                 continue
@@ -142,8 +149,7 @@ def migrate_api_keys(session: Session, generate_uuid: bool = False) -> None:
 
     except Exception as e:
         logger.error(
-            f"[migrate_api_keys] Fatal error during migration: {str(e)}",
-            exc_info=True
+            f"[migrate_api_keys] Fatal error during migration: {str(e)}", exc_info=True
         )
         raise
 
@@ -187,7 +193,6 @@ def verify_migration(session: Session) -> bool:
 
     except Exception as e:
         logger.error(
-            f"[verify_migration] Error verifying migration: {str(e)}",
-            exc_info=True
+            f"[verify_migration] Error verifying migration: {str(e)}", exc_info=True
         )
         return False
