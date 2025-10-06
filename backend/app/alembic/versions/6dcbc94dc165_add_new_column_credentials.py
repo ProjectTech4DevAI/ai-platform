@@ -1,18 +1,16 @@
-"""add_new column credentials
+"""drop column deleted_at from credentials
 
-Revision ID: 6dcbc94dc165
-Revises: 6ed6ed401847
-Create Date: 2025-09-25 15:02:41.730543
+Revision ID: 861c6326f691
+Revises: c6fb6d0b5897
+Create Date: 2025-10-06 12:35:25.354540
 
 """
 from alembic import op
 import sqlalchemy as sa
-import sqlmodel.sql.sqltypes
-from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = "6dcbc94dc165"
-down_revision = "6ed6ed401847"
+revision = "861c6326f691"
+down_revision = "c6fb6d0b5897"
 branch_labels = None
 depends_on = None
 
