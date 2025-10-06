@@ -189,14 +189,14 @@ def remove_provider_credential(
     validate_provider(provider)
 
     # Build delete statement
-    stmt = delete(Credential).where(
+    statement = delete(Credential).where(
         Credential.organization_id == org_id,
         Credential.provider == provider,
         Credential.project_id == project_id if project_id is not None else True,
     )
 
     # Execute and get affected rows
-    result = session.execute(stmt)
+    result = session.execute(statement)
     session.commit()
 
     rows_deleted = result.rowcount
@@ -217,13 +217,13 @@ def remove_creds_for_org(
     from sqlalchemy import delete
 
     # Build delete statement
-    stmt = delete(Credential).where(
+    statement = delete(Credential).where(
         Credential.organization_id == org_id,
         Credential.project_id == project_id if project_id is not None else True,
     )
 
     # Execute and get affected rows
-    result = session.execute(stmt)
+    result = session.execute(statement)
     session.commit()
 
     rows_deleted = result.rowcount
