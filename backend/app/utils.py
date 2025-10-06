@@ -3,6 +3,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import requests
 from typing import Any, Dict, Generic, Optional, TypeVar
 
 import jwt
@@ -10,6 +11,7 @@ import emails
 from jinja2 import Template
 from jwt.exceptions import InvalidTokenError
 from fastapi import HTTPException
+import openai
 from openai import OpenAI
 from pydantic import BaseModel
 from sqlmodel import Session
@@ -38,14 +40,17 @@ class APIResponse(BaseModel, Generic[T]):
 
     @classmethod
     def failure_response(
-        cls, error: str | list, metadata: Optional[Dict[str, Any]] = None
+        cls,
+        error: str | list,
+        data: Optional[T] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> "APIResponse[None]":
         if isinstance(error, list):  # to handle cases when error is a list of errors
             error_message = "\n".join([f"{err['loc']}: {err['msg']}" for err in error])
         else:
             error_message = error
 
-        return cls(success=False, data=None, error=error_message, metadata=metadata)
+        return cls(success=False, data=data, error=error_message, metadata=metadata)
 
 
 @dataclass
@@ -198,6 +203,45 @@ def get_openai_client(session: Session, org_id: int, project_id: int) -> OpenAI:
             status_code=500,
             detail=f"Failed to configure OpenAI client: {str(e)}",
         )
+
+
+def handle_openai_error(e: openai.OpenAIError) -> str:
+    if hasattr(e, "body") and isinstance(e.body, dict) and "message" in e.body:
+        return e.body["message"]
+    elif hasattr(e, "message"):
+        return e.message
+    elif hasattr(e, "response") and hasattr(e.response, "json"):
+        try:
+            error_data = e.response.json()
+            if isinstance(error_data, dict) and "error" in error_data:
+                error_info = error_data["error"]
+                if isinstance(error_info, dict) and "message" in error_info:
+                    return error_info["message"]
+        except:
+            pass
+    return str(e)
+
+
+def send_callback(callback_url: str, data: dict):
+    """Send results to the callback URL (synchronously)."""
+    try:
+        with requests.Session() as session:
+            # uncomment this to run locally without SSL
+            # session.verify = False
+            response = session.post(
+                callback_url,
+                json=data,
+                timeout=(
+                    settings.CALLBACK_CONNECT_TIMEOUT,
+                    settings.CALLBACK_READ_TIMEOUT,
+                ),
+            )
+            response.raise_for_status()
+            logger.info(f"[send_callback] Callback sent successfully to {callback_url}")
+            return True
+    except requests.RequestException as e:
+        logger.error(f"[send_callback] Callback failed: {str(e)}", exc_info=True)
+        return False
 
 
 @ft.singledispatch
