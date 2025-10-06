@@ -152,12 +152,12 @@ def test_remove_provider_credential(db: Session) -> None:
     )
 
     # Remove one provider's credentials
-    removed = remove_provider_credential(
+    deleted_count = remove_provider_credential(
         session=db, org_id=credential.organization_id, provider="openai"
     )
 
-    # Function now returns None since it's a hard delete
-    assert removed is None
+    # Function now returns number of deleted rows
+    assert deleted_count == 1
 
     # Verify the credentials are no longer retrievable
     retrieved_cred = get_provider_credential(
@@ -192,10 +192,10 @@ def test_remove_creds_for_org(db: Session) -> None:
     )
 
     # Remove all credentials
-    removed = remove_creds_for_org(session=db, org_id=project.organization_id)
+    deleted_count = remove_creds_for_org(session=db, org_id=project.organization_id)
 
-    # Function now returns empty list since it's a hard delete
-    assert len(removed) == 0
+    # Function now returns count of deleted rows
+    assert deleted_count == 2
 
     # Verify no credentials are retrievable
     retrieved_credentials = get_creds_by_org(session=db, org_id=project.organization_id)

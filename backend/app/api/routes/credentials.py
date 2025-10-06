@@ -177,12 +177,21 @@ def delete_provider_credential(
         )
         raise HTTPException(status_code=404, detail="Provider credentials not found")
 
-    remove_provider_credential(
+    # Delete and verify
+    deleted_count = remove_provider_credential(
         session=session,
         org_id=_current_user.organization_id,
         provider=provider_enum,
         project_id=_current_user.project_id,
     )
+
+    if deleted_count == 0:
+        logger.error(
+            f"[delete_provider_credential] Failed to delete credential | organization_id: {_current_user.organization_id}, provider: {provider}, project_id: {_current_user.project_id}"
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to delete provider credential"
+        )
 
     return APIResponse.success_response(
         {"message": "Provider credentials removed successfully"}
@@ -214,12 +223,19 @@ def delete_all_credentials(
             status_code=404, detail="Credentials for organization/project not found"
         )
 
-    # Delete all credentials
-    remove_creds_for_org(
+    # Delete all credentials and verify
+    deleted_count = remove_creds_for_org(
         session=session,
         org_id=_current_user.organization_id,
         project_id=_current_user.project_id,
     )
+
+    # Verify we deleted at least what we found
+    if deleted_count < len(existing_creds):
+        logger.error(
+            f"[delete_all_credentials] Partial deletion | expected: {len(existing_creds)}, deleted: {deleted_count}, organization_id: {_current_user.organization_id}, project_id: {_current_user.project_id}"
+        )
+        raise HTTPException(status_code=500, detail="Failed to delete all credentials")
 
     return APIResponse.success_response(
         {"message": "All credentials deleted successfully"}

@@ -178,40 +178,56 @@ def update_creds_for_org(
 
 def remove_provider_credential(
     session: Session, org_id: int, provider: str, project_id: Optional[int] = None
-) -> None:
-    """Remove credentials for a specific provider."""
+) -> int:
+    """Remove credentials for a specific provider.
+
+    Returns:
+        int: Number of rows deleted (0 or 1)
+    """
+    from sqlalchemy import delete
+
     validate_provider(provider)
 
-    statement = select(Credential).where(
+    # Build delete statement
+    stmt = delete(Credential).where(
         Credential.organization_id == org_id,
         Credential.provider == provider,
         Credential.project_id == project_id if project_id is not None else True,
     )
-    creds = session.exec(statement).first()
 
-    if creds:
-        # Hard delete - remove from database
-        session.delete(creds)
-        session.commit()
+    # Execute and get affected rows
+    result = session.execute(stmt)
+    session.commit()
+
+    rows_deleted = result.rowcount
+    logger.info(
+        f"[remove_provider_credential] Deleted {rows_deleted} credential(s) for provider {provider} | organization_id {org_id}, project_id {project_id}"
+    )
+    return rows_deleted
 
 
 def remove_creds_for_org(
     *, session: Session, org_id: int, project_id: Optional[int] = None
-) -> List[Credential]:
-    """Removes all credentials for an organization."""
-    statement = select(Credential).where(
+) -> int:
+    """Removes all credentials for an organization.
+
+    Returns:
+        int: Number of credentials deleted
+    """
+    from sqlalchemy import delete
+
+    # Build delete statement
+    stmt = delete(Credential).where(
         Credential.organization_id == org_id,
         Credential.project_id == project_id if project_id is not None else True,
     )
-    creds = session.exec(statement).all()
 
-    for cred in creds:
-        session.delete(cred)
-
+    # Execute and get affected rows
+    result = session.execute(stmt)
     session.commit()
-    # Return empty list since we're doing hard deletes
-    logger.info(
-        f"[remove_creds_for_org] Successfully removed all the credentials | organization_id {org_id}, project_id {project_id}"
-    )
 
-    return []
+    rows_deleted = result.rowcount
+    logger.info(
+        f"[remove_creds_for_org] Successfully deleted {rows_deleted} credential(s) | organization_id {org_id}, project_id {project_id}"
+    )
+    return rows_deleted
