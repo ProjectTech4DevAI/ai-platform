@@ -17,10 +17,7 @@ logger = logging.getLogger(__name__)
 class APIKeyManager:
     """
     Handles API key generation and verification using secure hashing.
-
-    Key format: "ApiKey {22-char-prefix}{43-char-secret}"
-    - The prefix is stored plaintext for quick lookup
-    - Only the 43-char secret portion is hashed with bcrypt
+    Supports Backwards compatibility with old key format.
     """
 
     # Configuration constants
@@ -52,9 +49,43 @@ class APIKeyManager:
         return raw_key, key_prefix, key_hash
 
     @classmethod
+    def _extract_key_parts(cls, raw_key: str) -> Tuple[str, str] | None:
+        """
+        Extract prefix and secret from an API key based on its format.
+
+        Supports:
+        - New format: "ApiKey {22-char-prefix}{43-char-secret}"
+        - Old format: "ApiKey {12-char-prefix}{31-char-secret}"
+
+        Returns:
+            Tuple[str, str] -> (key_prefix, secret_to_verify)
+            or None if invalid
+        """
+        if not raw_key.startswith(cls.PREFIX_NAME):
+            return None
+
+        key_part = raw_key[len(cls.PREFIX_NAME) :]
+
+        if len(key_part) == cls.KEY_LENGTH:
+            key_prefix = key_part[: cls.PREFIX_LENGTH]
+            secret_key = key_part[cls.PREFIX_LENGTH :]
+            return key_prefix, secret_key
+
+        old_key_length = 43
+        old_prefix_length = 12
+        if len(key_part) == old_key_length:
+            key_prefix = key_part[:old_prefix_length]
+            secret_key = key_part[old_prefix_length:]
+            return key_prefix, secret_key
+
+        # Invalid format
+        return None
+
+    @classmethod
     def verify(cls, session: Session, raw_key: str) -> APIKey | None:
         """
         Verify an API key by checking its prefix and hashed value.
+        Supports both old (43 chars) and new ("ApiKey " + 65 chars) formats.
 
         Args:
             session: Database session
@@ -64,16 +95,12 @@ class APIKeyManager:
             The APIKey record if valid, None otherwise
         """
         try:
-            expected_prefix = cls.PREFIX_NAME
-            if not raw_key.startswith(expected_prefix):
+            key_parts = cls._extract_key_parts(raw_key)
+
+            if not key_parts:
                 return None
 
-            key_part = raw_key[len(expected_prefix) :]
-            if len(key_part) != cls.KEY_LENGTH:
-                return None
-
-            key_prefix = key_part[: cls.PREFIX_LENGTH]
-            secret_key = key_part[cls.PREFIX_LENGTH :]
+            key_prefix, secret = key_parts
 
             statement = select(APIKey).where(
                 and_(
@@ -86,8 +113,7 @@ class APIKeyManager:
             if not api_key_record:
                 return None
 
-            # Verify only the secret portion (43 chars) against the stored hash
-            if cls.pwd_context.verify(secret_key, api_key_record.key_hash):
+            if cls.pwd_context.verify(secret, api_key_record.key_hash):
                 return api_key_record
 
             return None

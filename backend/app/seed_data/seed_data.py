@@ -193,13 +193,12 @@ def create_api_key(session: Session, api_key_data_raw: dict) -> APIKey:
         # Extract the key_prefix (first 16 characters after "ApiKey ")
         key_portion = raw_key[7:]  # Remove "ApiKey " prefix
 
-        key_prefix = key_portion[:8]  # First 8 characters as prefix
+        key_prefix = key_portion[:12]  # First 12 characters as prefix
 
-        # Hash the full raw key
         from passlib.context import CryptContext
 
         pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-        key_hash = pwd_context.hash(raw_key)
+        key_hash = pwd_context.hash(key_portion[12:])
 
         api_key = APIKey(
             organization_id=organization.id,

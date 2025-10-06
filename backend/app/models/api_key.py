@@ -21,7 +21,6 @@ class APIKeyBase(SQLModel):
 class APIKeyPublic(APIKeyBase):
     id: UUID
     key_prefix: str  # Expose key_id for display (partial key identifier)
-    last_used_at: datetime | None
     inserted_at: datetime
     updated_at: datetime
 
