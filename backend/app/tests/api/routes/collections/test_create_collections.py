@@ -6,13 +6,12 @@ from sqlmodel import Session
 from fastapi.testclient import TestClient
 from unittest.mock import patch
 
-from app.models import APIKeyPublic
 from app.core.config import settings
 from app.tests.utils.document import DocumentStore
-from app.tests.utils.utils import get_user_from_api_key
 from app.crud.collection import CollectionCrud
 from app.models.collection import CollectionStatus
 from app.tests.utils.openai import get_mock_openai_client_with_vector_store
+from app.tests.utils.auth import AuthContext
 
 
 @pytest.fixture(autouse=True)
@@ -49,7 +48,7 @@ class TestCollectionRouteCreate:
         mock_get_openai_client,
         client: TestClient,
         db: Session,
-        user_api_key: APIKeyPublic,
+        user_api_key: AuthContext,
     ):
         store = DocumentStore(db, project_id=user_api_key.project_id)
         documents = store.fill(self._n_documents)
@@ -81,8 +80,7 @@ class TestCollectionRouteCreate:
 
         # Confirm collection metadata in DB
         collection_id = UUID(metadata["key"])
-        user = get_user_from_api_key(db, headers)
-        collection = CollectionCrud(db, user.user_id).read_one(collection_id)
+        collection = CollectionCrud(db, user_api_key.user_id).read_one(collection_id)
 
         info_response = client.post(
             f"{settings.API_V1_STR}/collections/info/{collection_id}",
@@ -92,6 +90,6 @@ class TestCollectionRouteCreate:
         info_data = info_response.json()["data"]
 
         assert collection.status == CollectionStatus.successful.value
-        assert collection.owner_id == user.user_id
+        assert collection.owner_id == user_api_key.user_id
         assert collection.llm_service_id is not None
         assert collection.llm_service_name == "gpt-4o"

@@ -4,22 +4,22 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 from app.core.config import settings
 from app.models import Collection
-from app.tests.utils.utils import get_user_from_api_key
 from app.models.collection import CollectionStatus
+from app.tests.utils.auth import AuthContext
 
 
 def create_collection(
     db,
-    user,
+    user_api_key: AuthContext,
     status: CollectionStatus = CollectionStatus.processing,
     with_llm: bool = False,
 ):
     now = datetime.now(timezone.utc)
     collection = Collection(
         id=uuid4(),
-        owner_id=user.user_id,
-        organization_id=user.organization_id,
-        project_id=user.project_id,
+        owner_id=user_api_key.user_id,
+        organization_id=user_api_key.organization_id,
+        project_id=user_api_key.project_id,
         status=status,
         updated_at=now,
     )
@@ -34,11 +34,10 @@ def create_collection(
 
 
 def test_collection_info_processing(
-    db: Session, client: TestClient, user_api_key_header
+    db: Session, client: TestClient, user_api_key: AuthContext
 ):
-    headers = user_api_key_header
-    user = get_user_from_api_key(db, headers)
-    collection = create_collection(db, user, status=CollectionStatus.processing)
+    headers = {"X-API-KEY": user_api_key.key}
+    collection = create_collection(db, user_api_key, status=CollectionStatus.processing)
 
     response = client.post(
         f"{settings.API_V1_STR}/collections/info/{collection.id}",
@@ -55,12 +54,11 @@ def test_collection_info_processing(
 
 
 def test_collection_info_successful(
-    db: Session, client: TestClient, user_api_key_header
+    db: Session, client: TestClient, user_api_key: AuthContext
 ):
-    headers = user_api_key_header
-    user = get_user_from_api_key(db, headers)
+    headers = {"X-API-KEY": user_api_key.key}
     collection = create_collection(
-        db, user, status=CollectionStatus.successful, with_llm=True
+        db, user_api_key, status=CollectionStatus.successful, with_llm=True
     )
 
     response = client.post(
@@ -77,10 +75,11 @@ def test_collection_info_successful(
     assert data["llm_service_name"] == "gpt-4o"
 
 
-def test_collection_info_failed(db: Session, client: TestClient, user_api_key_header):
-    headers = user_api_key_header
-    user = get_user_from_api_key(db, headers)
-    collection = create_collection(db, user, status=CollectionStatus.failed)
+def test_collection_info_failed(
+    db: Session, client: TestClient, user_api_key: AuthContext
+):
+    headers = {"X-API-KEY": user_api_key.key}
+    collection = create_collection(db, user_api_key, status=CollectionStatus.failed)
 
     response = client.post(
         f"{settings.API_V1_STR}/collections/info/{collection.id}",

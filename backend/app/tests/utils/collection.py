@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.models import Collection, Organization, Project
 from app.tests.utils.utils import get_user_id_by_email
 from app.tests.utils.test_data import create_test_project
-from app.crud import create_api_key
+from app.crud import APIKeyCrud
 
 
 class constants:
@@ -29,12 +29,7 @@ def get_collection(db: Session, client=None, owner_id: int = None) -> Collection
     project = create_test_project(db)
 
     # Step 2: Create API key for user with valid foreign keys
-    create_api_key(
-        db,
-        organization_id=project.organization_id,
-        user_id=owner_id,
-        project_id=project.id,
-    )
+    APIKeyCrud(session=db, project_id=project.id).create(user_id=owner_id)
 
     if client is None:
         client = OpenAI(api_key="test_api_key")

@@ -17,10 +17,10 @@ from app.models import (
 from app.crud import (
     create_organization,
     create_project,
-    create_api_key,
     set_creds_for_org,
     create_fine_tuning_job,
     create_model_evaluation,
+    APIKeyCrud,
 )
 from app.core.providers import Provider
 from app.tests.utils.user import create_random_user
@@ -30,6 +30,7 @@ from app.tests.utils.utils import (
     get_document,
     get_project,
 )
+from app.tests.utils.auth import AuthContext, get_auth_context
 
 
 def create_test_organization(db: Session) -> Organization:
@@ -60,23 +61,6 @@ def create_test_project(db: Session) -> Project:
         organization_id=org.id,
     )
     return create_project(session=db, project_create=project_in)
-
-
-def create_test_api_key(db: Session) -> APIKey:
-    """
-    Creates and returns an API key for a test project and test user.
-
-    Persists a test user, organization, project, and API key to the database
-    """
-    project = create_test_project(db)
-    user = create_random_user(db)
-    api_key = create_api_key(
-        db,
-        organization_id=project.organization_id,
-        user_id=user.id,
-        project_id=project.id,
-    )
-    return api_key
 
 
 def test_credential_data(db: Session) -> CredsCreate:

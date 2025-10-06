@@ -3,13 +3,14 @@ from sqlmodel import Session
 
 from app.core.config import settings
 from app.crud.doc_transformation_job import DocTransformationJobCrud
-from app.models import APIKeyPublic, TransformationStatus
+from app.models import TransformationStatus
 from app.tests.utils.document import DocumentStore
+from app.tests.utils.auth import AuthContext
 
 
 class TestGetTransformationJob:
     def test_get_existing_job_success(
-        self, client: TestClient, db: Session, user_api_key: APIKeyPublic
+        self, client: TestClient, db: Session, user_api_key: AuthContext
     ):
         """Test successfully retrieving an existing transformation job."""
         document = DocumentStore(db, user_api_key.project_id).put()
@@ -31,7 +32,7 @@ class TestGetTransformationJob:
         assert data["data"]["transformed_document_id"] is None
 
     def test_get_nonexistent_job_404(
-        self, client: TestClient, db: Session, user_api_key: APIKeyPublic
+        self, client: TestClient, db: Session, user_api_key: AuthContext
     ):
         """Test getting a non-existent transformation job returns 404."""
         fake_uuid = "00000000-0000-0000-0000-000000000001"
@@ -44,7 +45,7 @@ class TestGetTransformationJob:
         assert response.status_code == 404
 
     def test_get_job_invalid_uuid_422(
-        self, client: TestClient, user_api_key: APIKeyPublic
+        self, client: TestClient, user_api_key: AuthContext
     ):
         """Test getting a job with invalid UUID format returns 422."""
         invalid_uuid = "not-a-uuid"
@@ -60,8 +61,8 @@ class TestGetTransformationJob:
         self,
         client: TestClient,
         db: Session,
-        user_api_key: APIKeyPublic,
-        superuser_api_key: APIKeyPublic,
+        user_api_key: AuthContext,
+        superuser_api_key: AuthContext,
     ):
         """Test that jobs from different projects are not accessible."""
         store = DocumentStore(db, user_api_key.project_id)
@@ -78,7 +79,7 @@ class TestGetTransformationJob:
         assert response.status_code == 404
 
     def test_get_completed_job_with_result(
-        self, client: TestClient, db: Session, user_api_key: APIKeyPublic
+        self, client: TestClient, db: Session, user_api_key: AuthContext
     ):
         """Test getting a completed job with transformation result."""
         store = DocumentStore(db, user_api_key.project_id)
@@ -105,7 +106,7 @@ class TestGetTransformationJob:
         assert data["data"]["transformed_document_id"] == str(transformed_document.id)
 
     def test_get_failed_job_with_error(
-        self, client: TestClient, db: Session, user_api_key: APIKeyPublic
+        self, client: TestClient, db: Session, user_api_key: AuthContext
     ):
         """Test getting a failed job with error message."""
         store = DocumentStore(db, user_api_key.project_id)
@@ -130,7 +131,7 @@ class TestGetTransformationJob:
 
 class TestGetMultipleTransformationJobs:
     def test_get_multiple_jobs_success(
-        self, client: TestClient, db: Session, user_api_key: APIKeyPublic
+        self, client: TestClient, db: Session, user_api_key: AuthContext
     ):
         """Test successfully retrieving multiple transformation jobs."""
         store = DocumentStore(db, user_api_key.project_id)
@@ -155,7 +156,7 @@ class TestGetMultipleTransformationJobs:
         assert returned_ids == expected_ids
 
     def test_get_mixed_existing_nonexisting_jobs(
-        self, client: TestClient, db: Session, user_api_key: APIKeyPublic
+        self, client: TestClient, db: Session, user_api_key: AuthContext
     ):
         """Test retrieving a mix of existing and non-existing jobs."""
         store = DocumentStore(db, user_api_key.project_id)
@@ -180,7 +181,7 @@ class TestGetMultipleTransformationJobs:
         assert data["data"]["jobs_not_found"][0] == fake_uuid
 
     def test_get_jobs_with_empty_string(
-        self, client: TestClient, user_api_key: APIKeyPublic
+        self, client: TestClient, user_api_key: AuthContext
     ):
         """Test retrieving jobs with empty job_ids parameter."""
         response = client.get(
@@ -191,7 +192,7 @@ class TestGetMultipleTransformationJobs:
         assert response.status_code == 422
 
     def test_get_jobs_with_whitespace_only(
-        self, client: TestClient, user_api_key: APIKeyPublic
+        self, client: TestClient, user_api_key: AuthContext
     ):
         """Test retrieving jobs with whitespace-only job_ids."""
         response = client.get(
@@ -202,7 +203,7 @@ class TestGetMultipleTransformationJobs:
         assert response.status_code == 422
 
     def test_get_jobs_invalid_uuid_format_422(
-        self, client: TestClient, user_api_key: APIKeyPublic
+        self, client: TestClient, user_api_key: AuthContext
     ):
         """Test that invalid UUID format returns 422."""
         invalid_uuid = "not-a-uuid"
@@ -217,7 +218,7 @@ class TestGetMultipleTransformationJobs:
         assert "Input should be a valid UUID" in data["error"]
 
     def test_get_jobs_mixed_valid_invalid_uuid_422(
-        self, client: TestClient, db: Session, user_api_key: APIKeyPublic
+        self, client: TestClient, db: Session, user_api_key: AuthContext
     ):
         """Test that mixed valid/invalid UUIDs returns 422."""
         store = DocumentStore(db, user_api_key.project_id)
@@ -238,7 +239,7 @@ class TestGetMultipleTransformationJobs:
         assert "job_ids" in data["error"]
 
     def test_get_jobs_missing_parameter_422(
-        self, client: TestClient, user_api_key: APIKeyPublic
+        self, client: TestClient, user_api_key: AuthContext
     ):
         """Test that missing job_ids parameter returns empty results."""
         response = client.get(
@@ -252,8 +253,8 @@ class TestGetMultipleTransformationJobs:
         self,
         client: TestClient,
         db: Session,
-        user_api_key: APIKeyPublic,
-        superuser_api_key: APIKeyPublic,
+        user_api_key: AuthContext,
+        superuser_api_key: AuthContext,
     ):
         """Test that jobs from different projects are not returned."""
         store = DocumentStore(db, user_api_key.project_id)
@@ -274,7 +275,7 @@ class TestGetMultipleTransformationJobs:
         assert data["data"]["jobs_not_found"][0] == str(job.id)
 
     def test_get_jobs_with_various_statuses(
-        self, client: TestClient, db: Session, user_api_key: APIKeyPublic
+        self, client: TestClient, db: Session, user_api_key: AuthContext
     ):
         """Test retrieving jobs with different statuses."""
         store = DocumentStore(db, user_api_key.project_id)

@@ -10,7 +10,6 @@ from moto import mock_aws
 from sqlmodel import Session, select
 from fastapi.testclient import TestClient
 
-from app.models import APIKeyPublic
 from app.core.cloud import AmazonCloudStorageClient
 from app.core.config import settings
 from app.models import Document
@@ -19,6 +18,7 @@ from app.tests.utils.document import (
     WebCrawler,
     httpx_to_standard,
 )
+from app.tests.utils.auth import AuthContext
 
 
 class WebUploader(WebCrawler):
@@ -77,7 +77,7 @@ def route():
 
 
 @pytest.fixture
-def uploader(client: TestClient, user_api_key: APIKeyPublic):
+def uploader(client: TestClient, user_api_key: AuthContext):
     return WebUploader(client, user_api_key)
 
 
