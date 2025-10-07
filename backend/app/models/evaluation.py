@@ -1,4 +1,3 @@
-from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -11,7 +10,7 @@ class EvaluationResult(BaseModel):
     match: bool = Field(
         ..., description="Whether the output matches the expected result"
     )
-    thread_id: Optional[str] = Field(None, description="ID of the OpenAI")
+    thread_id: str | None = Field(None, description="ID of the OpenAI")
 
 
 class Experiment(BaseModel):
@@ -21,7 +20,7 @@ class Experiment(BaseModel):
     dataset_name: str = Field(
         ..., description="Name of the dataset used for evaluation"
     )
-    results: List[EvaluationResult] = Field(
+    results: list[EvaluationResult] = Field(
         ..., description="List of evaluation results"
     )
     total_items: int = Field(..., description="Total number of items evaluated")

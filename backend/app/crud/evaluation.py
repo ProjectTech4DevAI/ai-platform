@@ -1,16 +1,14 @@
 import logging
-from typing import Dict, List, Optional, Tuple
-from sqlmodel import Session
-from langfuse import Langfuse
 
-from app.models import UserOrganization
-from app.crud.credentials import get_provider_credential
+from langfuse import Langfuse
+from sqlmodel import Session
+
 from app.api.routes.threads import threads_sync
 from app.core.util import configure_langfuse, configure_openai
-from app.models.evaluation import Experiment, EvaluationResult
+from app.crud.credentials import get_provider_credential
+from app.models import UserOrganization
+from app.models.evaluation import EvaluationResult, Experiment
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -18,10 +16,9 @@ async def run_evaluation(
     experiment_name: str,
     assistant_id: str,
     dataset_name: str,
-    project_id: int,
     _session: Session,
     _current_user: UserOrganization,
-) -> Tuple[bool, Optional[Experiment], Optional[str]]:
+) -> tuple[bool, Experiment | None, str | None]:
     """
     Run Langfuse evaluations using LLM-as-a-judge.
 
@@ -29,7 +26,6 @@ async def run_evaluation(
         experiment_name: Name of the experiment
         assistant_id: ID of the assistant to evaluate
         dataset_name: Name of the dataset to use
-        project_id: Project ID
         _session: Database session
         _current_user: Current user organization
 
@@ -41,7 +37,6 @@ async def run_evaluation(
         session=_session,
         org_id=_current_user.organization_id,
         provider="openai",
-        project_id=project_id,
     )
 
     # Configure OpenAI client
@@ -54,7 +49,6 @@ async def run_evaluation(
         session=_session,
         org_id=_current_user.organization_id,
         provider="langfuse",
-        project_id=project_id,
     )
     if not langfuse_credentials:
         return False, None, "LANGFUSE keys not configured for this organization."
@@ -70,7 +64,6 @@ async def run_evaluation(
             experiment_name=experiment_name,
             assistant_id=assistant_id,
             dataset_name=dataset_name,
-            project_id=project_id,
             _session=_session,
             _current_user=_current_user,
         )
@@ -84,15 +77,14 @@ async def _process_evaluation(
     experiment_name: str,
     assistant_id: str,
     dataset_name: str,
-    project_id: int,
     _session: Session,
     _current_user: UserOrganization,
-) -> Tuple[bool, Optional[Experiment], Optional[str]]:
+) -> tuple[bool, Experiment | None, str | None]:
     """Internal function to process the evaluation."""
     # Get dataset
     logger.info(f"Fetching dataset: {dataset_name}")
     dataset = langfuse.get_dataset(dataset_name)
-    results: List[EvaluationResult] = []
+    results: list[EvaluationResult] = []
     total_items = len(dataset.items)
     logger.info(f"Processing {total_items} items from {dataset_name} dataset")
 
@@ -104,7 +96,6 @@ async def _process_evaluation(
                 "question": item.input,
                 "assistant_id": assistant_id,
                 "remove_citation": True,
-                "project_id": project_id,
             }
 
             # Process thread synchronously
