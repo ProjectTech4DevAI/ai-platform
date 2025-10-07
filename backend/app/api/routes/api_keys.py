@@ -1,7 +1,7 @@
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 
-from app.api.deps import SessionDep, UserContextDep
+from app.api.deps import SessionDep, AuthContextDep
 from app.crud.api_key import APIKeyCrud
 from app.models import APIKeyPublic, APIKeyCreateResponse, Message
 from app.utils import APIResponse
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/apikeys", tags=["API Keys"])
 )
 def create_api_key_route(
     project_id: int,
-    current_user: UserContextDep,
+    current_user: AuthContextDep,
     session: SessionDep,
 ):
     """
@@ -43,7 +43,7 @@ def create_api_key_route(
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
 def list_api_keys_route(
-    current_user: UserContextDep,
+    current_user: AuthContextDep,
     session: SessionDep,
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=100, description="Maximum records to return"),
@@ -67,7 +67,7 @@ def list_api_keys_route(
 )
 def delete_api_key_route(
     key_id: UUID,
-    current_user: UserContextDep,
+    current_user: AuthContextDep,
     session: SessionDep,
 ):
     """

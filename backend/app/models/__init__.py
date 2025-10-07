@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel
 
-from .auth import Token, TokenPayload
+from .auth import AuthContext, Token, TokenPayload
 
 from .api_key import APIKey, APIKeyBase, APIKeyPublic, APIKeyCreateResponse
 
@@ -48,7 +48,6 @@ from .user import (
     NewPassword,
     User,
     UserCreate,
-    UserContext,
     UserOrganization,
     UserProjectOrg,
     UserPublic,

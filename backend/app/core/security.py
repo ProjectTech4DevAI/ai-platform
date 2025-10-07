@@ -21,6 +21,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from passlib.context import CryptContext
 from sqlmodel import Session, and_, select
 
+from app.models import APIKey, User, Organization, Project, AuthContext
 from app.core.config import settings
 
 
@@ -262,20 +263,20 @@ class APIKeyManager:
         return None
 
     @classmethod
-    def verify(cls, session: Session, raw_key: str):
+    def verify(cls, session: Session, raw_key: str) -> AuthContext | None:
         """
         Verify an API key by checking its prefix and hashed value.
         Supports both old (43 chars) and new ("ApiKey " + 65 chars) formats.
+
+        Eagerly loads User, Organization, and Project in a single query.
 
         Args:
             session: Database session
             raw_key: The raw API key to verify
 
         Returns:
-            The APIKey record if valid, None otherwise
+            Tuple of (APIKey, User, Organization, Project) if valid, None otherwise
         """
-        from app.models import APIKey
-
         try:
             key_parts = cls._extract_key_parts(raw_key)
 
@@ -284,19 +285,37 @@ class APIKeyManager:
 
             key_prefix, secret = key_parts
 
-            statement = select(APIKey).where(
-                and_(
-                    APIKey.key_prefix == key_prefix,
-                    APIKey.is_deleted.is_(False),
+            # Single query to fetch APIKey with User, Organization, and Project
+            statement = (
+                select(APIKey, User, Organization, Project)
+                .where(
+                    and_(
+                        APIKey.key_prefix == key_prefix,
+                        APIKey.is_deleted.is_(False),
+                    )
                 )
+                .join(User, User.id == APIKey.user_id)
+                .join(Organization, Organization.id == APIKey.organization_id)
+                .join(Project, Project.id == APIKey.project_id)
             )
-            api_key_record = session.exec(statement).one_or_none()
 
-            if not api_key_record:
+            result = session.exec(statement).first()
+
+            if not result:
                 return None
+            api_key_record, user, organization, project = result
+            auth_context = AuthContext(
+                user_id=user.id,
+                project_id=project.id,
+                organization_id=organization.id,
+                user=user,
+                project=project,
+                organization=organization,
+            )
 
+            # Verify the secret hash
             if cls.pwd_context.verify(secret, api_key_record.key_hash):
-                return api_key_record
+                return auth_context
 
             return None
 

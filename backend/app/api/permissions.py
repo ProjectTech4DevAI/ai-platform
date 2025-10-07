@@ -3,8 +3,8 @@ from typing import Annotated
 from fastapi import Depends, HTTPException
 from sqlmodel import Session
 
-from app.models import UserContext
-from app.api.deps import UserContextDep, SessionDep
+from app.models import AuthContext
+from app.api.deps import AuthContextDep, SessionDep
 
 
 class Permission(str, Enum):
@@ -16,12 +16,12 @@ class Permission(str, Enum):
 
 
 def has_permission(
-    user_context: UserContext,
+    auth_context: AuthContext,
     permission: Permission,
     session: Session | None = None,
 ) -> bool:
     """
-    Check if the user_context has the specified permission.
+    Check if the auth_context has the specified permission.
 
     Args:
         user_context: The authenticated user context
@@ -33,11 +33,11 @@ def has_permission(
     """
     match permission:
         case Permission.SUPERUSER:
-            return user_context.is_superuser
+            return auth_context.user.is_superuser
         case Permission.REQUIRE_ORGANIZATION:
-            return user_context.organization_id is not None
+            return auth_context.organization_id is not None
         case Permission.REQUIRE_PROJECT:
-            return user_context.project_id is not None
+            return auth_context.project_id is not None
         case _:
             return False
 
@@ -48,15 +48,15 @@ def require_permission(permission: Permission):
 
     Usage:
         @app.get("/endpoint", dependencies=[Depends(require_permission(Permission.REQUIRE_ORGANIZATION))])
-        def endpoint(user_context: Annotated[UserContext, Depends(get_user_context)]):
+        def endpoint(auth_context: Annotated[AuthContext, Depends(get_user_context)]):
             pass
     """
 
     def permission_checker(
-        user_context: UserContextDep,
+        auth_context: AuthContextDep,
         session: SessionDep,
     ):
-        if not has_permission(user_context, permission, session):
+        if not has_permission(auth_context, permission, session):
             error_messages = {
                 Permission.SUPERUSER: "Insufficient permissions - require superuser access.",
                 Permission.REQUIRE_ORGANIZATION: "Insufficient permissions - require organization access.",

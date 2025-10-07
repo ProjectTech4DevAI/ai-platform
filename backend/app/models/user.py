@@ -65,12 +65,6 @@ class UserProjectOrg(UserOrganization):
     project_id: int
 
 
-class UserContext(UserBase):
-    id: int
-    project_id: int | None = None
-    organization_id: int | None = None
-
-
 # Properties to return via API, id is always required
 class UserPublic(UserBase):
     id: int
