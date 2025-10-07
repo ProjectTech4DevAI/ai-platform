@@ -16,7 +16,7 @@ from app.models import User
 from app.core.config import settings
 from app.models import Document, Project, UserProjectOrg
 from app.tests.utils.document import DocumentStore
-from app.tests.utils.auth import get_user_auth_context, TestAuthContext
+from app.tests.utils.auth import TestAuthContext
 
 
 @pytest.fixture(scope="class")

@@ -1,10 +1,9 @@
 from collections.abc import Generator
-from typing import Annotated, Optional
+from typing import Annotated
 
 import jwt
-from fastapi import Depends, HTTPException, status, Request, Header, Security
-from fastapi.responses import JSONResponse
-from fastapi.security import OAuth2PasswordBearer, APIKeyHeader
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from jwt.exceptions import InvalidTokenError
 from pydantic import ValidationError
 from sqlmodel import Session, select
@@ -13,18 +12,18 @@ from app.core import security
 from app.core.config import settings
 from app.core.db import engine
 from app.core.security import api_key_manager
-from app.utils import APIResponse
 from app.crud.organization import validate_organization
 from app.models import (
     AuthContext,
+    Organization,
+    Project,
+    ProjectUser,
     TokenPayload,
     User,
-    UserProjectOrg,
     UserOrganization,
-    ProjectUser,
-    Project,
-    Organization,
+    UserProjectOrg,
 )
+
 
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/login/access-token", auto_error=False
@@ -151,7 +150,7 @@ def get_current_active_superuser_org(current_user: CurrentUserOrg) -> User:
     return current_user
 
 
-def get_user_context(
+def get_auth_context(
     session: SessionDep,
     token: TokenDep,
     api_key: Annotated[str, Depends(api_key_header)],
@@ -205,7 +204,7 @@ def get_user_context(
         raise HTTPException(status_code=401, detail="Invalid Authorization format")
 
 
-AuthContextDep = Annotated[AuthContext, Depends(get_user_context)]
+AuthContextDep = Annotated[AuthContext, Depends(get_auth_context)]
 
 
 def verify_user_project_organization(

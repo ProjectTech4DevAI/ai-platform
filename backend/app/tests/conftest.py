@@ -17,8 +17,8 @@ from app.main import app
 from app.tests.utils.user import authentication_token_from_email
 from app.tests.utils.utils import get_superuser_token_headers
 from app.tests.utils.auth import (
-    get_superuser_auth_context,
-    get_user_auth_context,
+    get_superuser_test_auth_context,
+    get_user_test_auth_context,
     TestAuthContext,
 )
 from app.seed_data.seed_data import seed_database
@@ -73,23 +73,23 @@ def normal_user_token_headers(client: TestClient, db: Session) -> dict[str, str]
 
 @pytest.fixture
 def superuser_api_key_header(db: Session) -> dict[str, str]:
-    auth_ctx = get_superuser_auth_context(db)
+    auth_ctx = get_superuser_test_auth_context(db)
     return {"X-API-KEY": auth_ctx.key}
 
 
 @pytest.fixture
 def user_api_key_header(db: Session) -> dict[str, str]:
-    auth_ctx = get_user_auth_context(db)
+    auth_ctx = get_user_test_auth_context(db)
     return {"X-API-KEY": auth_ctx.key}
 
 
 @pytest.fixture
 def superuser_api_key(db: Session) -> TestAuthContext:
-    auth_ctx = get_superuser_auth_context(db)
+    auth_ctx = get_superuser_test_auth_context(db)
     return auth_ctx
 
 
 @pytest.fixture
 def user_api_key(db: Session) -> TestAuthContext:
-    auth_ctx = get_user_auth_context(db)
+    auth_ctx = get_user_test_auth_context(db)
     return auth_ctx

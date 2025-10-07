@@ -22,7 +22,7 @@ class TestAuthContext(SQLModel):
     api_key: APIKey
 
 
-def get_auth_context(
+def get_test_auth_context(
     session: Session,
     user_email: str,
     project_name: str,
@@ -92,7 +92,7 @@ def get_auth_context(
     )
 
 
-def get_superuser_auth_context(session: Session) -> TestAuthContext:
+def get_superuser_test_auth_context(session: Session) -> TestAuthContext:
     """
     Get authentication context for superuser from seeded data.
 
@@ -110,7 +110,7 @@ def get_superuser_auth_context(session: Session) -> TestAuthContext:
     Raises:
         ValueError: If the required data is not found in the database
     """
-    return get_auth_context(
+    return get_test_auth_context(
         session=session,
         user_email=settings.FIRST_SUPERUSER,
         project_name="Glific",
@@ -119,7 +119,7 @@ def get_superuser_auth_context(session: Session) -> TestAuthContext:
     )
 
 
-def get_user_auth_context(session: Session) -> TestAuthContext:
+def get_user_test_auth_context(session: Session) -> TestAuthContext:
     """
     Get authentication context for normal user from seeded data.
 
@@ -137,7 +137,7 @@ def get_user_auth_context(session: Session) -> TestAuthContext:
     Raises:
         ValueError: If the required data is not found in the database
     """
-    return get_auth_context(
+    return get_test_auth_context(
         session=session,
         user_email=settings.EMAIL_TEST_USER,
         project_name="Dalgo",
