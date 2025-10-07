@@ -20,7 +20,9 @@ class TestHasPermission:
         db.commit()
         db.refresh(user)
 
-        auth_context = get_auth_context(session=db, token=None, api_key=api_key_response.key)
+        auth_context = get_auth_context(
+            session=db, token=None, api_key=api_key_response.key
+        )
 
         result = has_permission(auth_context, Permission.SUPERUSER, db)
 
@@ -30,7 +32,9 @@ class TestHasPermission:
         """Test that regular user does not have SUPERUSER permission"""
         api_key_response = create_test_api_key(db)
 
-        auth_context = get_auth_context(session=db, token=None, api_key=api_key_response.key)
+        auth_context = get_auth_context(
+            session=db, token=None, api_key=api_key_response.key
+        )
 
         result = has_permission(auth_context, Permission.SUPERUSER, db)
 
@@ -40,7 +44,9 @@ class TestHasPermission:
         """Test that user with organization has REQUIRE_ORGANIZATION permission"""
         api_key_response = create_test_api_key(db)
 
-        auth_context = get_auth_context(session=db, token=None, api_key=api_key_response.key)
+        auth_context = get_auth_context(
+            session=db, token=None, api_key=api_key_response.key
+        )
 
         result = has_permission(auth_context, Permission.REQUIRE_ORGANIZATION, db)
 
@@ -50,7 +56,9 @@ class TestHasPermission:
         """Test that user without organization does not have REQUIRE_ORGANIZATION permission"""
         api_key_response = create_test_api_key(db)
 
-        auth_context = get_auth_context(session=db, token=None, api_key=api_key_response.key)
+        auth_context = get_auth_context(
+            session=db, token=None, api_key=api_key_response.key
+        )
 
         auth_context.organization_id = None
         auth_context.organization = None
@@ -63,7 +71,9 @@ class TestHasPermission:
         """Test that user with project has REQUIRE_PROJECT permission"""
         api_key_response = create_test_api_key(db)
 
-        auth_context = get_auth_context(session=db, token=None, api_key=api_key_response.key)
+        auth_context = get_auth_context(
+            session=db, token=None, api_key=api_key_response.key
+        )
 
         result = has_permission(auth_context, Permission.REQUIRE_PROJECT, db)
 
@@ -73,7 +83,9 @@ class TestHasPermission:
         """Test that user without project does not have REQUIRE_PROJECT permission"""
         api_key_response = create_test_api_key(db)
 
-        auth_context = get_auth_context(session=db, token=None, api_key=api_key_response.key)
+        auth_context = get_auth_context(
+            session=db, token=None, api_key=api_key_response.key
+        )
 
         auth_context.project_id = None
         auth_context.project = None
@@ -100,7 +112,9 @@ class TestRequirePermission:
         db.add(user)
         db.commit()
         db.refresh(user)
-        auth_context = get_auth_context(session=db, token=None, api_key=api_key_response.key)
+        auth_context = get_auth_context(
+            session=db, token=None, api_key=api_key_response.key
+        )
 
         permission_checker = require_permission(Permission.SUPERUSER)
         permission_checker(auth_context, db)
@@ -108,7 +122,9 @@ class TestRequirePermission:
     def test_permission_checker_raises_403_without_permission(self, db: Session):
         """Test that permission checker raises HTTPException with 403 when user lacks permission"""
         api_key_response = create_test_api_key(db)
-        auth_context = get_auth_context(session=db, token=None, api_key=api_key_response.key)
+        auth_context = get_auth_context(
+            session=db, token=None, api_key=api_key_response.key
+        )
 
         permission_checker = require_permission(Permission.SUPERUSER)
 
