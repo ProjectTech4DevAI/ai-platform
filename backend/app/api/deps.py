@@ -12,9 +12,9 @@ from sqlmodel import Session, select
 from app.core import security
 from app.core.config import settings
 from app.core.db import engine
+from app.core.security import api_key_manager
 from app.utils import APIResponse
 from app.crud.organization import validate_organization
-from app.crud.api_key import api_key_manager
 from app.models import (
     TokenPayload,
     User,

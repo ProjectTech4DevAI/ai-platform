@@ -1,139 +1,16 @@
 import logging
-import secrets
 from uuid import UUID
 from typing import Tuple
 
 from sqlmodel import Session, select, and_
 from fastapi import HTTPException
-from passlib.context import CryptContext
 
 from app.models import APIKey
 from app.crud import get_project_by_id
 from app.core.util import now
+from app.core.security import api_key_manager
 
 logger = logging.getLogger(__name__)
-
-
-class APIKeyManager:
-    """
-    Handles API key generation and verification using secure hashing.
-    Supports Backwards compatibility with old key format.
-    """
-
-    # Configuration constants
-    PREFIX_NAME = "ApiKey "
-    PREFIX_BYTES = 16  # Generates 22 chars in urlsafe base64
-    SECRET_BYTES = 32  # Generates 43 chars in urlsafe base64
-    PREFIX_LENGTH = 22
-    KEY_LENGTH = 65  # Total length: 22 (prefix) + 43 (secret)
-    HASH_ALGORITHM = "bcrypt"
-
-    pwd_context = CryptContext(schemes=[HASH_ALGORITHM], deprecated="auto")
-
-    @classmethod
-    def generate(cls) -> Tuple[str, str, str]:
-        """
-        Generate a new API key with prefix and hashed value.
-        Ensures exact lengths: prefix=22 chars, secret=43 chars.
-
-        Returns:
-            Tuple of (raw_key, key_prefix, key_hash)
-        """
-        # Generate tokens and ensure exact length
-        secret_length = cls.KEY_LENGTH - cls.PREFIX_LENGTH
-        key_prefix = secrets.token_urlsafe(cls.PREFIX_BYTES)[: cls.PREFIX_LENGTH].ljust(
-            cls.PREFIX_LENGTH, "A"
-        )
-        secret_key = secrets.token_urlsafe(cls.SECRET_BYTES)[:secret_length].ljust(
-            secret_length, "A"
-        )
-
-        # Construct raw key: "ApiKey {prefix}{secret}"
-        raw_key = f"{cls.PREFIX_NAME}{key_prefix}{secret_key}"
-
-        key_hash = cls.pwd_context.hash(secret_key)
-
-        return raw_key, key_prefix, key_hash
-
-    @classmethod
-    def _extract_key_parts(cls, raw_key: str) -> Tuple[str, str] | None:
-        """
-        Extract prefix and secret from an API key based on its format.
-
-        Supports:
-        - New format: "ApiKey {22-char-prefix}{43-char-secret}"
-        - Old format: "ApiKey {12-char-prefix}{31-char-secret}"
-
-        Returns:
-            Tuple[str, str] -> (key_prefix, secret_to_verify)
-            or None if invalid
-        """
-        if not raw_key.startswith(cls.PREFIX_NAME):
-            return None
-
-        key_part = raw_key[len(cls.PREFIX_NAME) :]
-
-        if len(key_part) == cls.KEY_LENGTH:
-            key_prefix = key_part[: cls.PREFIX_LENGTH]
-            secret_key = key_part[cls.PREFIX_LENGTH :]
-            return key_prefix, secret_key
-
-        old_key_length = 43
-        old_prefix_length = 12
-        if len(key_part) == old_key_length:
-            key_prefix = key_part[:old_prefix_length]
-            secret_key = key_part[old_prefix_length:]
-            return key_prefix, secret_key
-
-        # Invalid format
-        return None
-
-    @classmethod
-    def verify(cls, session: Session, raw_key: str) -> APIKey | None:
-        """
-        Verify an API key by checking its prefix and hashed value.
-        Supports both old (43 chars) and new ("ApiKey " + 65 chars) formats.
-
-        Args:
-            session: Database session
-            raw_key: The raw API key to verify
-
-        Returns:
-            The APIKey record if valid, None otherwise
-        """
-        try:
-            key_parts = cls._extract_key_parts(raw_key)
-
-            if not key_parts:
-                return None
-
-            key_prefix, secret = key_parts
-
-            statement = select(APIKey).where(
-                and_(
-                    APIKey.key_prefix == key_prefix,
-                    APIKey.is_deleted.is_(False),
-                )
-            )
-            api_key_record = session.exec(statement).one_or_none()
-
-            if not api_key_record:
-                return None
-
-            if cls.pwd_context.verify(secret, api_key_record.key_hash):
-                return api_key_record
-
-            return None
-
-        except Exception as e:
-            logger.error(
-                f"[APIKeyManager.verify] Error verifying API key: {str(e)}",
-                exc_info=True,
-            )
-            return None
-
-
-api_key_manager = APIKeyManager()
 
 
 class APIKeyCrud:
