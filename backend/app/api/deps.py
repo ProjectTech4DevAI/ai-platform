@@ -166,13 +166,13 @@ def get_auth_context(
             raise HTTPException(status_code=401, detail="Invalid API Key")
 
         if not auth_context.user.is_active:
-            raise HTTPException(status_code=400, detail="Inactive user")
+            raise HTTPException(status_code=403, detail="Inactive user")
 
         if not auth_context.organization.is_active:
-            raise HTTPException(status_code=400, detail="Inactive Organization")
+            raise HTTPException(status_code=403, detail="Inactive Organization")
 
         if not auth_context.project.is_active:
-            raise HTTPException(status_code=400, detail="Inactive Project")
+            raise HTTPException(status_code=403, detail="Inactive Project")
 
         return auth_context
 
@@ -192,7 +192,7 @@ def get_auth_context(
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         if not user.is_active:
-            raise HTTPException(status_code=400, detail="Inactive user")
+            raise HTTPException(status_code=403, detail="Inactive user")
 
         auth_context = AuthContext(
             user_id=user.id,
