@@ -15,7 +15,7 @@ from app.core.config import settings
 from app.crud.project import get_project_by_id
 from app.models import Document, DocumentPublic, Project
 from app.utils import APIResponse
-from app.tests.utils.auth import AuthContext
+from app.tests.utils.auth import TestAuthContext
 
 from .utils import SequentialUuidGenerator
 
@@ -113,7 +113,7 @@ class Route:
 @dataclass
 class WebCrawler:
     client: TestClient
-    user_api_key: AuthContext
+    user_api_key: TestAuthContext
 
     def get(self, route: Route):
         return self.client.get(
@@ -166,5 +166,5 @@ class DocumentComparator:
 
 
 @pytest.fixture
-def crawler(client: TestClient, user_api_key: AuthContext):
+def crawler(client: TestClient, user_api_key: TestAuthContext):
     return WebCrawler(client, user_api_key=user_api_key)

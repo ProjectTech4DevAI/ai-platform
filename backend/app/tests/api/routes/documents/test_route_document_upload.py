@@ -18,7 +18,7 @@ from app.tests.utils.document import (
     WebCrawler,
     httpx_to_standard,
 )
-from app.tests.utils.auth import AuthContext
+from app.tests.utils.auth import TestAuthContext
 
 
 class WebUploader(WebCrawler):
@@ -77,7 +77,7 @@ def route():
 
 
 @pytest.fixture
-def uploader(client: TestClient, user_api_key: AuthContext):
+def uploader(client: TestClient, user_api_key: TestAuthContext):
     return WebUploader(client, user_api_key)
 
 

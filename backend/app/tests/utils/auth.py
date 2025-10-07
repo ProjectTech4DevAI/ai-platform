@@ -6,7 +6,7 @@ from app.models import User, Organization, Project, APIKey
 from app.core.config import settings
 
 
-class AuthContext(SQLModel):
+class TestAuthContext(SQLModel):
     """Authentication context for testing"""
 
     user_id: int
@@ -28,7 +28,7 @@ def get_auth_context(
     project_name: str,
     raw_key: str,
     user_type: str = "User",
-) -> AuthContext:
+) -> TestAuthContext:
     """
     Helper function to get authentication context from seeded data.
 
@@ -40,7 +40,7 @@ def get_auth_context(
         user_type: Type of user for error messages (e.g., "Superuser", "User")
 
     Returns:
-        AuthContext with all IDs and keys from seeded data
+        TestAuthContext with all IDs and keys from seeded data
 
     Raises:
         ValueError: If the required data is not found in the database
@@ -79,7 +79,7 @@ def get_auth_context(
         )
 
     # Return complete auth context
-    return AuthContext(
+    return TestAuthContext(
         user_id=user.id,
         project_id=project.id,
         organization_id=org.id,
@@ -92,7 +92,7 @@ def get_auth_context(
     )
 
 
-def get_superuser_auth_context(session: Session) -> AuthContext:
+def get_superuser_auth_context(session: Session) -> TestAuthContext:
     """
     Get authentication context for superuser from seeded data.
 
@@ -105,7 +105,7 @@ def get_superuser_auth_context(session: Session) -> AuthContext:
         session: Database session
 
     Returns:
-        AuthContext with all IDs and keys from seeded data
+        TestAuthContext with all IDs and keys from seeded data
 
     Raises:
         ValueError: If the required data is not found in the database
@@ -119,7 +119,7 @@ def get_superuser_auth_context(session: Session) -> AuthContext:
     )
 
 
-def get_user_auth_context(session: Session) -> AuthContext:
+def get_user_auth_context(session: Session) -> TestAuthContext:
     """
     Get authentication context for normal user from seeded data.
 
@@ -132,7 +132,7 @@ def get_user_auth_context(session: Session) -> AuthContext:
         session: Database session
 
     Returns:
-        AuthContext with all IDs and keys from seeded data
+        TestAuthContext with all IDs and keys from seeded data
 
     Raises:
         ValueError: If the required data is not found in the database

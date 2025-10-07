@@ -16,7 +16,7 @@ from app.models import User
 from app.core.config import settings
 from app.models import Document, Project, UserProjectOrg
 from app.tests.utils.document import DocumentStore
-from app.tests.utils.auth import get_user_auth_context, AuthContext
+from app.tests.utils.auth import get_user_auth_context, TestAuthContext
 
 
 @pytest.fixture(scope="class")
@@ -52,7 +52,7 @@ def fast_execute_job() -> Generator[Callable[[int, UUID, str, str], Any], None, 
 
 
 @pytest.fixture
-def current_user(db: Session, user_api_key: AuthContext) -> UserProjectOrg:
+def current_user(db: Session, user_api_key: TestAuthContext) -> UserProjectOrg:
     """Create a test user for testing."""
     api_key = user_api_key
     user = api_key.user

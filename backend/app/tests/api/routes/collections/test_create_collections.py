@@ -11,7 +11,7 @@ from app.tests.utils.document import DocumentStore
 from app.crud.collection import CollectionCrud
 from app.models.collection import CollectionStatus
 from app.tests.utils.openai import get_mock_openai_client_with_vector_store
-from app.tests.utils.auth import AuthContext
+from app.tests.utils.auth import TestAuthContext
 
 
 @pytest.fixture(autouse=True)
@@ -48,7 +48,7 @@ class TestCollectionRouteCreate:
         mock_get_openai_client,
         client: TestClient,
         db: Session,
-        user_api_key: AuthContext,
+        user_api_key: TestAuthContext,
     ):
         store = DocumentStore(db, project_id=user_api_key.project_id)
         documents = store.fill(self._n_documents)

@@ -30,7 +30,7 @@ from app.tests.utils.utils import (
     get_document,
     get_project,
 )
-from app.tests.utils.auth import AuthContext, get_auth_context
+from app.tests.utils.auth import TestAuthContext, get_auth_context
 
 
 def create_test_organization(db: Session) -> Organization:

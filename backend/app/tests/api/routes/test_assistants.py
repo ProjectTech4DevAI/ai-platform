@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch
 from app.tests.utils.openai import mock_openai_assistant
 from app.tests.utils.utils import get_assistant
-from app.tests.utils.auth import AuthContext
+from app.tests.utils.auth import TestAuthContext
 
 
 @pytest.fixture
@@ -30,7 +30,7 @@ def assistant_id():
 def test_ingest_assistant_success(
     mock_fetch_assistant,
     client: TestClient,
-    user_api_key: AuthContext,
+    user_api_key: TestAuthContext,
 ):
     """Test successful assistant ingestion from OpenAI."""
     mock_assistant = mock_openai_assistant()
@@ -53,7 +53,7 @@ def test_create_assistant_success(
     mock_verify_vector_ids,
     client: TestClient,
     assistant_create_payload: dict,
-    user_api_key: AuthContext,
+    user_api_key: TestAuthContext,
 ):
     """Test successful assistant creation with OpenAI vector store ID verification."""
 
@@ -92,7 +92,7 @@ def test_create_assistant_invalid_vector_store(
     mock_verify_vector_ids,
     client: TestClient,
     assistant_create_payload: dict,
-    user_api_key: AuthContext,
+    user_api_key: TestAuthContext,
 ):
     """Test failure when one or more vector store IDs are invalid."""
 
@@ -117,7 +117,7 @@ def test_create_assistant_invalid_vector_store(
 def test_update_assistant_success(
     client: TestClient,
     db: Session,
-    user_api_key: AuthContext,
+    user_api_key: TestAuthContext,
 ):
     """Test successful assistant update."""
     update_payload = {
@@ -151,7 +151,7 @@ def test_update_assistant_invalid_vector_store(
     mock_verify_vector_ids,
     client: TestClient,
     db: Session,
-    user_api_key: AuthContext,
+    user_api_key: TestAuthContext,
 ):
     """Test failure when updating assistant with invalid vector store IDs."""
     mock_verify_vector_ids.side_effect = HTTPException(
@@ -175,7 +175,7 @@ def test_update_assistant_invalid_vector_store(
 
 def test_update_assistant_not_found(
     client: TestClient,
-    user_api_key: AuthContext,
+    user_api_key: TestAuthContext,
 ):
     """Test failure when updating a non-existent assistant."""
     update_payload = {"name": "Updated Assistant"}
@@ -196,7 +196,7 @@ def test_update_assistant_not_found(
 def test_get_assistant_success(
     client: TestClient,
     db: Session,
-    user_api_key: AuthContext,
+    user_api_key: TestAuthContext,
 ):
     """Test successful retrieval of a single assistant."""
     assistant = get_assistant(db, project_id=user_api_key.project_id)
@@ -235,7 +235,7 @@ def test_get_assistant_not_found(
 def test_list_assistants_success(
     client: TestClient,
     db: Session,
-    user_api_key: AuthContext,
+    user_api_key: TestAuthContext,
 ):
     """Test successful retrieval of assistants list."""
     assistant = get_assistant(db, project_id=user_api_key.project_id)
@@ -286,7 +286,7 @@ def test_list_assistants_invalid_pagination(
 def test_delete_assistant_success(
     client: TestClient,
     db: Session,
-    user_api_key: AuthContext,
+    user_api_key: TestAuthContext,
 ):
     """Test successful soft deletion of an assistant."""
     assistant = get_assistant(db, project_id=user_api_key.project_id)

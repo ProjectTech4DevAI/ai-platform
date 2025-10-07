@@ -19,7 +19,7 @@ from app.tests.utils.utils import get_superuser_token_headers
 from app.tests.utils.auth import (
     get_superuser_auth_context,
     get_user_auth_context,
-    AuthContext,
+    TestAuthContext,
 )
 from app.seed_data.seed_data import seed_database
 
@@ -84,12 +84,12 @@ def user_api_key_header(db: Session) -> dict[str, str]:
 
 
 @pytest.fixture
-def superuser_api_key(db: Session) -> AuthContext:
+def superuser_api_key(db: Session) -> TestAuthContext:
     auth_ctx = get_superuser_auth_context(db)
     return auth_ctx
 
 
 @pytest.fixture
-def user_api_key(db: Session) -> AuthContext:
+def user_api_key(db: Session) -> TestAuthContext:
     auth_ctx = get_user_auth_context(db)
     return auth_ctx

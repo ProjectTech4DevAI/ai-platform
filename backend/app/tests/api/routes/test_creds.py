@@ -13,7 +13,7 @@ from app.tests.utils.test_data import (
     create_test_credential,
     test_credential_data,
 )
-from app.tests.utils.auth import AuthContext
+from app.tests.utils.auth import TestAuthContext
 
 
 @pytest.fixture
@@ -23,7 +23,7 @@ def create_test_credentials(db: Session):
 
 def test_set_credential(
     client: TestClient,
-    user_api_key: AuthContext,
+    user_api_key: TestAuthContext,
 ):
     project_id = user_api_key.project_id
     org_id = user_api_key.organization_id
@@ -65,7 +65,7 @@ def test_set_credential(
 
 def test_set_credentials_ignored_mismatched_ids(
     client: TestClient,
-    user_api_key: AuthContext,
+    user_api_key: TestAuthContext,
 ):
     # Even if mismatched IDs are sent, route uses API key context
     # Ensure clean state for provider
@@ -90,7 +90,7 @@ def test_set_credentials_ignored_mismatched_ids(
 
 def test_read_credentials_with_creds(
     client: TestClient,
-    user_api_key: AuthContext,
+    user_api_key: TestAuthContext,
 ):
     # Ensure at least one credential exists for current project
     api_key_value = "sk-" + generate_random_string(10)
@@ -120,7 +120,7 @@ def test_read_credentials_with_creds(
 
 
 def test_read_credentials_not_found(
-    client: TestClient, db: Session, user_api_key: AuthContext
+    client: TestClient, db: Session, user_api_key: TestAuthContext
 ):
     # Delete all first to ensure none remain
     client.delete(
@@ -136,7 +136,7 @@ def test_read_credentials_not_found(
 
 def test_read_provider_credential(
     client: TestClient,
-    user_api_key: AuthContext,
+    user_api_key: TestAuthContext,
 ):
     # Ensure exists
     client.delete(
@@ -168,7 +168,7 @@ def test_read_provider_credential(
 
 
 def test_read_provider_credential_not_found(
-    client: TestClient, db: Session, user_api_key: AuthContext
+    client: TestClient, db: Session, user_api_key: TestAuthContext
 ):
     # Ensure none
     client.delete(
@@ -185,7 +185,7 @@ def test_read_provider_credential_not_found(
 
 def test_update_credentials(
     client: TestClient,
-    user_api_key: AuthContext,
+    user_api_key: TestAuthContext,
 ):
     # Ensure exists
     client.delete(
@@ -230,7 +230,7 @@ def test_update_credentials(
 
 
 def test_update_credentials_not_found_for_provider(
-    client: TestClient, db: Session, user_api_key: AuthContext
+    client: TestClient, db: Session, user_api_key: TestAuthContext
 ):
     # Ensure none exist
     client.delete(
@@ -257,7 +257,7 @@ def test_update_credentials_not_found_for_provider(
 
 def test_delete_provider_credential(
     client: TestClient,
-    user_api_key: AuthContext,
+    user_api_key: TestAuthContext,
 ):
     # Ensure exists
     client.delete(
@@ -284,7 +284,7 @@ def test_delete_provider_credential(
 
 
 def test_delete_provider_credential_not_found(
-    client: TestClient, db: Session, user_api_key: AuthContext
+    client: TestClient, db: Session, user_api_key: TestAuthContext
 ):
     # Ensure not exists
     client.delete(
@@ -301,7 +301,7 @@ def test_delete_provider_credential_not_found(
 
 def test_delete_all_credentials(
     client: TestClient,
-    user_api_key: AuthContext,
+    user_api_key: TestAuthContext,
 ):
     # Ensure exists
     client.delete(
@@ -339,7 +339,7 @@ def test_delete_all_credentials(
 
 
 def test_delete_all_credentials_not_found(
-    client: TestClient, db: Session, user_api_key: AuthContext
+    client: TestClient, db: Session, user_api_key: TestAuthContext
 ):
     # Ensure already deleted
     client.delete(
@@ -357,7 +357,7 @@ def test_delete_all_credentials_not_found(
 def test_duplicate_credential_creation(
     client: TestClient,
     db: Session,
-    user_api_key: AuthContext,
+    user_api_key: TestAuthContext,
 ):
     credential = test_credential_data(db)
     # Ensure clean state for provider
@@ -386,7 +386,7 @@ def test_duplicate_credential_creation(
 
 def test_multiple_provider_credentials(
     client: TestClient,
-    user_api_key: AuthContext,
+    user_api_key: TestAuthContext,
 ):
     # Ensure clean state for current org/project
     client.delete(
@@ -453,7 +453,7 @@ def test_multiple_provider_credentials(
 def test_credential_encryption(
     client: TestClient,
     db: Session,
-    user_api_key: AuthContext,
+    user_api_key: TestAuthContext,
 ):
     credential = test_credential_data(db)
     original_api_key = credential.credential[Provider.OPENAI.value]["api_key"]
@@ -491,7 +491,7 @@ def test_credential_encryption(
 
 
 def test_credential_encryption_consistency(
-    client: TestClient, db: Session, user_api_key: AuthContext
+    client: TestClient, db: Session, user_api_key: TestAuthContext
 ):
     credentials = test_credential_data(db)
     original_api_key = credentials.credential[Provider.OPENAI.value]["api_key"]

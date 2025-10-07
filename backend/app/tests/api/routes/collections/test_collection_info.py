@@ -5,12 +5,12 @@ from sqlmodel import Session
 from app.core.config import settings
 from app.models import Collection
 from app.models.collection import CollectionStatus
-from app.tests.utils.auth import AuthContext
+from app.tests.utils.auth import TestAuthContext
 
 
 def create_collection(
     db,
-    user_api_key: AuthContext,
+    user_api_key: TestAuthContext,
     status: CollectionStatus = CollectionStatus.processing,
     with_llm: bool = False,
 ):
@@ -34,7 +34,7 @@ def create_collection(
 
 
 def test_collection_info_processing(
-    db: Session, client: TestClient, user_api_key: AuthContext
+    db: Session, client: TestClient, user_api_key: TestAuthContext
 ):
     headers = {"X-API-KEY": user_api_key.key}
     collection = create_collection(db, user_api_key, status=CollectionStatus.processing)
@@ -54,7 +54,7 @@ def test_collection_info_processing(
 
 
 def test_collection_info_successful(
-    db: Session, client: TestClient, user_api_key: AuthContext
+    db: Session, client: TestClient, user_api_key: TestAuthContext
 ):
     headers = {"X-API-KEY": user_api_key.key}
     collection = create_collection(
@@ -76,7 +76,7 @@ def test_collection_info_successful(
 
 
 def test_collection_info_failed(
-    db: Session, client: TestClient, user_api_key: AuthContext
+    db: Session, client: TestClient, user_api_key: TestAuthContext
 ):
     headers = {"X-API-KEY": user_api_key.key}
     collection = create_collection(db, user_api_key, status=CollectionStatus.failed)
