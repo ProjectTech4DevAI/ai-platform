@@ -56,16 +56,16 @@ class APIKeyCrud:
         """
         Create a new API key for the project.
         """
+        project = get_project_by_id(session=self.session, project_id=project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        user = self.session.get(User, user_id)
+
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
         try:
-            project = get_project_by_id(session=self.session, project_id=project_id)
-            if not project:
-                raise HTTPException(status_code=404, detail="Project not found")
-
-            user = self.session.get(User, user_id)
-
-            if not user:
-                raise HTTPException(status_code=404, detail="User not found")
-
             raw_key, key_prefix, key_hash = api_key_manager.generate()
 
             api_key = APIKey(

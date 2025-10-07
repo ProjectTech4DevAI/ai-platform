@@ -4,6 +4,7 @@ from app.models import (
     Organization,
     Project,
     APIKey,
+    APIKeyCreateResponse,
     Credential,
     OrganizationCreate,
     ProjectCreate,
@@ -82,6 +83,29 @@ def test_credential_data(db: Session) -> CredsCreate:
         },
     )
     return creds_data
+
+
+def create_test_api_key(
+    db: Session,
+    project_id: int | None = None,
+    user_id: int | None = None,
+) -> APIKeyCreateResponse:
+    """
+    Creates and returns a test API key for a specific project and user.
+
+    Persists the API key to the database.
+    """
+    if user_id is None:
+        user = create_random_user(db)
+        user_id = user.id
+
+    if project_id is None:
+        project = create_test_project(db)
+        project_id = project.id
+
+    api_key_crud = APIKeyCrud(session=db, project_id=project_id)
+    raw_key, api_key = api_key_crud.create(user_id=user_id, project_id=project_id)
+    return api_key
 
 
 def create_test_credential(db: Session) -> tuple[list[Credential], Project]:
