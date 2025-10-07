@@ -5,7 +5,7 @@ from typing import Tuple
 from sqlmodel import Session, select, and_
 from fastapi import HTTPException
 
-from app.models import APIKey
+from app.models import APIKey, User
 from app.crud import get_project_by_id
 from app.core.util import now
 from app.core.security import api_key_manager
@@ -52,23 +52,28 @@ class APIKeyCrud:
         )
         return self.session.exec(statement).all()
 
-    def create(self, user_id: int) -> Tuple[str, APIKey]:
+    def create(self, user_id: int, project_id: int) -> Tuple[str, APIKey]:
         """
         Create a new API key for the project.
         """
         try:
-            raw_key, key_prefix, key_hash = api_key_manager.generate()
+            project = get_project_by_id(session=self.session, project_id=project_id)
+            if not project:
+                raise HTTPException(status_code=404, detail="Project not found")
 
-            project = get_project_by_id(
-                session=self.session, project_id=self.project_id
-            )
+            user = self.session.get(User, user_id)
+
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+
+            raw_key, key_prefix, key_hash = api_key_manager.generate()
 
             api_key = APIKey(
                 key_prefix=key_prefix,
                 key_hash=key_hash,
                 user_id=user_id,
                 organization_id=project.organization_id,
-                project_id=self.project_id,
+                project_id=project_id,
             )
 
             self.session.add(api_key)

@@ -18,18 +18,20 @@ router = APIRouter(prefix="/apikeys", tags=["API Keys"])
 )
 def create_api_key_route(
     project_id: int,
+    user_id: int,
     current_user: AuthContextDep,
     session: SessionDep,
 ):
     """
-    Create a new API key for the current project.
+    Create a new API key for the project and user, Restricted to Superuser.
 
     The raw API key is returned only once during creation.
     Store it securely as it cannot be retrieved again.
     """
     api_key_crud = APIKeyCrud(session=session, project_id=project_id)
     raw_key, api_key = api_key_crud.create(
-        user_id=current_user.id,
+        user_id=user_id,
+        project_id=project_id,
     )
 
     api_key = APIKeyCreateResponse(**api_key.model_dump(), key=raw_key)
