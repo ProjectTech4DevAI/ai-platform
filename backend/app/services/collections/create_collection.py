@@ -156,8 +156,6 @@ def execute_job(
                 if flat_docs:
                     DocumentCollectionCrud(session).create(collection_data, flat_docs)
 
-                collection_crud.create(collection_data)
-
                 collection_job.status = CollectionJobStatus.SUCCESSFUL
                 collection_job.collection_id = collection_id
                 collection_job_crud.update(collection_job.id, collection_job)

@@ -69,7 +69,7 @@ class CollectionJobCreate(SQLModel):
 
 
 class CollectionJobUpdate(SQLModel):
-    task_id: UUID | None = None
+    task_id: str | None = None
     status: CollectionJobStatus
     error_message: str | None = None
     collection_id: UUID | None = None
