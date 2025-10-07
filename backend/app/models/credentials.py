@@ -7,17 +7,22 @@ from app.core.util import now
 
 
 class CredsBase(SQLModel):
-    organization_id: int = Field(foreign_key="organization.id")
-    project_id: Optional[int] = Field(default=None, foreign_key="project.id")
+    organization_id: int = Field(
+        foreign_key="organization.id", nullable=False, ondelete="CASCADE"
+    )
+    project_id: int = Field(
+        default=None, foreign_key="project.id", nullable=False, ondelete="CASCADE"
+    )
     is_active: bool = True
 
 
-class CredsCreate(CredsBase):
+class CredsCreate(SQLModel):
     """Create new credentials for an organization.
     The credential field should be a dictionary mapping provider names to their credentials.
     Example: {"openai": {"api_key": "..."}, "langfuse": {"public_key": "..."}}
     """
 
+    is_active: bool = True
     credential: Dict[str, Any] = Field(
         default=None,
         description="Dictionary mapping provider names to their credentials",
@@ -38,9 +43,6 @@ class CredsUpdate(SQLModel):
     is_active: Optional[bool] = Field(
         default=None, description="Whether the credentials are active"
     )
-    project_id: Optional[int] = Field(
-        default=None, description="Project ID to associate with these credentials"
-    )
 
 
 class Credential(CredsBase, table=True):
@@ -53,16 +55,16 @@ class Credential(CredsBase, table=True):
         index=True, description="Provider name like 'openai', 'gemini'"
     )
     credential: str = Field(
-        sa_column=sa.Column(sa.String),
+        sa_column=sa.Column(sa.String, nullable=False),
         description="Encrypted provider-specific credentials",
     )
     inserted_at: datetime = Field(
         default_factory=now,
-        sa_column=sa.Column(sa.DateTime, default=datetime.utcnow),
+        sa_column=sa.Column(sa.DateTime, default=datetime.utcnow, nullable=False),
     )
     updated_at: datetime = Field(
         default_factory=now,
-        sa_column=sa.Column(sa.DateTime, onupdate=datetime.utcnow),
+        sa_column=sa.Column(sa.DateTime, onupdate=datetime.utcnow, nullable=False),
     )
     deleted_at: Optional[datetime] = Field(
         default=None, sa_column=sa.Column(sa.DateTime, nullable=True)

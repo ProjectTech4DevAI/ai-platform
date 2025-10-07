@@ -1,0 +1,90 @@
+name: RAG Benchmark
+
+run-name: RAG Benchmark by ${{ github.actor }}
+
+on:
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    environment: main
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        dataset: [kunji, sneha]
+        service: [assistants, responses]
+        count: [100]
+
+    env:
+      LOCAL_CREDENTIALS_ORG_OPENAI_API_KEY: ${{ secrets.LOCAL_CREDENTIALS_ORG_OPENAI_API_KEY }}
+      LOCAL_CREDENTIALS_API_KEY: ${{ secrets.LOCAL_CREDENTIALS_API_KEY }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - run: |
+          cp .env.example .env
+          sed -i 's/changethis/secret123/g' .env
+
+      - name: Run server
+        run: |
+          docker compose up -d
+          sleep 10
+
+      - name: prestart logs on failure
+        if: failure()
+        run: |
+          docker compose logs -f prestart
+          exit 1
+
+      - name: Create local credentials
+        run: |
+          curl -X POST "http://localhost:8000/api/v1/credentials/" \
+            -H "Content-Type: application/json" \
+            -H "X-API-KEY: ${{ env.LOCAL_CREDENTIALS_API_KEY }}" \
+            -d '{
+              "organization_id": 1,
+              "project_id": 1,
+              "is_active": true,
+              "credential": {
+                "openai": {
+                  "api_key": "${{ env.LOCAL_CREDENTIALS_ORG_OPENAI_API_KEY }}"
+                }
+              }
+            }'
+
+      - name: Run benchmark
+        run: |
+          docker compose exec backend uv run ai-cli bench ${{ matrix.service }} --dataset ${{ matrix.dataset }} --count ${{ matrix.count }} | tee benchmark_output.txt
+          # Extract mean duration from benchmark output
+          MEAN_DURATION=$(grep '^Mean duration:' benchmark_output.txt | awk '{print $3}')
+          echo "## Benchmark Results for ${{ matrix.service }} - ${{ matrix.dataset }} (${{ matrix.count }} queries, ${MEAN_DURATION} avg)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat benchmark_output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          # Find latest benchmark file inside container first
+          CONTAINER_LATEST=$(docker compose exec backend sh -c "ls -t bench_results_*.csv | head -n1")
+          # Copy the specific file out
+          docker compose cp backend:/app/$CONTAINER_LATEST ./
+          cp $CONTAINER_LATEST bench-${{ matrix.service }}-${{ matrix.dataset }}-${{ matrix.count }}.csv
+          ls -l bench-${{ matrix.service }}-${{ matrix.dataset }}-${{ matrix.count }}.csv
+
+      - name: backend logs on failure
+        if: failure()
+        timeout-minutes: 1
+        run: |
+          docker compose logs -f backend
+          exit 1
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-${{ matrix.service }}-${{ matrix.dataset }}-${{ matrix.count }}.csv
+          path: bench-${{ matrix.service }}-${{ matrix.dataset }}-${{ matrix.count }}.csv
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down

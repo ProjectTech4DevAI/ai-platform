@@ -4,23 +4,21 @@ from openai import OpenAI
 from sqlmodel import Session
 
 from app.crud import CollectionCrud
-from app.core.config import settings
 from app.models import Collection
 from app.tests.utils.document import DocumentStore
 from app.tests.utils.collection import get_collection
-from app.tests.utils.utils import openai_credentials
 
 
 def create_collections(db: Session, n: int):
     crud = None
-    store = DocumentStore(db)
-    documents = store.fill(1)
 
     openai_mock = OpenAIMock()
     with openai_mock.router:
-        client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        client = OpenAI(api_key="sk-test-key")
         for _ in range(n):
             collection = get_collection(db, client)
+            store = DocumentStore(db, project_id=collection.project_id)
+            documents = store.fill(1)
             if crud is None:
                 crud = CollectionCrud(db, collection.owner_id)
             crud.create(collection, documents)
@@ -34,14 +32,10 @@ def refresh(self, db: Session):
     db.commit()
 
 
-@pytest.mark.usefixtures("openai_credentials")
 class TestCollectionReadAll:
     _ncollections = 5
 
-    def test_number_read_is_expected(
-        self,
-        db: Session,
-    ):
+    def test_number_read_is_expected(self, db: Session):
         db.query(Collection).delete()
 
         owner = create_collections(db, self._ncollections)

@@ -2,7 +2,7 @@
 name = "app"
 version = "0.1.0"
 description = ""
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.11,<4.0"
 dependencies = [
     "fastapi[standard]<1.0.0,>=0.114.2",
     "python-multipart<1.0.0,>=0.0.7",
@@ -28,6 +28,13 @@ dependencies = [
     "pre-commit>=3.8.0",
     "openai_responses",
     "langfuse>=2.60.3",
+    "asgi-correlation-id>=4.3.4",
+    "py-zerox>=0.0.7,<1.0.0",
+    "pandas>=2.3.2",
+    "scikit-learn>=1.7.1",
+    "celery>=5.3.0,<6.0.0",
+    "redis>=5.0.0,<6.0.0",
+    "flower>=2.0.1",
 ]
 
 [tool.uv]
@@ -44,6 +51,9 @@ dev-dependencies = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[project.scripts]
+ai-cli = "app.cli.main:cli"
+
 [tool.mypy]
 strict = true
 exclude = ["venv", ".venv", "alembic"]
@@ -54,20 +64,20 @@ exclude = ["alembic"]
 
 [tool.ruff.lint]
 select = [
-    "E",  # pycodestyle errors
-    "W",  # pycodestyle warnings
-    "F",  # pyflakes
-    "I",  # isort
-    "B",  # flake8-bugbear
-    "C4",  # flake8-comprehensions
-    "UP",  # pyupgrade
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
     "ARG001", # unused arguments in functions
 ]
 ignore = [
-    "E501",  # line too long, handled by black
-    "B008",  # do not perform function calls in argument defaults
-    "W191",  # indentation contains tabs
-    "B904",  # Allow raising exceptions without from e, for HTTPException
+    "E501", # line too long, handled by black
+    "B008", # do not perform function calls in argument defaults
+    "W191", # indentation contains tabs
+    "B904", # Allow raising exceptions without from e, for HTTPException
 ]
 
 [tool.ruff.lint.pyupgrade]

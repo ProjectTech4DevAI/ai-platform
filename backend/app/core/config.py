@@ -1,11 +1,10 @@
 import secrets
 import warnings
 import os
-from typing import Annotated, Any, Literal
+import multiprocessing
+from typing import Any, Literal
 
 from pydantic import (
-    AnyUrl,
-    BeforeValidator,
     EmailStr,
     HttpUrl,
     PostgresDsn,
@@ -17,42 +16,30 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 
 
-def parse_cors(v: Any) -> list[str] | str:
-    if isinstance(v, str) and not v.startswith("["):
-        return [i.strip() for i in v.split(",")]
-    elif isinstance(v, list | str):
-        return v
-    raise ValueError(v)
+def parse_cors(origins: Any) -> list[str] | str:
+    # If it's a plain comma-separated string, split it into a list
+    if isinstance(origins, str) and not origins.startswith("["):
+        return [origin.strip() for origin in origins.split(",")]
+    # If it's already a list or JSON-style string, just return it
+    elif isinstance(origins, (list, str)):
+        return origins
+    raise ValueError(f"Invalid CORS origins format: {origins!r}")
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        # Use top level .env file (one level above ./backend/)
-        env_file="../.env",
+        # env_file will be set dynamically in get_settings()
         env_ignore_empty=True,
         extra="ignore",
     )
-    LANGFUSE_PUBLIC_KEY: str
-    LANGFUSE_SECRET_KEY: str
-    LANGFUSE_HOST: str  # 🇪🇺 EU region
-    OPENAI_API_KEY: str
+
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = secrets.token_urlsafe(32)
     # 60 minutes * 24 hours * 1 days = 1 days
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 1
-    FRONTEND_HOST: str = "http://localhost:5173"
-    ENVIRONMENT: Literal["local", "staging", "production"] = "local"
-
-    BACKEND_CORS_ORIGINS: Annotated[
-        list[AnyUrl] | str, BeforeValidator(parse_cors)
-    ] = []
-
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def all_cors_origins(self) -> list[str]:
-        return [str(origin).rstrip("/") for origin in self.BACKEND_CORS_ORIGINS] + [
-            self.FRONTEND_HOST
-        ]
+    ENVIRONMENT: Literal[
+        "development", "testing", "staging", "production"
+    ] = "development"
 
     PROJECT_NAME: str
     SENTRY_DSN: HttpUrl | None = None
@@ -74,42 +61,75 @@ class Settings(BaseSettings):
             path=self.POSTGRES_DB,
         )
 
-    SMTP_TLS: bool = True
-    SMTP_SSL: bool = False
-    SMTP_PORT: int = 587
-    SMTP_HOST: str | None = None
-    SMTP_USER: str | None = None
-    SMTP_PASSWORD: str | None = None
-    EMAILS_FROM_EMAIL: EmailStr | None = None
-    EMAILS_FROM_NAME: EmailStr | None = None
-
-    @model_validator(mode="after")
-    def _set_default_emails_from(self) -> Self:
-        if not self.EMAILS_FROM_NAME:
-            self.EMAILS_FROM_NAME = self.PROJECT_NAME
-        return self
-
     EMAIL_RESET_TOKEN_EXPIRE_HOURS: int = 48
+    EMAIL_TEST_USER: EmailStr
 
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def emails_enabled(self) -> bool:
-        return bool(self.SMTP_HOST and self.EMAILS_FROM_EMAIL)
-
-    EMAIL_TEST_USER: EmailStr = "test@example.com"
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
 
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""
     AWS_DEFAULT_REGION: str = ""
+    AWS_S3_BUCKET_PREFIX: str = ""
+
+    # RabbitMQ configuration for Celery broker
+    RABBITMQ_HOST: str = "localhost"
+    RABBITMQ_PORT: int = 5672
+    RABBITMQ_USER: str = "guest"
+    RABBITMQ_PASSWORD: str = "guest"
+    RABBITMQ_VHOST: str = "/"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def RABBITMQ_URL(self) -> str:
+        return f"amqp://{self.RABBITMQ_USER}:{self.RABBITMQ_PASSWORD}@{self.RABBITMQ_HOST}:{self.RABBITMQ_PORT}/{self.RABBITMQ_VHOST}"
+
+    # Redis configuration for Celery result backend
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+    REDIS_PASSWORD: str = ""
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def REDIS_URL(self) -> str:
+        if self.REDIS_PASSWORD:
+            return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def AWS_S3_BUCKET(self) -> str:
-        return f"ai-platform-documents-{self.ENVIRONMENT}"
+        return f"{self.AWS_S3_BUCKET_PREFIX}-{self.ENVIRONMENT}"
 
     LOG_DIR: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
+
+    # Celery Configuration
+    CELERY_WORKER_CONCURRENCY: int | None = None
+    CELERY_WORKER_MAX_TASKS_PER_CHILD: int = 1000
+    CELERY_WORKER_MAX_MEMORY_PER_CHILD: int = 200000
+    CELERY_TASK_SOFT_TIME_LIMIT: int = 300
+    CELERY_TASK_TIME_LIMIT: int = 600
+    CELERY_TASK_MAX_RETRIES: int = 3
+    CELERY_TASK_DEFAULT_RETRY_DELAY: int = 60
+    CELERY_RESULT_EXPIRES: int = 3600
+    CELERY_BROKER_POOL_LIMIT: int = 10
+    CELERY_WORKER_PREFETCH_MULTIPLIER: int = 1
+    CELERY_ENABLE_UTC: bool = True
+    CELERY_TIMEZONE: str = "UTC"
+
+    # callback timeouts
+    CALLBACK_CONNECT_TIMEOUT: int = 3
+    CALLBACK_READ_TIMEOUT: int = 10
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def COMPUTED_CELERY_WORKER_CONCURRENCY(self) -> int:
+        """Auto-calculate worker concurrency if not set explicitly."""
+        if self.CELERY_WORKER_CONCURRENCY is not None:
+            return self.CELERY_WORKER_CONCURRENCY
+        # Use CPU cores * 2 as default
+        return multiprocessing.cpu_count() * 2
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
@@ -117,7 +137,7 @@ class Settings(BaseSettings):
                 f'The value of {var_name} is "changethis", '
                 "for security, please change it, at least for deployments."
             )
-            if self.ENVIRONMENT == "local":
+            if self.ENVIRONMENT in ["development", "testing"]:
                 warnings.warn(message, stacklevel=1)
             else:
                 raise ValueError(message)
@@ -133,4 +153,17 @@ class Settings(BaseSettings):
         return self
 
 
-settings = Settings()  # type: ignore
+def get_settings() -> Settings:
+    """Get settings with appropriate env file based on ENVIRONMENT."""
+    environment = os.getenv("ENVIRONMENT", "development")
+
+    # Determine env file
+    env_files = {"testing": "../.env.test", "development": "../.env"}
+    env_file = env_files.get(environment, "../.env")
+
+    # Create Settings instance with the appropriate env file
+    return Settings(_env_file=env_file)
+
+
+# Export settings instance
+settings = get_settings()

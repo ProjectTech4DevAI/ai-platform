@@ -1,6 +1,9 @@
 import pytest
 import openai_responses
+from openai_responses import OpenAIMock
+from openai import OpenAI
 from sqlmodel import Session, select
+from unittest.mock import patch
 
 from app.models import Document
 from app.tests.utils.document import (
@@ -10,8 +13,6 @@ from app.tests.utils.document import (
     WebCrawler,
     crawler,
 )
-from app.tests.utils.collection import get_collection
-from app.tests.utils.utils import openai_credentials
 
 
 @pytest.fixture
@@ -19,47 +20,69 @@ def route():
     return Route("remove")
 
 
-@pytest.mark.usefixtures("openai_credentials")
 class TestDocumentRouteRemove:
     @openai_responses.mock()
+    @patch("app.api.routes.documents.get_openai_client")
     def test_response_is_success(
         self,
+        mock_get_openai_client,
         db: Session,
         route: Route,
         crawler: WebCrawler,
     ):
-        store = DocumentStore(db)
-        response = crawler.get(route.append(store.put()))
+        openai_mock = OpenAIMock()
+        with openai_mock.router:
+            client = OpenAI(api_key="sk-test-key")
+            mock_get_openai_client.return_value = client
 
-        assert response.is_success
+            store = DocumentStore(db=db, project_id=crawler.user_api_key.project_id)
+            response = crawler.delete(route.append(store.put()))
+
+            assert response.is_success
 
     @openai_responses.mock()
+    @patch("app.api.routes.documents.get_openai_client")
     def test_item_is_soft_removed(
         self,
+        mock_get_openai_client,
         db: Session,
         route: Route,
         crawler: WebCrawler,
     ):
-        store = DocumentStore(db)
-        document = store.put()
+        openai_mock = OpenAIMock()
+        with openai_mock.router:
+            client = OpenAI(api_key="sk-test-key")
+            mock_get_openai_client.return_value = client
 
-        crawler.get(route.append(document))
-        db.refresh(document)
-        statement = select(Document).where(Document.id == document.id)
-        result = db.exec(statement).one()
+            store = DocumentStore(db=db, project_id=crawler.user_api_key.project_id)
+            document = store.put()
 
-        assert result.deleted_at is not None
+            crawler.delete(route.append(document))
+            db.refresh(document)
+            statement = select(Document).where(Document.id == document.id)
+            result = db.exec(statement).one()
+
+            assert result.is_deleted is True
 
     @openai_responses.mock()
+    @patch("app.api.routes.documents.get_openai_client")
     def test_cannot_remove_unknown_document(
         self,
+        mock_get_openai_client,
         db: Session,
         route: Route,
         crawler: WebCrawler,
     ):
-        DocumentStore.clear(db)
+        openai_mock = OpenAIMock()
+        with openai_mock.router:
+            client = OpenAI(api_key="sk-test-key")
+            mock_get_openai_client.return_value = client
 
-        maker = DocumentMaker(db)
-        response = crawler.get(route.append(next(maker)))
+            DocumentStore.clear(db)
 
-        assert response.is_error
+            maker = DocumentMaker(
+                project_id=crawler.user_api_key.project_id, session=db
+            )
+            response = crawler.delete(route.append(next(maker)))
+
+            assert response.is_error

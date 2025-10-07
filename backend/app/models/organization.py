@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import List, TYPE_CHECKING
 from sqlmodel import Field, Relationship, SQLModel
-from sqlalchemy.orm import relationship
 
 from app.core.util import now
 
@@ -9,6 +8,9 @@ if TYPE_CHECKING:
     from .credentials import Credential
     from .project import Project
     from .api_key import APIKey
+    from .assistants import Assistant
+    from .collection import Collection
+    from .openai_conversation import OpenAIConversation
 
 
 # Shared properties for an Organization
@@ -36,13 +38,22 @@ class Organization(OrganizationBase, table=True):
 
     # Relationship back to Creds
     api_keys: list["APIKey"] = Relationship(
-        back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete"}
+        back_populates="organization", cascade_delete=True
     )
     creds: list["Credential"] = Relationship(
-        back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete"}
+        back_populates="organization", cascade_delete=True
     )
     project: list["Project"] = Relationship(
-        back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete"}
+        back_populates="organization", cascade_delete=True
+    )
+    assistants: list["Assistant"] = Relationship(
+        back_populates="organization", cascade_delete=True
+    )
+    collections: list["Collection"] = Relationship(
+        back_populates="organization", cascade_delete=True
+    )
+    openai_conversations: list["OpenAIConversation"] = Relationship(
+        back_populates="organization", cascade_delete=True
     )
 
 

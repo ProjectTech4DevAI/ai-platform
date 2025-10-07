@@ -1,24 +1,31 @@
-from typing import Optional, Dict, Any, List
+import logging
+from typing import Optional, Dict, Any, List, Union
 from sqlmodel import Session, select
 from sqlalchemy.exc import IntegrityError
-from datetime import datetime, timezone
 
 from app.models import Credential, CredsCreate, CredsUpdate
 from app.core.providers import (
     validate_provider,
     validate_provider_credentials,
-    get_supported_providers,
 )
 from app.core.security import encrypt_credentials, decrypt_credentials
 from app.core.util import now
+from app.core.exception_handlers import HTTPException
+
+logger = logging.getLogger(__name__)
 
 
-def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Credential]:
+def set_creds_for_org(
+    *, session: Session, creds_add: CredsCreate, organization_id: int, project_id: int
+) -> List[Credential]:
     """Set credentials for an organization. Creates a separate row for each provider."""
     created_credentials = []
 
     if not creds_add.credential:
-        raise ValueError("No credentials provided")
+        logger.error(
+            f"[set_creds_for_org] No credentials provided | project_id: {project_id}"
+        )
+        raise HTTPException(400, "No credentials provided")
 
     for provider, credentials in creds_add.credential.items():
         # Validate provider and credentials
@@ -30,8 +37,8 @@ def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Crede
 
         # Create a row for each provider
         credential = Credential(
-            organization_id=creds_add.organization_id,
-            project_id=creds_add.project_id,
+            organization_id=organization_id,
+            project_id=project_id,
             is_active=creds_add.is_active,
             provider=provider,
             credential=encrypted_credentials,
@@ -44,10 +51,16 @@ def set_creds_for_org(*, session: Session, creds_add: CredsCreate) -> List[Crede
             created_credentials.append(credential)
         except IntegrityError as e:
             session.rollback()
+            logger.error(
+                f"[set_creds_for_org] Integrity error while adding credentials | organization_id {organization_id}, project_id {project_id}, provider {provider}: {str(e)}",
+                exc_info=True,
+            )
             raise ValueError(
                 f"Error while adding credentials for provider {provider}: {str(e)}"
             )
-
+    logger.info(
+        f"[set_creds_for_org] Successfully created credentials | organization_id {organization_id}, project_id {project_id}"
+    )
     return created_credentials
 
 
@@ -87,9 +100,21 @@ def get_creds_by_org(
 
 
 def get_provider_credential(
-    *, session: Session, org_id: int, provider: str, project_id: Optional[int] = None
-) -> Optional[Dict[str, Any]]:
-    """Fetches credentials for a specific provider of an organization."""
+    *,
+    session: Session,
+    org_id: int,
+    provider: str,
+    project_id: Optional[int] = None,
+    full: bool = False,
+) -> Optional[Union[Dict[str, Any], Credential]]:
+    """
+    Fetch credentials for a specific provider within a project.
+
+    Returns:
+        Optional[Union[Dict[str, Any], Credential]]:
+            - If `full` is True, returns the full Credential SQLModel object.
+            - Otherwise, returns the decrypted credentials as a dictionary.
+    """
     validate_provider(provider)
 
     statement = select(Credential).where(
@@ -101,8 +126,7 @@ def get_provider_credential(
     creds = session.exec(statement).first()
 
     if creds and creds.credential:
-        # Decrypt entire credentials object
-        return decrypt_credentials(creds.credential)
+        return creds if full else decrypt_credentials(creds.credential)
     return None
 
 
@@ -115,7 +139,11 @@ def get_providers(
 
 
 def update_creds_for_org(
-    *, session: Session, org_id: int, creds_in: CredsUpdate
+    *,
+    session: Session,
+    org_id: int,
+    creds_in: CredsUpdate,
+    project_id: Optional[int] = None,
 ) -> List[Credential]:
     """Updates credentials for a specific provider of an organization."""
     if not creds_in.provider or not creds_in.credential:
@@ -131,21 +159,25 @@ def update_creds_for_org(
         Credential.organization_id == org_id,
         Credential.provider == creds_in.provider,
         Credential.is_active == True,
-        Credential.project_id == creds_in.project_id
-        if creds_in.project_id is not None
-        else True,
+        Credential.project_id == project_id if project_id is not None else True,
     )
     creds = session.exec(statement).first()
-
-    if not creds:
-        raise ValueError(f"No credentials found for provider {creds_in.provider}")
+    if creds is None:
+        logger.error(
+            f"[update_creds_for_org] Credentials not found | organization {org_id}, provider {creds_in.provider}, project_id {project_id}"
+        )
+        raise HTTPException(
+            status_code=404, detail="Credentials not found for this provider"
+        )
 
     creds.credential = encrypted_credentials
     creds.updated_at = now()
     session.add(creds)
     session.commit()
     session.refresh(creds)
-
+    logger.info(
+        f"[update_creds_for_org] Successfully updated credentials | organization_id {org_id}, provider {creds_in.provider}, project_id {project_id}"
+    )
     return [creds]
 
 
@@ -162,21 +194,17 @@ def remove_provider_credential(
     )
     creds = session.exec(statement).first()
 
-    if not creds:
-        raise ValueError(f"Credentials not found for provider '{provider}'")
-
-    # Soft delete by setting is_active to False
+    # Soft delete
     creds.is_active = False
     creds.updated_at = now()
 
-    try:
-        session.add(creds)
-        session.commit()
-        session.refresh(creds)
-        return creds
-    except IntegrityError as e:
-        session.rollback()
-        raise ValueError(f"Error while removing provider credentials: {str(e)}")
+    session.add(creds)
+    session.commit()
+    session.refresh(creds)
+    logger.info(
+        f"[remove_provider_credential] Successfully removed credentials for provider | organization_id {org_id}, provider {provider}, project_id {project_id}"
+    )
+    return creds
 
 
 def remove_creds_for_org(
@@ -196,4 +224,7 @@ def remove_creds_for_org(
         session.add(cred)
 
     session.commit()
+    logger.info(
+        f"[remove_creds_for_org] Successfully removed all the credentials | organization_id {org_id}, project_id {project_id}"
+    )
     return creds

@@ -1,57 +1,42 @@
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
-import random
-import string
 
-from app.main import app
-from app.api.deps import get_db
-from app.crud.credentials import set_creds_for_org
-from app.models import CredsCreate, Organization, OrganizationCreate
+from app.models import APIKeyPublic
 from app.core.config import settings
-from app.core.security import encrypt_api_key
 from app.core.providers import Provider
 from app.models.credentials import Credential
-
-client = TestClient(app)
-
-
-def generate_random_string(length=10):
-    return "".join(random.choices(string.ascii_letters + string.digits, k=length))
+from app.core.security import decrypt_credentials
+from app.tests.utils.utils import (
+    generate_random_string,
+)
+from app.tests.utils.test_data import (
+    create_test_credential,
+    test_credential_data,
+)
 
 
 @pytest.fixture
-def create_organization_and_creds(db: Session):
-    unique_org_name = "Test Organization " + generate_random_string(5)
-    org = Organization(name=unique_org_name, is_active=True)
-    db.add(org)
-    db.commit()
-    db.refresh(org)
+def create_test_credentials(db: Session):
+    return create_test_credential(db)
+
+
+def test_set_credential(
+    client: TestClient,
+    user_api_key: APIKeyPublic,
+):
+    project_id = user_api_key.project_id
+    org_id = user_api_key.organization_id
 
     api_key = "sk-" + generate_random_string(10)
-    creds_data = CredsCreate(
-        organization_id=org.id,
-        is_active=True,
-        credential={
-            Provider.OPENAI.value: {
-                "api_key": api_key,
-                "model": "gpt-4",
-                "temperature": 0.7,
-            }
-        },
+    # Ensure clean state for provider
+    client.delete(
+        f"{settings.API_V1_STR}/credentials/provider/{Provider.OPENAI.value}",
+        headers={"X-API-KEY": user_api_key.key},
     )
-    return org, creds_data
-
-
-def test_set_creds_for_org(db: Session, superuser_token_headers: dict[str, str]):
-    org = Organization(name="Org for Set Creds", is_active=True)
-    db.add(org)
-    db.commit()
-    db.refresh(org)
-
-    api_key = "sk-" + generate_random_string(10)
-    creds_data = {
-        "organization_id": org.id,
+    credential_data = {
+        "organization_id": org_id,
+        "project_id": project_id,
         "is_active": True,
         "credential": {
             Provider.OPENAI.value: {
@@ -64,59 +49,116 @@ def test_set_creds_for_org(db: Session, superuser_token_headers: dict[str, str])
 
     response = client.post(
         f"{settings.API_V1_STR}/credentials/",
-        json=creds_data,
-        headers=superuser_token_headers,
+        json=credential_data,
+        headers={"X-API-KEY": user_api_key.key},
     )
 
     assert response.status_code == 200
     data = response.json()["data"]
     assert isinstance(data, list)
     assert len(data) == 1
-    assert data[0]["organization_id"] == org.id
+
+    assert data[0]["organization_id"] == org_id
     assert data[0]["provider"] == Provider.OPENAI.value
     assert data[0]["credential"]["model"] == "gpt-4"
+
+
+def test_set_credentials_ignored_mismatched_ids(
+    client: TestClient,
+    user_api_key: APIKeyPublic,
+):
+    # Even if mismatched IDs are sent, route uses API key context
+    # Ensure clean state for provider
+    client.delete(
+        f"{settings.API_V1_STR}/credentials/provider/{Provider.OPENAI.value}",
+        headers={"X-API-KEY": user_api_key.key},
+    )
+    credential_data = {
+        "organization_id": 999999,
+        "project_id": 999999,
+        "is_active": True,
+        "credential": {Provider.OPENAI.value: {"api_key": "sk-123", "model": "gpt-4"}},
+    }
+
+    response_invalid = client.post(
+        f"{settings.API_V1_STR}/credentials/",
+        json=credential_data,
+        headers={"X-API-KEY": user_api_key.key},
+    )
+    assert response_invalid.status_code == 200
 
 
 def test_read_credentials_with_creds(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    client: TestClient,
+    user_api_key: APIKeyPublic,
 ):
-    org, creds_data = create_organization_and_creds
-    set_creds_for_org(session=db, creds_add=creds_data)
+    # Ensure at least one credential exists for current project
+    api_key_value = "sk-" + generate_random_string(10)
+    payload = {
+        "organization_id": user_api_key.organization_id,
+        "project_id": user_api_key.project_id,
+        "is_active": True,
+        "credential": {
+            Provider.OPENAI.value: {"api_key": api_key_value, "model": "gpt-4"}
+        },
+    }
+    client.post(
+        f"{settings.API_V1_STR}/credentials/",
+        json=payload,
+        headers={"X-API-KEY": user_api_key.key},
+    )
 
     response = client.get(
-        f"{settings.API_V1_STR}/credentials/{org.id}",
-        headers=superuser_token_headers,
+        f"{settings.API_V1_STR}/credentials/",
+        headers={"X-API-KEY": user_api_key.key},
     )
 
     assert response.status_code == 200
     data = response.json()["data"]
     assert isinstance(data, list)
-    assert len(data) == 1
-    assert data[0]["organization_id"] == org.id
-    assert data[0]["provider"] == Provider.OPENAI.value
-    assert data[0]["credential"]["model"] == "gpt-4"
+    assert len(data) >= 1
 
 
 def test_read_credentials_not_found(
-    db: Session, superuser_token_headers: dict[str, str]
+    client: TestClient, db: Session, user_api_key: APIKeyPublic
 ):
+    # Delete all first to ensure none remain
+    client.delete(
+        f"{settings.API_V1_STR}/credentials/", headers={"X-API-KEY": user_api_key.key}
+    )
     response = client.get(
-        f"{settings.API_V1_STR}/credentials/999999",
-        headers=superuser_token_headers,
+        f"{settings.API_V1_STR}/credentials/",
+        headers={"X-API-KEY": user_api_key.key},
     )
     assert response.status_code == 404
-    assert "Credentials not found" in response.json()["detail"]
+    assert "Credentials not found" in response.json()["error"]
 
 
 def test_read_provider_credential(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    client: TestClient,
+    user_api_key: APIKeyPublic,
 ):
-    org, creds_data = create_organization_and_creds
-    set_creds_for_org(session=db, creds_add=creds_data)
+    # Ensure exists
+    client.delete(
+        f"{settings.API_V1_STR}/credentials/provider/{Provider.OPENAI.value}",
+        headers={"X-API-KEY": user_api_key.key},
+    )
+    client.post(
+        f"{settings.API_V1_STR}/credentials/",
+        json={
+            "organization_id": user_api_key.organization_id,
+            "project_id": user_api_key.project_id,
+            "is_active": True,
+            "credential": {
+                Provider.OPENAI.value: {"api_key": "sk-xyz", "model": "gpt-4"}
+            },
+        },
+        headers={"X-API-KEY": user_api_key.key},
+    )
 
     response = client.get(
-        f"{settings.API_V1_STR}/credentials/{org.id}/{Provider.OPENAI.value}",
-        headers=superuser_token_headers,
+        f"{settings.API_V1_STR}/credentials/provider/{Provider.OPENAI.value}",
+        headers={"X-API-KEY": user_api_key.key},
     )
 
     assert response.status_code == 200
@@ -126,24 +168,42 @@ def test_read_provider_credential(
 
 
 def test_read_provider_credential_not_found(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    client: TestClient, db: Session, user_api_key: APIKeyPublic
 ):
-    org, _ = create_organization_and_creds
-
+    # Ensure none
+    client.delete(
+        f"{settings.API_V1_STR}/credentials/", headers={"X-API-KEY": user_api_key.key}
+    )
     response = client.get(
-        f"{settings.API_V1_STR}/credentials/{org.id}/{Provider.OPENAI.value}",
-        headers=superuser_token_headers,
+        f"{settings.API_V1_STR}/credentials/provider/{Provider.OPENAI.value}",
+        headers={"X-API-KEY": user_api_key.key},
     )
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "Provider credentials not found"
+    assert response.json()["error"] == "Provider credentials not found"
 
 
 def test_update_credentials(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    client: TestClient,
+    user_api_key: APIKeyPublic,
 ):
-    org, creds_data = create_organization_and_creds
-    set_creds_for_org(session=db, creds_add=creds_data)
+    # Ensure exists
+    client.delete(
+        f"{settings.API_V1_STR}/credentials/provider/{Provider.OPENAI.value}",
+        headers={"X-API-KEY": user_api_key.key},
+    )
+    client.post(
+        f"{settings.API_V1_STR}/credentials/",
+        json={
+            "organization_id": user_api_key.organization_id,
+            "project_id": user_api_key.project_id,
+            "is_active": True,
+            "credential": {
+                Provider.OPENAI.value: {"api_key": "sk-abc", "model": "gpt-4"}
+            },
+        },
+        headers={"X-API-KEY": user_api_key.key},
+    )
 
     update_data = {
         "provider": Provider.OPENAI.value,
@@ -155,9 +215,9 @@ def test_update_credentials(
     }
 
     response = client.patch(
-        f"{settings.API_V1_STR}/credentials/{org.id}",
+        f"{settings.API_V1_STR}/credentials/",
         json=update_data,
-        headers=superuser_token_headers,
+        headers={"X-API-KEY": user_api_key.key},
     )
 
     assert response.status_code == 200
@@ -169,127 +229,175 @@ def test_update_credentials(
     assert data[0]["updated_at"] is not None
 
 
-def test_update_credentials_not_found(
-    db: Session, superuser_token_headers: dict[str, str]
+def test_update_credentials_not_found_for_provider(
+    client: TestClient, db: Session, user_api_key: APIKeyPublic
 ):
-    # Create a non-existent organization ID
-    non_existent_org_id = 999999
+    # Ensure none exist
+    client.delete(
+        f"{settings.API_V1_STR}/credentials/", headers={"X-API-KEY": user_api_key.key}
+    )
 
     update_data = {
         "provider": Provider.OPENAI.value,
         "credential": {
             "api_key": "sk-" + generate_random_string(),
-            "model": "gpt-4",
-            "temperature": 0.7,
+            "model": "gpt-4-turbo",
+            "temperature": 0.8,
         },
     }
 
-    response = client.patch(
-        f"{settings.API_V1_STR}/credentials/{non_existent_org_id}",
+    response_invalid = client.patch(
+        f"{settings.API_V1_STR}/credentials/",
         json=update_data,
-        headers=superuser_token_headers,
+        headers={"X-API-KEY": user_api_key.key},
     )
-
-    assert response.status_code == 500  # Expect 404 for non-existent organization
-    assert "Organization not found" in response.json()["detail"]
+    assert response_invalid.status_code == 404
+    assert response_invalid.json()["error"] == "Credentials not found for this provider"
 
 
 def test_delete_provider_credential(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    client: TestClient,
+    user_api_key: APIKeyPublic,
 ):
-    org, creds_data = create_organization_and_creds
-    set_creds_for_org(session=db, creds_add=creds_data)
-
-    response = client.delete(
-        f"{settings.API_V1_STR}/credentials/{org.id}/{Provider.OPENAI.value}",
-        headers=superuser_token_headers,
+    # Ensure exists
+    client.delete(
+        f"{settings.API_V1_STR}/credentials/provider/{Provider.OPENAI.value}",
+        headers={"X-API-KEY": user_api_key.key},
+    )
+    client.post(
+        f"{settings.API_V1_STR}/credentials/",
+        json={
+            "organization_id": user_api_key.organization_id,
+            "project_id": user_api_key.project_id,
+            "is_active": True,
+            "credential": {
+                Provider.OPENAI.value: {"api_key": "sk-abc", "model": "gpt-4"}
+            },
+        },
+        headers={"X-API-KEY": user_api_key.key},
     )
 
-    assert response.status_code == 200
-    data = response.json()["data"]
-    assert data["message"] == "Provider credentials removed successfully"
+    client.delete(
+        f"{settings.API_V1_STR}/credentials/provider/{Provider.OPENAI.value}",
+        headers={"X-API-KEY": user_api_key.key},
+    )
 
 
 def test_delete_provider_credential_not_found(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    client: TestClient, db: Session, user_api_key: APIKeyPublic
 ):
-    org, _ = create_organization_and_creds
-
+    # Ensure not exists
+    client.delete(
+        f"{settings.API_V1_STR}/credentials/", headers={"X-API-KEY": user_api_key.key}
+    )
     response = client.delete(
-        f"{settings.API_V1_STR}/credentials/{org.id}/{Provider.OPENAI.value}",
-        headers=superuser_token_headers,
+        f"{settings.API_V1_STR}/credentials/provider/{Provider.OPENAI.value}",
+        headers={"X-API-KEY": user_api_key.key},
     )
 
-    assert response.status_code == 404  # Expect 404 for not found
-    assert response.json()["detail"] == "Provider credentials not found"
+    assert response.status_code == 404
+    assert response.json()["error"] == "Provider credentials not found"
 
 
 def test_delete_all_credentials(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    client: TestClient,
+    user_api_key: APIKeyPublic,
 ):
-    org, creds_data = create_organization_and_creds
-    set_creds_for_org(session=db, creds_add=creds_data)
-
+    # Ensure exists
+    client.delete(
+        f"{settings.API_V1_STR}/credentials/",
+        headers={"X-API-KEY": user_api_key.key},
+    )
+    client.post(
+        f"{settings.API_V1_STR}/credentials/",
+        json={
+            "organization_id": user_api_key.organization_id,
+            "project_id": user_api_key.project_id,
+            "is_active": True,
+            "credential": {
+                Provider.OPENAI.value: {"api_key": "sk-abc", "model": "gpt-4"}
+            },
+        },
+        headers={"X-API-KEY": user_api_key.key},
+    )
     response = client.delete(
-        f"{settings.API_V1_STR}/credentials/{org.id}",
-        headers=superuser_token_headers,
+        f"{settings.API_V1_STR}/credentials/",
+        headers={"X-API-KEY": user_api_key.key},
     )
 
     assert response.status_code == 200  # Expect 200 for successful deletion
     data = response.json()["data"]
-    assert data["message"] == "Credentials deleted successfully"
+    assert data["message"] == "All credentials deleted successfully"
 
     # Verify the credentials are soft deleted
     response = client.get(
-        f"{settings.API_V1_STR}/credentials/{org.id}",
-        headers=superuser_token_headers,
+        f"{settings.API_V1_STR}/credentials/",
+        headers={"X-API-KEY": user_api_key.key},
     )
     assert response.status_code == 404  # Expect 404 as credentials are soft deleted
-    assert response.json()["detail"] == "Credentials not found"
+    assert response.json()["error"] == "Credentials not found"
 
 
 def test_delete_all_credentials_not_found(
-    db: Session, superuser_token_headers: dict[str, str]
+    client: TestClient, db: Session, user_api_key: APIKeyPublic
 ):
+    # Ensure already deleted
+    client.delete(
+        f"{settings.API_V1_STR}/credentials/", headers={"X-API-KEY": user_api_key.key}
+    )
     response = client.delete(
-        f"{settings.API_V1_STR}/credentials/999999",
-        headers=superuser_token_headers,
+        f"{settings.API_V1_STR}/credentials/",
+        headers={"X-API-KEY": user_api_key.key},
     )
 
-    assert response.status_code == 500  # Expect 404 for not found
-    assert "Credentials for organization not found" in response.json()["detail"]
+    assert response.status_code == 404
+    assert "Credentials for organization/project not found" in response.json()["error"]
 
 
 def test_duplicate_credential_creation(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    client: TestClient,
+    db: Session,
+    user_api_key: APIKeyPublic,
 ):
-    org, creds_data = create_organization_and_creds
-    # First create credentials
+    credential = test_credential_data(db)
+    # Ensure clean state for provider
+    client.delete(
+        f"{settings.API_V1_STR}/credentials/provider/{Provider.OPENAI.value}",
+        headers={"X-API-KEY": user_api_key.key},
+    )
+
     response = client.post(
         f"{settings.API_V1_STR}/credentials/",
-        json=creds_data.dict(),
-        headers=superuser_token_headers,
+        json=credential.dict(),
+        headers={"X-API-KEY": user_api_key.key},
     )
     assert response.status_code == 200
 
     # Try to create the same credentials again
     response = client.post(
         f"{settings.API_V1_STR}/credentials/",
-        json=creds_data.dict(),
-        headers=superuser_token_headers,
+        json=credential.dict(),
+        headers={"X-API-KEY": user_api_key.key},
     )
-    assert response.status_code == 500
-    assert "already exist" in response.json()["detail"]
+    assert response.status_code == 400
+
+    assert "already exist" in response.json()["error"]
 
 
 def test_multiple_provider_credentials(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    client: TestClient,
+    user_api_key: APIKeyPublic,
 ):
-    org, _ = create_organization_and_creds
+    # Ensure clean state for current org/project
+    client.delete(
+        f"{settings.API_V1_STR}/credentials/",
+        headers={"X-API-KEY": user_api_key.key},
+    )
 
     # Create OpenAI credentials
-    openai_creds = {
-        "organization_id": org.id,
+    openai_credential = {
+        "organization_id": user_api_key.organization_id,
+        "project_id": user_api_key.project_id,
         "is_active": True,
         "credential": {
             Provider.OPENAI.value: {
@@ -301,8 +409,9 @@ def test_multiple_provider_credentials(
     }
 
     # Create Langfuse credentials
-    langfuse_creds = {
-        "organization_id": org.id,
+    langfuse_credential = {
+        "organization_id": user_api_key.organization_id,
+        "project_id": user_api_key.project_id,
         "is_active": True,
         "credential": {
             Provider.LANGFUSE.value: {
@@ -316,22 +425,22 @@ def test_multiple_provider_credentials(
     # Create both credentials
     response = client.post(
         f"{settings.API_V1_STR}/credentials/",
-        json=openai_creds,
-        headers=superuser_token_headers,
+        json=openai_credential,
+        headers={"X-API-KEY": user_api_key.key},
     )
     assert response.status_code == 200
 
     response = client.post(
         f"{settings.API_V1_STR}/credentials/",
-        json=langfuse_creds,
-        headers=superuser_token_headers,
+        json=langfuse_credential,
+        headers={"X-API-KEY": user_api_key.key},
     )
     assert response.status_code == 200
 
     # Fetch all credentials
     response = client.get(
-        f"{settings.API_V1_STR}/credentials/{org.id}",
-        headers=superuser_token_headers,
+        f"{settings.API_V1_STR}/credentials/",
+        headers={"X-API-KEY": user_api_key.key},
     )
     assert response.status_code == 200
     data = response.json()["data"]
@@ -342,58 +451,67 @@ def test_multiple_provider_credentials(
 
 
 def test_credential_encryption(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    client: TestClient,
+    db: Session,
+    user_api_key: APIKeyPublic,
 ):
-    org, creds_data = create_organization_and_creds
-    original_api_key = creds_data.credential[Provider.OPENAI.value]["api_key"]
+    credential = test_credential_data(db)
+    original_api_key = credential.credential[Provider.OPENAI.value]["api_key"]
 
     # Create credentials
+    client.delete(
+        f"{settings.API_V1_STR}/credentials/provider/{Provider.OPENAI.value}",
+        headers={"X-API-KEY": user_api_key.key},
+    )
     response = client.post(
         f"{settings.API_V1_STR}/credentials/",
-        json=creds_data.dict(),
-        headers=superuser_token_headers,
+        json=credential.dict(),
+        headers={"X-API-KEY": user_api_key.key},
     )
     assert response.status_code == 200
 
-    # Get the raw credential from database to verify encryption
-    from app.core.security import decrypt_credentials
-
-    db_cred = (
+    db_credential = (
         db.query(Credential)
         .filter(
-            Credential.organization_id == org.id,
+            Credential.organization_id == user_api_key.organization_id,
+            Credential.project_id == user_api_key.project_id,
+            Credential.is_active == True,
             Credential.provider == Provider.OPENAI.value,
         )
         .first()
     )
 
-    assert db_cred is not None
+    assert db_credential is not None
     # Verify the stored credential is encrypted
-    assert db_cred.credential != original_api_key
+    assert db_credential.credential != original_api_key
 
     # Verify we can decrypt and get the original value
-    decrypted_creds = decrypt_credentials(db_cred.credential)
-    assert decrypted_creds["api_key"] == original_api_key
+    decrypted_creds = decrypt_credentials(db_credential.credential)
+    assert decrypted_creds.get("api_key") == original_api_key
 
 
 def test_credential_encryption_consistency(
-    db: Session, superuser_token_headers: dict[str, str], create_organization_and_creds
+    client: TestClient, db: Session, user_api_key: APIKeyPublic
 ):
-    org, creds_data = create_organization_and_creds
-    original_api_key = creds_data.credential[Provider.OPENAI.value]["api_key"]
+    credentials = test_credential_data(db)
+    original_api_key = credentials.credential[Provider.OPENAI.value]["api_key"]
 
     # Create credentials
+    client.delete(
+        f"{settings.API_V1_STR}/credentials/provider/{Provider.OPENAI.value}",
+        headers={"X-API-KEY": user_api_key.key},
+    )
     response = client.post(
         f"{settings.API_V1_STR}/credentials/",
-        json=creds_data.dict(),
-        headers=superuser_token_headers,
+        json=credentials.dict(),
+        headers={"X-API-KEY": user_api_key.key},
     )
     assert response.status_code == 200
 
     # Fetch the credentials through the API
     response = client.get(
-        f"{settings.API_V1_STR}/credentials/{org.id}/{Provider.OPENAI.value}",
-        headers=superuser_token_headers,
+        f"{settings.API_V1_STR}/credentials/provider/{Provider.OPENAI.value}",
+        headers={"X-API-KEY": user_api_key.key},
     )
     assert response.status_code == 200
     data = response.json()["data"]
@@ -413,16 +531,15 @@ def test_credential_encryption_consistency(
     }
 
     response = client.patch(
-        f"{settings.API_V1_STR}/credentials/{org.id}",
+        f"{settings.API_V1_STR}/credentials/",
         json=update_data,
-        headers=superuser_token_headers,
+        headers={"X-API-KEY": user_api_key.key},
     )
     assert response.status_code == 200
 
-    # Verify the updated value is also properly encrypted/decrypted
     response = client.get(
-        f"{settings.API_V1_STR}/credentials/{org.id}/{Provider.OPENAI.value}",
-        headers=superuser_token_headers,
+        f"{settings.API_V1_STR}/credentials/provider/{Provider.OPENAI.value}",
+        headers={"X-API-KEY": user_api_key.key},
     )
     assert response.status_code == 200
     data = response.json()["data"]

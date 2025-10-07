@@ -1,26 +1,61 @@
 import inspect
 import logging
-import warnings
+import time
+import json
+import ast
+import re
 from uuid import UUID, uuid4
 from typing import Any, List, Optional
 from dataclasses import dataclass, field, fields, asdict, replace
 
-from openai import OpenAI, OpenAIError
+from openai import OpenAIError, OpenAI
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
 from fastapi import Path as FastPath
 from pydantic import BaseModel, Field, HttpUrl
-from sqlalchemy.exc import NoResultFound, MultipleResultsFound, SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError
 
-from app.api.deps import CurrentUser, SessionDep
-from app.core.cloud import AmazonCloudStorage
-from app.core.config import settings
-from app.core.util import now, raise_from_unknown, post_callback
-from app.crud import DocumentCrud, CollectionCrud, DocumentCollectionCrud
+from app.api.deps import CurrentUser, SessionDep, CurrentUserOrgProject
+from app.core.cloud import get_cloud_storage
+from app.api.routes.responses import handle_openai_error
+from app.core.util import now, post_callback
+from app.crud import (
+    DocumentCrud,
+    CollectionCrud,
+    DocumentCollectionCrud,
+)
 from app.crud.rag import OpenAIVectorStoreCrud, OpenAIAssistantCrud
-from app.models import Collection, Document
-from app.utils import APIResponse, load_description
+from app.models import Collection, Document, DocumentPublic
+from app.models.collection import CollectionStatus
+from app.utils import APIResponse, load_description, get_openai_client
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/collections", tags=["collections"])
+
+
+def extract_error_message(err: Exception) -> str:
+    err_str = str(err).strip()
+
+    body = re.sub(r"^Error code:\s*\d+\s*-\s*", "", err_str)
+    message = None
+    try:
+        payload = json.loads(body)
+        if isinstance(payload, dict):
+            message = payload.get("error", {}).get("message")
+    except Exception:
+        pass
+
+    if message is None:
+        try:
+            payload = ast.literal_eval(body)
+            if isinstance(payload, dict):
+                message = payload.get("error", {}).get("message")
+        except Exception:
+            pass
+
+    if not message:
+        message = body
+
+    return message.strip()[:1000]
 
 
 @dataclass
@@ -57,6 +92,9 @@ class DocumentOptions(BaseModel):
         self.documents = list(set(self.documents))
 
     def __call__(self, crud: DocumentCrud):
+        logger.info(
+            f"[DocumentOptions.call] Starting batch iteration for documents | {{'batch_size': {self.batch_size}, 'total_documents': {len(self.documents)}}}"
+        )
         (start, stop) = (0, self.batch_size)
         while True:
             view = self.documents[start:stop]
@@ -128,9 +166,11 @@ class CallbackHandler:
 
 class SilentCallback(CallbackHandler):
     def fail(self, body):
+        logger.info(f"[SilentCallback.fail] Silent callback failure")
         return
 
     def success(self, body):
+        logger.info(f"[SilentCallback.success] Silent callback success")
         return
 
 
@@ -138,96 +178,113 @@ class WebHookCallback(CallbackHandler):
     def __init__(self, url: HttpUrl, payload: ResponsePayload):
         super().__init__(payload)
         self.url = url
+        logger.info(
+            f"[WebHookCallback.init] Initialized webhook callback | {{'url': '{url}'}}"
+        )
 
     def __call__(self, response: APIResponse, status: str):
         time = ResponsePayload.now()
         payload = replace(self.payload, status=status, time=time)
         response.metadata = asdict(payload)
-
+        logger.info(
+            f"[WebHookCallback.call] Posting callback | {{'url': '{self.url}', 'status': '{status}'}}"
+        )
         post_callback(self.url, response)
 
     def fail(self, body):
+        logger.warning(f"[WebHookCallback.fail] Callback failed | {{'body': '{body}'}}")
         self(APIResponse.failure_response(body), "incomplete")
 
     def success(self, body):
+        logger.info(f"[WebHookCallback.success] Callback succeeded")
         self(APIResponse.success_response(body), "complete")
 
 
 def _backout(crud: OpenAIAssistantCrud, assistant_id: str):
     try:
         crud.delete(assistant_id)
-    except OpenAIError:
-        warnings.warn(
-            ": ".join(
-                [
-                    f"Unable to remove assistant {assistant_id}",
-                    "platform DB may be out of sync with OpenAI",
-                ]
-            )
+    except OpenAIError as err:
+        logger.error(
+            f"[backout] Failed to delete assistant | {{'assistant_id': '{assistant_id}', 'error': '{str(err)}'}}",
+            exc_info=True,
         )
 
 
 def do_create_collection(
     session: SessionDep,
-    current_user: CurrentUser,
+    current_user: CurrentUserOrgProject,
     request: CreationRequest,
     payload: ResponsePayload,
+    client: OpenAI,
 ):
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
-    if request.callback_url is None:
-        callback = SilentCallback(payload)
-    else:
-        callback = WebHookCallback(request.callback_url, payload)
+    start_time = time.time()
 
-    #
-    # Create the assistant and vector store
-    #
+    callback = (
+        SilentCallback(payload)
+        if request.callback_url is None
+        else WebHookCallback(request.callback_url, payload)
+    )
 
+    storage = get_cloud_storage(session=session, project_id=current_user.project_id)
+    document_crud = DocumentCrud(session, current_user.project_id)
+    assistant_crud = OpenAIAssistantCrud(client)
     vector_store_crud = OpenAIVectorStoreCrud(client)
+    collection_crud = CollectionCrud(session, current_user.id)
+
     try:
         vector_store = vector_store_crud.create()
-    except OpenAIError as err:
+
+        docs = list(request(document_crud))
+        flat_docs = [doc for sublist in docs for doc in sublist]
+
+        file_exts = {doc.fname.split(".")[-1] for doc in flat_docs if "." in doc.fname}
+        file_sizes_kb = [
+            storage.get_file_size_kb(doc.object_store_url) for doc in flat_docs
+        ]
+
+        list(vector_store_crud.update(vector_store.id, storage, docs))
+
+        assistant_options = dict(request.extract_super_type(AssistantOptions))
+        assistant = assistant_crud.create(vector_store.id, **assistant_options)
+
+        collection = collection_crud.read_one(UUID(payload.key))
+        collection.llm_service_id = assistant.id
+        collection.llm_service_name = request.model
+        collection.status = CollectionStatus.successful
+        collection.updated_at = now()
+
+        if flat_docs:
+            DocumentCollectionCrud(session).create(collection, flat_docs)
+
+        collection_crud._update(collection)
+
+        elapsed = time.time() - start_time
+        logger.info(
+            f"[do_create_collection] Collection created: {collection.id} | Time: {elapsed:.2f}s | "
+            f"Files: {len(flat_docs)} | Sizes: {file_sizes_kb} KB | Types: {list(file_exts)}"
+        )
+        callback.success(collection.model_dump(mode="json"))
+
+    except Exception as err:
+        logger.error(
+            f"[do_create_collection] Collection Creation Failed | {{'collection_id': '{payload.key}', 'error': '{str(err)}'}}",
+            exc_info=True,
+        )
+        if "assistant" in locals():
+            _backout(assistant_crud, assistant.id)
+        try:
+            collection = collection_crud.read_one(UUID(payload.key))
+            collection.status = CollectionStatus.failed
+            collection.updated_at = now()
+            message = extract_error_message(err)
+            collection.error_message = message
+
+            collection_crud._update(collection)
+        except Exception as suberr:
+            logger.warning(
+                f"[do_create_collection] Failed to update collection status | {{'collection_id': '{payload.key}', 'reason': '{str(suberr)}'}}"
+            )
         callback.fail(str(err))
-        return
-
-    storage = AmazonCloudStorage(current_user)
-    document_crud = DocumentCrud(session, current_user.id)
-    assistant_crud = OpenAIAssistantCrud(client)
-
-    docs = request(document_crud)
-    kwargs = dict(request.extract_super_type(AssistantOptions))
-    try:
-        updates = vector_store_crud.update(vector_store.id, storage, docs)
-        documents = list(updates)
-        assistant = assistant_crud.create(vector_store.id, **kwargs)
-    except Exception as err:  # blanket to handle SQL and OpenAI errors
-        logging.error(f"File Search setup error: {err} ({type(err).__name__})")
-        vector_store_crud.delete(vector_store.id)
-        callback.fail(str(err))
-        return
-
-    #
-    # Store the results
-    #
-
-    collection_crud = CollectionCrud(session, current_user.id)
-    collection = Collection(
-        id=UUID(payload.key),
-        llm_service_id=assistant.id,
-        llm_service_name=request.model,
-    )
-    try:
-        collection_crud.create(collection, documents)
-    except SQLAlchemyError as err:
-        _backout(assistant_crud, assistant.id)
-        callback.fail(str(err))
-        return
-
-    #
-    # Send back successful response
-    #
-
-    callback.success(collection.model_dump(mode="json"))
 
 
 @router.post(
@@ -236,30 +293,46 @@ def do_create_collection(
 )
 def create_collection(
     session: SessionDep,
-    current_user: CurrentUser,
+    current_user: CurrentUserOrgProject,
     request: CreationRequest,
     background_tasks: BackgroundTasks,
 ):
+    client = get_openai_client(
+        session, current_user.organization_id, current_user.project_id
+    )
+
     this = inspect.currentframe()
     route = router.url_path_for(this.f_code.co_name)
     payload = ResponsePayload("processing", route)
 
-    background_tasks.add_task(
-        do_create_collection,
-        session,
-        current_user,
-        request,
-        payload,
+    collection = Collection(
+        id=UUID(payload.key),
+        owner_id=current_user.id,
+        organization_id=current_user.organization_id,
+        project_id=current_user.project_id,
+        status=CollectionStatus.processing,
     )
 
+    collection_crud = CollectionCrud(session, current_user.id)
+    collection_crud.create(collection)
+
+    background_tasks.add_task(
+        do_create_collection, session, current_user, request, payload, client
+    )
+
+    logger.info(
+        f"[create_collection] Background task for collection creation scheduled | "
+        f"{{'collection_id': '{collection.id}'}}"
+    )
     return APIResponse.success_response(data=None, metadata=asdict(payload))
 
 
 def do_delete_collection(
     session: SessionDep,
-    current_user: CurrentUser,
+    current_user: CurrentUserOrgProject,
     request: DeletionRequest,
     payload: ResponsePayload,
+    client: OpenAI,
 ):
     if request.callback_url is None:
         callback = SilentCallback(payload)
@@ -269,14 +342,22 @@ def do_delete_collection(
     collection_crud = CollectionCrud(session, current_user.id)
     try:
         collection = collection_crud.read_one(request.collection_id)
-        assistant = OpenAIAssistantCrud()
+        assistant = OpenAIAssistantCrud(client)
         data = collection_crud.delete(collection, assistant)
+        logger.info(
+            f"[do_delete_collection] Collection deleted successfully | {{'collection_id': '{collection.id}'}}"
+        )
         callback.success(data.model_dump(mode="json"))
     except (ValueError, PermissionError, SQLAlchemyError) as err:
+        logger.error(
+            f"[do_delete_collection] Failed to delete collection | {{'collection_id': '{request.collection_id}', 'error': '{str(err)}'}}",
+            exc_info=True,
+        )
         callback.fail(str(err))
     except Exception as err:
-        warnings.warn(
-            'Unexpected exception "{}": {}'.format(type(err).__name__, err),
+        logger.error(
+            f"[do_delete_collection] Unexpected error during deletion | {{'collection_id': '{request.collection_id}', 'error': '{str(err)}', 'error_type': '{type(err).__name__}'}}",
+            exc_info=True,
         )
         callback.fail(str(err))
 
@@ -287,22 +368,26 @@ def do_delete_collection(
 )
 def delete_collection(
     session: SessionDep,
-    current_user: CurrentUser,
+    current_user: CurrentUserOrgProject,
     request: DeletionRequest,
     background_tasks: BackgroundTasks,
 ):
+    client = get_openai_client(
+        session, current_user.organization_id, current_user.project_id
+    )
+
     this = inspect.currentframe()
     route = router.url_path_for(this.f_code.co_name)
     payload = ResponsePayload("processing", route)
 
     background_tasks.add_task(
-        do_delete_collection,
-        session,
-        current_user,
-        request,
-        payload,
+        do_delete_collection, session, current_user, request, payload, client
     )
 
+    logger.info(
+        f"[delete_collection] Background task for deletion scheduled | "
+        f"{{'collection_id': '{request.collection_id}'}}"
+    )
     return APIResponse.success_response(data=None, metadata=asdict(payload))
 
 
@@ -317,15 +402,7 @@ def collection_info(
     collection_id: UUID = FastPath(description="Collection to retrieve"),
 ):
     collection_crud = CollectionCrud(session, current_user.id)
-    try:
-        data = collection_crud.read_one(collection_id)
-    except NoResultFound as err:
-        raise HTTPException(status_code=404, detail=str(err))
-    except MultipleResultsFound as err:
-        raise HTTPException(status_code=503, detail=str(err))
-    except Exception as err:
-        raise_from_unknown(err)
-
+    data = collection_crud.read_one(collection_id)
     return APIResponse.success_response(data)
 
 
@@ -339,20 +416,14 @@ def list_collections(
     current_user: CurrentUser,
 ):
     collection_crud = CollectionCrud(session, current_user.id)
-    try:
-        data = collection_crud.read_all()
-    except (ValueError, SQLAlchemyError) as err:
-        raise HTTPException(status_code=403, detail=str(err))
-    except Exception as err:
-        raise_from_unknown(err)
-
+    data = collection_crud.read_all()
     return APIResponse.success_response(data)
 
 
 @router.post(
     "/docs/{collection_id}",
     description=load_description("collections/docs.md"),
-    response_model=APIResponse[List[Document]],
+    response_model=APIResponse[List[DocumentPublic]],
 )
 def collection_documents(
     session: SessionDep,
@@ -363,10 +434,6 @@ def collection_documents(
 ):
     collection_crud = CollectionCrud(session, current_user.id)
     document_collection_crud = DocumentCollectionCrud(session)
-    try:
-        collection = collection_crud.read_one(collection_id)
-        data = document_collection_crud.read(collection, skip, limit)
-    except (SQLAlchemyError, ValueError) as err:
-        raise HTTPException(status_code=400, detail=str(err))
-
+    collection = collection_crud.read_one(collection_id)
+    data = document_collection_crud.read(collection, skip, limit)
     return APIResponse.success_response(data)

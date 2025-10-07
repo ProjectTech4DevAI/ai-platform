@@ -1,19 +1,24 @@
 import sentry_sdk
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.routing import APIRoute
-from starlette.middleware.cors import CORSMiddleware
-
+from asgi_correlation_id.middleware import CorrelationIdMiddleware
 from app.api.main import api_router
-from app.api.deps import http_exception_handler
 from app.core.config import settings
+from app.core.exception_handlers import register_exception_handlers
+from app.core.middleware import http_request_logger
+
+from app.load_env import load_environment
+
+# Load environment variables
+load_environment()
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
     return f"{route.tags[0]}-{route.name}"
 
 
-if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
+if settings.SENTRY_DSN and settings.ENVIRONMENT != "development":
     sentry_sdk.init(dsn=str(settings.SENTRY_DSN), enable_tracing=True)
 
 app = FastAPI(
@@ -22,16 +27,9 @@ app = FastAPI(
     generate_unique_id_function=custom_generate_unique_id,
 )
 
-# Set all CORS enabled origins
-if settings.all_cors_origins:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.all_cors_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+app.middleware("http")(http_request_logger)
+app.add_middleware(CorrelationIdMiddleware)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
-app.add_exception_handler(HTTPException, http_exception_handler)
+register_exception_handlers(app)

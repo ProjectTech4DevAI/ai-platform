@@ -1,33 +1,40 @@
-import uuid
 import json
-from pathlib import Path
-from sqlmodel import Session, select, delete
-from app.models import Organization, Project, User, APIKey
-from app.core.security import get_password_hash, encrypt_api_key
-from app.core.db import engine
 import logging
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, UUID4, Field
-from typing import Optional, List
+from pathlib import Path
+from typing import Optional
+
+from pydantic import BaseModel, EmailStr
+from sqlmodel import Session, delete, select
+
+from app.core.db import engine
+from app.core import settings
+from app.core.security import encrypt_api_key, get_password_hash
+from app.models import (
+    APIKey,
+    Organization,
+    Project,
+    User,
+    Credential,
+    Assistant,
+    Document,
+)
 
 
 # Pydantic models for data validation
 class OrgData(BaseModel):
-    id: int
     name: str
     is_active: bool
 
 
 class ProjectData(BaseModel):
-    id: int
     name: str
     description: str
     is_active: bool
-    organization_id: int
+    organization_name: str
 
 
 class UserData(BaseModel):
-    id: str
     email: EmailStr
     full_name: str
     is_superuser: bool
@@ -36,13 +43,41 @@ class UserData(BaseModel):
 
 
 class APIKeyData(BaseModel):
-    id: int
-    organization_id: int
-    user_id: str
+    organization_name: str
+    project_name: str
+    user_email: EmailStr
     api_key: str
     is_deleted: bool
     deleted_at: Optional[str] = None
     created_at: Optional[str] = None
+
+
+class CredentialData(BaseModel):
+    is_active: bool
+    provider: str
+    credential: str
+    organization_name: str
+    project_name: str
+    deleted_at: Optional[str] = None
+
+
+class AssistantData(BaseModel):
+    assistant_id: str
+    name: str
+    instructions: str
+    model: str
+    vector_store_ids: list[str]
+    temperature: float
+    max_num_results: int
+    project_name: str
+    organization_name: str
+
+
+class DocumentData(BaseModel):
+    fname: str
+    object_store_url: str
+    organization_name: str
+    project_name: str
 
 
 def load_seed_data() -> dict:
@@ -64,10 +99,9 @@ def create_organization(session: Session, org_data_raw: dict) -> Organization:
     try:
         org_data = OrgData.model_validate(org_data_raw)
         logging.info(f"Creating organization: {org_data.name}")
-        organization = Organization(
-            id=org_data.id, name=org_data.name, is_active=org_data.is_active
-        )
+        organization = Organization(name=org_data.name, is_active=org_data.is_active)
         session.add(organization)
+        session.flush()  # Ensure ID is assigned
         return organization
     except Exception as e:
         logging.error(f"Error creating organization: {e}")
@@ -79,14 +113,24 @@ def create_project(session: Session, project_data_raw: dict) -> Project:
     try:
         project_data = ProjectData.model_validate(project_data_raw)
         logging.info(f"Creating project: {project_data.name}")
+        # Query organization ID by name
+        organization = session.exec(
+            select(Organization).where(
+                Organization.name == project_data.organization_name
+            )
+        ).first()
+        if not organization:
+            raise ValueError(
+                f"Organization '{project_data.organization_name}' not found"
+            )
         project = Project(
-            id=project_data.id,
             name=project_data.name,
             description=project_data.description,
             is_active=project_data.is_active,
-            organization_id=project_data.organization_id,
+            organization_id=organization.id,
         )
         session.add(project)
+        session.flush()  # Ensure ID is assigned
         return project
     except Exception as e:
         logging.error(f"Error creating project: {e}")
@@ -100,7 +144,6 @@ def create_user(session: Session, user_data_raw: dict) -> User:
         logging.info(f"Creating user: {user_data.email}")
         hashed_password = get_password_hash(user_data.password)
         user = User(
-            id=uuid.UUID(user_data.id),
             email=user_data.email,
             full_name=user_data.full_name,
             is_superuser=user_data.is_superuser,
@@ -108,6 +151,7 @@ def create_user(session: Session, user_data_raw: dict) -> User:
             hashed_password=hashed_password,
         )
         session.add(user)
+        session.flush()  # Ensure ID is assigned
         return user
     except Exception as e:
         logging.error(f"Error creating user: {e}")
@@ -118,12 +162,33 @@ def create_api_key(session: Session, api_key_data_raw: dict) -> APIKey:
     """Create an API key from data."""
     try:
         api_key_data = APIKeyData.model_validate(api_key_data_raw)
-        logging.info(f"Creating API key for user {api_key_data.user_id}")
+        logging.info(f"Creating API key for user {api_key_data.user_email}")
+        # Query organization ID by name
+        organization = session.exec(
+            select(Organization).where(
+                Organization.name == api_key_data.organization_name
+            )
+        ).first()
+        if not organization:
+            raise ValueError(
+                f"Organization '{api_key_data.organization_name}' not found"
+            )
+        project = session.exec(
+            select(Project).where(Project.name == api_key_data.project_name)
+        ).first()
+        if not project:
+            raise ValueError(f"Project '{api_key_data.project_name}' not found")
+        # Query user ID by email
+        user = session.exec(
+            select(User).where(User.email == api_key_data.user_email)
+        ).first()
+        if not user:
+            raise ValueError(f"User '{api_key_data.user_email}' not found")
         encrypted_api_key = encrypt_api_key(api_key_data.api_key)
         api_key = APIKey(
-            id=api_key_data.id,
-            organization_id=api_key_data.organization_id,
-            user_id=uuid.UUID(api_key_data.user_id),
+            organization_id=organization.id,
+            project_id=project.id,
+            user_id=user.id,
             key=encrypted_api_key,
             is_deleted=api_key_data.is_deleted,
             deleted_at=api_key_data.deleted_at,
@@ -133,19 +198,164 @@ def create_api_key(session: Session, api_key_data_raw: dict) -> APIKey:
                 api_key_data.created_at.replace("Z", "+00:00")
             )
         session.add(api_key)
+        session.flush()  # Ensure ID is assigned
         return api_key
     except Exception as e:
         logging.error(f"Error creating API key: {e}")
         raise
 
 
+def create_credential(session: Session, credential_data_raw: dict) -> Credential:
+    """Create a credential from data."""
+    try:
+        credential_data = CredentialData.model_validate(credential_data_raw)
+        logging.info(f"Creating credential for provider: {credential_data.provider}")
+
+        # Query organization ID by name
+        organization = session.exec(
+            select(Organization).where(
+                Organization.name == credential_data.organization_name
+            )
+        ).first()
+        if not organization:
+            raise ValueError(
+                f"Organization '{credential_data.organization_name}' not found"
+            )
+
+        # Query organization ID by name
+        project = session.exec(
+            select(Project).where(Project.name == credential_data.project_name)
+        ).first()
+        if not project:
+            raise ValueError(f"Project '{credential_data.project_name}' not found")
+
+        # Encrypt the credential data
+        encrypted_credential = encrypt_api_key(credential_data.credential)
+
+        credential = Credential(
+            is_active=credential_data.is_active,
+            provider=credential_data.provider,
+            credential=encrypted_credential,
+            organization_id=organization.id,
+            project_id=project.id,
+            deleted_at=credential_data.deleted_at,
+        )
+        session.add(credential)
+        session.flush()  # Ensure ID is assigned
+        return credential
+    except Exception as e:
+        logging.error(f"Error creating credential: {e}")
+        raise
+
+
+def create_assistant(session: Session, assistant_data_raw: dict) -> Assistant:
+    """Create an assistant from data."""
+    try:
+        assistant_data = AssistantData.model_validate(assistant_data_raw)
+        logging.info(f"Creating assistant: {assistant_data.name}")
+
+        # Query organization ID by name
+        organization = session.exec(
+            select(Organization).where(
+                Organization.name == assistant_data.organization_name
+            )
+        ).first()
+        if not organization:
+            raise ValueError(
+                f"Organization '{assistant_data.organization_name}' not found"
+            )
+
+        # Query project ID by name
+        project = session.exec(
+            select(Project).where(Project.name == assistant_data.project_name)
+        ).first()
+        if not project:
+            raise ValueError(f"Project '{assistant_data.project_name}' not found")
+
+        assistant = Assistant(
+            assistant_id=assistant_data.assistant_id,
+            name=assistant_data.name,
+            instructions=assistant_data.instructions,
+            model=assistant_data.model,
+            vector_store_ids=assistant_data.vector_store_ids,
+            temperature=assistant_data.temperature,
+            max_num_results=assistant_data.max_num_results,
+            organization_id=organization.id,
+            project_id=project.id,
+        )
+        session.add(assistant)
+        session.flush()  # Ensure ID is assigned
+        return assistant
+    except Exception as e:
+        logging.error(f"Error creating assistant: {e}")
+        raise
+
+
+def create_document(session: Session, document_data_raw: dict) -> Document:
+    """Create a document from seed data."""
+    try:
+        document_data = DocumentData.model_validate(document_data_raw)
+        logging.info(f"Creating document: {document_data.fname}")
+
+        # Get the organization
+        organization = session.exec(
+            select(Organization).where(
+                Organization.name == document_data.organization_name
+            )
+        ).first()
+
+        if not organization:
+            raise ValueError(
+                f"Organization '{document_data.organization_name}' not found"
+            )
+
+        # Get the project
+        project = session.exec(
+            select(Project).where(
+                Project.name == document_data.project_name,
+                Project.organization_id == organization.id,
+            )
+        ).first()
+        if not project:
+            raise ValueError(
+                f"Project '{document_data.project_name}' not found in organization '{organization.name}'"
+            )
+
+        users = session.exec(
+            select(User)
+            .join(APIKey, APIKey.user_id == User.id)
+            .where(APIKey.organization_id == organization.id)
+        ).all()
+
+        user = users[1]
+        if not user:
+            raise ValueError(f"No user found in organization '{organization.name}'")
+
+        # Create and store document
+        document = Document(
+            fname=document_data.fname,
+            object_store_url=document_data.object_store_url,
+            project_id=project.id,
+        )
+
+        session.add(document)
+        session.flush()
+        return document
+
+    except Exception as e:
+        logging.error(f"Error creating document: {e}")
+        raise
+
+
 def clear_database(session: Session) -> None:
     """Clear all seeded data from the database."""
     logging.info("Clearing existing data...")
+    session.exec(delete(Assistant))
     session.exec(delete(APIKey))
     session.exec(delete(Project))
     session.exec(delete(Organization))
     session.exec(delete(User))
+    session.exec(delete(Credential))
     session.commit()
     logging.info("Existing data cleared.")
 
@@ -170,6 +380,12 @@ def seed_database(session: Session) -> None:
                 f"Created organization: {organization.name} (ID: {organization.id})"
             )
 
+        for user_data in seed_data["users"]:
+            if user_data["email"] == "{{SUPERUSER_EMAIL}}":
+                user_data["email"] = settings.FIRST_SUPERUSER
+            elif user_data["email"] == "{{ADMIN_EMAIL}}":
+                user_data["email"] = settings.EMAIL_TEST_USER
+
         # Create users
         users = []
         for user_data in seed_data["users"]:
@@ -184,12 +400,40 @@ def seed_database(session: Session) -> None:
             projects.append(project)
             logging.info(f"Created project: {project.name} (ID: {project.id})")
 
+        for api_key_data in seed_data["apikeys"]:
+            if api_key_data["user_email"] == "{{SUPERUSER_EMAIL}}":
+                api_key_data["user_email"] = settings.FIRST_SUPERUSER
+            elif api_key_data["user_email"] == "{{ADMIN_EMAIL}}":
+                api_key_data["user_email"] = settings.EMAIL_TEST_USER
+
         # Create API keys
         api_keys = []
         for api_key_data in seed_data["apikeys"]:
             api_key = create_api_key(session, api_key_data)
             api_keys.append(api_key)
             logging.info(f"Created API key (ID: {api_key.id})")
+
+        # Create credentials
+        credentials = []
+        for credential_data in seed_data["credentials"]:
+            credential = create_credential(session, credential_data)
+            credentials.append(credential)
+            logging.info(
+                f"Created credential for provider: {credential.provider} (ID: {credential.id})"
+            )
+
+        # Create assistants
+        assistants = []
+        for assistant_data in seed_data.get("assistants", []):
+            assistant = create_assistant(session, assistant_data)
+            assistants.append(assistant)
+            logging.info(f"Created assistant: {assistant.name} (ID: {assistant.id})")
+
+        documents = []
+        for document_data in seed_data.get("documents", []):
+            document = create_document(session, document_data)
+            documents.append(document)
+            logging.info(f"Created document: {document.fname} (ID: {document.id})")
 
         logging.info("Database seeding completed successfully!")
         session.commit()

@@ -1,5 +1,4 @@
 services:
-
   db:
     image: postgres:16
     restart: always
@@ -43,7 +42,7 @@ services:
       - traefik.http.services.${STACK_NAME?Variable not set}-adminer.loadbalancer.server.port=8080
 
   prestart:
-    image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
+    image: "${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}"
     build:
       context: ./backend
     networks:
@@ -73,9 +72,13 @@ services:
       - POSTGRES_USER=${POSTGRES_USER?Variable not set}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
       - SENTRY_DSN=${SENTRY_DSN}
+      - LOCAL_CREDENTIALS_ORG_OPENAI_API_KEY=${LOCAL_CREDENTIALS_ORG_OPENAI_API_KEY}
+      - LOCAL_CREDENTIALS_API_KEY=${LOCAL_CREDENTIALS_API_KEY}
+      - EMAIL_TEST_USER=${EMAIL_TEST_USER}
+      - AWS_S3_BUCKET_PREFIX=${AWS_S3_BUCKET_PREFIX}
 
   backend:
-    image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
+    image: "${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}"
     restart: always
     networks:
       - traefik-public
@@ -105,9 +108,13 @@ services:
       - POSTGRES_USER=${POSTGRES_USER?Variable not set}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
       - SENTRY_DSN=${SENTRY_DSN}
+      - LOCAL_CREDENTIALS_ORG_OPENAI_API_KEY=${LOCAL_CREDENTIALS_ORG_OPENAI_API_KEY}
+      - LOCAL_CREDENTIALS_API_KEY=${LOCAL_CREDENTIALS_API_KEY}
+      - EMAIL_TEST_USER=${EMAIL_TEST_USER}
+      - AWS_S3_BUCKET_PREFIX=${AWS_S3_BUCKET_PREFIX}
 
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/utils/health-check/"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/utils/health/"]
       interval: 10s
       timeout: 5s
       retries: 5
