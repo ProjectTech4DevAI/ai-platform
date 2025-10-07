@@ -35,7 +35,7 @@ def test_collection_creation_success(
         assert body["metadata"]["status"] == "processing"
         assert body["metadata"]["route"] == "/collections/create"
         assert body["metadata"]["key"] is not None
-        job_key = UUID(body["metadata"]["key"])
+        job_key = body["metadata"]["key"]
 
         mock_job_start.assert_called_once()
         kwargs = mock_job_start.call_args.kwargs

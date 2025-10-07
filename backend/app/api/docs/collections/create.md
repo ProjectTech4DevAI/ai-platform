@@ -22,5 +22,5 @@ accepted. This is especially true for PDFs that may not be parseable.
 The immediate response from the endpoint is a packet containing a
 `key` which is the collection job ID. Once the collection has been created,
 information about the collection will be returned to the user via the callback URL.
-If a callback URL is not provided, clients can poll the `collectionjob info` endpoint
+If a callback URL is not provided, clients can poll the `collection job info` endpoint
 with the `key` to retrieve the same information.

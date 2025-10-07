@@ -12,10 +12,8 @@ from app.models.collection import (
     ResponsePayload,
 )
 from app.tests.utils.utils import get_project
-from app.crud import CollectionCrud
 from app.crud import CollectionCrud, CollectionJobCrud
 from app.models import CollectionJobStatus, CollectionJob, CollectionActionType
-from app.tests.utils.utils import get_project
 from app.services.collections.delete_collection import start_job, execute_job
 
 
@@ -63,16 +61,19 @@ def test_start_job_creates_collection_job_and_schedules_task(db: Session):
     ) as mock_schedule:
         mock_schedule.return_value = "fake-task-id"
 
+        collection_job_id = str(uuid4())
+
         returned = start_job(
             db=db,
             request=req.model_dump(),
             collection=created_collection,
             project_id=project.id,
+            collection_job_id=collection_job_id,
             payload=payload,
             organization_id=project.organization_id,
         )
 
-        assert returned == created_collection.id
+        assert returned == collection_job_id
 
         jobs = CollectionJobCrud(db, project.id).read_all()
         assert len(jobs) == 1
@@ -90,7 +91,7 @@ def test_start_job_creates_collection_job_and_schedules_task(db: Session):
         )
         assert kwargs["project_id"] == project.id
         assert kwargs["organization_id"] == project.organization_id
-        assert kwargs["job_id"] == job.id
+        assert kwargs["job_id"] == str(job.id)
         assert kwargs["collection_id"] == created_collection.id
         assert kwargs["request"] == req.model_dump()
         assert kwargs["payload_data"] == payload
@@ -144,13 +145,13 @@ def test_execute_job_delete_success_updates_job_and_calls_delete(
             project_id=project.id,
             organization_id=project.organization_id,
             task_id=task_id,
-            job_id=job.id,
+            job_id=str(job.id),
             collection_id=collection.id,
             task_instance=None,
         )
 
         updated_job = CollectionJobCrud(db, project.id).read_one(job.id)
-        assert updated_job.task_id == task_id
+        assert updated_job.task_id == str(task_id)
         assert updated_job.status == CollectionJobStatus.SUCCESSFUL
         assert updated_job.error_message in (None, "")
 
@@ -209,7 +210,7 @@ def test_execute_job_delete_failure_marks_job_failed(
         )
 
         failed_job = CollectionJobCrud(db, project.id).read_one(job.id)
-        assert failed_job.task_id == task_id
+        assert failed_job.task_id == str(task_id)
         assert failed_job.status == CollectionJobStatus.FAILED
         assert failed_job.error_message and "boom" in failed_job.error_message
 

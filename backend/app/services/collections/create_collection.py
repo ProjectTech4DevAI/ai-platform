@@ -49,7 +49,7 @@ def start_job(
     trace_id = correlation_id.get() or "N/A"
 
     collection_job = CollectionJob(
-        id=collection_job_id,
+        id=UUID(collection_job_id),
         action_type=CollectionActionType.CREATE,
         project_id=project_id,
         status=CollectionJobStatus.PENDING,
@@ -61,7 +61,7 @@ def start_job(
     task_id = start_low_priority_job(
         function_path="app.services.collections.create_collection.execute_job",
         project_id=project_id,
-        job_id=collection_job.id,
+        job_id=collection_job_id,
         trace_id=trace_id,
         request=request,
         payload_data=payload,
@@ -73,7 +73,7 @@ def start_job(
         f"collection_job_id={collection_job_id}, project_id={project_id}, task_id={task_id}"
     )
 
-    return collection_job.id
+    return collection_job_id
 
 
 def execute_job(
@@ -82,7 +82,7 @@ def execute_job(
     project_id: int,
     organization_id: int,
     task_id: str,
-    job_id: UUID,
+    job_id: str,
     task_instance,
 ) -> None:
     """
@@ -94,6 +94,8 @@ def execute_job(
         with Session(engine) as session:
             creation_request = CreationRequest(**request)
             payload = ResponsePayload(**payload_data)
+
+            job_id = UUID(job_id)
 
             collection_job_crud = CollectionJobCrud(session, project_id)
             collection_job = collection_job_crud.read_one(job_id)

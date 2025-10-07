@@ -27,15 +27,14 @@ def start_job(
     request: dict,
     collection: Collection,
     project_id: int,
+    collection_job_id: str,
     payload: dict,
     organization_id: int,
 ) -> UUID:
     trace_id = correlation_id.get() or "N/A"
 
-    job_id = uuid4()
-
     collection_job = CollectionJob(
-        id=job_id,
+        id=UUID(collection_job_id),
         action_type=CollectionActionType.DELETE,
         project_id=project_id,
         collection_id=collection.id,
@@ -48,7 +47,7 @@ def start_job(
     task_id = start_low_priority_job(
         function_path="app.services.collections.delete_collection.execute_job",
         project_id=project_id,
-        job_id=job_id,
+        job_id=collection_job_id,
         collection_id=collection.id,
         trace_id=trace_id,
         request=request,
@@ -58,9 +57,9 @@ def start_job(
 
     logger.info(
         "[delete_collection.start_job] Job scheduled to delete collection | "
-        f"Job_id={job_id}, project_id={project_id}, task_id={task_id}, collection_id={collection.id}"
+        f"Job_id={collection_job_id}, project_id={project_id}, task_id={task_id}, collection_id={collection.id}"
     )
-    return collection.id
+    return collection_job_id
 
 
 def execute_job(

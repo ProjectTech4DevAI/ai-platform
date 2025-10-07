@@ -49,7 +49,7 @@ def create_collection(
         db=session,
         request=request.model_dump(),
         payload=payload.model_dump(),
-        collection_job_id=UUID(payload.key),
+        collection_job_id=payload.key,
         project_id=current_user.project_id,
         organization_id=current_user.organization_id,
     )
@@ -84,6 +84,7 @@ def delete_collection(
         request=request.model_dump(),
         payload=payload.model_dump(),
         collection=collection,
+        collection_job_id=payload.key,
         project_id=current_user.project_id,
         organization_id=current_user.organization_id,
     )
@@ -94,42 +95,6 @@ def delete_collection(
     )
     return APIResponse.success_response(
         data=None, metadata=payload.model_dump(mode="json")
-    )
-
-
-@router.get(
-    "/info/collection_job/{collection_job_id}",
-    description=load_description("collections/job_info.md"),
-    response_model=Union[
-        APIResponse[CollectionPublic], APIResponse[CollectionJobPublic]
-    ],
-)
-def collection_job_info(
-    session: SessionDep,
-    current_user: CurrentUserOrgProject,
-    collection_job_id: UUID = FastPath(description="Collection job to retrieve"),
-):
-    collection_job_crud = CollectionJobCrud(session, current_user.project_id)
-    collection_job = collection_job_crud.read_one(collection_job_id)
-
-    if collection_job.status == CollectionJobStatus.SUCCESSFUL:
-        collection_crud = CollectionCrud(session, current_user.project_id)
-        collection = collection_crud.read_one(collection_job.collection_id)
-        return APIResponse.success_response(
-            data=CollectionPublic.model_validate(collection)
-        )
-
-    if collection_job.status == CollectionJobStatus.FAILED:
-        err = getattr(collection_job, "error_message", None)
-        if err:
-            collection_job.error_message = extract_error_message(err)
-
-        return APIResponse.success_response(
-            data=CollectionJobPublic.model_validate(collection_job)
-        )
-
-    return APIResponse.success_response(
-        data=CollectionJobPublic.model_validate(collection_job)
     )
 
 

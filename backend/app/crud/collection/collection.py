@@ -50,7 +50,8 @@ class CollectionCrud:
         stmt = (
             select(Collection.id)
             .where(
-                (Collection.llm_service_id == collection.llm_service_id)
+                (Collection.project_id == self.project_id)
+                & (Collection.llm_service_id == collection.llm_service_id)
                 & (Collection.llm_service_name == collection.llm_service_name)
             )
             .limit(1)

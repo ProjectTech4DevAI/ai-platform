@@ -37,6 +37,9 @@ class Collection(SQLModel, table=True):
 
 
 class ResponsePayload(SQLModel):
+    """Response metadata for background jobs—gives status, route, a UUID key,
+    and creation time."""
+
     status: str
     route: str
     key: str = Field(default_factory=lambda: str(uuid4()))
@@ -73,7 +76,7 @@ class AssistantOptions(SQLModel):
     model: str = Field(
         description=(
             "OpenAI model to attach to this assistant. The model "
-            "must compatable with the assistants API; see the "
+            "must be compatable with the assistants API; see the "
             "OpenAI [model documentation](https://platform.openai.com/docs/models/compare) for more."
         ),
     )
@@ -111,7 +114,7 @@ class CreationRequest(
 
 
 class DeletionRequest(CallbackRequest):
-    collection_id: UUID = Field("Collection to delete")
+    collection_id: UUID = Field(description="Collection to delete")
 
 
 class CollectionPublic(SQLModel):

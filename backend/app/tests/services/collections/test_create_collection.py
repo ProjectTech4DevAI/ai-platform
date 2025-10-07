@@ -1,13 +1,10 @@
-# tests/services/collections/test_create_collection_jobs.py
-
 import os
-from dataclasses import asdict
+import pytest
 from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
-import pytest
 from moto import mock_aws
 from sqlmodel import Session
 
@@ -60,11 +57,11 @@ def test_start_job_creates_collection_job_and_schedules_task(db: Session):
             request=request.model_dump(),
             project_id=project.id,
             payload=payload,
-            collection_job_id=job_id,
+            collection_job_id=str(job_id),
             organization_id=project.organization_id,
         )
 
-        assert returned_job_id == job_id
+        assert returned_job_id == str(job_id)
 
         job = CollectionJobCrud(db, project.id).read_one(job_id)
         assert job.id == job_id
@@ -81,7 +78,7 @@ def test_start_job_creates_collection_job_and_schedules_task(db: Session):
         )
         assert kwargs["project_id"] == project.id
         assert kwargs["organization_id"] == project.organization_id
-        assert kwargs["job_id"] == job_id
+        assert kwargs["job_id"] == str(job_id)
         assert kwargs["request"] == request.model_dump()
         assert kwargs["payload_data"] == payload
 
@@ -147,12 +144,12 @@ def test_execute_job_success_flow_updates_job_and_creates_collection(
             project_id=project.id,
             organization_id=project.organization_id,
             task_id=task_id,
-            job_id=job_id,
+            job_id=str(job_id),
             task_instance=None,
         )
 
     updated_job = CollectionJobCrud(db, project.id).read_one(job_id)
-    assert updated_job.task_id == task_id
+    assert updated_job.task_id == str(task_id)
     assert updated_job.status == CollectionJobStatus.SUCCESSFUL
     assert updated_job.collection_id is not None
 

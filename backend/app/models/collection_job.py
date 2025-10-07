@@ -44,7 +44,7 @@ class CollectionJob(CollectionJobBase, table=True):
         description="Current job status",
     )
 
-    task_id: UUID = Field(nullable=True)
+    task_id: str = Field(nullable=True)
 
     error_message: str | None = Field(sa_column=Column(Text, nullable=True))
     inserted_at: datetime = Field(

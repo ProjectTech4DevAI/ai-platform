@@ -1,7 +1,7 @@
 """adding collection job table and altering collections table
 
 Revision ID: b30727137e65
-Revises: c6fb6d0b5897
+Revises: 7ab577d3af26
 Create Date: 2025-10-05 14:19:14.213933
 
 """
@@ -43,7 +43,7 @@ def upgrade():
         sa.Column("project_id", sa.Integer(), nullable=False),
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("status", collection_job_status_enum, nullable=False),
-        sa.Column("task_id", sa.Uuid(), nullable=True),
+        sa.Column("task_id", sa.String(), nullable=True),
         sa.Column("error_message", sa.Text(), nullable=True),
         sa.Column("inserted_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
@@ -66,22 +66,26 @@ def downgrade():
         "collection",
         sa.Column("error_message", sa.VARCHAR(), autoincrement=False, nullable=True),
     )
+    collectionstatus = postgresql.ENUM(
+        "processing", "successful", "failed", name="collectionstatus"
+    )
+
     op.add_column(
         "collection",
         sa.Column(
             "status",
-            postgresql.ENUM(
-                "processing", "successful", "failed", name="collectionstatus"
-            ),
+            collectionstatus,
             server_default=sa.text("'processing'::collectionstatus"),
-            autoincrement=False,
-            nullable=False,
+            nullable=True,
         ),
     )
     op.add_column(
         "collection",
-        sa.Column("owner_id", sa.INTEGER(), autoincrement=False, nullable=False),
+        sa.Column("owner_id", sa.Integer(), nullable=True),
     )
+
+    op.execute("UPDATE collection SET status = 'processing' WHERE status IS NULL")
+    op.execute("UPDATE collection SET owner_id = 1 WHERE owner_id IS NULL")
     op.create_foreign_key(
         "collection_owner_id_fkey",
         "collection",
@@ -90,5 +94,7 @@ def downgrade():
         ["id"],
         ondelete="CASCADE",
     )
+    op.alter_column("collection", "status", nullable=False)
+    op.alter_column("collection", "owner_id", nullable=False)
     op.alter_column("collection", "inserted_at", new_column_name="created_at")
     op.drop_table("collection_jobs")
