@@ -45,7 +45,7 @@ def start_job(
     payload: dict,
     collection_job_id: str,
     organization_id: int,
-) -> UUID:
+) -> str:
     trace_id = correlation_id.get() or "N/A"
 
     collection_job = CollectionJob(
@@ -160,7 +160,6 @@ def execute_job(
 
                 collection_job.status = CollectionJobStatus.SUCCESSFUL
                 collection_job.collection_id = collection_id
-                collection_job.updated_at = now()
                 collection_job_crud.update(collection_job.id, collection_job)
 
                 elapsed = time.time() - start_time
@@ -188,7 +187,6 @@ def execute_job(
                     _backout(assistant_crud, assistant.id)
 
                 collection_job.status = CollectionJobStatus.FAILED
-                collection_job.updated_at = now()
                 collection_job.error_message = str(err)
                 collection_job_crud.update(collection_job.id, collection_job)
 
@@ -202,6 +200,5 @@ def execute_job(
         )
 
         collection_job.status = CollectionJobStatus.FAILED
-        collection_job.updated_at = now()
         collection_job.error_message = str(err)
         collection_job_crud.update(collection_job.id, collection_job)

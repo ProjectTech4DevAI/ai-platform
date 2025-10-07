@@ -74,8 +74,6 @@ class CollectionJobUpdate(SQLModel):
     error_message: str | None = None
     collection_id: UUID | None = None
 
-    updated_at: datetime
-
 
 class CollectionJobPublic(SQLModel):
     id: UUID

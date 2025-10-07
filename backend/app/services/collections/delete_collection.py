@@ -30,7 +30,7 @@ def start_job(
     collection_job_id: str,
     payload: dict,
     organization_id: int,
-) -> UUID:
+) -> str:
     trace_id = correlation_id.get() or "N/A"
 
     collection_job = CollectionJob(

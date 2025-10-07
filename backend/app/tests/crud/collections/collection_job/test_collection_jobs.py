@@ -47,8 +47,6 @@ def test_create_collection_job(db: Session, sample_project):
         inserted_at=now(),
         updated_at=now(),
     )
-    collection_job = create_sample_collection_job(db, sample_project.id)
-
     collection_job_crud = CollectionJobCrud(db, sample_project.id)
 
     created_job = collection_job_crud.create(collection_job)

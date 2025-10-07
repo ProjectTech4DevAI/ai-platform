@@ -57,21 +57,25 @@ class CollectionJobCrud:
         )
         return collection_jobs
 
-    def update(
-        self, job_id: UUID, collection_job: CollectionJobUpdate
-    ) -> CollectionJob:
-        """Update an existing collection job."""
-        collection_job = self.read_one(job_id)
+    def update(self, job_id: UUID, patch: CollectionJobUpdate) -> CollectionJob:
+        """Update an existing collection job and return the updated row."""
+        job = self.read_one(job_id)
 
-        collection_job.updated_at = now()
-        self.session.add(collection_job)
+        changes = patch.model_dump(exclude_unset=True, exclude_none=True)
+        for field, value in changes.items():
+            setattr(job, field, value)
+
+        job.updated_at = now()
+
+        self.session.add(job)
         self.session.commit()
-        self.session.refresh(collection_job)
-        logger.info(
-            f"[CollectionJobCrud._update] Collection job updated successfully | {{'collection_job_id': '{collection_job.id}'}}"
-        )
+        self.session.refresh(job)
 
-        return collection_job
+        logger.info(
+            "[CollectionJobCrud.update] Collection job updated successfully | {'collection_job_id': '%s'}",
+            job.id,
+        )
+        return job
 
     def create(self, collection_job: CollectionJobCreate) -> CollectionJob:
         """Create a new collection job."""
