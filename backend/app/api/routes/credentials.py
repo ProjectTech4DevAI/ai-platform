@@ -233,7 +233,7 @@ def delete_all_credentials(
     # Verify we deleted at least what we found
     if deleted_count < len(existing_creds):
         logger.error(
-            f"[delete_all_credentials] Partial deletion | expected: {len(existing_creds)}, deleted: {deleted_count}, organization_id: {_current_user.organization_id}, project_id: {_current_user.project_id}"
+            f"[delete_all_credentials] Failed to delete all credentials organization_id: {_current_user.organization_id}, project_id: {_current_user.project_id}"
         )
         raise HTTPException(status_code=500, detail="Failed to delete all credentials")
 
