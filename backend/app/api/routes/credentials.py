@@ -33,28 +33,9 @@ def create_new_credential(
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
     # Project comes from API key context; no cross-org check needed here
+    # Database unique constraint ensures no duplicate credentials per provider-org-project combination
 
-    # Prevent duplicate credentials
-    for provider in creds_in.credential.keys():
-        existing_cred = get_provider_credential(
-            session=session,
-            org_id=_current_user.organization_id,
-            provider=provider,
-            project_id=_current_user.project_id,
-        )
-        if existing_cred:
-            logger.warning(
-                f"[create_new_credential] Credentials for provider already exist | organization_id: {_current_user.organization_id}, project_id: {_current_user.project_id}, provider: {provider}"
-            )
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Credentials for provider '{provider}' already exist "
-                    f"for this organization and project combination"
-                ),
-            )
-
-    # Create credentials
+    # Create credentials - IntegrityError will be raised if duplicates exist
     created_creds = set_creds_for_org(
         session=session,
         creds_add=creds_in,

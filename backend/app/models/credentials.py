@@ -50,6 +50,15 @@ class Credential(CredsBase, table=True):
     Each row represents credentials for a single provider.
     """
 
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "organization_id",
+            "project_id",
+            "provider",
+            name="uq_credential_org_project_provider",
+        ),
+    )
+
     id: int = Field(default=None, primary_key=True)
     provider: str = Field(
         index=True, description="Provider name like 'openai', 'gemini'"

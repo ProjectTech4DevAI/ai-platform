@@ -54,6 +54,15 @@ def set_creds_for_org(
                 f"[set_creds_for_org] Integrity error while adding credentials | organization_id {organization_id}, project_id {project_id}, provider {provider}: {str(e)}",
                 exc_info=True,
             )
+            # Check if it's a duplicate constraint violation
+            if (
+                "uq_credential_org_project_provider" in str(e)
+                or "unique constraint" in str(e).lower()
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Credentials for provider '{provider}' already exist for this organization and project combination",
+                )
             raise ValueError(
                 f"Error while adding credentials for provider {provider}: {str(e)}"
             )
@@ -126,7 +135,8 @@ def get_provider_credential(
     project_id: int,
     provider: str,
     full: bool = False,
-) -> dict[str, Any] | Credential:
+    raise_on_not_found: bool = True,
+) -> dict[str, Any] | Credential | None:
     """
     Fetch credentials for a specific provider within a project.
 
@@ -136,14 +146,16 @@ def get_provider_credential(
         project_id: Project ID
         provider: Provider name (e.g., 'openai', 'anthropic')
         full: If True, returns full Credential object; otherwise returns decrypted dict
+        raise_on_not_found: If True, raises HTTPException when not found; otherwise returns None
 
     Returns:
-        dict[str, Any] | Credential:
+        dict[str, Any] | Credential | None:
             - If `full` is True, returns the full Credential SQLModel object.
             - Otherwise, returns the decrypted credentials as a dictionary.
+            - Returns None if not found and raise_on_not_found is False.
 
     Raises:
-        HTTPException: If credentials are not found
+        HTTPException: If credentials are not found and raise_on_not_found is True
     """
     validate_provider(provider)
 
@@ -156,6 +168,9 @@ def get_provider_credential(
 
     if creds and creds.credential:
         return creds if full else decrypt_credentials(creds.credential)
+
+    if not raise_on_not_found:
+        return None
 
     logger.error(
         f"[get_provider_credential] Credentials not found | organization_id {org_id}, provider {provider}, project_id {project_id}"
