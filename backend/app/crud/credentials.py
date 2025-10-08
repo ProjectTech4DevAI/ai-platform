@@ -2,7 +2,7 @@ import logging
 from typing import Any
 
 from sqlalchemy import delete
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.core.exception_handlers import HTTPException
@@ -232,42 +232,30 @@ def remove_provider_credential(
         provider=provider,
     )
 
-    try:
-        # Build delete statement
-        statement = delete(Credential).where(
-            Credential.organization_id == org_id,
-            Credential.provider == provider,
-            Credential.project_id == project_id,
-        )
+    # Build delete statement
+    statement = delete(Credential).where(
+        Credential.organization_id == org_id,
+        Credential.provider == provider,
+        Credential.project_id == project_id,
+    )
 
-        # Execute and get affected rows
-        result = session.exec(statement)
-        session.commit()
+    # Execute and get affected rows
+    result = session.exec(statement)
+    session.commit()
 
-        rows_deleted = result.rowcount
-        if rows_deleted == 0:
-            logger.error(
-                f"[remove_provider_credential] Failed to delete credential | organization_id {org_id}, provider {provider}, project_id {project_id}"
-            )
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to delete provider credential",
-            )
-
-        logger.info(
-            f"[remove_provider_credential] Successfully deleted credential | provider {provider}, organization_id {org_id}, project_id {project_id}"
-        )
-
-    except SQLAlchemyError as e:
-        session.rollback()
+    rows_deleted = result.rowcount
+    if rows_deleted == 0:
         logger.error(
-            f"[remove_provider_credential] Database error | organization_id {org_id}, provider {provider}, project_id {project_id}: {str(e)}",
-            exc_info=True,
+            f"[remove_provider_credential] Failed to delete credential | organization_id {org_id}, provider {provider}, project_id {project_id}"
         )
         raise HTTPException(
             status_code=500,
-            detail=f"Database error occurred while deleting provider credential: {str(e)}",
+            detail="Failed to delete provider credential",
         )
+
+    logger.info(
+        f"[remove_provider_credential] Successfully deleted credential | provider {provider}, organization_id {org_id}, project_id {project_id}"
+    )
 
 
 def remove_creds_for_org(*, session: Session, org_id: int, project_id: int) -> None:
@@ -283,35 +271,23 @@ def remove_creds_for_org(*, session: Session, org_id: int, project_id: int) -> N
         project_id=project_id,
     )
 
-    try:
-        statement = delete(Credential).where(
-            Credential.organization_id == org_id,
-            Credential.project_id == project_id,
-        )
-        result = session.exec(statement)
-        session.commit()
-        rows_deleted = result.rowcount
+    statement = delete(Credential).where(
+        Credential.organization_id == org_id,
+        Credential.project_id == project_id,
+    )
+    result = session.exec(statement)
+    session.commit()
+    rows_deleted = result.rowcount
 
-        if rows_deleted < len(existing_creds):
-            logger.error(
-                f"[remove_creds_for_org] Failed to delete all credentials | organization_id {org_id}, project_id {project_id}, expected {len(existing_creds)}, deleted {rows_deleted}"
-            )
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to delete all credentials",
-            )
-
-        logger.info(
-            f"[remove_creds_for_org] Successfully deleted {rows_deleted} credential(s) | organization_id {org_id}, project_id {project_id}"
-        )
-
-    except SQLAlchemyError as e:
-        session.rollback()
+    if rows_deleted < len(existing_creds):
         logger.error(
-            f"[remove_creds_for_org] Database error | organization_id {org_id}, project_id {project_id}: {str(e)}",
-            exc_info=True,
+            f"[remove_creds_for_org] Failed to delete all credentials | organization_id {org_id}, project_id {project_id}, expected {len(existing_creds)}, deleted {rows_deleted}"
         )
         raise HTTPException(
             status_code=500,
-            detail=f"Database error occurred while deleting credentials: {str(e)}",
+            detail="Failed to delete all credentials",
         )
+
+    logger.info(
+        f"[remove_creds_for_org] Successfully deleted {rows_deleted} credential(s) | organization_id {org_id}, project_id {project_id}"
+    )
