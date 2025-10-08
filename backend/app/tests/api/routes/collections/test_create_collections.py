@@ -8,7 +8,7 @@ from app.models.collection import Collection, CreationRequest
 
 
 def test_collection_creation_success(
-    client: TestClient, user_api_key_header: dict[str, str]
+    client: TestClient, user_api_key_header: dict[str, str], user_api_key
 ):
     with patch("app.api.routes.collections.create_service.start_job") as mock_job_start:
         creation_data = CreationRequest(
@@ -29,19 +29,21 @@ def test_collection_creation_success(
         assert resp.status_code == 200
         body = resp.json()
 
-        assert body["success"] is True
-        assert body["data"] is None
+        data = body["data"]
+        assert isinstance(data, dict)
+        assert data["action_type"] == "CREATE"
+        assert data["status"] == "PENDING"
+        assert data["project_id"] == user_api_key.project_id
+        assert data["collection_id"] is None
+        assert data["task_id"] is None
+        assert "trace_id" in data
+        assert data["inserted_at"]
+        assert data["updated_at"]
 
-        assert body["metadata"]["status"] == "processing"
-        assert body["metadata"]["route"] == "/collections/create"
-        assert body["metadata"]["key"] is not None
-        job_key = body["metadata"]["key"]
+        job_key = data["id"]
 
         mock_job_start.assert_called_once()
         kwargs = mock_job_start.call_args.kwargs
-
         assert "db" in kwargs
-        assert kwargs["request"] == creation_data.model_dump()
-        assert kwargs["payload"]["status"] == "processing"
-
-        assert kwargs["collection_job_id"] == job_key
+        assert kwargs["request"] == creation_data
+        assert kwargs["collection_job_id"] == UUID(job_key)

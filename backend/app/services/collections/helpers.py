@@ -19,8 +19,10 @@ from app.utils import APIResponse
 logger = logging.getLogger(__name__)
 
 
-# function to extract cleaned up error message from the error body for the user -
 def extract_error_message(err: Exception) -> str:
+    """Extract a concise, user-facing message from an exception, preferring `error.message`
+    in JSON/dict bodies after stripping prefixes.Falls back to cleaned text and truncates to
+    1000 characters."""
     err_str = str(err).strip()
 
     body = re.sub(r"^Error code:\s*\d+\s*-\s*", "", err_str)
@@ -46,10 +48,12 @@ def extract_error_message(err: Exception) -> str:
     return message.strip()[:1000]
 
 
-# batching the documents according to the given batch size
 def batch_documents(
     document_crud: DocumentCrud, documents: List[UUID], batch_size: int
 ):
+    """Batch document IDs into chunks of size `batch_size`, load each via `DocumentCrud.read_each`,
+    and return a list of document batches."""
+
     logger.info(
         f"[batch_documents] Starting batch iteration for documents | {{'batch_size': {batch_size}, 'total_documents': {len(documents)}}}"
     )
@@ -115,6 +119,7 @@ class WebHookCallback(CallbackHandler):
 
 
 def _backout(crud: OpenAIAssistantCrud, assistant_id: str):
+    """Best-effort cleanup: attempt to delete the assistant by ID"""
     try:
         crud.delete(assistant_id)
     except OpenAIError as err:

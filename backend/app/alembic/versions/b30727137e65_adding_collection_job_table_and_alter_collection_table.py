@@ -44,6 +44,7 @@ def upgrade():
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("status", collection_job_status_enum, nullable=False),
         sa.Column("task_id", sa.String(), nullable=True),
+        sa.Column("trace_id", sa.String(), nullable=True),
         sa.Column("error_message", sa.Text(), nullable=True),
         sa.Column("inserted_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),

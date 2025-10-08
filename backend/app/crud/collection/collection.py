@@ -9,8 +9,7 @@ from sqlmodel import Session, select, and_
 
 from app.models import Document, Collection, DocumentCollection
 from app.core.util import now
-
-from ..document_collection import DocumentCollectionCrud
+from app.crud.document_collection import DocumentCollectionCrud
 
 logger = logging.getLogger(__name__)
 
@@ -24,18 +23,15 @@ class CollectionCrud:
         if not collection.project_id:
             collection.project_id = self.project_id
         elif collection.project_id != self.project_id:
-            err = "Invalid collection ownership: owner_project={} attempter={}".format(
-                self.project_id,
-                collection.project_id,
+            err = (
+                f"Invalid collection ownership: owner_project={self.project_id} "
+                f"attempter={collection.project_id}"
             )
-            try:
-                raise PermissionError(err)
-            except PermissionError as e:
-                logger.error(
-                    f"[CollectionCrud._update] Permission error | {{'collection_id': '{collection.id}', 'error': '{str(e)}'}}",
-                    exc_info=True,
-                )
-                raise
+            logger.error(
+                "[CollectionCrud._update] Permission error | "
+                f"{{'collection_id': '{collection.id}', 'error': '{err}'}}"
+            )
+            raise PermissionError(err)
 
         self.session.add(collection)
         self.session.commit()
@@ -47,21 +43,13 @@ class CollectionCrud:
         return collection
 
     def _exists(self, collection: Collection) -> bool:
-        stmt = (
-            select(Collection.id)
-            .where(
-                (Collection.project_id == self.project_id)
-                & (Collection.llm_service_id == collection.llm_service_id)
-                & (Collection.llm_service_name == collection.llm_service_name)
-            )
-            .limit(1)
+        stmt = select(Collection.id).where(
+            (Collection.project_id == self.project_id)
+            & (Collection.llm_service_id == collection.llm_service_id)
+            & (Collection.llm_service_name == collection.llm_service_name)
         )
-        present = self.session.exec(stmt).first() is not None
+        present = self.session.exec(stmt).scalar_one_or_none() is not None
 
-        logger.info(
-            "[CollectionCrud._exists] Existence check completed | "
-            f"{{'llm_service_id': '{collection.llm_service_id}', 'exists': {present}}}"
-        )
         return present
 
     def create(
@@ -71,11 +59,19 @@ class CollectionCrud:
     ):
         try:
             existing = self.read_one(collection.id)
-
-            raise FileExistsError("Collection already present")
-        except:
-            self.session.add(collection)
-            self.session.commit()
+        except HTTPException as e:
+            if e.status_code == 404:
+                self.session.add(collection)
+                self.session.commit()
+                self.session.refresh(collection)
+            else:
+                raise
+        else:
+            logger.warning(
+                "[CollectionCrud.create] Collection already present | "
+                f"{{'collection_id': '{collection.id}'}}"
+            )
+            return existing
 
         if documents:
             dc_crud = DocumentCollectionCrud(self.session)
@@ -92,9 +88,9 @@ class CollectionCrud:
             )
         )
 
-        collection = self.session.exec(statement).first()
+        collection = self.session.exec(statement).one_or_none()
         if collection is None:
-            logger.error(
+            logger.warning(
                 "[CollectionCrud.read_one] Collection not found | "
                 f"{{'project_id': '{self.project_id}', 'collection_id': '{collection_id}'}}"
             )

@@ -1,5 +1,5 @@
 import logging
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from sqlmodel import Session
 from asgi_correlation_id import correlation_id
@@ -8,7 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.core.db import engine
 from app.crud import CollectionCrud, CollectionJobCrud
 from app.crud.rag import OpenAIAssistantCrud
-from app.models import CollectionJob, CollectionJobStatus, CollectionActionType
+from app.models import CollectionJobStatus, CollectionJobUpdate
 from app.models.collection import Collection, DeletionRequest
 from app.services.collections.helpers import (
     SilentCallback,
@@ -24,34 +24,27 @@ logger = logging.getLogger(__name__)
 
 def start_job(
     db: Session,
-    request: dict,
+    request: DeletionRequest,
     collection: Collection,
     project_id: int,
-    collection_job_id: str,
-    payload: dict,
+    collection_job_id: UUID,
+    payload: ResponsePayload,
     organization_id: int,
 ) -> str:
     trace_id = correlation_id.get() or "N/A"
-
-    collection_job = CollectionJob(
-        id=UUID(collection_job_id),
-        action_type=CollectionActionType.DELETE,
-        project_id=project_id,
-        collection_id=collection.id,
-        status=CollectionJobStatus.PENDING,
-    )
-
     job_crud = CollectionJobCrud(db, project_id)
-    collection_job = job_crud.create(collection_job)
+    collection_job = job_crud.update(
+        collection_job_id, CollectionJobUpdate(trace_id=trace_id)
+    )
 
     task_id = start_low_priority_job(
         function_path="app.services.collections.delete_collection.execute_job",
         project_id=project_id,
-        job_id=collection_job_id,
+        job_id=str(collection_job_id),
         collection_id=collection.id,
         trace_id=trace_id,
-        request=request,
-        payload_data=payload,
+        request=request.model_dump(),
+        payload=payload.model_dump(),
         organization_id=organization_id,
     )
 
@@ -64,7 +57,7 @@ def start_job(
 
 def execute_job(
     request: dict,
-    payload_data: dict,
+    payload: dict,
     project_id: int,
     organization_id: int,
     task_id: str,
@@ -73,7 +66,7 @@ def execute_job(
     task_instance,
 ) -> None:
     deletion_request = DeletionRequest(**request)
-    payload = ResponsePayload(**payload_data)
+    payload = ResponsePayload(**payload)
 
     callback = (
         SilentCallback(payload)

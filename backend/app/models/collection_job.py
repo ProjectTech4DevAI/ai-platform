@@ -5,6 +5,7 @@ from datetime import datetime
 from sqlmodel import Field, SQLModel, Column, Text
 
 from app.core.util import now
+from app.models.collection import CollectionPublic
 
 
 class CollectionJobStatus(str, Enum):
@@ -45,6 +46,9 @@ class CollectionJob(CollectionJobBase, table=True):
     )
 
     task_id: str = Field(nullable=True)
+    trace_id: str | None = Field(
+        default=None, description="Tracing ID for correlating logs and traces."
+    )
 
     error_message: str | None = Field(sa_column=Column(Text, nullable=True))
     inserted_at: datetime = Field(
@@ -61,7 +65,6 @@ class CollectionJob(CollectionJobBase, table=True):
 
 
 class CollectionJobCreate(SQLModel):
-    id: UUID
     collection_id: UUID | None = None
     status: CollectionJobStatus
     action_type: CollectionActionType
@@ -70,16 +73,19 @@ class CollectionJobCreate(SQLModel):
 
 class CollectionJobUpdate(SQLModel):
     task_id: str | None = None
-    status: CollectionJobStatus
+    status: CollectionJobStatus | None = None
     error_message: str | None = None
     collection_id: UUID | None = None
+    trace_id: str | None = None
 
 
 class CollectionJobPublic(SQLModel):
     id: UUID
+    action_type: CollectionActionType
     collection_id: UUID | None = None
     status: CollectionJobStatus
     error_message: str | None = None
-
     inserted_at: datetime
     updated_at: datetime
+
+    collection: CollectionPublic | None = None

@@ -28,10 +28,27 @@ def aws_credentials():
     os.environ["AWS_DEFAULT_REGION"] = settings.AWS_DEFAULT_REGION
 
 
+def create_collection_job_for_create(
+    db: Session,
+    project,
+    job_id: UUID,
+):
+    """Pre-create a CREATE job with the given id so start_job can update it."""
+    return CollectionJobCrud(db, project.id).create(
+        CollectionJob(
+            id=job_id,
+            action_type=CollectionActionType.CREATE,
+            project_id=project.id,
+            collection_id=None,
+            status=CollectionJobStatus.PENDING,
+        )
+    )
+
+
 def test_start_job_creates_collection_job_and_schedules_task(db: Session):
     """
     start_job should:
-      - create a CollectionJob in 'processing'
+      - update an existing CollectionJob (status=PENDING, action=CREATE)
       - call start_low_priority_job with the correct kwargs
       - return the job UUID (same one that was passed in)
     """
@@ -44,8 +61,11 @@ def test_start_job_creates_collection_job_and_schedules_task(db: Session):
         batch_size=1,
         callback_url=None,
     )
-    payload = {"some": "data"}
+    route = "/collections/create"
+    payload = ResponsePayload(status="processing", route=route)
     job_id = uuid4()
+
+    _ = create_collection_job_for_create(db, project, job_id)
 
     with patch(
         "app.services.collections.create_collection.start_low_priority_job"
@@ -54,7 +74,7 @@ def test_start_job_creates_collection_job_and_schedules_task(db: Session):
 
         returned_job_id = start_job(
             db=db,
-            request=request.model_dump(),
+            request=request,
             project_id=project.id,
             payload=payload,
             collection_job_id=str(job_id),
@@ -67,7 +87,10 @@ def test_start_job_creates_collection_job_and_schedules_task(db: Session):
         assert job.id == job_id
         assert job.project_id == project.id
         assert job.status == CollectionJobStatus.PENDING
-        assert job.action_type == CollectionActionType.CREATE.value
+        assert job.action_type in (
+            CollectionActionType.CREATE,
+            CollectionActionType.CREATE.value,
+        )
         assert job.collection_id is None
 
         mock_schedule.assert_called_once()
@@ -80,7 +103,9 @@ def test_start_job_creates_collection_job_and_schedules_task(db: Session):
         assert kwargs["organization_id"] == project.organization_id
         assert kwargs["job_id"] == str(job_id)
         assert kwargs["request"] == request.model_dump()
-        assert kwargs["payload_data"] == payload
+
+        passed_payload = kwargs.get("payload", kwargs.get("payload_data"))
+        assert passed_payload == payload.model_dump()
 
 
 @pytest.mark.usefixtures("aws_credentials")
@@ -140,7 +165,7 @@ def test_execute_job_success_flow_updates_job_and_creates_collection(
 
         execute_job(
             request=sample_request.model_dump(),
-            payload_data=sample_payload.model_dump(),
+            payload=sample_payload.model_dump(),
             project_id=project.id,
             organization_id=project.organization_id,
             task_id=task_id,

@@ -19,7 +19,7 @@ from app.models import (
     CollectionJobStatus,
     CollectionJob,
     Collection,
-    CollectionActionType,
+    CollectionJobUpdate,
 )
 from app.models.collection import (
     ResponsePayload,
@@ -40,31 +40,26 @@ logger = logging.getLogger(__name__)
 
 def start_job(
     db: Session,
-    request: dict,
+    request: CreationRequest,
+    payload: ResponsePayload,
     project_id: int,
-    payload: dict,
-    collection_job_id: str,
+    collection_job_id: UUID,
     organization_id: int,
 ) -> str:
     trace_id = correlation_id.get() or "N/A"
 
-    collection_job = CollectionJob(
-        id=UUID(collection_job_id),
-        action_type=CollectionActionType.CREATE,
-        project_id=project_id,
-        status=CollectionJobStatus.PENDING,
-    )
-
     job_crud = CollectionJobCrud(db, project_id)
-    collection_job = job_crud.create(collection_job)
+    collection_job = job_crud.update(
+        collection_job_id, CollectionJobUpdate(trace_id=trace_id)
+    )
 
     task_id = start_low_priority_job(
         function_path="app.services.collections.create_collection.execute_job",
         project_id=project_id,
-        job_id=collection_job_id,
+        job_id=str(collection_job_id),
+        payload=payload.model_dump(),
         trace_id=trace_id,
-        request=request,
-        payload_data=payload,
+        request=request.model_dump(),
         organization_id=organization_id,
     )
 
@@ -78,9 +73,9 @@ def start_job(
 
 def execute_job(
     request: dict,
-    payload_data: dict,
     project_id: int,
     organization_id: int,
+    payload: dict,
     task_id: str,
     job_id: str,
     task_instance,
@@ -93,7 +88,7 @@ def execute_job(
     try:
         with Session(engine) as session:
             creation_request = CreationRequest(**request)
-            payload = ResponsePayload(**payload_data)
+            payload = ResponsePayload(**payload)
 
             job_id = UUID(job_id)
 

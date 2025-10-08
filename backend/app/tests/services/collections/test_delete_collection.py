@@ -1,10 +1,8 @@
 from unittest.mock import patch, MagicMock
-from uuid import uuid4
-from dataclasses import asdict
+from uuid import uuid4, UUID
 
 from sqlmodel import Session
 from sqlalchemy.exc import SQLAlchemyError
-
 
 from app.models.collection import (
     DeletionRequest,
@@ -24,14 +22,19 @@ def create_collection(db: Session, project):
         organization_id=project.organization_id,
         llm_service_id="asst-nasjnl",
     )
-    collection = CollectionCrud(db, project.id).create(collection)
-    return collection
+    return CollectionCrud(db, project.id).create(collection)
 
 
-def create_collection_job(db: Session, project, collection):
-    job_id = uuid4()
+def create_collection_job(
+    db: Session,
+    project,
+    collection,
+    job_id: UUID | None = None,
+):
+    if job_id is None:
+        job_id = uuid4()
     job_crud = CollectionJobCrud(db, project.id)
-    job = job_crud.create(
+    return job_crud.create(
         CollectionJob(
             id=job_id,
             action_type=CollectionActionType.DELETE,
@@ -40,32 +43,37 @@ def create_collection_job(db: Session, project, collection):
             status=CollectionJobStatus.PENDING,
         )
     )
-    return job
 
 
 def test_start_job_creates_collection_job_and_schedules_task(db: Session):
     """
-    - start_job should create a CollectionJob (status=processing, action=delete)
-    - schedule the task with a *generated* job_id and the provided collection_id
-    - return the collection.id (per implementation)
+    - start_job should update an existing CollectionJob (status=processing, action=delete)
+    - schedule the task with the provided job_id and collection_id
+    - return the same job_id (string)
     """
     project = get_project(db)
-
     created_collection = create_collection(db, project)
 
     req = DeletionRequest(collection_id=created_collection.id)
-    payload = {"status": "processing"}
+    route = "/collections/delete"
+    payload = ResponsePayload(status="processing", route=route)
 
     with patch(
         "app.services.collections.delete_collection.start_low_priority_job"
     ) as mock_schedule:
         mock_schedule.return_value = "fake-task-id"
 
-        collection_job_id = str(uuid4())
+        collection_job_id = uuid4()
+        precreated = create_collection_job(
+            db=db,
+            project=project,
+            collection=created_collection,
+            job_id=collection_job_id,
+        )
 
         returned = start_job(
             db=db,
-            request=req.model_dump(),
+            request=req,
             collection=created_collection,
             project_id=project.id,
             collection_job_id=collection_job_id,
@@ -78,6 +86,7 @@ def test_start_job_creates_collection_job_and_schedules_task(db: Session):
         jobs = CollectionJobCrud(db, project.id).read_all()
         assert len(jobs) == 1
         job = jobs[0]
+        assert job.id == collection_job_id
         assert job.project_id == project.id
         assert job.collection_id == created_collection.id
         assert job.status == CollectionJobStatus.PENDING
@@ -94,7 +103,7 @@ def test_start_job_creates_collection_job_and_schedules_task(db: Session):
         assert kwargs["job_id"] == str(job.id)
         assert kwargs["collection_id"] == created_collection.id
         assert kwargs["request"] == req.model_dump()
-        assert kwargs["payload_data"] == payload
+        assert kwargs["payload"] == payload.model_dump()
         assert "trace_id" in kwargs
 
 
@@ -141,7 +150,7 @@ def test_execute_job_delete_success_updates_job_and_calls_delete(
 
         execute_job(
             request=req.model_dump(),
-            payload_data=payload.model_dump(),
+            payload=payload.model_dump(),
             project_id=project.id,
             organization_id=project.organization_id,
             task_id=task_id,
@@ -200,7 +209,7 @@ def test_execute_job_delete_failure_marks_job_failed(
 
         execute_job(
             request=req.model_dump(),
-            payload_data=payload.model_dump(),
+            payload=payload.model_dump(),
             project_id=project.id,
             organization_id=project.organization_id,
             task_id=task_id,

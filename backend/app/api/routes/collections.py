@@ -1,7 +1,7 @@
 import inspect
 import logging
 from uuid import UUID
-from typing import List, Union
+from typing import List
 
 from fastapi import APIRouter, Query
 from fastapi import Path as FastPath
@@ -13,7 +13,12 @@ from app.crud import (
     CollectionJobCrud,
     DocumentCollectionCrud,
 )
-from app.models import DocumentPublic, CollectionJobStatus, CollectionJobPublic
+from app.models import (
+    DocumentPublic,
+    CollectionJobStatus,
+    CollectionActionType,
+    CollectionJobCreate,
+)
 from app.models.collection import (
     ResponsePayload,
     CreationRequest,
@@ -41,26 +46,31 @@ def create_collection(
     current_user: CurrentUserOrgProject,
     request: CreationRequest,
 ):
+    collection_job_crud = CollectionJobCrud(session, current_user.project_id)
+    collection_job = collection_job_crud.create(
+        CollectionJobCreate(
+            action_type=CollectionActionType.CREATE,
+            project_id=current_user.project_id,
+            status=CollectionJobStatus.PENDING,
+        )
+    )
+
     this = inspect.currentframe()
     route = router.url_path_for(this.f_code.co_name)
-    payload = ResponsePayload(status="processing", route=route)
+    payload = ResponsePayload(
+        status="processing", route=route, key=str(collection_job.id)
+    )
 
     create_service.start_job(
         db=session,
-        request=request.model_dump(),
-        payload=payload.model_dump(),
-        collection_job_id=payload.key,
+        request=request,
+        payload=payload,
+        collection_job_id=collection_job.id,
         project_id=current_user.project_id,
         organization_id=current_user.organization_id,
     )
 
-    logger.info(
-        f"[create_collection] Background task for collection creation scheduled | "
-        f"{{'collection_job_id': '{payload.key}'}}"
-    )
-    return APIResponse.success_response(
-        data=None, metadata=payload.model_dump(mode="json")
-    )
+    return APIResponse.success_response(collection_job)
 
 
 @router.post(
@@ -75,27 +85,33 @@ def delete_collection(
     collection_crud = CollectionCrud(session, current_user.project_id)
     collection = collection_crud.read_one(request.collection_id)
 
+    collection_job_crud = CollectionJobCrud(session, current_user.project_id)
+    collection_job = collection_job_crud.create(
+        CollectionJobCreate(
+            action_type=CollectionActionType.DELETE,
+            project_id=current_user.project_id,
+            status=CollectionJobStatus.PENDING,
+            collection_id=collection.id,
+        )
+    )
+
     this = inspect.currentframe()
     route = router.url_path_for(this.f_code.co_name)
-    payload = ResponsePayload(status="processing", route=route)
+    payload = ResponsePayload(
+        status="processing", route=route, key=str(collection_job.id)
+    )
 
     delete_service.start_job(
         db=session,
-        request=request.model_dump(),
-        payload=payload.model_dump(),
+        request=request,
+        payload=payload,
         collection=collection,
-        collection_job_id=payload.key,
+        collection_job_id=collection_job.id,
         project_id=current_user.project_id,
         organization_id=current_user.organization_id,
     )
 
-    logger.info(
-        f"[delete_collection] Background task for deletion scheduled | "
-        f"{{'collection_id': '{request.collection_id}'}}"
-    )
-    return APIResponse.success_response(
-        data=None, metadata=payload.model_dump(mode="json")
-    )
+    return APIResponse.success_response(collection_job)
 
 
 @router.get(

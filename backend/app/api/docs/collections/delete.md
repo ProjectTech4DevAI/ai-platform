@@ -6,4 +6,8 @@ Remove a collection from the platform. This is a two step process:
 
 No action is taken on the documents themselves: the contents of the
 documents that were a part of the collection remain unchanged, those
-documents can still be accessed via the documents endpoints.
+documents can still be accessed via the documents endpoints. The response from this
+endpoint will be a `collection_job` object which will contain the collection job ID,
+status and action type ("DELETE"). when you take the id returned and use the collection job
+info endpoint, if the job is successful, you will get the status as successful and nothing will
+be returned as the collection as it has been deleted and marked as deleted.

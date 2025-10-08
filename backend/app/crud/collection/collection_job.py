@@ -24,14 +24,12 @@ class CollectionJobCrud:
     def read_one(self, job_id: UUID) -> CollectionJob:
         """Retrieve a single collection job by its id; 404 if not found."""
         statement = select(CollectionJob).where(
-            and_(
-                CollectionJob.project_id == self.project_id,
-                CollectionJob.id == job_id,
-            )
+            CollectionJob.project_id == self.project_id,
+            CollectionJob.id == job_id,
         )
-        collection_job = self.session.exec(statement).first()
+        collection_job = self.session.exec(statement).one_or_none()
         if collection_job is None:
-            logger.error(
+            logger.warning(
                 "[CollectionJobCrud.read_one] Collection job not found | "
                 f"{{'project_id': '{self.project_id}', 'job_id': '{job_id}'}}"
             )
@@ -80,6 +78,7 @@ class CollectionJobCrud:
     def create(self, collection_job: CollectionJobCreate) -> CollectionJob:
         """Create a new collection job."""
         try:
+            collection_job = CollectionJob(**collection_job.model_dump())
             self.session.add(collection_job)
             self.session.commit()
             self.session.refresh(collection_job)
