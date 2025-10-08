@@ -6,7 +6,7 @@ from sqlmodel import Session, select, and_
 from fastapi import HTTPException
 
 from app.models import APIKey, User
-from app.crud import get_project_by_id
+from app.crud.project import get_project_by_id
 from app.core.util import now
 from app.core.security import api_key_manager
 
