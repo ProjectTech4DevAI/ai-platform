@@ -86,12 +86,6 @@ def read_credential(
         org_id=_current_user.organization_id,
         project_id=_current_user.project_id,
     )
-    if not creds:
-        logger.error(
-            f"[read_credential] No credentials found | organization_id: {_current_user.organization_id}, project_id: {_current_user.project_id}"
-        )
-        raise HTTPException(status_code=404, detail="Credentials not found")
-
     return APIResponse.success_response([cred.to_public() for cred in creds])
 
 
@@ -114,9 +108,6 @@ def read_provider_credential(
         provider=provider_enum,
         project_id=_current_user.project_id,
     )
-    if credential is None:
-        raise HTTPException(status_code=404, detail="Provider credentials not found")
-
     return APIResponse.success_response(credential)
 
 
@@ -165,33 +156,12 @@ def delete_provider_credential(
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
     provider_enum = validate_provider(provider)
-    provider_creds = get_provider_credential(
+    remove_provider_credential(
         session=session,
         org_id=_current_user.organization_id,
         provider=provider_enum,
         project_id=_current_user.project_id,
     )
-    if provider_creds is None:
-        logger.error(
-            f"[delete_provider_credential] Provider credentials not found | organization_id: {_current_user.organization_id}, provider: {provider}, project_id: {_current_user.project_id}"
-        )
-        raise HTTPException(status_code=404, detail="Provider credentials not found")
-
-    # Delete and verify
-    deleted_count = remove_provider_credential(
-        session=session,
-        org_id=_current_user.organization_id,
-        provider=provider_enum,
-        project_id=_current_user.project_id,
-    )
-
-    if deleted_count == 0:
-        logger.error(
-            f"[delete_provider_credential] Failed to delete credential | organization_id: {_current_user.organization_id}, provider: {provider}, project_id: {_current_user.project_id}"
-        )
-        raise HTTPException(
-            status_code=500, detail="Failed to delete provider credential"
-        )
 
     return APIResponse.success_response(
         {"message": "Provider credentials removed successfully"}
@@ -209,33 +179,11 @@ def delete_all_credentials(
     session: SessionDep,
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ):
-    # First check if there are any credentials to delete
-    existing_creds = get_creds_by_org(
+    remove_creds_for_org(
         session=session,
         org_id=_current_user.organization_id,
         project_id=_current_user.project_id,
     )
-    if not existing_creds:
-        logger.error(
-            f"[delete_all_credentials] Credentials not found | organization_id: {_current_user.organization_id}, project_id: {_current_user.project_id}"
-        )
-        raise HTTPException(
-            status_code=404, detail="Credentials for organization/project not found"
-        )
-
-    # Delete all credentials and verify
-    deleted_count = remove_creds_for_org(
-        session=session,
-        org_id=_current_user.organization_id,
-        project_id=_current_user.project_id,
-    )
-
-    # Verify we deleted at least what we found
-    if deleted_count < len(existing_creds):
-        logger.error(
-            f"[delete_all_credentials] Failed to delete all credentials organization_id: {_current_user.organization_id}, project_id: {_current_user.project_id}"
-        )
-        raise HTTPException(status_code=500, detail="Failed to delete all credentials")
 
     return APIResponse.success_response(
         {"message": "All credentials deleted successfully"}

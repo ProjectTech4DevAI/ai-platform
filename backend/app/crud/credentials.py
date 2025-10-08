@@ -1,7 +1,8 @@
 import logging
 from typing import Any
 
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import delete
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlmodel import Session, select
 
 from app.core.exception_handlers import HTTPException
@@ -87,12 +88,34 @@ def get_key_by_org(
 def get_creds_by_org(
     *, session: Session, org_id: int, project_id: int
 ) -> list[Credential]:
-    """Fetches all credentials for an organization."""
+    """Fetches all credentials for an organization.
+
+    Args:
+        session: Database session
+        org_id: Organization ID
+        project_id: Project ID
+
+    Returns:
+        list[Credential]: List of credentials
+
+    Raises:
+        HTTPException: If no credentials are found
+    """
     statement = select(Credential).where(
         Credential.organization_id == org_id,
         Credential.project_id == project_id,
     )
     creds = session.exec(statement).all()
+
+    if not creds:
+        logger.error(
+            f"[get_creds_by_org] No credentials found | organization_id {org_id}, project_id {project_id}"
+        )
+        raise HTTPException(
+            status_code=404,
+            detail="Credentials not found for this organization and project",
+        )
+
     return creds
 
 
@@ -103,14 +126,24 @@ def get_provider_credential(
     project_id: int,
     provider: str,
     full: bool = False,
-) -> dict[str, Any] | Credential | None:
+) -> dict[str, Any] | Credential:
     """
     Fetch credentials for a specific provider within a project.
 
+    Args:
+        session: Database session
+        org_id: Organization ID
+        project_id: Project ID
+        provider: Provider name (e.g., 'openai', 'anthropic')
+        full: If True, returns full Credential object; otherwise returns decrypted dict
+
     Returns:
-        dict[str, Any] | Credential | None:
+        dict[str, Any] | Credential:
             - If `full` is True, returns the full Credential SQLModel object.
             - Otherwise, returns the decrypted credentials as a dictionary.
+
+    Raises:
+        HTTPException: If credentials are not found
     """
     validate_provider(provider)
 
@@ -123,7 +156,13 @@ def get_provider_credential(
 
     if creds and creds.credential:
         return creds if full else decrypt_credentials(creds.credential)
-    return None
+
+    logger.error(
+        f"[get_provider_credential] Credentials not found | organization_id {org_id}, provider {provider}, project_id {project_id}"
+    )
+    raise HTTPException(
+        status_code=404, detail=f"Credentials not found for provider '{provider}'"
+    )
 
 
 def get_providers(*, session: Session, org_id: int, project_id: int) -> list[str]:
@@ -177,54 +216,102 @@ def update_creds_for_org(
 
 def remove_provider_credential(
     session: Session, org_id: int, project_id: int, provider: str
-) -> int:
+) -> None:
     """Remove credentials for a specific provider.
 
-    Returns:
-        int: Number of rows deleted (0 or 1)
+    Raises:
+        HTTPException: If credentials not found or deletion fails
     """
-    from sqlalchemy import delete
-
     validate_provider(provider)
 
-    # Build delete statement
-    statement = delete(Credential).where(
-        Credential.organization_id == org_id,
-        Credential.provider == provider,
-        Credential.project_id == project_id,
+    # Verify credentials exist before attempting delete
+    get_provider_credential(
+        session=session,
+        org_id=org_id,
+        project_id=project_id,
+        provider=provider,
     )
 
-    # Execute and get affected rows
-    result = session.exec(statement)
-    session.commit()
+    try:
+        # Build delete statement
+        statement = delete(Credential).where(
+            Credential.organization_id == org_id,
+            Credential.provider == provider,
+            Credential.project_id == project_id,
+        )
 
-    rows_deleted = result.rowcount
-    logger.info(
-        f"[remove_provider_credential] Deleted {rows_deleted} credential(s) for provider {provider} | organization_id {org_id}, project_id {project_id}"
-    )
-    return rows_deleted
+        # Execute and get affected rows
+        result = session.exec(statement)
+        session.commit()
+
+        rows_deleted = result.rowcount
+        if rows_deleted == 0:
+            logger.error(
+                f"[remove_provider_credential] Failed to delete credential | organization_id {org_id}, provider {provider}, project_id {project_id}"
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to delete provider credential",
+            )
+
+        logger.info(
+            f"[remove_provider_credential] Successfully deleted credential | provider {provider}, organization_id {org_id}, project_id {project_id}"
+        )
+
+    except SQLAlchemyError as e:
+        session.rollback()
+        logger.error(
+            f"[remove_provider_credential] Database error | organization_id {org_id}, provider {provider}, project_id {project_id}: {str(e)}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error occurred while deleting provider credential: {str(e)}",
+        )
 
 
-def remove_creds_for_org(*, session: Session, org_id: int, project_id: int) -> int:
+def remove_creds_for_org(*, session: Session, org_id: int, project_id: int) -> None:
     """Removes all credentials for an organization.
 
-    Returns:
-        int: Number of credentials deleted
+    Raises:
+        HTTPException: If credentials not found or deletion fails
     """
-    from sqlalchemy import delete
-
-    # Build delete statement
-    statement = delete(Credential).where(
-        Credential.organization_id == org_id,
-        Credential.project_id == project_id,
+    # Verify credentials exist before attempting delete
+    existing_creds = get_creds_by_org(
+        session=session,
+        org_id=org_id,
+        project_id=project_id,
     )
 
-    # Execute and get affected rows
-    result = session.exec(statement)
-    session.commit()
+    try:
+        statement = delete(Credential).where(
+            Credential.organization_id == org_id,
+            Credential.project_id == project_id,
+        )
+        result = session.exec(statement)
+        session.commit()
+        rows_deleted = result.rowcount
 
-    rows_deleted = result.rowcount
-    logger.info(
-        f"[remove_creds_for_org] Successfully deleted {rows_deleted} credential(s) | organization_id {org_id}, project_id {project_id}"
-    )
-    return rows_deleted
+        if rows_deleted < len(existing_creds):
+            logger.error(
+                f"[remove_creds_for_org] Failed to delete all credentials | organization_id {org_id}, project_id {project_id}, expected {len(existing_creds)}, deleted {rows_deleted}"
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to delete all credentials",
+            )
+
+        logger.info(
+            f"[remove_creds_for_org] Successfully deleted {rows_deleted} credential(s) | organization_id {org_id}, project_id {project_id}"
+        )
+
+    except SQLAlchemyError as e:
+        session.rollback()
+        logger.error(
+            f"[remove_creds_for_org] Database error | organization_id {org_id}, project_id {project_id}: {str(e)}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error occurred while deleting credentials: {str(e)}",
+        )
