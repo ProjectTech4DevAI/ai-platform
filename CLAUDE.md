@@ -1,42 +1,38 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with code in this repository.
 
 ## Project Overview
 
-This is an AI Platform named Kaapi built with FastAPI (backend) and PostgreSQL (database), containerized with Docker. The platform provides AI capabilities including OpenAI assistants, fine-tuning, document processing, and collection management.
+Kaapi is an AI platform built with FastAPI and PostgreSQL, containerized with Docker. It provides AI capabilities including OpenAI assistants, fine-tuning, document processing, and collection management.
 
 ## Key Commands
 
 ### Development
 
 ```bash
-# Start development environment with auto-reload
-source .venv/bin/activate
-fastapi run --reload app/main.py
-
-# Run backend tests
-uv run bash scripts/tests-start.sh
-
-# Seed data
-uv run python -m app.seed_data.seed_data
-
-# Run pre-commit
-uv run pre-commit run --all-files
-
 # Activate virtual environment
 source .venv/bin/activate
 
-# Generate new Migration
-alembic revision --autogenerate -m 'Add new meta'
+# Start development server with auto-reload
+fastapi run --reload app/main.py
+
+# Run pre-commit hooks
+uv run pre-commit run --all-files
+
+# Generate database migration
+alembic revision --autogenerate -m 'Description'
+
+# Seed database with test data
+uv run python -m app.seed_data.seed_data
 ```
 
 ### Testing
 
-We also use .env.test to keep environment variable separate for test environment and can use it in testcases
+Tests use `.env.test` for environment-specific configuration.
 
 ```bash
-# Run backend tests
+# Run test suite
 uv run bash scripts/tests-start.sh
 ```
 
@@ -44,61 +40,53 @@ uv run bash scripts/tests-start.sh
 
 ### Backend Structure
 
-The backend follows a layered architecture:
+The backend follows a layered architecture located in `backend/app/`:
 
-- **API Layer** (`backend/app/api/`): FastAPI routes organized by domain
-  - Authentication (`login.py`)
-  - Core resources: `users.py`, `organizations.py`, `projects.py`
-  - AI features: `assistants.py`, `fine_tuning.py`, `openai_conversation.py`
-  - Document management: `documents.py`, `collections.py`, `doc_transformation_job.py`
+- **Models** (`models/`): SQLModel entities representing database tables and domain objects
 
-- **Models** (`backend/app/models/`): SQLModel entities representing database tables
-  - User system: User, Organization, Project, ProjectUser
-  - AI components: Assistant, Thread, Message, FineTuning
-  - Document system: Document, Collection, DocumentCollection, DocTransformationJob
+- **CRUD** (`crud/`): Database access layer for all data operations
 
-- **CRUD Operations** (`backend/app/crud/`): Database operations for each model
+- **Routes** (`api/`): FastAPI REST endpoints organized by domain
 
-- **Core Services** (`backend/app/core/`):
-  - `providers.py`: OpenAI client management
-  - `finetune/`: Fine-tuning pipeline (preprocessing, evaluation)
-  - `doctransform/`: Document transformation services
-  - `cloud/storage.py`: S3 storage integration
-  - `langfuse/`: Observability and tracing
+- **Core** (`core/`): Core functionality and utilities
+  - Configuration and settings
+  - Database connection and session management
+  - Security (JWT, password hashing, API keys)
+  - Cloud storage (`cloud/storage.py`)
+  - Document transformation (`doctransform/`)
+  - Fine-tuning utilities (`finetune/`)
+  - Langfuse observability integration (`langfuse/`)
+  - Exception handlers and middleware
 
-### Database
+- **Services** (`services/`): Business logic services
+  - Response service (`response/`): OpenAI Responses API integration, conversation management, and job execution
 
-PostgreSQL with Alembic migrations. Key relationships:
-- Organizations contain Projects
-- Projects have Users (many-to-many via ProjectUser)
-- Projects contain Collections and Documents
-- Documents can belong to Collections (many-to-many)
-- Projects have Assistants, Threads, and FineTuning jobs
+- **Celery** (`celery/`): Asynchronous task processing with RabbitMQ and Redis
+  - Task definitions (`tasks/`)
+  - Celery app configuration with priority queues
+  - Beat scheduler and worker configuration
+
 
 ### Authentication & Security
 
 - JWT-based authentication
 - API key support for programmatic access
-- Role-based access control (User, Admin, Super Admin)
 - Organization and project-level permissions
 
 ## Environment Configuration
 
-Critical environment variables:
-- `SECRET_KEY`: JWT signing key
-- `POSTGRES_*`: Database connection
-- `LOCAL_CREDENTIALS_ORG_OPENAI_API_KEY`: OpenAI API key
-- `AWS_S3_BUCKET_PREFIX`: S3 storage configuration
-- `LANGFUSE_*`: Observability configuration
+The application uses different environment files:
+- `.env` - Application environment configuration (use `.env.example` as template)
+- `.env.test` - Test environment configuration
+
 
 ## Testing Strategy
 
-- Unit tests in `backend/app/tests/`
-- Test fixtures use factory pattern
-- Mock external services (OpenAI, S3) using `moto` and `openai_responses`
-- Coverage reports generated automatically
+- Tests located in `app/tests/`
+- Factory pattern for test fixtures
+- Automatic coverage reporting
 
 ## Code Standards
 
 - Python 3.11+ with type hints
-- Pre-commit hooks configured for consistency
+- Pre-commit hooks for linting and formatting
