@@ -1,6 +1,6 @@
 import logging
+from typing import Any
 
-from typing import Any, Optional
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
@@ -66,15 +66,15 @@ def get_key_by_org(
     *,
     session: Session,
     org_id: int,
+    project_id: int,
     provider: str = "openai",
-    project_id: Optional[int] = None,
-) -> Optional[str]:
+) -> str | None:
     """Fetches the API key from the credentials for the given organization and provider."""
     statement = select(Credential).where(
         Credential.organization_id == org_id,
         Credential.provider == provider,
-        Credential.is_active == True,
-        Credential.project_id == project_id if project_id is not None else True,
+        Credential.is_active.is_(True),
+        Credential.project_id == project_id,
     )
     creds = session.exec(statement).first()
 
@@ -85,12 +85,12 @@ def get_key_by_org(
 
 
 def get_creds_by_org(
-    *, session: Session, org_id: int, project_id: Optional[int] = None
+    *, session: Session, org_id: int, project_id: int
 ) -> list[Credential]:
     """Fetches all credentials for an organization."""
     statement = select(Credential).where(
         Credential.organization_id == org_id,
-        Credential.project_id == project_id if project_id is not None else True,
+        Credential.project_id == project_id,
     )
     creds = session.exec(statement).all()
     return creds
@@ -100,15 +100,15 @@ def get_provider_credential(
     *,
     session: Session,
     org_id: int,
+    project_id: int,
     provider: str,
-    project_id: Optional[int] = None,
     full: bool = False,
 ) -> dict[str, Any] | Credential | None:
     """
     Fetch credentials for a specific provider within a project.
 
     Returns:
-        Optional[Union[Dict[str, Any], Credential]]:
+        dict[str, Any] | Credential | None:
             - If `full` is True, returns the full Credential SQLModel object.
             - Otherwise, returns the decrypted credentials as a dictionary.
     """
@@ -117,7 +117,7 @@ def get_provider_credential(
     statement = select(Credential).where(
         Credential.organization_id == org_id,
         Credential.provider == provider,
-        Credential.project_id == project_id if project_id is not None else True,
+        Credential.project_id == project_id,
     )
     creds = session.exec(statement).first()
 
@@ -126,9 +126,7 @@ def get_provider_credential(
     return None
 
 
-def get_providers(
-    *, session: Session, org_id: int, project_id: Optional[int] = None
-) -> list[str]:
+def get_providers(*, session: Session, org_id: int, project_id: int) -> list[str]:
     """Returns a list of all active providers for which credentials are stored."""
     creds = get_creds_by_org(session=session, org_id=org_id, project_id=project_id)
     return [cred.provider for cred in creds]
@@ -138,8 +136,8 @@ def update_creds_for_org(
     *,
     session: Session,
     org_id: int,
+    project_id: int,
     creds_in: CredsUpdate,
-    project_id: Optional[int] = None,
 ) -> list[Credential]:
     """Updates credentials for a specific provider of an organization."""
     if not creds_in.provider or not creds_in.credential:
@@ -154,8 +152,8 @@ def update_creds_for_org(
     statement = select(Credential).where(
         Credential.organization_id == org_id,
         Credential.provider == creds_in.provider,
-        Credential.is_active == True,
-        Credential.project_id == project_id if project_id is not None else True,
+        Credential.is_active.is_(True),
+        Credential.project_id == project_id,
     )
     creds = session.exec(statement).first()
     if creds is None:
@@ -178,7 +176,7 @@ def update_creds_for_org(
 
 
 def remove_provider_credential(
-    session: Session, org_id: int, provider: str, project_id: Optional[int] = None
+    session: Session, org_id: int, project_id: int, provider: str
 ) -> int:
     """Remove credentials for a specific provider.
 
@@ -193,11 +191,11 @@ def remove_provider_credential(
     statement = delete(Credential).where(
         Credential.organization_id == org_id,
         Credential.provider == provider,
-        Credential.project_id == project_id if project_id is not None else True,
+        Credential.project_id == project_id,
     )
 
     # Execute and get affected rows
-    result = session.execute(statement)
+    result = session.exec(statement)
     session.commit()
 
     rows_deleted = result.rowcount
@@ -207,9 +205,7 @@ def remove_provider_credential(
     return rows_deleted
 
 
-def remove_creds_for_org(
-    *, session: Session, org_id: int, project_id: Optional[int] = None
-) -> int:
+def remove_creds_for_org(*, session: Session, org_id: int, project_id: int) -> int:
     """Removes all credentials for an organization.
 
     Returns:
@@ -220,11 +216,11 @@ def remove_creds_for_org(
     # Build delete statement
     statement = delete(Credential).where(
         Credential.organization_id == org_id,
-        Credential.project_id == project_id if project_id is not None else True,
+        Credential.project_id == project_id,
     )
 
     # Execute and get affected rows
-    result = session.execute(statement)
+    result = session.exec(statement)
     session.commit()
 
     rows_deleted = result.rowcount
