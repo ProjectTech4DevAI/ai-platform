@@ -24,7 +24,7 @@ class APIKeyCrud:
 
     def read_one(self, key_id: UUID) -> APIKey | None:
         """
-        Retrieve a single non-deleted API key by its key_prefix.
+        Retrieve a single non-deleted API key by its id.
         """
         statement = select(APIKey).where(
             and_(
@@ -82,7 +82,7 @@ class APIKeyCrud:
 
             logger.info(
                 f"[APIKeyCrud.create_api_key] API key created successfully | "
-                f"{{'api_key_id': '{api_key.id}', 'project_id': {self.project_id}, 'user_id': {user_id}}}"
+                f"{{'api_key_id': '{api_key.id}', 'project_id': {project_id}, 'user_id': {user_id}}}"
             )
 
             return raw_key, api_key
@@ -90,10 +90,9 @@ class APIKeyCrud:
         except Exception as e:
             logger.error(
                 f"[APIKeyCrud.create_api_key] Failed to create API key | "
-                f"{{'project_id': {self.project_id}, 'user_id': {user_id}, 'error': '{str(e)}'}}",
+                f"{{'project_id': {project_id}, 'user_id': {user_id}, 'error': '{str(e)}'}}",
                 exc_info=True,
             )
-            self.session.rollback()
             raise HTTPException(
                 status_code=500, detail=f"Failed to create API key: {str(e)}"
             )
