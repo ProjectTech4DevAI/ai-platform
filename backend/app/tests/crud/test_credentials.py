@@ -1,5 +1,6 @@
 import pytest
 from sqlmodel import Session
+from fastapi import HTTPException
 
 from app.crud import (
     set_creds_for_org,
@@ -78,7 +79,9 @@ def test_get_creds_by_org(db: Session) -> None:
     )
 
     # Test retrieving credentials
-    retrieved_creds = get_creds_by_org(session=db, org_id=project.organization_id)
+    retrieved_creds = get_creds_by_org(
+        session=db, org_id=project.organization_id, project_id=project.id
+    )
 
     assert len(retrieved_creds) == 2
     assert all(
@@ -101,7 +104,10 @@ def test_get_provider_credential(db: Session) -> None:
     )
     # Test retrieving specific provider credentials
     retrieved_cred = get_provider_credential(
-        session=db, org_id=project.organization_id, provider="openai"
+        session=db,
+        org_id=project.organization_id,
+        provider="openai",
+        project_id=project.id,
     )
 
     assert retrieved_cred is not None
@@ -134,7 +140,10 @@ def test_update_creds_for_org(db: Session) -> None:
     assert len(updated) == 1
     assert updated[0].provider == "openai"
     retrieved_cred = get_provider_credential(
-        session=db, org_id=credential.organization_id, provider="openai"
+        session=db,
+        org_id=credential.organization_id,
+        provider="openai",
+        project_id=project.id,
     )
     assert retrieved_cred["api_key"] == "updated-key"
 
@@ -152,18 +161,22 @@ def test_remove_provider_credential(db: Session) -> None:
     )
 
     # Remove one provider's credentials
-    deleted_count = remove_provider_credential(
-        session=db, org_id=credential.organization_id, provider="openai"
+    remove_provider_credential(
+        session=db,
+        org_id=credential.organization_id,
+        provider="openai",
+        project_id=project.id,
     )
-
-    # Function now returns number of deleted rows
-    assert deleted_count == 1
 
     # Verify the credentials are no longer retrievable
-    retrieved_cred = get_provider_credential(
-        session=db, org_id=credential.organization_id, provider="openai"
-    )
-    assert retrieved_cred is None
+    with pytest.raises(HTTPException) as exc_info:
+        get_provider_credential(
+            session=db,
+            org_id=credential.organization_id,
+            provider="openai",
+            project_id=project.id,
+        )
+    assert exc_info.value.status_code == 404
 
 
 def test_remove_creds_for_org(db: Session) -> None:
@@ -192,14 +205,16 @@ def test_remove_creds_for_org(db: Session) -> None:
     )
 
     # Remove all credentials
-    deleted_count = remove_creds_for_org(session=db, org_id=project.organization_id)
-
-    # Function now returns count of deleted rows
-    assert deleted_count == 2
+    remove_creds_for_org(
+        session=db, org_id=project.organization_id, project_id=project.id
+    )
 
     # Verify no credentials are retrievable
-    retrieved_credentials = get_creds_by_org(session=db, org_id=project.organization_id)
-    assert len(retrieved_credentials) == 0
+    with pytest.raises(HTTPException) as exc_info:
+        get_creds_by_org(
+            session=db, org_id=project.organization_id, project_id=project.id
+        )
+    assert exc_info.value.status_code == 404
 
 
 def test_invalid_provider(db: Session) -> None:
@@ -242,7 +257,10 @@ def test_duplicate_provider_credentials(db: Session) -> None:
 
     # Verify credentials exist and are active
     existing_creds = get_provider_credential(
-        session=db, org_id=project.organization_id, provider="openai"
+        session=db,
+        org_id=project.organization_id,
+        provider="openai",
+        project_id=project.id,
     )
     assert existing_creds is not None
     assert "api_key" in existing_creds
