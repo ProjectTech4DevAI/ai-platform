@@ -20,8 +20,8 @@ value being invalid. It can also fail due to document types not be
 accepted. This is especially true for PDFs that may not be parseable.
 
 The immediate response from the endpoint is `collection_job` object which is
-going to contain the collection job ID, status and action type ("CREATE").
+going to contain the collection "job ID", status and action type ("CREATE").
 Once the collection has been created, information about the collection will
 be returned to the user via the callback URL. If a callback URL is not provided,
 clients can poll the `collection job info` endpoint with the `id` in the
-`collection_job object` returned as it is the collection job id, to retrieve the same information.
+`collection_job` object returned as it is the `job id`, to retrieve the same information.

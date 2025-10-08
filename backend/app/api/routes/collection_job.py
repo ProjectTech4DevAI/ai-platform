@@ -21,17 +21,17 @@ router = APIRouter(prefix="/collections", tags=["collections"])
 
 
 @router.get(
-    "/info/collection_job/{collection_job_id}",
+    "/info/jobs/{job_id}",
     description=load_description("collections/job_info.md"),
     response_model=APIResponse[CollectionJobPublic],
 )
 def collection_job_info(
     session: SessionDep,
     current_user: CurrentUserOrgProject,
-    collection_job_id: UUID = FastPath(description="Collection job to retrieve"),
+    job_id: UUID = FastPath(description="Collection job to retrieve"),
 ):
     collection_job_crud = CollectionJobCrud(session, current_user.project_id)
-    collection_job = collection_job_crud.read_one(collection_job_id)
+    collection_job = collection_job_crud.read_one(job_id)
 
     job_out = CollectionJobPublic.model_validate(collection_job)
 
