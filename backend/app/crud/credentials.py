@@ -1,20 +1,21 @@
 import logging
-from typing import Optional, Dict, Any, List, Union
-from sqlmodel import Session, select
-from sqlalchemy.exc import IntegrityError
 
-from app.models import Credential, CredsCreate, CredsUpdate
-from app.core.providers import validate_provider, validate_provider_credentials
-from app.core.security import encrypt_credentials, decrypt_credentials
-from app.core.util import now
+from typing import Any, Optional
+from sqlalchemy.exc import IntegrityError
+from sqlmodel import Session, select
+
 from app.core.exception_handlers import HTTPException
+from app.core.providers import validate_provider, validate_provider_credentials
+from app.core.security import decrypt_credentials, encrypt_credentials
+from app.core.util import now
+from app.models import Credential, CredsCreate, CredsUpdate
 
 logger = logging.getLogger(__name__)
 
 
 def set_creds_for_org(
     *, session: Session, creds_add: CredsCreate, organization_id: int, project_id: int
-) -> List[Credential]:
+) -> list[Credential]:
     """Set credentials for an organization. Creates a separate row for each provider."""
     created_credentials = []
 
@@ -85,7 +86,7 @@ def get_key_by_org(
 
 def get_creds_by_org(
     *, session: Session, org_id: int, project_id: Optional[int] = None
-) -> List[Credential]:
+) -> list[Credential]:
     """Fetches all credentials for an organization."""
     statement = select(Credential).where(
         Credential.organization_id == org_id,
@@ -102,7 +103,7 @@ def get_provider_credential(
     provider: str,
     project_id: Optional[int] = None,
     full: bool = False,
-) -> Optional[Union[Dict[str, Any], Credential]]:
+) -> dict[str, Any] | Credential | None:
     """
     Fetch credentials for a specific provider within a project.
 
@@ -127,7 +128,7 @@ def get_provider_credential(
 
 def get_providers(
     *, session: Session, org_id: int, project_id: Optional[int] = None
-) -> List[str]:
+) -> list[str]:
     """Returns a list of all active providers for which credentials are stored."""
     creds = get_creds_by_org(session=session, org_id=org_id, project_id=project_id)
     return [cred.provider for cred in creds]
@@ -139,7 +140,7 @@ def update_creds_for_org(
     org_id: int,
     creds_in: CredsUpdate,
     project_id: Optional[int] = None,
-) -> List[Credential]:
+) -> list[Credential]:
     """Updates credentials for a specific provider of an organization."""
     if not creds_in.provider or not creds_in.credential:
         raise ValueError("Provider and credential must be provided")
