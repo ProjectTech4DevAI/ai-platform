@@ -77,11 +77,11 @@ def test_start_job_creates_collection_job_and_schedules_task(db: Session):
             request=request,
             project_id=project.id,
             payload=payload,
-            collection_job_id=str(job_id),
+            collection_job_id=job_id,
             organization_id=project.organization_id,
         )
 
-        assert returned_job_id == str(job_id)
+        assert returned_job_id == job_id
 
         job = CollectionJobCrud(db, project.id).read_one(job_id)
         assert job.id == job_id

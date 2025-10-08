@@ -34,8 +34,6 @@ def create_collection(
         project_id=user.project_id,
         llm_service_id=llm_service_id,
         llm_service_name=llm_service_name,
-        inserted_at=now(),
-        updated_at=now(),
     )
 
     return CollectionCrud(db, user.project_id).create(collection)
@@ -54,8 +52,6 @@ def create_collection_job(
         project_id=user.project_id,
         action_type=action_type,
         status=status,
-        inserted_at=now(),
-        updated_at=now(),
     )
     collection_job = CollectionJobCrud(db, user.project_id).create(job_in)
 
