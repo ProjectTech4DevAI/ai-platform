@@ -193,22 +193,11 @@ async def fine_tune_from_CSV(
     ),
     system_prompt: str = Form(..., description="System prompt for the fine-tuning job"),
 ):
-    # Validate and parse split ratios
+    # Parse split ratios (validation happens in FineTuningJobCreate model)
     try:
         split_ratios = [float(r.strip()) for r in split_ratio.split(",")]
-        for ratio in split_ratios:
-            if not (0 < ratio < 1):
-                raise ValueError(
-                    f"Invalid split_ratio: {ratio}. Must be between 0 and 1."
-                )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    # Validate system prompt
-    if not system_prompt.strip():
-        raise HTTPException(
-            status_code=400, detail="System prompt must be a non-empty string"
-        )
+        raise HTTPException(status_code=400, detail=f"Invalid split_ratio format: {e}")
 
     # Validate file is CSV
     if not file.filename.lower().endswith(".csv") and file.content_type != "text/csv":
