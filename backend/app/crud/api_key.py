@@ -107,6 +107,7 @@ class APIKeyCrud:
 
         api_key.is_deleted = True
         api_key.deleted_at = now()
+        api_key.updated_at = now()
         self.session.add(api_key)
         self.session.commit()
         self.session.refresh(api_key)

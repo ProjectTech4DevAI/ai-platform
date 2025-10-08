@@ -16,7 +16,7 @@ class TokenPayload(SQLModel):
 
 
 class AuthContext(SQLModel):
-    user_id: int = Field(foreign_key="user.id")
+    user_id: int
     project_id: int | None = None
     organization_id: int | None = None
 
