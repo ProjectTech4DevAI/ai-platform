@@ -56,6 +56,12 @@ def upgrade():
     )
 
     op.alter_column("collection", "created_at", new_column_name="inserted_at")
+    op.alter_column(
+        "collection", "llm_service_id", existing_type=sa.VARCHAR(), nullable=False
+    )
+    op.alter_column(
+        "collection", "llm_service_name", existing_type=sa.VARCHAR(), nullable=False
+    )
     op.drop_constraint("collection_owner_id_fkey", "collection", type_="foreignkey")
     op.drop_column("collection", "owner_id")
     op.drop_column("collection", "status")
@@ -98,4 +104,10 @@ def downgrade():
     op.alter_column("collection", "status", nullable=False)
     op.alter_column("collection", "owner_id", nullable=False)
     op.alter_column("collection", "inserted_at", new_column_name="created_at")
+    op.alter_column(
+        "collection", "llm_service_name", existing_type=sa.VARCHAR(), nullable=True
+    )
+    op.alter_column(
+        "collection", "llm_service_id", existing_type=sa.VARCHAR(), nullable=True
+    )
     op.drop_table("collection_jobs")

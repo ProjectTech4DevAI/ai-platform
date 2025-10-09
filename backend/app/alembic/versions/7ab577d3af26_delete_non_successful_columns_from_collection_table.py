@@ -24,6 +24,12 @@ def upgrade():
         WHERE status IN ('processing', 'failed')
         """
     )
+    op.execute(
+        """
+        DELETE FROM collection
+        WHERE llm_service_id IS NULL
+        """
+    )
 
 
 def downgrade():

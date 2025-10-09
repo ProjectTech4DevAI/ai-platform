@@ -32,6 +32,7 @@ def start_job(
     organization_id: int,
 ) -> str:
     trace_id = correlation_id.get() or "N/A"
+
     job_crud = CollectionJobCrud(db, project_id)
     collection_job = job_crud.update(
         collection_job_id, CollectionJobUpdate(trace_id=trace_id)
@@ -41,7 +42,7 @@ def start_job(
         function_path="app.services.collections.delete_collection.execute_job",
         project_id=project_id,
         job_id=str(collection_job_id),
-        collection_id=collection.id,
+        collection_id=str(collection.id),
         trace_id=trace_id,
         request=request.model_dump(),
         payload=payload.model_dump(),
@@ -61,8 +62,8 @@ def execute_job(
     project_id: int,
     organization_id: int,
     task_id: str,
-    job_id: UUID,
-    collection_id: UUID,
+    job_id: str,
+    collection_id: str,
     task_instance,
 ) -> None:
     deletion_request = DeletionRequest(**request)
@@ -74,17 +75,26 @@ def execute_job(
         else WebHookCallback(deletion_request.callback_url, payload)
     )
 
+    collection_id = UUID(collection_id)
+    job_id = UUID(job_id)
+
     try:
         with Session(engine) as session:
             client = get_openai_client(session, organization_id, project_id)
+
+            collection_job_crud = CollectionJobCrud(session, project_id)
+            collection_job = collection_job_crud.read_one(job_id)
+            collection_job = collection_job_crud.update(
+                job_id,
+                CollectionJobUpdate(
+                    task_id=task_id, status=CollectionJobStatus.PROCESSING
+                ),
+            )
+
             assistant_crud = OpenAIAssistantCrud(client)
             collection_crud = CollectionCrud(session, project_id)
-            collection_job_crud = CollectionJobCrud(session, project_id)
 
             collection = collection_crud.read_one(collection_id)
-            collection_job = collection_job_crud.read_one(job_id)
-
-            collection_job.task_id = task_id
 
             try:
                 result = collection_crud.delete(collection, assistant_crud)
@@ -117,7 +127,7 @@ def execute_job(
     except Exception as err:
         collection_job.status = CollectionJobStatus.FAILED
         collection_job.error_message = str(err)
-        collection_job_crud.update(collection_job)
+        collection_job_crud.update(collection_job.id, collection_job)
 
         logger.error(
             "[delete_collection.execute_job] Unexpected error during deletion | "
