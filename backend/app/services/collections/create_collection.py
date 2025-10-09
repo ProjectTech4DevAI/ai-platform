@@ -94,9 +94,12 @@ def execute_job(
 
             collection_job_crud = CollectionJobCrud(session, project_id)
             collection_job = collection_job_crud.read_one(job_id)
-            collection_job.task_id = task_id
-            collection_job.status = CollectionJobStatus.PROCESSING
-            collection_job_crud.update(collection_job.id, collection_job)
+            collection_job = collection_job_crud.update(
+                job_id,
+                CollectionJobUpdate(
+                    task_id=task_id, status=CollectionJobStatus.PROCESSING
+                ),
+            )
 
             client = get_openai_client(session, organization_id, project_id)
 
@@ -151,9 +154,13 @@ def execute_job(
                 if flat_docs:
                     DocumentCollectionCrud(session).create(collection_data, flat_docs)
 
-                collection_job.status = CollectionJobStatus.SUCCESSFUL
-                collection_job.collection_id = collection_id
-                collection_job_crud.update(collection_job.id, collection_job)
+                collection_job_crud.update(
+                    collection_job.id,
+                    CollectionJobUpdate(
+                        status=CollectionJobStatus.SUCCESSFUL,
+                        collection_id=collection.id,
+                    ),
+                )
 
                 elapsed = time.time() - start_time
                 logger.info(
@@ -179,9 +186,13 @@ def execute_job(
                 if "assistant" in locals():
                     _backout(assistant_crud, assistant.id)
 
-                collection_job.status = CollectionJobStatus.FAILED
-                collection_job.error_message = str(err)
-                collection_job_crud.update(collection_job.id, collection_job)
+                collection_job_crud.update(
+                    collection_job.id,
+                    CollectionJobUpdate(
+                        status=CollectionJobStatus.FAILED,
+                        error_message=str(err),
+                    ),
+                )
 
                 callback.fail(str(err))
 
@@ -192,6 +203,10 @@ def execute_job(
             exc_info=True,
         )
 
-        collection_job.status = CollectionJobStatus.FAILED
-        collection_job.error_message = str(err)
-        collection_job_crud.update(collection_job.id, collection_job)
+        collection_job_crud.update(
+            collection_job.id,
+            CollectionJobUpdate(
+                status=CollectionJobStatus.FAILED,
+                error_message=str(outer_err),
+            ),
+        )

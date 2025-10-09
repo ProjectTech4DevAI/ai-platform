@@ -168,7 +168,7 @@ def test_execute_job_success_flow_updates_job_and_creates_collection(
             payload=sample_payload.model_dump(),
             project_id=project.id,
             organization_id=project.organization_id,
-            task_id=task_id,
+            task_id=str(task_id),
             job_id=str(job_id),
             task_instance=None,
         )

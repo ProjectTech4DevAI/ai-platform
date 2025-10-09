@@ -1,6 +1,6 @@
 from uuid import UUID, uuid4
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
 from pydantic import HttpUrl
@@ -53,7 +53,7 @@ class ResponsePayload(SQLModel):
 
 # pydantic models -
 class DocumentOptions(SQLModel):
-    documents: List[UUID] = Field(
+    documents: list[UUID] = Field(
         description="List of document IDs",
     )
     batch_size: int = Field(

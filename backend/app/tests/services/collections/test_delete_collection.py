@@ -21,6 +21,7 @@ def create_collection(db: Session, project):
         project_id=project.id,
         organization_id=project.organization_id,
         llm_service_id="asst-nasjnl",
+        llm_service_name="gpt-4o",
     )
     return CollectionCrud(db, project.id).create(collection)
 
@@ -101,7 +102,7 @@ def test_start_job_creates_collection_job_and_schedules_task(db: Session):
         assert kwargs["project_id"] == project.id
         assert kwargs["organization_id"] == project.organization_id
         assert kwargs["job_id"] == str(job.id)
-        assert kwargs["collection_id"] == created_collection.id
+        assert kwargs["collection_id"] == str(created_collection.id)
         assert kwargs["request"] == req.model_dump()
         assert kwargs["payload"] == payload.model_dump()
         assert "trace_id" in kwargs
@@ -153,7 +154,7 @@ def test_execute_job_delete_success_updates_job_and_calls_delete(
             payload=payload.model_dump(),
             project_id=project.id,
             organization_id=project.organization_id,
-            task_id=task_id,
+            task_id=str(task_id),
             job_id=str(job.id),
             collection_id=collection.id,
             task_instance=None,
@@ -212,9 +213,9 @@ def test_execute_job_delete_failure_marks_job_failed(
             payload=payload.model_dump(),
             project_id=project.id,
             organization_id=project.organization_id,
-            task_id=task_id,
-            job_id=job.id,
-            collection_id=collection.id,
+            task_id=str(task_id),
+            job_id=str(job.id),
+            collection_id=str(collection.id),
             task_instance=None,
         )
 

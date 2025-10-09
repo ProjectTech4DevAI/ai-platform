@@ -75,8 +75,10 @@ def execute_job(
         else WebHookCallback(deletion_request.callback_url, payload)
     )
 
-    collection_id = UUID(collection_id)
-    job_id = UUID(job_id)
+    if not isinstance(collection_id, UUID):
+        collection_id = UUID(str(collection_id))
+    if not isinstance(job_id, UUID):
+        job_id = UUID(str(job_id))
 
     try:
         with Session(engine) as session:
@@ -99,9 +101,13 @@ def execute_job(
             try:
                 result = collection_crud.delete(collection, assistant_crud)
 
-                collection_job.status = CollectionJobStatus.SUCCESSFUL
-                collection_job.error_message = None
-                collection_job_crud.update(collection_job.id, collection_job)
+                collection_job_crud.update(
+                    collection_job.id,
+                    CollectionJobUpdate(
+                        status=CollectionJobStatus.SUCCESSFUL,
+                        error_message=None,
+                    ),
+                )
 
                 logger.info(
                     "[delete_collection.execute_job] Collection deleted successfully | {'collection_id': '%s', 'job_id': '%s'}",
@@ -111,9 +117,13 @@ def execute_job(
                 callback.success(result.model_dump(mode="json"))
 
             except (ValueError, PermissionError, SQLAlchemyError) as err:
-                collection_job.status = CollectionJobStatus.FAILED
-                collection_job.error_message = str(err)
-                collection_job_crud.update(collection_job.id, collection_job)
+                collection_job_crud.update(
+                    collection_job.id,
+                    CollectionJobUpdate(
+                        status=CollectionJobStatus.FAILED,
+                        error_message=str(err),
+                    ),
+                )
 
                 logger.error(
                     "[delete_collection.execute_job] Failed to delete collection | {'collection_id': '%s', 'error': '%s', 'job_id': '%s'}",
@@ -125,9 +135,13 @@ def execute_job(
                 callback.fail(str(err))
 
     except Exception as err:
-        collection_job.status = CollectionJobStatus.FAILED
-        collection_job.error_message = str(err)
-        collection_job_crud.update(collection_job.id, collection_job)
+        collection_job_crud.update(
+            collection_job.id,
+            CollectionJobUpdate(
+                status=CollectionJobStatus.FAILED,
+                error_message=str(err),
+            ),
+        )
 
         logger.error(
             "[delete_collection.execute_job] Unexpected error during deletion | "
