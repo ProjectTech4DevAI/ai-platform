@@ -20,7 +20,6 @@ from app.models import (
     User,
     UserProjectOrg,
     UserOrganization,
-    ProjectUser,
     Project,
     Organization,
 )
@@ -148,73 +147,3 @@ def get_current_active_superuser_org(current_user: CurrentUserOrg) -> User:
             status_code=403, detail="The user doesn't have enough privileges"
         )
     return current_user
-
-
-def verify_user_project_organization(
-    db: SessionDep,
-    current_user: CurrentUserOrg,
-    project_id: int,
-    organization_id: int,
-) -> UserProjectOrg:
-    """
-    Verify that the authenticated user is part of the project
-    and that the project belongs to the organization.
-    """
-    if current_user.organization_id and current_user.organization_id != organization_id:
-        raise HTTPException(status_code=403, detail="User is not part of organization")
-
-    project_organization = db.exec(
-        select(Project, Organization)
-        .join(Organization, Project.organization_id == Organization.id)
-        .where(
-            Project.id == project_id,
-            Project.is_active == True,
-            Organization.id == organization_id,
-            Organization.is_active == True,
-        )
-    ).first()
-
-    if not project_organization:
-        # Determine the exact error based on missing data
-        organization = db.exec(
-            select(Organization).where(Organization.id == organization_id)
-        ).first()
-        if not organization:
-            raise HTTPException(status_code=404, detail="Organization not found")
-
-        if not organization.is_active:
-            raise HTTPException(
-                status_code=400, detail="Organization is not active"
-            )  # Use 400 for inactive resources
-
-        project = db.exec(select(Project).where(Project.id == project_id)).first()
-        if not project:
-            raise HTTPException(status_code=404, detail="Project not found")
-
-        if not project.is_active:
-            raise HTTPException(
-                status_code=400, detail="Project is not active"
-            )  # Use 400 for inactive resources
-
-        raise HTTPException(
-            status_code=403, detail="Project does not belong to the organization"
-        )
-
-    # Superuser bypasses all checks and If Api key request we give access to all the project in organization
-    if current_user.is_superuser or current_user.organization_id:
-        current_user.organization_id = organization_id
-        return UserProjectOrg(**current_user.model_dump(), project_id=project_id)
-
-    # Check if the user is part of the project
-    user_in_project = db.exec(
-        select(ProjectUser).where(
-            ProjectUser.user_id == current_user.id,
-            ProjectUser.project_id == project_id,
-        )
-    ).first()
-
-    if not user_in_project:
-        raise HTTPException(status_code=403, detail="User is not part of the project")
-
-    current_user.organization_id = organization_id
-    return UserProjectOrg(**current_user.model_dump(), project_id=project_id)
