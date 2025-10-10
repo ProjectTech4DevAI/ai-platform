@@ -361,7 +361,21 @@ def clear_database(session: Session) -> None:
 
 
 def seed_database(session: Session) -> None:
-    """Seed the database with initial data."""
+    """
+    Seed the database with initial test data.
+
+    This function creates a complete test environment including:
+    - Organizations (Project Tech4dev)
+    - Projects (Glific, Dalgo)
+    - Users (superuser, test user)
+    - API Keys for both users
+    - OpenAI Credentials for both projects (ensures all tests have credentials)
+    - Test Assistants for both projects
+    - Sample Documents
+
+    This seed data is used by the test suite and ensures that all tests
+    can rely on credentials being available without manual setup.
+    """
     logging.info("Starting database seeding...")
 
     try:

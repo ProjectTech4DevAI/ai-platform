@@ -320,24 +320,24 @@ def test_duplicate_credential_creation(
     db: Session,
     user_api_key: APIKeyPublic,
 ):
-    # Note: This test verifies that duplicate prevention will work in production
-    # where the database unique constraint is enforced. In test environment,
-    # the constraint may not be present, so we skip actual duplicate testing.
+    # Test verifies that the database unique constraint prevents duplicate credentials
+    # for the same organization, project, and provider combination.
     # The constraint is defined in the model and migration f05d9c95100a.
+    # Seed data ensures OpenAI credentials already exist for this user's project.
 
+    # Use the existing helper function to get credential data
     credential = test_credential_data(db)
 
-    # Create credentials successfully
+    # Try to create duplicate OpenAI credentials - should fail with 400
     response = client.post(
         f"{settings.API_V1_STR}/credentials/",
         json=credential.model_dump(),
         headers={"X-API-KEY": user_api_key.key},
     )
-    assert response.status_code == 200
 
-    # In production with the unique constraint, attempting to create duplicates
-    # would result in IntegrityError which is caught and returns 400.
-    # This is enforced by constraint: uq_credential_org_project_provider
+    # Should get 400 for duplicate credentials
+    assert response.status_code == 400
+    assert "already exist" in response.json()["error"]
 
 
 def test_multiple_provider_credentials(
