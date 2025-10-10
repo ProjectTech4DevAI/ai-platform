@@ -165,7 +165,7 @@ def remove_doc(
 
     a_crud = OpenAIAssistantCrud(client)
     d_crud = DocumentCrud(session, current_user.project_id)
-    c_crud = CollectionCrud(session, current_user.id)
+    c_crud = CollectionCrud(session, current_user.project_id)
 
     document = d_crud.delete(doc_id)
     data = c_crud.delete(document, a_crud)
@@ -190,7 +190,7 @@ def permanent_delete_doc(
     )
     a_crud = OpenAIAssistantCrud(client)
     d_crud = DocumentCrud(session, current_user.project_id)
-    c_crud = CollectionCrud(session, current_user.id)
+    c_crud = CollectionCrud(session, current_user.project_id)
     storage = get_cloud_storage(session=session, project_id=current_user.project_id)
 
     document = d_crud.read_one(doc_id)
