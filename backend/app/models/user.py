@@ -48,9 +48,7 @@ class UpdatePassword(SQLModel):
 class User(UserBase, table=True):
     id: int = Field(default=None, primary_key=True)
     hashed_password: str
-    collections: list["Collection"] = Relationship(
-        back_populates="owner", cascade_delete=True
-    )
+
     api_keys: list["APIKey"] = Relationship(back_populates="user", cascade_delete=True)
 
 
