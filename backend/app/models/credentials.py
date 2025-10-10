@@ -50,6 +50,15 @@ class Credential(CredsBase, table=True):
     Each row represents credentials for a single provider.
     """
 
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "organization_id",
+            "project_id",
+            "provider",
+            name="uq_credential_org_project_provider",
+        ),
+    )
+
     id: int = Field(default=None, primary_key=True)
     provider: str = Field(
         index=True, description="Provider name like 'openai', 'gemini'"
@@ -65,9 +74,6 @@ class Credential(CredsBase, table=True):
     updated_at: datetime = Field(
         default_factory=now,
         sa_column=sa.Column(sa.DateTime, onupdate=datetime.utcnow, nullable=False),
-    )
-    deleted_at: Optional[datetime] = Field(
-        default=None, sa_column=sa.Column(sa.DateTime, nullable=True)
     )
 
     organization: Optional["Organization"] = Relationship(back_populates="creds")
@@ -88,7 +94,6 @@ class Credential(CredsBase, table=True):
             else None,
             inserted_at=self.inserted_at,
             updated_at=self.updated_at,
-            deleted_at=self.deleted_at,
         )
 
 
@@ -100,4 +105,3 @@ class CredsPublic(CredsBase):
     credential: Optional[Dict[str, Any]] = None
     inserted_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime]

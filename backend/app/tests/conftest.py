@@ -43,8 +43,17 @@ def db() -> Generator[Session, None, None]:
 
 @pytest.fixture(scope="session", autouse=True)
 def seed_baseline():
+    """
+    Seeds the database with baseline test data including credentials.
+
+    This fixture runs automatically before any tests and ensures:
+    - Organizations, users, projects are created
+    - OpenAI credentials are created for all test projects
+    - Langfuse credentials are created for all test projects
+    - All test fixtures can rely on credentials existing
+    """
     with Session(engine) as session:
-        seed_database(session)  # deterministic baseline
+        seed_database(session)  # deterministic baseline with credentials
         yield
 
 
@@ -87,5 +96,12 @@ def superuser_api_key(db: Session) -> APIKeyPublic:
 
 @pytest.fixture(scope="function")
 def user_api_key(db: Session) -> APIKeyPublic:
+    """
+    Provides an API key for the test user.
+
+    This API key is associated with the Dalgo project, which has both OpenAI
+    and Langfuse credentials pre-populated via seed data.
+    All tests can assume credentials exist for this user.
+    """
     api_key = get_api_key_by_email(db, settings.EMAIL_TEST_USER)
     return api_key

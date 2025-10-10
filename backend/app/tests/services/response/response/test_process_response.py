@@ -23,8 +23,14 @@ from openai import OpenAI
 
 @pytest.fixture
 def setup_db(db: Session) -> tuple[Assistant, Job, Project]:
-    """Fixture to set up a job and assistant in the database."""
+    """
+    Fixture to set up a job and assistant in the database.
+
+    Note: OpenAI and Langfuse credentials are already available via seed data,
+    so this fixture only creates the assistant and job.
+    """
     _, project = create_test_credential(db)
+
     assistant_create = AssistantCreate(
         name="Test Assistant",
         instructions="You are a helpful assistant.",
@@ -67,10 +73,17 @@ def test_process_response_success(
 
     response, error = mock_openai_response("Mock response text.", prev_id), None
 
+    # Mock LangfuseTracer to avoid actual Langfuse API calls
+    mock_tracer = MagicMock()
+
     with (
         patch(
             "app.services.response.response.generate_response",
             return_value=(response, error),
+        ),
+        patch(
+            "app.services.response.response.LangfuseTracer",
+            return_value=mock_tracer,
         ),
         patch("app.services.response.response.Session", return_value=db),
     ):
@@ -116,10 +129,17 @@ def test_process_response_generate_response_failure(
     assistant, job, project = setup_db
     request: ResponsesAPIRequest = make_request(assistant.assistant_id)
 
+    # Mock LangfuseTracer to avoid actual Langfuse API calls
+    mock_tracer = MagicMock()
+
     with (
         patch(
             "app.services.response.response.generate_response",
             return_value=(None, "Some error"),
+        ),
+        patch(
+            "app.services.response.response.LangfuseTracer",
+            return_value=mock_tracer,
         ),
         patch("app.services.response.response.Session", return_value=db),
     ):
