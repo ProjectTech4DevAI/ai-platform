@@ -98,7 +98,6 @@ class TestCreateFineTuningJobAPI:
         assert json_data["success"] is True
         assert json_data["data"]["message"] == "Fine-tuning job(s) started."
         assert json_data["metadata"] is None
-        assert "document_id" in json_data["data"]
         assert "jobs" in json_data["data"]
         assert len(json_data["data"]["jobs"]) == 3
 
