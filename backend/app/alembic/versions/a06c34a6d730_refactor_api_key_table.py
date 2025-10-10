@@ -1,21 +1,20 @@
 """Refactor API key table
 
-Revision ID: d209cddac1fa
-Revises: c6fb6d0b5897
-Create Date: 2025-10-03 11:35:13.012517
+Revision ID: a06c34a6d730
+Revises: b30727137e65
+Create Date: 2025-10-10 18:14:46.423720
 
 """
 from alembic import op
 import sqlalchemy as sa
 import sqlmodel.sql.sqltypes
 from sqlalchemy.orm import Session
-
 from app.alembic.migrate_api_key import migrate_api_keys, verify_migration
 
 
 # revision identifiers, used by Alembic.
-revision = "d209cddac1fa"
-down_revision = "c6fb6d0b5897"
+revision = 'a06c34a6d730'
+down_revision = 'b30727137e65'
 branch_labels = None
 depends_on = None
 
