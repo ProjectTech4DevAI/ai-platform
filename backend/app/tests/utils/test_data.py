@@ -101,14 +101,16 @@ def test_credential_data(db: Session) -> CredsCreate:
 
 def create_test_credential(db: Session) -> tuple[list[Credential], Project]:
     """
-    Creates and returns a test credential for a test project.
+    Creates and returns test credentials (OpenAI and Langfuse) for a test project.
 
-    Persists the organization, project, and credential to the database.
-
+    Persists the organization, project, and both credentials to the database.
+    This ensures that tests using this helper have both OpenAI and Langfuse credentials available.
     """
     project = create_test_project(db)
+
+    # Create OpenAI credentials
     api_key = "sk-" + generate_random_string(10)
-    creds_data = CredsCreate(
+    openai_creds = CredsCreate(
         is_active=True,
         credential={
             Provider.OPENAI.value: {
@@ -118,15 +120,33 @@ def create_test_credential(db: Session) -> tuple[list[Credential], Project]:
             }
         },
     )
-    return (
-        set_creds_for_org(
-            session=db,
-            creds_add=creds_data,
-            organization_id=project.organization_id,
-            project_id=project.id,
-        ),
-        project,
+    openai_credentials = set_creds_for_org(
+        session=db,
+        creds_add=openai_creds,
+        organization_id=project.organization_id,
+        project_id=project.id,
     )
+
+    # Create Langfuse credentials
+    langfuse_creds = CredsCreate(
+        is_active=True,
+        credential={
+            Provider.LANGFUSE.value: {
+                "secret_key": "sk-lf-" + generate_random_string(10),
+                "public_key": "pk-lf-" + generate_random_string(10),
+                "host": "https://cloud.langfuse.com",
+            }
+        },
+    )
+    langfuse_credentials = set_creds_for_org(
+        session=db,
+        creds_add=langfuse_creds,
+        organization_id=project.organization_id,
+        project_id=project.id,
+    )
+
+    # Return both credentials combined
+    return (openai_credentials + langfuse_credentials, project)
 
 
 def create_test_fine_tuning_jobs(

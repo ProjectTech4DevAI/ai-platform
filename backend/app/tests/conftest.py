@@ -49,6 +49,7 @@ def seed_baseline():
     This fixture runs automatically before any tests and ensures:
     - Organizations, users, projects are created
     - OpenAI credentials are created for all test projects
+    - Langfuse credentials are created for all test projects
     - All test fixtures can rely on credentials existing
     """
     with Session(engine) as session:
@@ -98,8 +99,9 @@ def user_api_key(db: Session) -> APIKeyPublic:
     """
     Provides an API key for the test user.
 
-    This API key is associated with the Dalgo project, which has OpenAI credentials
-    pre-populated via seed data. All tests can assume credentials exist for this user.
+    This API key is associated with the Dalgo project, which has both OpenAI
+    and Langfuse credentials pre-populated via seed data.
+    All tests can assume credentials exist for this user.
     """
     api_key = get_api_key_by_email(db, settings.EMAIL_TEST_USER)
     return api_key
