@@ -31,7 +31,7 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
 
-      - name: Build and Push Docker Image
+      - name: Build and Push Backend Docker Image
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: ${{ github.event.repository.name }}-staging-repo
@@ -39,6 +39,98 @@ jobs:
           docker build -t $REGISTRY/$REPOSITORY:latest ./backend
           docker push $REGISTRY/$REPOSITORY:latest
 
-      - name: Deploy to ECS
+      - name: Build and Push Celery Docker Image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ github.event.repository.name }}-celery-repo
+        run: |
+          docker build -f ./backend/Dockerfile.celery -t $REGISTRY/$REPOSITORY:staging ./backend
+          docker push $REGISTRY/$REPOSITORY:staging
+
+      - name: Deploy Backend to ECS
         run: |
           aws ecs update-service --cluster ${{ github.event.repository.name }}-staging-cluster --service ${{ github.event.repository.name }}-staging-service --force-new-deployment
+
+      - name: Deploy Celery Workers to EC2
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ github.event.repository.name }}-celery-repo
+        run: |
+          # Create deployment script
+          cat > deploy-celery.sh << 'EOF'
+          #!/bin/bash
+          set -e
+
+          # Stop existing containers
+          docker stop celery-stg-high celery-stg-other 2>/dev/null || true
+          docker rm celery-stg-high celery-stg-other 2>/dev/null || true
+
+          # Pull latest image
+          aws ecr get-login-password --region $3 | docker login --username AWS --password-stdin $1
+          docker pull $1/$2:staging
+
+          # Start high priority worker
+          docker run -d --name celery-stg-high --restart unless-stopped \
+            --env-file /home/ubuntu/.env.staging \
+            $1/$2:staging \
+            uv run celery -A app.celery.celery_app worker --queues=high_priority --loglevel=info --concurrency=1 --hostname=stg-high@%h
+
+          # Verify high priority worker started
+          sleep 2
+          docker ps | grep celery-stg-high || { echo "High priority worker failed to start"; exit 1; }
+
+          # Start other queues worker
+          docker run -d --name celery-stg-other --restart unless-stopped \
+            --env-file /home/ubuntu/.env.staging \
+            $1/$2:staging \
+            uv run celery -A app.celery.celery_app worker --queues=default,low_priority,cron --loglevel=info --concurrency=1 --hostname=stg-other@%h
+
+          # Verify other queues worker started
+          sleep 2
+          docker ps | grep celery-stg-other || { echo "Other queues worker failed to start"; exit 1; }
+          EOF
+
+          # Copy script to EC2 and execute
+          echo "${{ secrets.EC2_KEY }}" > staging_key.pem
+          chmod 600 staging_key.pem
+          trap 'rm -f staging_key.pem deploy-celery.sh' EXIT
+          scp -i staging_key.pem -o StrictHostKeyChecking=no deploy-celery.sh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
+          ssh -i staging_key.pem -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "chmod +x /tmp/deploy-celery.sh && /tmp/deploy-celery.sh $REGISTRY $REPOSITORY ap-south-1"
+          rm -f staging_key.pem deploy-celery.sh
+
+      - name: Deploy Flower to EC2
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ github.event.repository.name }}-celery-repo
+        run: |
+          # Create flower deployment script
+          cat > deploy-flower.sh << 'EOF'
+          #!/bin/bash
+          set -e
+
+          # Stop existing flower container
+          docker stop flower-staging 2>/dev/null || true
+          docker rm flower-staging 2>/dev/null || true
+
+          # Start flower using the same celery image
+          docker run -d --name flower-staging --restart unless-stopped \
+            --env-file /home/ubuntu/.env.staging \
+            -p 5555:5555 \
+            $1/$2:staging \
+            uv run celery -A app.celery.celery_app flower --port=5555
+
+          # Verify Flower started
+          sleep 2
+          docker ps | grep flower-staging || { echo "Flower failed to start"; exit 1; }
+
+          # Health check
+          curl -f http://localhost:5555/healthcheck || { echo "Flower health check failed"; exit 1; }
+          EOF
+
+          # Copy script to EC2 and execute
+          echo "${{ secrets.EC2_KEY }}" > staging_key.pem
+          chmod 600 staging_key.pem
+          trap 'rm -f staging_key.pem deploy-flower.sh' EXIT
+          scp -i staging_key.pem -o StrictHostKeyChecking=no deploy-flower.sh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
+          ssh -i staging_key.pem -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "chmod +x /tmp/deploy-flower.sh && /tmp/deploy-flower.sh $REGISTRY $REPOSITORY"
+          rm -f staging_key.pem deploy-flower.sh
