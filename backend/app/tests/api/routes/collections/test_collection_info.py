@@ -1,95 +1,138 @@
-from uuid import uuid4
-from datetime import datetime, timezone
+from uuid import uuid4, UUID
+from typing import Optional
+
 from fastapi.testclient import TestClient
 from sqlmodel import Session
+
 from app.core.config import settings
-from app.models import Collection
-from app.models.collection import CollectionStatus
-from app.tests.utils.auth import TestAuthContext
+from app.core.util import now
+from app.models import (
+    Collection,
+    CollectionJobCreate,
+    CollectionActionType,
+    CollectionJobStatus,
+    CollectionJobUpdate,
+)
+from app.crud import CollectionJobCrud, CollectionCrud
 
 
 def create_collection(
-    db,
-    user_api_key: TestAuthContext,
-    status: CollectionStatus = CollectionStatus.processing,
+    db: Session,
+    user,
     with_llm: bool = False,
 ):
-    now = datetime.now(timezone.utc)
+    """Create a Collection row (optionally prefilled with LLM service fields)."""
+    llm_service_id = None
+    llm_service_name = None
+    if with_llm:
+        llm_service_id = f"asst_{uuid4()}"
+        llm_service_name = "gpt-4o"
+
     collection = Collection(
         id=uuid4(),
-        owner_id=user_api_key.user_id,
-        organization_id=user_api_key.organization_id,
-        project_id=user_api_key.project_id,
-        status=status,
-        updated_at=now,
+        organization_id=user.organization_id,
+        project_id=user.project_id,
+        llm_service_id=llm_service_id,
+        llm_service_name=llm_service_name,
     )
-    if with_llm:
-        collection.llm_service_id = f"asst_{uuid4()}"
-        collection.llm_service_name = "gpt-4o"
 
-    db.add(collection)
-    db.commit()
-    db.refresh(collection)
-    return collection
+    return CollectionCrud(db, user.project_id).create(collection)
+
+
+def create_collection_job(
+    db: Session,
+    user,
+    collection_id: Optional[UUID] = None,
+    action_type: CollectionActionType = CollectionActionType.CREATE,
+    status: CollectionJobStatus = CollectionJobStatus.PENDING,
+):
+    """Create a CollectionJob row (uses create schema for clarity)."""
+    job_in = CollectionJobCreate(
+        collection_id=collection_id,
+        project_id=user.project_id,
+        action_type=action_type,
+        status=status,
+    )
+    collection_job = CollectionJobCrud(db, user.project_id).create(job_in)
+
+    if collection_job.status == CollectionJobStatus.FAILED:
+        job_in = CollectionJobUpdate(
+            error_message="Something went wrong during the collection job process."
+        )
+        collection_job = CollectionJobCrud(db, user.project_id).update(
+            collection_job.id, job_in
+        )
+
+    return collection_job
 
 
 def test_collection_info_processing(
-    db: Session, client: TestClient, user_api_key: TestAuthContext
+    db: Session, client: "TestClient", user_api_key_header, user_api_key
 ):
-    headers = {"X-API-KEY": user_api_key.key}
-    collection = create_collection(db, user_api_key, status=CollectionStatus.processing)
+    headers = user_api_key_header
 
-    response = client.post(
-        f"{settings.API_V1_STR}/collections/info/{collection.id}",
+    collection_job = create_collection_job(db, user_api_key)
+
+    response = client.get(
+        f"{settings.API_V1_STR}/collections/info/jobs/{collection_job.id}",
         headers=headers,
     )
 
     assert response.status_code == 200
     data = response.json()["data"]
 
-    assert data["id"] == str(collection.id)
-    assert data["status"] == CollectionStatus.processing.value
-    assert data["llm_service_id"] is None
-    assert data["llm_service_name"] is None
+    assert data["status"] == CollectionJobStatus.PENDING
+    assert data["inserted_at"] is not None
+    assert data["collection_id"] == collection_job.collection_id
+    assert data["updated_at"] is not None
 
 
 def test_collection_info_successful(
-    db: Session, client: TestClient, user_api_key: TestAuthContext
+    db: Session, client: "TestClient", user_api_key_header, user_api_key
 ):
-    headers = {"X-API-KEY": user_api_key.key}
-    collection = create_collection(
-        db, user_api_key, status=CollectionStatus.successful, with_llm=True
+    headers = user_api_key_header
+
+    collection = create_collection(db, user_api_key, with_llm=True)
+    collection_job = create_collection_job(
+        db, user_api_key, collection.id, status=CollectionJobStatus.SUCCESSFUL
     )
 
-    response = client.post(
-        f"{settings.API_V1_STR}/collections/info/{collection.id}",
+    response = client.get(
+        f"{settings.API_V1_STR}/collections/info/jobs/{collection_job.id}",
         headers=headers,
     )
 
     assert response.status_code == 200
     data = response.json()["data"]
 
-    assert data["id"] == str(collection.id)
-    assert data["status"] == CollectionStatus.successful.value
-    assert data["llm_service_id"] == collection.llm_service_id
-    assert data["llm_service_name"] == "gpt-4o"
+    assert data["id"] == str(collection_job.id)
+    assert data["status"] == CollectionJobStatus.SUCCESSFUL
+    assert data["action_type"] == CollectionActionType.CREATE
+    assert data["collection_id"] == str(collection.id)
+
+    assert data["collection"] is not None
+    col = data["collection"]
+    assert col["id"] == str(collection.id)
+    assert col["llm_service_id"] == collection.llm_service_id
+    assert col["llm_service_name"] == "gpt-4o"
 
 
 def test_collection_info_failed(
-    db: Session, client: TestClient, user_api_key: TestAuthContext
+    db: Session, client: "TestClient", user_api_key_header, user_api_key
 ):
-    headers = {"X-API-KEY": user_api_key.key}
-    collection = create_collection(db, user_api_key, status=CollectionStatus.failed)
+    headers = user_api_key_header
 
-    response = client.post(
-        f"{settings.API_V1_STR}/collections/info/{collection.id}",
+    collection_job = create_collection_job(
+        db, user_api_key, status=CollectionJobStatus.FAILED
+    )
+
+    response = client.get(
+        f"{settings.API_V1_STR}/collections/info/jobs/{collection_job.id}",
         headers=headers,
     )
 
     assert response.status_code == 200
     data = response.json()["data"]
 
-    assert data["id"] == str(collection.id)
-    assert data["status"] == CollectionStatus.failed.value
-    assert data["llm_service_id"] is None
-    assert data["llm_service_name"] is None
+    assert data["status"] == CollectionJobStatus.FAILED
+    assert data["error_message"] is not None
