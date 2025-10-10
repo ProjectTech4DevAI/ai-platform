@@ -185,15 +185,11 @@ async def fine_tune_from_CSV(
     current_user: CurrentUserOrgProject,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="CSV file to use for fine-tuning"),
-    base_model: str = Form(
-        ..., description="Base model for fine-tuning (e.g., gpt-4.1-2025-04-14)"
-    ),
-    split_ratio: str = Form(
-        ..., description="Comma-separated split ratios (e.g., '0.8' or '0.7,0.8,0.9')"
-    ),
-    system_prompt: str = Form(..., description="System prompt for the fine-tuning job"),
+    base_model: str = Form(...),
+    split_ratio: str = Form(...),
+    system_prompt: str = Form(...),
 ):
-    # Parse split ratios (validation happens in FineTuningJobCreate model)
+    # Parse split ratios
     try:
         split_ratios = [float(r.strip()) for r in split_ratio.split(",")]
     except ValueError as e:
@@ -211,6 +207,7 @@ async def fine_tune_from_CSV(
     )
 
     # Upload the file to storage and create document
+    # ToDo: create a helper function and then use it rather than doing things in router
     storage = get_cloud_storage(session=session, project_id=current_user.project_id)
     document_id = uuid4()
     object_store_url = storage.put(file, Path(str(document_id)))
@@ -277,9 +274,7 @@ async def fine_tune_from_CSV(
         else f"Started {created_count} job(s); {total - created_count} active fine-tuning job(s) already exists."
     )
 
-    return APIResponse.success_response(
-        {"message": message, "document_id": str(created_document.id), "jobs": job_infos}
-    )
+    return APIResponse.success_response({"message": message, "jobs": job_infos})
 
 
 @router.get(
