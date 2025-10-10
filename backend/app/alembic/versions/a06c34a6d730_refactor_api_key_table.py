@@ -13,8 +13,8 @@ from app.alembic.migrate_api_key import migrate_api_keys, verify_migration
 
 
 # revision identifiers, used by Alembic.
-revision = 'a06c34a6d730'
-down_revision = 'b30727137e65'
+revision = "a06c34a6d730"
+down_revision = "b30727137e65"
 branch_labels = None
 depends_on = None
 
