@@ -3,38 +3,35 @@ import functools as ft
 from uuid import UUID
 from typing import Optional
 import logging
-from sqlmodel import Session, func, select, and_
+
+from fastapi import HTTPException
+from sqlmodel import Session, select, and_
 
 from app.models import Document, Collection, DocumentCollection
 from app.core.util import now
-from app.models.collection import CollectionStatus
-
-from .document_collection import DocumentCollectionCrud
+from app.crud.document_collection import DocumentCollectionCrud
 
 logger = logging.getLogger(__name__)
 
 
 class CollectionCrud:
-    def __init__(self, session: Session, owner_id: int):
+    def __init__(self, session: Session, project_id: int):
         self.session = session
-        self.owner_id = owner_id
+        self.project_id = project_id
 
     def _update(self, collection: Collection):
-        if not collection.owner_id:
-            collection.owner_id = self.owner_id
-        elif collection.owner_id != self.owner_id:
-            err = "Invalid collection ownership: owner={} attempter={}".format(
-                self.owner_id,
-                collection.owner_id,
+        if not collection.project_id:
+            collection.project_id = self.project_id
+        elif collection.project_id != self.project_id:
+            err = (
+                f"Invalid collection ownership: owner_project={self.project_id} "
+                f"attempter={collection.project_id}"
             )
-            try:
-                raise PermissionError(err)
-            except PermissionError as e:
-                logger.error(
-                    f"[CollectionCrud._update] Permission error | {{'collection_id': '{collection.id}', 'error': '{str(e)}'}}",
-                    exc_info=True,
-                )
-                raise
+            logger.error(
+                "[CollectionCrud._update] Permission error | "
+                f"{{'collection_id': '{collection.id}', 'error': '{err}'}}"
+            )
+            raise PermissionError(err)
 
         self.session.add(collection)
         self.session.commit()
@@ -45,20 +42,15 @@ class CollectionCrud:
 
         return collection
 
-    def _exists(self, collection: Collection):
-        present = (
-            self.session.query(func.count(Collection.id))
-            .filter(
-                Collection.llm_service_id == collection.llm_service_id,
-                Collection.llm_service_name == collection.llm_service_name,
-            )
-            .scalar()
+    def _exists(self, collection: Collection) -> bool:
+        stmt = select(Collection.id).where(
+            (Collection.project_id == self.project_id)
+            & (Collection.llm_service_id == collection.llm_service_id)
+            & (Collection.llm_service_name == collection.llm_service_name)
         )
-        logger.info(
-            f"[CollectionCrud._exists] Existence check completed | {{'llm_service_id': '{collection.llm_service_id}', 'exists': {bool(present)}}}"
-        )
+        present = self.session.exec(stmt).scalar_one_or_none() is not None
 
-        return bool(present)
+        return present
 
     def create(
         self,
@@ -67,13 +59,19 @@ class CollectionCrud:
     ):
         try:
             existing = self.read_one(collection.id)
-            if existing.status == CollectionStatus.failed:
-                self._update(collection)
+        except HTTPException as e:
+            if e.status_code == 404:
+                self.session.add(collection)
+                self.session.commit()
+                self.session.refresh(collection)
             else:
-                raise FileExistsError("Collection already present")
-        except:
-            self.session.add(collection)
-            self.session.commit()
+                raise
+        else:
+            logger.warning(
+                "[CollectionCrud.create] Collection already present | "
+                f"{{'collection_id': '{collection.id}'}}"
+            )
+            return existing
 
         if documents:
             dc_crud = DocumentCollectionCrud(self.session)
@@ -81,21 +79,36 @@ class CollectionCrud:
 
         return collection
 
-    def read_one(self, collection_id: UUID):
+    def read_one(self, collection_id: UUID) -> Collection:
         statement = select(Collection).where(
             and_(
-                Collection.owner_id == self.owner_id,
+                Collection.project_id == self.project_id,
                 Collection.id == collection_id,
+                Collection.deleted_at.is_(None),
             )
         )
 
-        collection = self.session.exec(statement).one()
+        collection = self.session.exec(statement).one_or_none()
+        if collection is None:
+            logger.warning(
+                "[CollectionCrud.read_one] Collection not found | "
+                f"{{'project_id': '{self.project_id}', 'collection_id': '{collection_id}'}}"
+            )
+            raise HTTPException(
+                status_code=404,
+                detail="Collection not found",
+            )
+
+        logger.info(
+            "[CollectionCrud.read_one] Retrieved collection | "
+            f"{{'project_id': '{self.project_id}', 'collection_id': '{collection_id}'}}"
+        )
         return collection
 
     def read_all(self):
         statement = select(Collection).where(
             and_(
-                Collection.owner_id == self.owner_id,
+                Collection.project_id == self.project_id,
                 Collection.deleted_at.is_(None),
             )
         )
@@ -136,8 +149,8 @@ class CollectionCrud:
             .distinct()
         )
 
-        for c in self.session.execute(statement):
-            self.delete(c.Collection, remote)
+        for coll in self.session.exec(statement):
+            self.delete(coll, remote)
         self.session.refresh(model)
         logger.info(
             f"[CollectionCrud.delete] Document deletion from collections completed | {{'document_id': '{model.id}'}}"
