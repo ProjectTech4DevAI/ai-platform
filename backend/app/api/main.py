@@ -19,6 +19,7 @@ from app.api.routes import (
     credentials,
     fine_tuning,
     model_evaluation,
+    collection_job,
 )
 from app.core.config import settings
 
@@ -26,6 +27,7 @@ api_router = APIRouter()
 api_router.include_router(api_keys.router)
 api_router.include_router(assistants.router)
 api_router.include_router(collections.router)
+api_router.include_router(collection_job.router)
 api_router.include_router(credentials.router)
 api_router.include_router(documents.router)
 api_router.include_router(doc_transformation_job.router)
