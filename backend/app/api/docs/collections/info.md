@@ -1,5 +1,4 @@
-Retrieve all AI-platform information about a collection given its
-ID. This route is very helpful for:
+Retrieve detailed information about a specific collection by its ID from the collection table. Note that this endpoint CANNOT be used as a polling endpoint for collection creation because an entry will be made in the collection table only after the resource creation and association has been successful.
 
-* Understanding whether a `create` request has finished
-* Obtaining the OpenAI assistant ID (`llm_service_id`)
+This endpoint returns metadata for the collection, including its project, organization,
+timestamps, and associated LLM service details (`llm_service_id`).
