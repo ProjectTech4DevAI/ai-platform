@@ -1,17 +1,21 @@
 from typing import Optional
 import logging
 import time
-from uuid import UUID
+from uuid import UUID, uuid4
+from pathlib import Path
 
 import openai
 from sqlmodel import Session
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, File, Form, UploadFile
 
 from app.models import (
     FineTuningJobCreate,
     FineTuningJobPublic,
     FineTuningUpdate,
     FineTuningStatus,
+    Document,
+    ModelEvaluationBase,
+    ModelEvaluationStatus,
 )
 from app.core.cloud import get_cloud_storage
 from app.crud.document import DocumentCrud
@@ -21,10 +25,13 @@ from app.crud import (
     fetch_by_id,
     update_finetune_job,
     fetch_by_document_id,
+    create_model_evaluation,
+    fetch_active_model_evals,
 )
 from app.core.db import engine
 from app.api.deps import CurrentUserOrgProject, SessionDep
 from app.core.finetune.preprocessing import DataPreprocessor
+from app.api.routes.model_evaluation import run_model_evaluation
 
 
 logger = logging.getLogger(__name__)
@@ -38,14 +45,8 @@ OPENAI_TO_INTERNAL_STATUS = {
     "running": FineTuningStatus.running,
     "succeeded": FineTuningStatus.completed,
     "failed": FineTuningStatus.failed,
+    "cancelled": FineTuningStatus.cancelled,
 }
-
-
-def handle_openai_error(e: openai.OpenAIError) -> str:
-    """Extract error message from OpenAI error."""
-    if isinstance(e.body, dict) and "message" in e.body:
-        return e.body["message"]
-    return str(e)
 
 
 def process_fine_tuning_job(
@@ -179,22 +180,58 @@ def process_fine_tuning_job(
     description=load_description("fine_tuning/create.md"),
     response_model=APIResponse,
 )
-def fine_tune_from_CSV(
+async def fine_tune_from_CSV(
     session: SessionDep,
     current_user: CurrentUserOrgProject,
-    request: FineTuningJobCreate,
     background_tasks: BackgroundTasks,
+    file: UploadFile = File(..., description="CSV file to use for fine-tuning"),
+    base_model: str = Form(...),
+    split_ratio: str = Form(...),
+    system_prompt: str = Form(...),
 ):
-    client = get_openai_client(  # Used here only to validate the user's OpenAI key;
+    # Parse split ratios
+    try:
+        split_ratios = [float(r.strip()) for r in split_ratio.split(",")]
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid split_ratio format: {e}")
+
+    # Validate file is CSV
+    if not file.filename.lower().endswith(".csv") and file.content_type != "text/csv":
+        raise HTTPException(status_code=400, detail="File must be a CSV file")
+
+    get_openai_client(  # Used here only to validate the user's OpenAI key;
         # the actual client is re-initialized separately inside the background task
         session,
         current_user.organization_id,
         current_user.project_id,
     )
 
+    # Upload the file to storage and create document
+    # ToDo: create a helper function and then use it rather than doing things in router
+    storage = get_cloud_storage(session=session, project_id=current_user.project_id)
+    document_id = uuid4()
+    object_store_url = storage.put(file, Path(str(document_id)))
+
+    # Create document in database
+    document_crud = DocumentCrud(session, current_user.project_id)
+    document = Document(
+        id=document_id,
+        fname=file.filename,
+        object_store_url=str(object_store_url),
+    )
+    created_document = document_crud.update(document)
+
+    # Create FineTuningJobCreate request object
+    request = FineTuningJobCreate(
+        document_id=created_document.id,
+        base_model=base_model,
+        split_ratio=split_ratios,
+        system_prompt=system_prompt.strip(),
+    )
+
     results = []
 
-    for ratio in request.split_ratio:
+    for ratio in split_ratios:
         job, created = create_fine_tuning_job(
             session=session,
             request=request,
@@ -246,7 +283,10 @@ def fine_tune_from_CSV(
     response_model=APIResponse[FineTuningJobPublic],
 )
 def refresh_fine_tune_status(
-    fine_tuning_id: int, session: SessionDep, current_user: CurrentUserOrgProject
+    fine_tuning_id: int,
+    background_tasks: BackgroundTasks,
+    session: SessionDep,
+    current_user: CurrentUserOrgProject,
 ):
     project_id = current_user.project_id
     job = fetch_by_id(session, fine_tuning_id, project_id)
@@ -282,12 +322,55 @@ def refresh_fine_tune_status(
             error_message=openai_error_msg,
         )
 
+        # Check if status is changing from running to completed
+        is_newly_completed = (
+            job.status == FineTuningStatus.running
+            and update_payload.status == FineTuningStatus.completed
+        )
+
         if (
             job.status != update_payload.status
             or job.fine_tuned_model != update_payload.fine_tuned_model
             or job.error_message != update_payload.error_message
         ):
             job = update_finetune_job(session=session, job=job, update=update_payload)
+
+        # If the job just completed, automatically trigger evaluation
+        if is_newly_completed:
+            logger.info(
+                f"[refresh_fine_tune_status] Fine-tuning job completed, triggering evaluation | "
+                f"fine_tuning_id={fine_tuning_id}, project_id={project_id}"
+            )
+
+            # Check if there's already an active evaluation for this job
+            active_evaluations = fetch_active_model_evals(
+                session, fine_tuning_id, project_id
+            )
+
+            if not active_evaluations:
+                # Create a new evaluation
+                model_eval = create_model_evaluation(
+                    session=session,
+                    request=ModelEvaluationBase(fine_tuning_id=fine_tuning_id),
+                    project_id=project_id,
+                    organization_id=current_user.organization_id,
+                    status=ModelEvaluationStatus.pending,
+                )
+
+                # Queue the evaluation task
+                background_tasks.add_task(
+                    run_model_evaluation, model_eval.id, current_user
+                )
+
+                logger.info(
+                    f"[refresh_fine_tune_status] Created and queued evaluation | "
+                    f"eval_id={model_eval.id}, fine_tuning_id={fine_tuning_id}, project_id={project_id}"
+                )
+            else:
+                logger.info(
+                    f"[refresh_fine_tune_status] Skipping evaluation creation - active evaluation exists | "
+                    f"fine_tuning_id={fine_tuning_id}, project_id={project_id}"
+                )
 
     job = job.model_copy(
         update={
