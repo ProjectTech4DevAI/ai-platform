@@ -11,8 +11,7 @@ from sqlmodel import Session, select
 
 from app.core.config import settings
 from app.crud.user import get_user_by_email
-from app.crud.api_key import get_api_key_by_value, get_api_key_by_user_id
-from app.models import APIKeyPublic, Project, Assistant, Organization, Document
+from app.models import Project, Assistant, Organization, Document
 
 
 T = TypeVar("T")
@@ -42,24 +41,9 @@ def get_superuser_token_headers(client: TestClient) -> dict[str, str]:
     return headers
 
 
-def get_api_key_by_email(db: Session, email: EmailStr) -> APIKeyPublic:
-    user = get_user_by_email(session=db, email=email)
-    api_key = get_api_key_by_user_id(db, user_id=user.id)
-
-    return api_key
-
-
 def get_user_id_by_email(db: Session) -> int:
     user = get_user_by_email(session=db, email=settings.EMAIL_TEST_USER)
     return user.id
-
-
-def get_user_from_api_key(db: Session, api_key_headers: dict[str, str]) -> APIKeyPublic:
-    key_value = api_key_headers["X-API-KEY"]
-    api_key = get_api_key_by_value(db, api_key_value=key_value)
-    if api_key is None:
-        raise ValueError("Invalid API Key")
-    return api_key
 
 
 def get_non_existent_id(session: Session, model: Type[T]) -> int:
@@ -89,22 +73,24 @@ def get_project(session: Session, name: str | None = None) -> Project:
     return project
 
 
-def get_assistant(session: Session, name: str | None = None) -> Assistant:
+def get_assistant(
+    session: Session, project_id: int | None = None, name: str | None = None
+) -> Assistant:
     """
     Retrieve an active assistant from the database.
 
     If a assistant name is provided, fetch the active assistant with that name.
     If no name is provided, fetch any random assistant.
     """
-    if name:
-        statement = (
-            select(Assistant)
-            .where(Assistant.name == name, Assistant.is_deleted == False)
-            .limit(1)
-        )
-    else:
-        statement = select(Assistant).where(Assistant.is_deleted == False).limit(1)
+    filters = [Assistant.is_deleted == False]
 
+    if project_id is not None:
+        filters.append(Assistant.project_id == project_id)
+
+    if name:
+        filters.append(Assistant.name == name)
+
+    statement = select(Assistant).where(*filters).limit(1)
     assistant = session.exec(statement).first()
 
     if not assistant:

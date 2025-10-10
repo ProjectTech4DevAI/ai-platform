@@ -4,9 +4,9 @@ from sqlmodel import Session
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from unittest.mock import patch
-from app.crud.api_key import get_api_keys_by_project
 from app.tests.utils.openai import mock_openai_assistant
 from app.tests.utils.utils import get_assistant
+from app.tests.utils.auth import TestAuthContext
 
 
 @pytest.fixture
@@ -30,7 +30,7 @@ def assistant_id():
 def test_ingest_assistant_success(
     mock_fetch_assistant,
     client: TestClient,
-    user_api_key_header: dict[str, str],
+    user_api_key: TestAuthContext,
 ):
     """Test successful assistant ingestion from OpenAI."""
     mock_assistant = mock_openai_assistant()
@@ -39,7 +39,7 @@ def test_ingest_assistant_success(
 
     response = client.post(
         f"/api/v1/assistant/{mock_assistant.id}/ingest",
-        headers=user_api_key_header,
+        headers={"X-API-KEY": f"{user_api_key.key}"},
     )
 
     assert response.status_code == 201
@@ -53,7 +53,7 @@ def test_create_assistant_success(
     mock_verify_vector_ids,
     client: TestClient,
     assistant_create_payload: dict,
-    user_api_key_header: dict,
+    user_api_key: TestAuthContext,
 ):
     """Test successful assistant creation with OpenAI vector store ID verification."""
 
@@ -62,7 +62,7 @@ def test_create_assistant_success(
     response = client.post(
         "/api/v1/assistant",
         json=assistant_create_payload,
-        headers=user_api_key_header,
+        headers={"X-API-KEY": f"{user_api_key.key}"},
     )
 
     assert response.status_code == 201
@@ -92,7 +92,7 @@ def test_create_assistant_invalid_vector_store(
     mock_verify_vector_ids,
     client: TestClient,
     assistant_create_payload: dict,
-    user_api_key_header: dict,
+    user_api_key: TestAuthContext,
 ):
     """Test failure when one or more vector store IDs are invalid."""
 
@@ -106,7 +106,7 @@ def test_create_assistant_invalid_vector_store(
     response = client.post(
         "/api/v1/assistant",
         json=payload,
-        headers=user_api_key_header,
+        headers={"X-API-KEY": f"{user_api_key.key}"},
     )
 
     assert response.status_code == 400
@@ -117,6 +117,7 @@ def test_create_assistant_invalid_vector_store(
 def test_update_assistant_success(
     client: TestClient,
     db: Session,
+    user_api_key: TestAuthContext,
 ):
     """Test successful assistant update."""
     update_payload = {
@@ -127,13 +128,12 @@ def test_update_assistant_success(
         "max_num_results": 5,
     }
 
-    assistant = get_assistant(db)
-    api_key = get_api_keys_by_project(db, assistant.project_id)[0]
+    assistant = get_assistant(db, project_id=user_api_key.project_id)
 
     response = client.patch(
         f"/api/v1/assistant/{assistant.assistant_id}",
         json=update_payload,
-        headers={"X-API-KEY": f"{api_key.key}"},
+        headers={"X-API-KEY": f"{user_api_key.key}"},
     )
 
     assert response.status_code == 200
@@ -151,6 +151,7 @@ def test_update_assistant_invalid_vector_store(
     mock_verify_vector_ids,
     client: TestClient,
     db: Session,
+    user_api_key: TestAuthContext,
 ):
     """Test failure when updating assistant with invalid vector store IDs."""
     mock_verify_vector_ids.side_effect = HTTPException(
@@ -159,13 +160,12 @@ def test_update_assistant_invalid_vector_store(
 
     update_payload = {"vector_store_ids_add": ["vs_invalid"]}
 
-    assistant = get_assistant(db)
-    api_key = get_api_keys_by_project(db, assistant.project_id)[0]
+    assistant = get_assistant(db, project_id=user_api_key.project_id)
 
     response = client.patch(
         f"/api/v1/assistant/{assistant.assistant_id}",
         json=update_payload,
-        headers={"X-API-KEY": f"{api_key.key}"},
+        headers={"X-API-KEY": f"{user_api_key.key}"},
     )
 
     assert response.status_code == 400
@@ -175,7 +175,7 @@ def test_update_assistant_invalid_vector_store(
 
 def test_update_assistant_not_found(
     client: TestClient,
-    user_api_key_header: dict,
+    user_api_key: TestAuthContext,
 ):
     """Test failure when updating a non-existent assistant."""
     update_payload = {"name": "Updated Assistant"}
@@ -185,7 +185,7 @@ def test_update_assistant_not_found(
     response = client.patch(
         f"/api/v1/assistant/{non_existent_id}",
         json=update_payload,
-        headers=user_api_key_header,
+        headers={"X-API-KEY": f"{user_api_key.key}"},
     )
 
     assert response.status_code == 404
@@ -196,14 +196,14 @@ def test_update_assistant_not_found(
 def test_get_assistant_success(
     client: TestClient,
     db: Session,
+    user_api_key: TestAuthContext,
 ):
     """Test successful retrieval of a single assistant."""
-    assistant = get_assistant(db)
-    api_key = get_api_keys_by_project(db, assistant.project_id)[0]
+    assistant = get_assistant(db, project_id=user_api_key.project_id)
 
     response = client.get(
         f"/api/v1/assistant/{assistant.assistant_id}",
-        headers={"X-API-KEY": f"{api_key.key}"},
+        headers={"X-API-KEY": f"{user_api_key.key}"},
     )
 
     assert response.status_code == 200
@@ -235,14 +235,14 @@ def test_get_assistant_not_found(
 def test_list_assistants_success(
     client: TestClient,
     db: Session,
+    user_api_key: TestAuthContext,
 ):
     """Test successful retrieval of assistants list."""
-    assistant = get_assistant(db)
-    api_key = get_api_keys_by_project(db, assistant.project_id)[0]
+    assistant = get_assistant(db, project_id=user_api_key.project_id)
 
     response = client.get(
         "/api/v1/assistant/",
-        headers={"X-API-KEY": f"{api_key.key}"},
+        headers={"X-API-KEY": f"{user_api_key.key}"},
     )
 
     assert response.status_code == 200
@@ -286,14 +286,14 @@ def test_list_assistants_invalid_pagination(
 def test_delete_assistant_success(
     client: TestClient,
     db: Session,
+    user_api_key: TestAuthContext,
 ):
     """Test successful soft deletion of an assistant."""
-    assistant = get_assistant(db)
-    api_key = get_api_keys_by_project(db, assistant.project_id)[0]
+    assistant = get_assistant(db, project_id=user_api_key.project_id)
 
     response = client.delete(
         f"/api/v1/assistant/{assistant.assistant_id}",
-        headers={"X-API-KEY": f"{api_key.key}"},
+        headers={"X-API-KEY": f"{user_api_key.key}"},
     )
 
     assert response.status_code == 200

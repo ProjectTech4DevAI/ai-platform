@@ -52,7 +52,6 @@ class User(UserBase, table=True):
     projects: list["ProjectUser"] = Relationship(
         back_populates="user", cascade_delete=True
     )
-    api_keys: list["APIKey"] = Relationship(back_populates="user", cascade_delete=True)
 
 
 class UserOrganization(UserBase):

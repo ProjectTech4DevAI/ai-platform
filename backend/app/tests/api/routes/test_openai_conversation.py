@@ -2,15 +2,15 @@ from sqlmodel import Session
 from fastapi.testclient import TestClient
 
 from app.crud.openai_conversation import create_conversation
-from app.models import APIKeyPublic
 from app.models import OpenAIConversationCreate
 from app.tests.utils.openai import generate_openai_id
+from app.tests.utils.auth import TestAuthContext
 
 
 def test_get_conversation_success(
     client: TestClient,
     db: Session,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     """Test successful conversation retrieval."""
 
@@ -45,7 +45,7 @@ def test_get_conversation_success(
 
 def test_get_conversation_not_found(
     client: TestClient,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     """Test conversation retrieval with non-existent ID."""
     response = client.get(
@@ -61,7 +61,7 @@ def test_get_conversation_not_found(
 def test_get_conversation_by_response_id_success(
     client: TestClient,
     db: Session,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     """Test successful conversation retrieval by response ID."""
     response_id = generate_openai_id("resp_", 40)
@@ -96,7 +96,7 @@ def test_get_conversation_by_response_id_success(
 
 def test_get_conversation_by_response_id_not_found(
     client: TestClient,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     """Test conversation retrieval with non-existent response ID."""
     response = client.get(
@@ -112,7 +112,7 @@ def test_get_conversation_by_response_id_not_found(
 def test_get_conversation_by_ancestor_id_success(
     client: TestClient,
     db: Session,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     """Test successful conversation retrieval by ancestor ID."""
     ancestor_response_id = generate_openai_id("resp_", 40)
@@ -147,7 +147,7 @@ def test_get_conversation_by_ancestor_id_success(
 
 def test_get_conversation_by_ancestor_id_not_found(
     client: TestClient,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     """Test conversation retrieval with non-existent ancestor ID."""
     response = client.get(
@@ -163,7 +163,7 @@ def test_get_conversation_by_ancestor_id_not_found(
 def test_list_conversations_success(
     client: TestClient,
     db: Session,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     """Test successful conversation listing."""
     conversation_data = OpenAIConversationCreate(
@@ -199,7 +199,7 @@ def test_list_conversations_success(
 def test_list_conversations_with_pagination(
     client: TestClient,
     db: Session,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     """Test conversation listing with pagination."""
     # Create multiple conversations
@@ -262,7 +262,7 @@ def test_list_conversations_with_pagination(
 def test_list_conversations_pagination_metadata(
     client: TestClient,
     db: Session,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     """Test conversation listing pagination metadata."""
     # Create 5 conversations
@@ -320,7 +320,7 @@ def test_list_conversations_pagination_metadata(
 def test_list_conversations_default_pagination(
     client: TestClient,
     db: Session,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     """Test conversation listing with default pagination parameters."""
     # Create a conversation
@@ -360,7 +360,7 @@ def test_list_conversations_default_pagination(
 
 def test_list_conversations_edge_cases(
     client: TestClient,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     """Test conversation listing edge cases for pagination."""
     # Test with skip larger than total
@@ -397,7 +397,7 @@ def test_list_conversations_edge_cases(
 
 def test_list_conversations_invalid_pagination(
     client: TestClient,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     """Test conversation listing with invalid pagination parameters."""
     response = client.get(
@@ -411,7 +411,7 @@ def test_list_conversations_invalid_pagination(
 def test_delete_conversation_success(
     client: TestClient,
     db: Session,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     """Test successful conversation deletion."""
     conversation_data = OpenAIConversationCreate(
@@ -453,7 +453,7 @@ def test_delete_conversation_success(
 
 def test_delete_conversation_not_found(
     client: TestClient,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     """Test conversation deletion with non-existent ID."""
     response = client.delete(

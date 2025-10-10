@@ -4,7 +4,7 @@ from sqlmodel import Session
 
 from app.core.security import encrypt_api_key, encrypt_credentials, get_password_hash
 from app.crud import (
-    generate_api_key,
+    api_key_manager,
     get_organization_by_name,
     get_project_by_name,
     get_user_by_email,
@@ -90,15 +90,16 @@ def onboard_project(
         session.add(user)
         session.flush()
 
-    raw_key, _ = generate_api_key()
-    encrypted_key = encrypt_api_key(raw_key)
+    raw_key, key_prefix, key_hash = api_key_manager.generate()
 
     api_key = APIKey(
-        key=encrypted_key,  # Store the encrypted raw key
-        organization_id=organization.id,
+        key_prefix=key_prefix,
+        key_hash=key_hash,
         user_id=user.id,
+        organization_id=project.organization_id,
         project_id=project.id,
     )
+
     session.add(api_key)
 
     credential = None
