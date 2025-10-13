@@ -44,7 +44,7 @@ python -c "import secrets; print(secrets.token_urlsafe(32))"
 
 Copy the content and use that as password / secret key. And run that again to generate another secure key.
 
-## Boostrap & development mode
+## Bootstrap & development mode
 
 You have two options to start this dockerized setup, depending on whether you want to reset the database:
 ### Option A: Run migrations & seed data (will reset DB)
