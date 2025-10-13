@@ -29,7 +29,7 @@ cp .env.example .env
 
 You can then update configs in the `.env` files to customize your configurations.
 
-⚠️ Some services depend on these values being set correctly. Missing or invalid values may cause startup issues.
+⚠️ Some services depend on these environment variables being set correctly. Missing or invalid values may cause startup issues.
 
 ### Generate Secret Keys
 
@@ -46,7 +46,7 @@ Copy the content and use that as password / secret key. And run that again to ge
 
 ## Boostrap & development mode
 
-You have two options to start the project, depending on whether you want to reset the database:
+You have two options to start this dockerized setup, depending on whether you want to reset the database:
 ### Option A: Run migrations & seed data (will reset DB)
 
 Use the prestart profile to automatically run database migrations and seed data.
