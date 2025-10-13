@@ -99,6 +99,8 @@ services:
     image: "${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG:-latest}"
     container_name: backend
     restart: always
+    build:
+      context: ./backend
     depends_on:
       db:
         condition: service_healthy
@@ -112,8 +114,6 @@ services:
       POSTGRES_SERVER: db
       REDIS_HOST: redis
       RABBITMQ_HOST: rabbitmq
-    build:
-      context: ./backend
     ports:
       - "8000:80"
     healthcheck:
@@ -135,17 +135,14 @@ services:
         - action: rebuild
           path: ./backend/uv.lock
 
-
   celery_worker:
     image: "${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG:-latest}"
     container_name: celery-worker
     restart: always
+    build:
+      context: ./backend
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      rabbitmq:
+      backend:
         condition: service_healthy
     env_file:
       - .env
@@ -153,10 +150,26 @@ services:
       POSTGRES_SERVER: db
       REDIS_HOST: redis
       RABBITMQ_HOST: rabbitmq
+    command: ["uv", "run", "celery", "-A", "app.celery.celery_app", "worker", "--loglevel=info"]
+
+  celery_flower:
+    image: "${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG:-latest}"
+    container_name: celery-flower
+    restart: always
     build:
       context: ./backend
-      dockerfile: Dockerfile.celery
-    command: ["uv", "run", "celery", "-A", "app.celery.celery_app", "worker", "--loglevel=info"]
+    depends_on:
+      backend:
+        condition: service_healthy
+    env_file:
+      - .env
+    ports:
+      - "5555:5555"
+    environment:
+      POSTGRES_SERVER: db
+      REDIS_HOST: redis
+      RABBITMQ_HOST: rabbitmq
+    command: ["uv", "run", "celery", "-A", "app.celery.celery_app", "flower", "--port=5555"]
 
 volumes:
   kaapi-postgres:

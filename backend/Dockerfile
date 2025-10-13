@@ -1,3 +1,5 @@
+# The same Dockerfile is used to build images for the backend, Celery worker, and Celery Flower services.
+
 # Use Python 3.12 base image
 FROM python:3.12
 
@@ -46,3 +48,9 @@ EXPOSE 80
 
 
 CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80", "--workers", "4"]
+
+# command for Celery worker
+# CMD ["uv", "run", "celery", "-A", "app.celery.celery_app", "worker", "--loglevel=info"]
+
+# command for Celery Flower
+# CMD ["uv", "run", "celery", "-A", "app.celery.celery_app", "flower", "--port=5555"]

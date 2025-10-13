@@ -57,11 +57,24 @@ docker compose --profile prestart up
 
 ### Option B: Start normally without resetting DB
 
-If you don’t want to reset the database, start the project directly:
+If you don't want to reset the database, start the project directly:
 ```bash
 docker compose watch
 ```
 This will start all services in watch mode for development — ideal for local iterations.
+
+### Rebuilding Images
+
+While the backend service supports live code reloading via `docker compose watch`, **Celery does not support auto-reload**. When you make changes to Celery tasks, workers, or related code, you need to rebuild the Docker image:
+
+```bash
+docker compose up --build
+```
+
+This is also necessary when:
+- Dependencies change in `pyproject.toml` or `uv.lock`
+- You modify Dockerfile configurations
+- Changes aren't being reflected in the running containers
 
 ## Backend Development
 
