@@ -29,43 +29,52 @@ cp .env.example .env
 
 You can then update configs in the `.env` files to customize your configurations.
 
-Before deploying it, make sure you change at least the values for:
-
-- `SECRET_KEY`
-- `FIRST_SUPERUSER_PASSWORD`
-- `POSTGRES_PASSWORD`
-
-````bash
+⚠️ Some services depend on these environment variables being set correctly. Missing or invalid values may cause startup issues.
 
 ### Generate Secret Keys
 
-Some environment variables in the `.env` file have a default value of `changethis`.
 
 You have to change them with a secret key, to generate secret keys you can run the following command:
 
 ```bash
+
 python -c "import secrets; print(secrets.token_urlsafe(32))"
+
 ````
 
 Copy the content and use that as password / secret key. And run that again to generate another secure key.
 
-## Boostrap & development mode
+## Bootstrap & development mode
 
-This is a dockerized setup, hence start the project using below command
+You have two options to start this dockerized setup, depending on whether you want to reset the database:
+### Option A: Run migrations & seed data (will reset DB)
 
+Use the prestart profile to automatically run database migrations and seed data.
+This profile also resets the database, so use it only when you want a fresh start.
+```bash
+docker compose --profile prestart up
+```
+
+### Option B: Start normally without resetting DB
+
+If you don't want to reset the database, start the project directly:
 ```bash
 docker compose watch
 ```
+This will start all services in watch mode for development — ideal for local iterations.
 
-This should start all necessary services for the project and will also mount file system as volume for easy development.
+### Rebuilding Images
 
-You verify backend running by doing a health check
+While the backend service supports live code reloading via `docker compose watch`, **Celery does not support auto-reload**. When you make changes to Celery tasks, workers, or related code, you need to rebuild the Docker image:
 
 ```bash
-curl http://[your-domain]:8000/api/v1/utils/health/
+docker compose up --build
 ```
 
-or by visiting: http://[your-domain]:8000/api/v1/utils/health/ in the browser
+This is also necessary when:
+- Dependencies change in `pyproject.toml` or `uv.lock`
+- You modify Dockerfile configurations
+- Changes aren't being reflected in the running containers
 
 ## Backend Development
 
