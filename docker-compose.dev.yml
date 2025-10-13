@@ -92,6 +92,31 @@ services:
       - backend
     command: ["uv", "run", "celery", "-A", "app.celery.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
 
+  flower:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.celery
+    environment:
+      - ENVIRONMENT=development
+      - REDIS_HOST=redis
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+    env_file:
+      - ./.env
+    ports:
+      - "5555:5555"
+    volumes:
+      - ./backend:/app  # Mount for live code changes
+      - /app/.venv  # Exclude .venv from volume mount
+    networks:
+      - app-network
+    depends_on:
+      - redis
+      - rabbitmq
+      - celery-worker
+    command: ["uv", "run", "celery", "-A", "app.celery.celery_app", "flower", "--port=5555"]
+
 networks:
   app-network:
     driver: bridge
