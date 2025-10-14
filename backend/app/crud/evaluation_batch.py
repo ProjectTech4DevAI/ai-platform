@@ -5,6 +5,7 @@ This module handles:
 1. Fetching dataset items from Langfuse
 2. Building JSONL for OpenAI Batch API (/v1/responses endpoint)
 3. Uploading and creating batch jobs
+4. Polling batch status and downloading results
 """
 
 import json
@@ -13,7 +14,7 @@ from typing import Any
 
 from langfuse import Langfuse
 from openai import OpenAI
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.models import EvaluationRun
 
@@ -266,4 +267,252 @@ def start_evaluation_batch(
         eval_run.error_message = str(e)
         session.add(eval_run)
         session.commit()
+        raise
+
+
+# ============================================================================
+# Batch Polling and Result Processing
+# ============================================================================
+
+
+def get_pending_evaluations(session: Session) -> list[EvaluationRun]:
+    """
+    Get all evaluations that are currently processing and need polling.
+
+    Args:
+        session: Database session
+
+    Returns:
+        List of EvaluationRun objects with status='processing'
+    """
+    statement = select(EvaluationRun).where(EvaluationRun.status == "processing")
+    results = session.exec(statement).all()
+    logger.info(f"Found {len(results)} evaluations in 'processing' status")
+    return list(results)
+
+
+def poll_batch_status(client: OpenAI, batch_id: str) -> dict[str, Any]:
+    """
+    Poll OpenAI for current batch status.
+
+    Args:
+        client: Configured OpenAI client
+        batch_id: Batch ID to poll
+
+    Returns:
+        Dict with batch status information:
+        {
+            "id": "batch_abc123",
+            "status": "completed" | "failed" | "in_progress" | "validating" | ...,
+            "output_file_id": "file-xyz" (if completed),
+            "error_file_id": "file-err" (if failed),
+            "failed_requests": 0,
+            "completed_requests": 10,
+            "total_requests": 10
+        }
+
+    Raises:
+        Exception: If polling fails
+    """
+    logger.info(f"Polling batch status: {batch_id}")
+
+    try:
+        batch = client.batches.retrieve(batch_id)
+
+        batch_status = {
+            "id": batch.id,
+            "status": batch.status,
+            "output_file_id": batch.output_file_id,
+            "error_file_id": batch.error_file_id,
+            "request_counts": {
+                "total": batch.request_counts.total,
+                "completed": batch.request_counts.completed,
+                "failed": batch.request_counts.failed,
+            },
+        }
+
+        logger.info(
+            f"Batch {batch_id} status: {batch.status} "
+            f"({batch.request_counts.completed}/{batch.request_counts.total} completed)"
+        )
+
+        return batch_status
+
+    except Exception as e:
+        logger.error(f"Failed to poll batch status for {batch_id}: {e}")
+        raise
+
+
+def download_batch_output(client: OpenAI, output_file_id: str) -> str:
+    """
+    Download batch output JSONL from OpenAI.
+
+    Args:
+        client: Configured OpenAI client
+        output_file_id: File ID of the batch output
+
+    Returns:
+        JSONL content as string
+
+    Raises:
+        Exception: If download fails
+    """
+    logger.info(f"Downloading batch output file: {output_file_id}")
+
+    try:
+        file_content = client.files.content(output_file_id)
+        jsonl_content = file_content.read().decode("utf-8")
+
+        # Count lines for logging
+        line_count = len(jsonl_content.strip().split("\n"))
+        logger.info(f"Downloaded {line_count} lines from output file {output_file_id}")
+
+        return jsonl_content
+
+    except Exception as e:
+        logger.error(f"Failed to download batch output {output_file_id}: {e}")
+        raise
+
+
+def parse_batch_output(
+    jsonl_content: str, dataset_items: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """
+    Parse batch output JSONL into structured results.
+
+    Args:
+        jsonl_content: Raw JSONL string from OpenAI batch output
+        dataset_items: Original dataset items (for matching ground truth)
+
+    Returns:
+        List of results in format:
+        [
+            {
+                "item_id": "item_123",
+                "question": "What is 2+2?",
+                "generated_output": "4",
+                "ground_truth": "4"
+            },
+            ...
+        ]
+    """
+    logger.info("Parsing batch output JSONL")
+
+    # Create lookup map for dataset items by ID
+    dataset_map = {item["id"]: item for item in dataset_items}
+
+    results = []
+    lines = jsonl_content.strip().split("\n")
+
+    for line_num, line in enumerate(lines, 1):
+        try:
+            response = json.loads(line)
+
+            # Extract custom_id (which is our dataset item ID)
+            item_id = response.get("custom_id")
+            if not item_id:
+                logger.warning(f"Line {line_num}: No custom_id found, skipping")
+                continue
+
+            # Get original dataset item
+            dataset_item = dataset_map.get(item_id)
+            if not dataset_item:
+                logger.warning(f"Line {line_num}: No dataset item found for {item_id}")
+                continue
+
+            # Extract the response body
+            response_body = response.get("response", {}).get("body", {})
+
+            # Handle errors in batch processing
+            if response.get("error"):
+                error_msg = response["error"].get("message", "Unknown error")
+                logger.error(f"Item {item_id} had error: {error_msg}")
+                generated_output = f"ERROR: {error_msg}"
+            else:
+                # Extract output text from response
+                # Response API returns: {"output": "the answer text"}
+                generated_output = response_body.get("output", "")
+
+            # Extract question and ground truth from dataset item
+            question = dataset_item["input"].get("question", "")
+            ground_truth = dataset_item["expected_output"].get("answer", "")
+
+            results.append(
+                {
+                    "item_id": item_id,
+                    "question": question,
+                    "generated_output": generated_output,
+                    "ground_truth": ground_truth,
+                }
+            )
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Line {line_num}: Failed to parse JSON: {e}")
+            continue
+        except Exception as e:
+            logger.error(f"Line {line_num}: Unexpected error: {e}")
+            continue
+
+    logger.info(f"Parsed {len(results)} results from {len(lines)} output lines")
+    return results
+
+
+def upload_results_to_s3(
+    jsonl_content: str, eval_run: EvaluationRun, project_id: int
+) -> str:
+    """
+    Upload evaluation results to S3.
+
+    Args:
+        jsonl_content: JSONL content to upload
+        eval_run: EvaluationRun database object
+        project_id: Project ID for storage path
+
+    Returns:
+        S3 URL (e.g., s3://bucket/project-uuid/evaluations/run-123/results.jsonl)
+
+    Raises:
+        Exception: If upload fails
+    """
+    from io import BytesIO
+    from app.core.cloud.storage import (
+        AmazonCloudStorageClient,
+        SimpleStorageName,
+    )
+
+    logger.info(f"Uploading results to S3 for evaluation run {eval_run.id}")
+
+    try:
+        # Create S3 key path
+        # Format: project-storage-path/evaluations/run-{id}/results.jsonl
+        s3_key = f"evaluations/run-{eval_run.id}/results.jsonl"
+
+        # Convert string content to bytes
+        content_bytes = jsonl_content.encode("utf-8")
+        file_like = BytesIO(content_bytes)
+
+        # Upload to S3
+        aws_client = AmazonCloudStorageClient()
+        aws_client.client.upload_fileobj(
+            file_like,
+            Bucket=aws_client.client._client_config.__dict__.get(
+                "bucket", "kaapi-storage"
+            ),
+            Key=s3_key,
+            ExtraArgs={"ContentType": "application/jsonl"},
+        )
+
+        # Construct S3 URL
+        storage_name = SimpleStorageName(Key=s3_key)
+        s3_url = str(storage_name)
+
+        logger.info(
+            f"Successfully uploaded results to S3: {s3_url} "
+            f"({len(content_bytes)} bytes)"
+        )
+
+        return s3_url
+
+    except Exception as e:
+        logger.error(f"Failed to upload results to S3: {e}", exc_info=True)
         raise

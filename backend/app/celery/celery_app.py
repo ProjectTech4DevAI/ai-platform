@@ -7,7 +7,10 @@ celery_app = Celery(
     "ai_platform",
     broker=settings.RABBITMQ_URL,
     backend=settings.REDIS_URL,
-    include=["app.celery.tasks.job_execution"],
+    include=[
+        "app.celery.tasks.job_execution",
+        "app.celery.tasks.evaluation_polling",
+    ],
 )
 
 # Define exchanges and queues with priority
@@ -84,11 +87,11 @@ celery_app.conf.update(
     broker_pool_limit=settings.CELERY_BROKER_POOL_LIMIT,
     # Beat configuration (for future cron jobs)
     beat_schedule={
-        # Example cron job (commented out)
-        # "example-cron": {
-        #     "task": "app.celery.tasks.example_cron_task",
-        #     "schedule": 60.0,  # Every 60 seconds
-        # },
+        # Poll evaluation batches every 60 seconds
+        "poll-evaluation-batches": {
+            "task": "poll_evaluation_batches",
+            "schedule": 60.0,  # Every 60 seconds
+        },
     },
 )
 
