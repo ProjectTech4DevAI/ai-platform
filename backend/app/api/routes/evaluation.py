@@ -26,7 +26,7 @@ async def upload_dataset(
     _current_user: UserOrganization = Depends(get_current_user_org),
 ) -> DatasetUploadResponse:
     """
-    Upload a CSV file containing Q&A pairs to Langfuse as a dataset.
+    Upload a CSV file containing Golden Q&A pairs to Langfuse as a dataset.
     Each question will be duplicated N times (default 5) to test LLM flakiness.
 
     CSV Format:

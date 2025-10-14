@@ -35,6 +35,13 @@ from .doc_transformation_job import (
 )
 from .document_collection import DocumentCollection
 
+from .evaluation import (
+    EvaluationRun,
+    EvaluationRunBase,
+    EvaluationRunCreate,
+    EvaluationRunPublic,
+)
+
 from .fine_tuning import (
     FineTuningJobBase,
     Fine_Tuning,

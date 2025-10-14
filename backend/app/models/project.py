@@ -61,6 +61,9 @@ class Project(ProjectBase, table=True):
     openai_conversations: list["OpenAIConversation"] = Relationship(
         back_populates="project", cascade_delete=True
     )
+    evaluation_runs: list["EvaluationRun"] = Relationship(
+        back_populates="project", cascade_delete=True
+    )
 
 
 # Properties to return via API
