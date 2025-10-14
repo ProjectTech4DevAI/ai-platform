@@ -8,6 +8,7 @@ This module handles:
 4. Polling batch status and downloading results
 """
 
+import ast
 import json
 import logging
 from typing import Any
@@ -381,44 +382,6 @@ def download_batch_output(client: OpenAI, output_file_id: str) -> str:
         raise
 
 
-def extract_output_text(output: list[dict[str, Any]]) -> str:
-    """
-    Extract clean text from Response API output array.
-
-    This mimics the logic from OpenAI SDK's Response.output_text property.
-    The output array contains items with different types (message, file_search_call, etc.).
-    We extract text from message items that contain output_text content blocks.
-
-    Args:
-        output: The output array from the Response API
-                Format: [
-                    {"type": "file_search_call", ...},
-                    {"type": "message", "content": [{"type": "output_text", "text": "..."}]}
-                ]
-
-    Returns:
-        Extracted text string, or empty string if no text found
-    """
-    texts = []
-
-    for output_item in output:
-        # Look for message type items (similar to SDK logic)
-        if isinstance(output_item, dict) and output_item.get("type") == "message":
-            content = output_item.get("content", [])
-
-            if isinstance(content, list):
-                for content_item in content:
-                    if (
-                        isinstance(content_item, dict)
-                        and content_item.get("type") == "output_text"
-                    ):
-                        text = content_item.get("text", "")
-                        if text:
-                            texts.append(text)
-
-    return "".join(texts)
-
-
 def parse_batch_output(
     jsonl_content: str, dataset_items: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
@@ -474,47 +437,41 @@ def parse_batch_output(
                 logger.error(f"Item {item_id} had error: {error_msg}")
                 generated_output = f"ERROR: {error_msg}"
             else:
-                # Extract output text from response
-                # Response API can return simple string or complex array structure
-                output = response_body.get("output", [])
+                # Extract text from output (can be string, list, or complex structure)
+                output = response_body.get("output", "")
 
-                # If output is a string, check if it's a stringified list/dict
+                # If string, try to parse it (may be JSON or Python repr of list)
                 if isinstance(output, str):
-                    # Try to parse it as JSON first (in case it's a JSON string)
                     try:
-                        # Try JSON parsing (for properly escaped strings)
-                        parsed_output = json.loads(output)
-                        if isinstance(parsed_output, list):
-                            generated_output = extract_output_text(parsed_output)
-                        else:
-                            generated_output = output
+                        output = json.loads(output)
                     except (json.JSONDecodeError, ValueError):
-                        # If JSON parsing fails, try literal_eval for Python string representation
                         try:
-                            import ast
-
-                            parsed_output = ast.literal_eval(output)
-                            if isinstance(parsed_output, list):
-                                generated_output = extract_output_text(parsed_output)
-                            else:
-                                generated_output = output
+                            output = ast.literal_eval(output)
                         except (ValueError, SyntaxError):
-                            # If both fail, use the string as-is
+                            # Keep as string if parsing fails
                             generated_output = output
-                # If output is a list (complex structure), extract text from message items
-                elif isinstance(output, list):
-                    generated_output = extract_output_text(output)
-                else:
+                            output = None
+
+                # If we have a list structure, extract text from message items
+                if isinstance(output, list):
+                    generated_output = ""
+                    for item in output:
+                        if isinstance(item, dict) and item.get("type") == "message":
+                            for content in item.get("content", []):
+                                if (
+                                    isinstance(content, dict)
+                                    and content.get("type") == "output_text"
+                                ):
+                                    generated_output = content.get("text", "")
+                                    break
+                            if generated_output:
+                                break
+                elif output is not None:
+                    # output was not a string and not a list
                     generated_output = ""
                     logger.warning(
                         f"Item {item_id}: Unexpected output type: {type(output)}"
                     )
-
-                # Log the extracted output for debugging
-                logger.debug(
-                    f"Item {item_id}: Extracted clean text output "
-                    f"(length={len(generated_output)}, preview={generated_output[:100]}...)"
-                )
 
             # Extract question and ground truth from dataset item
             question = dataset_item["input"].get("question", "")
