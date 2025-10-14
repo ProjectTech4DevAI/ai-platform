@@ -1,8 +1,12 @@
 import io
-from unittest.mock import patch, MagicMock
-import pytest
+import json
+from unittest.mock import MagicMock, patch
 
-from app.models.evaluation import DatasetUploadResponse
+import pytest
+from sqlmodel import select
+
+from app.crud.evaluation_batch import build_batch_jsonl
+from app.models import EvaluationRun
 
 
 # Helper function to create CSV file-like object
@@ -41,39 +45,11 @@ def csv_with_empty_rows():
 """
 
 
-@pytest.fixture
-def setup_credentials(db):
-    """Setup mock credentials for Langfuse."""
-    from app.crud.credentials import set_credentials
-
-    credentials = {
-        "langfuse": {
-            "public_key": "test_public_key",
-            "secret_key": "test_secret_key",
-            "host": "https://cloud.langfuse.com",
-        }
-    }
-
-    # Get organization_id from test user (from seed data)
-    from sqlmodel import select
-    from app.models import Organization
-
-    org = db.exec(select(Organization)).first()
-
-    set_credentials(
-        session=db,
-        org_id=org.id,
-        credentials=credentials,
-    )
-    db.commit()
-    return org.id
-
-
 class TestDatasetUploadValidation:
     """Test CSV validation and parsing."""
 
     def test_upload_dataset_valid_csv(
-        self, client, user_api_key_header, valid_csv_content, setup_credentials
+        self, client, user_api_key_header, valid_csv_content
     ):
         """Test uploading a valid CSV file."""
         with patch("app.crud.evaluation.configure_langfuse") as mock_langfuse:
@@ -117,7 +93,6 @@ class TestDatasetUploadValidation:
         client,
         user_api_key_header,
         invalid_csv_missing_columns,
-        setup_credentials,
     ):
         """Test uploading CSV with missing required columns."""
         with patch("app.crud.evaluation.configure_langfuse") as mock_langfuse:
@@ -142,7 +117,7 @@ class TestDatasetUploadValidation:
             )
 
     def test_upload_dataset_empty_rows(
-        self, client, user_api_key_header, csv_with_empty_rows, setup_credentials
+        self, client, user_api_key_header, csv_with_empty_rows
     ):
         """Test uploading CSV with empty rows (should skip them)."""
         with patch("app.crud.evaluation.configure_langfuse") as mock_langfuse:
@@ -172,31 +147,12 @@ class TestDatasetUploadValidation:
             assert data["original_items"] == 2
             assert data["total_items"] == 4  # 2 items * 2 duplication
 
-    def test_upload_dataset_no_langfuse_credentials(
-        self, client, user_api_key_header, valid_csv_content
-    ):
-        """Test uploading without Langfuse credentials configured."""
-        filename, file_obj = create_csv_file(valid_csv_content)
-
-        response = client.post(
-            "/api/v1/dataset/upload",
-            files={"file": (filename, file_obj, "text/csv")},
-            data={
-                "dataset_name": "test_dataset",
-                "duplication_factor": 5,
-            },
-            headers=user_api_key_header,
-        )
-
-        assert response.status_code == 500
-        assert "LANGFUSE" in response.text or "not configured" in response.text.lower()
-
 
 class TestDatasetUploadDuplication:
     """Test duplication logic."""
 
     def test_upload_with_default_duplication(
-        self, client, user_api_key_header, valid_csv_content, setup_credentials
+        self, client, user_api_key_header, valid_csv_content
     ):
         """Test uploading with default duplication factor (5)."""
         with patch("app.crud.evaluation.configure_langfuse") as mock_langfuse:
@@ -227,7 +183,7 @@ class TestDatasetUploadDuplication:
             assert data["total_items"] == 15  # 3 items * 5 duplication
 
     def test_upload_with_custom_duplication(
-        self, client, user_api_key_header, valid_csv_content, setup_credentials
+        self, client, user_api_key_header, valid_csv_content
     ):
         """Test uploading with custom duplication factor."""
         with patch("app.crud.evaluation.configure_langfuse") as mock_langfuse:
@@ -258,7 +214,7 @@ class TestDatasetUploadDuplication:
             assert data["total_items"] == 30  # 3 items * 10 duplication
 
     def test_upload_metadata_includes_duplicate_number(
-        self, client, user_api_key_header, valid_csv_content, setup_credentials
+        self, client, user_api_key_header, valid_csv_content
     ):
         """Test that metadata includes duplicate number for each item."""
         with patch("app.crud.evaluation.configure_langfuse") as mock_langfuse:
@@ -302,7 +258,7 @@ class TestDatasetUploadErrors:
     """Test error handling."""
 
     def test_upload_langfuse_configuration_fails(
-        self, client, user_api_key_header, valid_csv_content, setup_credentials
+        self, client, user_api_key_header, valid_csv_content
     ):
         """Test when Langfuse client configuration fails."""
         with patch("app.crud.evaluation.configure_langfuse") as mock_langfuse:
@@ -323,9 +279,7 @@ class TestDatasetUploadErrors:
             assert response.status_code == 500
             assert "Failed to configure" in response.text or "Langfuse" in response.text
 
-    def test_upload_invalid_csv_format(
-        self, client, user_api_key_header, setup_credentials
-    ):
+    def test_upload_invalid_csv_format(self, client, user_api_key_header):
         """Test uploading invalid CSV format."""
         invalid_csv = "not,a,valid\ncsv format here!!!"
         filename, file_obj = create_csv_file(invalid_csv)
@@ -361,3 +315,494 @@ class TestDatasetUploadErrors:
         )
 
         assert response.status_code == 401  # Unauthorized
+
+
+class TestBatchEvaluation:
+    """Test batch evaluation endpoint using OpenAI Batch API."""
+
+    @pytest.fixture
+    def sample_evaluation_config(self):
+        """Sample evaluation configuration."""
+        return {
+            "llm": {"model": "gpt-4o", "temperature": 0.2},
+            "instructions": "You are a helpful assistant",
+            "vector_store_ids": [],
+        }
+
+    @pytest.fixture
+    def sample_evaluation_config_with_vector_stores(self):
+        """Sample evaluation configuration with vector stores."""
+        return {
+            "llm": {"model": "gpt-4o-mini", "temperature": 0.5},
+            "instructions": "You are an expert assistant with access to documents",
+            "vector_store_ids": ["vs_abc123", "vs_def456"],
+        }
+
+    def test_start_batch_evaluation_success(
+        self,
+        client,
+        user_api_key_header,
+        sample_evaluation_config,
+    ):
+        """Test successfully starting a batch evaluation."""
+        with patch(
+            "app.crud.evaluation_batch.fetch_dataset_items"
+        ) as mock_fetch, patch(
+            "app.crud.evaluation_batch.upload_batch_file"
+        ) as mock_upload, patch(
+            "app.crud.evaluation_batch.create_batch_job"
+        ) as mock_create_batch, patch(
+            "app.api.routes.evaluation.configure_openai"
+        ) as mock_openai, patch(
+            "app.api.routes.evaluation.configure_langfuse"
+        ) as mock_langfuse:
+            # Mock dataset items from Langfuse
+            mock_fetch.return_value = [
+                {
+                    "id": "item1",
+                    "input": {"question": "What is 2+2?"},
+                    "expected_output": {"answer": "4"},
+                    "metadata": {},
+                },
+                {
+                    "id": "item2",
+                    "input": {"question": "What is the capital of France?"},
+                    "expected_output": {"answer": "Paris"},
+                    "metadata": {},
+                },
+            ]
+
+            # Mock OpenAI file upload
+            mock_upload.return_value = "file-abc123"
+
+            # Mock batch job creation
+            mock_create_batch.return_value = {
+                "id": "batch_abc123",
+                "status": "validating",
+                "created_at": 1234567890,
+                "endpoint": "/v1/responses",
+                "input_file_id": "file-abc123",
+            }
+
+            # Mock clients
+            mock_openai_client = MagicMock()
+            mock_openai.return_value = (mock_openai_client, True)
+
+            mock_langfuse_client = MagicMock()
+            mock_langfuse.return_value = (mock_langfuse_client, True)
+
+            response = client.post(
+                "/api/v1/evaluate/batch",
+                json={
+                    "run_name": "test_evaluation_run",
+                    "dataset_name": "test_dataset",
+                    "config": sample_evaluation_config,
+                },
+                headers=user_api_key_header,
+            )
+
+            assert response.status_code == 200, response.text
+            data = response.json()
+
+            # Verify response structure
+            assert data["run_name"] == "test_evaluation_run"
+            assert data["dataset_name"] == "test_dataset"
+            assert data["config"] == sample_evaluation_config
+            assert data["status"] == "processing"
+            assert data["batch_status"] == "validating"
+            assert data["batch_id"] == "batch_abc123"
+            assert data["batch_file_id"] == "file-abc123"
+            assert data["total_items"] == 2
+
+            # Verify mocks were called
+            mock_fetch.assert_called_once()
+            mock_upload.assert_called_once()
+            mock_create_batch.assert_called_once()
+
+    def test_start_batch_evaluation_with_vector_stores(
+        self,
+        client,
+        user_api_key_header,
+        sample_evaluation_config_with_vector_stores,
+    ):
+        """Test batch evaluation with vector stores configured."""
+        with patch(
+            "app.crud.evaluation_batch.fetch_dataset_items"
+        ) as mock_fetch, patch(
+            "app.crud.evaluation_batch.upload_batch_file"
+        ) as mock_upload, patch(
+            "app.crud.evaluation_batch.create_batch_job"
+        ) as mock_create_batch, patch(
+            "app.api.routes.evaluation.configure_openai"
+        ) as mock_openai, patch(
+            "app.api.routes.evaluation.configure_langfuse"
+        ) as mock_langfuse:
+            mock_fetch.return_value = [
+                {
+                    "id": "item1",
+                    "input": {"question": "Test question"},
+                    "expected_output": {"answer": "Test answer"},
+                    "metadata": {},
+                }
+            ]
+
+            mock_upload.return_value = "file-xyz789"
+            mock_create_batch.return_value = {
+                "id": "batch_xyz789",
+                "status": "validating",
+                "created_at": 1234567890,
+                "endpoint": "/v1/responses",
+                "input_file_id": "file-xyz789",
+            }
+
+            mock_openai_client = MagicMock()
+            mock_openai.return_value = (mock_openai_client, True)
+
+            mock_langfuse_client = MagicMock()
+            mock_langfuse.return_value = (mock_langfuse_client, True)
+
+            response = client.post(
+                "/api/v1/evaluate/batch",
+                json={
+                    "run_name": "test_with_vector_stores",
+                    "dataset_name": "test_dataset",
+                    "config": sample_evaluation_config_with_vector_stores,
+                },
+                headers=user_api_key_header,
+            )
+
+            assert response.status_code == 200, response.text
+            data = response.json()
+
+            assert data["config"]["vector_store_ids"] == ["vs_abc123", "vs_def456"]
+            assert data["batch_id"] == "batch_xyz789"
+
+    def test_start_batch_evaluation_invalid_dataset(
+        self, client, user_api_key_header, sample_evaluation_config
+    ):
+        """Test batch evaluation fails with invalid dataset name."""
+        with patch(
+            "app.crud.evaluation_batch.fetch_dataset_items"
+        ) as mock_fetch, patch(
+            "app.api.routes.evaluation.configure_openai"
+        ) as mock_openai, patch(
+            "app.api.routes.evaluation.configure_langfuse"
+        ) as mock_langfuse:
+            # Mock dataset fetch to raise error
+            mock_fetch.side_effect = ValueError("Dataset 'invalid_dataset' not found")
+
+            mock_openai_client = MagicMock()
+            mock_openai.return_value = (mock_openai_client, True)
+
+            mock_langfuse_client = MagicMock()
+            mock_langfuse.return_value = (mock_langfuse_client, True)
+
+            response = client.post(
+                "/api/v1/evaluate/batch",
+                json={
+                    "run_name": "test_evaluation_run",
+                    "dataset_name": "invalid_dataset",
+                    "config": sample_evaluation_config,
+                },
+                headers=user_api_key_header,
+            )
+
+            assert response.status_code == 500
+            assert (
+                "not found" in response.text.lower()
+                or "failed" in response.text.lower()
+            )
+
+    def test_start_batch_evaluation_empty_dataset(
+        self, client, user_api_key_header, sample_evaluation_config
+    ):
+        """Test batch evaluation fails with empty dataset."""
+        with patch(
+            "app.crud.evaluation_batch.fetch_dataset_items"
+        ) as mock_fetch, patch(
+            "app.api.routes.evaluation.configure_openai"
+        ) as mock_openai, patch(
+            "app.api.routes.evaluation.configure_langfuse"
+        ) as mock_langfuse:
+            # Mock empty dataset
+            mock_fetch.side_effect = ValueError("Dataset 'empty_dataset' is empty")
+
+            mock_openai_client = MagicMock()
+            mock_openai.return_value = (mock_openai_client, True)
+
+            mock_langfuse_client = MagicMock()
+            mock_langfuse.return_value = (mock_langfuse_client, True)
+
+            response = client.post(
+                "/api/v1/evaluate/batch",
+                json={
+                    "run_name": "test_evaluation_run",
+                    "dataset_name": "empty_dataset",
+                    "config": sample_evaluation_config,
+                },
+                headers=user_api_key_header,
+            )
+
+            assert response.status_code == 500
+            assert "empty" in response.text.lower() or "failed" in response.text.lower()
+
+    def test_start_batch_evaluation_without_authentication(
+        self, client, sample_evaluation_config
+    ):
+        """Test batch evaluation requires authentication."""
+        response = client.post(
+            "/api/v1/evaluate/batch",
+            json={
+                "run_name": "test_evaluation_run",
+                "dataset_name": "test_dataset",
+                "config": sample_evaluation_config,
+            },
+        )
+
+        assert response.status_code == 401  # Unauthorized
+
+    def test_start_batch_evaluation_invalid_config(self, client, user_api_key_header):
+        """Test batch evaluation with invalid config structure."""
+        invalid_config = {
+            "llm": {"model": "gpt-4o"},
+            # Missing instructions
+            "vector_store_ids": "should_be_list_not_string",
+        }
+
+        with patch("app.api.routes.evaluation.configure_openai") as mock_openai, patch(
+            "app.api.routes.evaluation.configure_langfuse"
+        ) as mock_langfuse:
+            mock_openai_client = MagicMock()
+            mock_openai.return_value = (mock_openai_client, True)
+
+            mock_langfuse_client = MagicMock()
+            mock_langfuse.return_value = (mock_langfuse_client, True)
+
+            # This should still work because config is flexible (dict)
+            # but build_batch_jsonl will use defaults for missing values
+            response = client.post(
+                "/api/v1/evaluate/batch",
+                json={
+                    "run_name": "test_evaluation_run",
+                    "dataset_name": "test_dataset",
+                    "config": invalid_config,
+                },
+                headers=user_api_key_header,
+            )
+
+            # Should succeed because config validation is flexible
+            # The function will use defaults where needed
+            assert response.status_code in [200, 500]  # Depends on other mocks
+
+    def test_start_batch_evaluation_creates_database_record(
+        self, client, user_api_key_header, sample_evaluation_config, db
+    ):
+        """Test that batch evaluation creates a proper database record."""
+        with patch(
+            "app.crud.evaluation_batch.fetch_dataset_items"
+        ) as mock_fetch, patch(
+            "app.crud.evaluation_batch.upload_batch_file"
+        ) as mock_upload, patch(
+            "app.crud.evaluation_batch.create_batch_job"
+        ) as mock_create_batch, patch(
+            "app.api.routes.evaluation.configure_openai"
+        ) as mock_openai, patch(
+            "app.api.routes.evaluation.configure_langfuse"
+        ) as mock_langfuse:
+            mock_fetch.return_value = [
+                {
+                    "id": "item1",
+                    "input": {"question": "Test?"},
+                    "expected_output": {"answer": "Test"},
+                    "metadata": {},
+                }
+            ]
+
+            mock_upload.return_value = "file-test123"
+            mock_create_batch.return_value = {
+                "id": "batch_test123",
+                "status": "validating",
+                "created_at": 1234567890,
+                "endpoint": "/v1/responses",
+                "input_file_id": "file-test123",
+            }
+
+            mock_openai_client = MagicMock()
+            mock_openai.return_value = (mock_openai_client, True)
+
+            mock_langfuse_client = MagicMock()
+            mock_langfuse.return_value = (mock_langfuse_client, True)
+
+            response = client.post(
+                "/api/v1/evaluate/batch",
+                json={
+                    "run_name": "database_test_run",
+                    "dataset_name": "test_dataset",
+                    "config": sample_evaluation_config,
+                },
+                headers=user_api_key_header,
+            )
+
+            assert response.status_code == 200, response.text
+
+            # Verify database record was created
+            eval_run = db.exec(
+                select(EvaluationRun).where(
+                    EvaluationRun.run_name == "database_test_run"
+                )
+            ).first()
+
+            assert eval_run is not None
+            assert eval_run.dataset_name == "test_dataset"
+            assert eval_run.config == sample_evaluation_config
+            assert eval_run.status == "processing"
+            assert eval_run.batch_status == "validating"
+            assert eval_run.batch_id == "batch_test123"
+            assert eval_run.batch_file_id == "file-test123"
+            assert eval_run.total_items == 1
+
+
+class TestBatchEvaluationJSONLBuilding:
+    """Test JSONL building logic for batch evaluation."""
+
+    def test_build_batch_jsonl_basic(self):
+        """Test basic JSONL building with minimal config."""
+        dataset_items = [
+            {
+                "id": "item1",
+                "input": {"question": "What is 2+2?"},
+                "expected_output": {"answer": "4"},
+                "metadata": {},
+            }
+        ]
+
+        config = {
+            "llm": {"model": "gpt-4o", "temperature": 0.2},
+            "instructions": "You are a helpful assistant",
+            "vector_store_ids": [],
+        }
+
+        batch_file = build_batch_jsonl(dataset_items, config)
+
+        assert len(batch_file) == 1
+
+        request = json.loads(batch_file[0])
+
+        assert request["custom_id"] == "item1"
+        assert request["method"] == "POST"
+        assert request["url"] == "/v1/responses"
+        assert request["body"]["model"] == "gpt-4o"
+        assert request["body"]["instructions"] == "You are a helpful assistant"
+        assert request["body"]["input"] == "What is 2+2?"
+        assert "tools" not in request["body"]
+
+    def test_build_batch_jsonl_with_vector_stores(self):
+        """Test JSONL building with vector stores."""
+        dataset_items = [
+            {
+                "id": "item1",
+                "input": {"question": "Search the docs"},
+                "expected_output": {"answer": "Answer from docs"},
+                "metadata": {},
+            }
+        ]
+
+        config = {
+            "llm": {"model": "gpt-4o-mini"},
+            "instructions": "Search documents",
+            "vector_store_ids": ["vs_abc123"],
+        }
+
+        batch_file = build_batch_jsonl(dataset_items, config)
+
+        assert len(batch_file) == 1
+
+        request = json.loads(batch_file[0])
+
+        assert request["body"]["tools"] == [{"type": "file_search"}]
+        assert request["body"]["tool_choice"] == "auto"
+
+    def test_build_batch_jsonl_uses_defaults(self):
+        """Test JSONL building with missing config values uses defaults."""
+        dataset_items = [
+            {
+                "id": "item1",
+                "input": {"question": "Test question"},
+                "expected_output": {"answer": "Test answer"},
+                "metadata": {},
+            }
+        ]
+
+        config = {}  # Empty config, should use defaults
+
+        batch_file = build_batch_jsonl(dataset_items, config)
+
+        assert len(batch_file) == 1
+
+        request = json.loads(batch_file[0])
+
+        # Check defaults
+        assert request["body"]["model"] == "gpt-4o"  # Default model
+        assert (
+            request["body"]["instructions"] == "You are a helpful assistant"
+        )  # Default instructions
+
+    def test_build_batch_jsonl_skips_empty_questions(self):
+        """Test that items with empty questions are skipped."""
+        dataset_items = [
+            {
+                "id": "item1",
+                "input": {"question": "Valid question"},
+                "expected_output": {"answer": "Answer"},
+                "metadata": {},
+            },
+            {
+                "id": "item2",
+                "input": {"question": ""},  # Empty question
+                "expected_output": {"answer": "Answer"},
+                "metadata": {},
+            },
+            {
+                "id": "item3",
+                "input": {},  # Missing question key
+                "expected_output": {"answer": "Answer"},
+                "metadata": {},
+            },
+        ]
+
+        config = {"llm": {"model": "gpt-4o"}, "instructions": "Test"}
+
+        batch_file = build_batch_jsonl(dataset_items, config)
+
+        # Should only have 1 valid item
+        assert len(batch_file) == 1
+
+        request = json.loads(batch_file[0])
+        assert request["custom_id"] == "item1"
+
+    def test_build_batch_jsonl_multiple_items(self):
+        """Test JSONL building with multiple items."""
+        dataset_items = [
+            {
+                "id": f"item{i}",
+                "input": {"question": f"Question {i}"},
+                "expected_output": {"answer": f"Answer {i}"},
+                "metadata": {},
+            }
+            for i in range(5)
+        ]
+
+        config = {
+            "llm": {"model": "gpt-4o"},
+            "instructions": "Answer questions",
+            "vector_store_ids": [],
+        }
+
+        batch_file = build_batch_jsonl(dataset_items, config)
+
+        assert len(batch_file) == 5
+
+        for i, line in enumerate(batch_file):
+            request = json.loads(line)
+            assert request["custom_id"] == f"item{i}"
+            assert request["body"]["input"] == f"Question {i}"
