@@ -86,18 +86,28 @@ async def process_completed_batch(
         if not results:
             raise ValueError("No valid results found in batch output")
 
-        # Step 4: Upload results to S3
-        logger.info("Step 4: Uploading results to S3")
-        s3_url = upload_results_to_s3(
-            jsonl_content=jsonl_content,
-            eval_run=eval_run,
-            project_id=eval_run.project_id,
-        )
+        # Step 4: Upload results to S3 (optional - skip if AWS credentials not configured)
+        s3_url = None
+        try:
+            logger.info("Step 4: Uploading results to S3")
+            s3_url = upload_results_to_s3(
+                jsonl_content=jsonl_content,
+                eval_run=eval_run,
+                project_id=eval_run.project_id,
+            )
+            logger.info(f"Successfully uploaded to S3: {s3_url}")
+        except Exception as s3_error:
+            # S3 upload is optional - log warning but continue processing
+            logger.warning(
+                f"S3 upload failed (AWS credentials may not be configured): {s3_error}. "
+                f"Continuing without S3 storage. Results will be available in Langfuse.",
+                exc_info=True,
+            )
 
-        # Step 5: Update DB with output file ID and S3 URL
-        logger.info("Step 5: Updating database with S3 URL")
+        # Step 5: Update DB with output file ID and S3 URL (if available)
+        logger.info("Step 5: Updating database with output file ID and S3 URL")
         eval_run.batch_output_file_id = output_file_id
-        eval_run.s3_url = s3_url
+        eval_run.s3_url = s3_url  # Will be None if S3 upload failed
         eval_run.updated_at = now()
         session.add(eval_run)
         session.commit()
@@ -120,14 +130,18 @@ async def process_completed_batch(
         session.commit()
         session.refresh(eval_run)
 
+        s3_info = (
+            f"S3 URL: {s3_url}" if s3_url else "S3 upload skipped (AWS not configured)"
+        )
         logger.info(
             f"Successfully completed processing for evaluation run {eval_run.id}: "
-            f"{len(results)} items processed, S3 URL: {s3_url}"
+            f"{len(results)} items processed, {s3_info}"
         )
 
         return eval_run
 
     except Exception as e:
+        # This catches any errors from steps 1-3 or 5-7 (but NOT S3 upload which is caught above)
         logger.error(
             f"Failed to process completed batch for run {eval_run.id}: {e}",
             exc_info=True,
@@ -138,7 +152,8 @@ async def process_completed_batch(
         eval_run.updated_at = now()
         session.add(eval_run)
         session.commit()
-        raise
+        session.refresh(eval_run)
+        return eval_run
 
 
 async def check_and_process_batch(
@@ -198,7 +213,23 @@ async def check_and_process_batch(
         # Handle different batch statuses
         if new_batch_status == "completed":
             if not output_file_id:
-                raise ValueError("Batch completed but no output_file_id found")
+                # Sometimes OpenAI returns None for output_file_id even when batch is completed
+                # This is a timing issue. Skip processing for now and let the next poll cycle handle it.
+                logger.warning(
+                    f"Batch {eval_run.batch_id} is completed but output_file_id is None. "
+                    f"This is likely a timing issue. Skipping for now - will retry in next poll cycle. "
+                    f"Request counts: {batch_status_info.get('request_counts')}"
+                )
+
+                return {
+                    "run_id": eval_run.id,
+                    "run_name": eval_run.run_name,
+                    "previous_status": previous_status,
+                    "current_status": eval_run.status,
+                    "batch_status": new_batch_status,
+                    "action": "no_change",
+                    "note": "Batch completed but output_file_id not yet available, will retry next poll",
+                }
 
             logger.info(f"Batch {eval_run.batch_id} completed, processing results...")
 

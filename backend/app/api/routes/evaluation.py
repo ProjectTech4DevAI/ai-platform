@@ -1,18 +1,18 @@
 import logging
 
-from fastapi import APIRouter, Depends, UploadFile, File, Form
+from fastapi import APIRouter, Body, Depends, UploadFile, File, Form
 from sqlmodel import Session, select
 
-from app.api.deps import get_current_user_org, get_db
+from app.api.deps import get_current_user_org_project, get_db
 from app.core.util import configure_langfuse, configure_openai, now
 from app.crud.credentials import get_provider_credential
 from app.crud.evaluation import upload_dataset_to_langfuse
 from app.crud.evaluation_batch import start_evaluation_batch
 from app.crud.evaluation_processing import poll_all_pending_evaluations
-from app.models import UserOrganization, EvaluationRun
+from app.crud.assistants import get_assistant_by_id
+from app.models import UserProjectOrg, EvaluationRun
 from app.models.evaluation import (
     DatasetUploadResponse,
-    EvaluationRunCreate,
     EvaluationRunPublic,
 )
 
@@ -31,7 +31,7 @@ async def upload_dataset(
         default=5, description="Number of times to duplicate each item"
     ),
     _session: Session = Depends(get_db),
-    _current_user: UserOrganization = Depends(get_current_user_org),
+    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ) -> DatasetUploadResponse:
     """
     Upload a CSV file containing Golden Q&A pairs to Langfuse as a dataset.
@@ -76,11 +76,13 @@ async def upload_dataset(
 
 @router.post("/evaluate", response_model=EvaluationRunPublic)
 async def evaluate_threads(
-    experiment_name: str,
-    assistant_id: str,
-    dataset_name: str,
+    dataset_name: str = Body(..., description="Name of the Langfuse dataset"),
+    experiment_name: str = Body(
+        ..., description="Name for this evaluation experiment/run"
+    ),
+    config: dict = Body(..., description="Evaluation configuration"),
     _session: Session = Depends(get_db),
-    _current_user: UserOrganization = Depends(get_current_user_org),
+    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ) -> EvaluationRunPublic:
     """
     Start an evaluation using OpenAI Batch API.
@@ -88,7 +90,7 @@ async def evaluate_threads(
     This endpoint:
     1. Creates an EvaluationRun record in the database
     2. Fetches dataset items from Langfuse
-    3. Builds JSONL for OpenAI Batch API (using assistant config)
+    3. Builds JSONL for OpenAI Batch API (using provided config)
     4. Uploads to OpenAI and creates batch job
     5. Returns the evaluation run details with batch_id
 
@@ -96,17 +98,30 @@ async def evaluate_threads(
     Use GET /evaluate/batch/{run_id}/status to check progress.
 
     Args:
-        experiment_name: Name for this evaluation run
-        assistant_id: ID of the assistant (used to get config)
         dataset_name: Name of the Langfuse dataset
+        experiment_name: Name for this evaluation experiment/run
+        config: Configuration dict with optional fields:
+            - assistant_id (optional): If provided, fetch config from openai_assistant table
+            - llm (optional): {"model": "gpt-4o", "temperature": 0.2}
+            - instructions (optional): System instructions
+            - vector_store_ids (optional): List of vector store IDs
+
+    Example config:
+    {
+        "llm": {"model": "gpt-4o", "temperature": 0.2},
+        "instructions": "You are a friendly assistant",
+        "vector_store_ids": ["vs_abc123"],
+        "assistant_id": "asst_xyz"  # Optional - fetches from DB if provided
+    }
 
     Returns:
         EvaluationRunPublic with batch details and status
     """
     logger.info(
-        f"Starting evaluation: experiment={experiment_name}, "
-        f"dataset={dataset_name}, assistant={assistant_id}, "
-        f"org_id={_current_user.organization_id}"
+        f"Starting evaluation: experiment_name={experiment_name}, "
+        f"dataset={dataset_name}, "
+        f"org_id={_current_user.organization_id}, "
+        f"config_keys={list(config.keys())}"
     )
 
     # Get credentials
@@ -131,14 +146,54 @@ async def evaluate_threads(
     if not openai_success or not langfuse_success:
         raise ValueError("Failed to configure API clients")
 
-    # Build config from assistant_id
-    # For now, use simple config - you can enhance this to fetch assistant settings
-    config = {
-        "assistant_id": assistant_id,
-        "llm": {"model": "gpt-4o", "temperature": 0.2},
-        "instructions": "You are a helpful assistant",
-        "vector_store_ids": [],
-    }
+    # Check if assistant_id is provided in config
+    assistant_id = config.get("assistant_id")
+    if assistant_id:
+        # Fetch assistant details from database
+        assistant = get_assistant_by_id(
+            session=_session,
+            assistant_id=assistant_id,
+            project_id=_current_user.project_id,
+        )
+
+        if assistant:
+            logger.info(
+                f"Found assistant in DB: id={assistant.id}, "
+                f"model={assistant.model}, instructions={assistant.instructions[:50]}..."
+            )
+
+            # Merge DB config with provided config (provided config takes precedence)
+            db_config = {
+                "assistant_id": assistant_id,
+                "llm": {
+                    "model": assistant.model,
+                    "temperature": assistant.temperature,
+                },
+                "instructions": assistant.instructions,
+                "vector_store_ids": assistant.vector_store_ids or [],
+            }
+
+            # Override with provided config values
+            for key in ["llm", "instructions", "vector_store_ids"]:
+                if key in config:
+                    db_config[key] = config[key]
+
+            config = db_config
+            logger.info(f"Using merged config from DB and provided values")
+        else:
+            logger.warning(
+                f"Assistant {assistant_id} not found in DB, using provided config"
+            )
+    else:
+        logger.info("No assistant_id provided, using provided config directly")
+
+    # Ensure config has required fields with defaults
+    if "llm" not in config:
+        config["llm"] = {"model": "gpt-4o", "temperature": 0.2}
+    if "instructions" not in config:
+        config["instructions"] = "You are a helpful assistant"
+    if "vector_store_ids" not in config:
+        config["vector_store_ids"] = []
 
     # Create EvaluationRun record
     eval_run = EvaluationRun(
@@ -185,110 +240,10 @@ async def evaluate_threads(
         return eval_run
 
 
-@router.post("/evaluate/batch", response_model=EvaluationRunPublic)
-async def start_batch_evaluation(
-    eval_run_data: EvaluationRunCreate,
-    _session: Session = Depends(get_db),
-    _current_user: UserOrganization = Depends(get_current_user_org),
-) -> EvaluationRunPublic:
-    """
-    Start a batch evaluation using OpenAI Batch API.
-
-    This endpoint:
-    1. Creates an EvaluationRun record in the database
-    2. Fetches dataset items from Langfuse
-    3. Builds JSONL for OpenAI Batch API
-    4. Uploads to OpenAI and creates batch job
-    5. Returns the evaluation run details with batch_id
-
-    The batch will be processed asynchronously. Use:
-    - GET /evaluate/batch/{run_id}/status to check status
-    - POST /evaluate/batch/poll to manually trigger polling
-
-    Args:
-        eval_run_data: EvaluationRunCreate with run_name, dataset_name, and config
-
-    Returns:
-        EvaluationRunPublic with batch details
-    """
-    logger.info(
-        f"Starting batch evaluation: run_name={eval_run_data.run_name}, "
-        f"dataset={eval_run_data.dataset_name}, "
-        f"org_id={_current_user.organization_id}"
-    )
-
-    # Get credentials
-    openai_credentials = get_provider_credential(
-        session=_session,
-        org_id=_current_user.organization_id,
-        provider="openai",
-    )
-    langfuse_credentials = get_provider_credential(
-        session=_session,
-        org_id=_current_user.organization_id,
-        provider="langfuse",
-    )
-
-    if not openai_credentials or not langfuse_credentials:
-        raise ValueError("OpenAI or Langfuse credentials not configured")
-
-    # Configure clients
-    openai_client, openai_success = configure_openai(openai_credentials)
-    langfuse, langfuse_success = configure_langfuse(langfuse_credentials)
-
-    if not openai_success or not langfuse_success:
-        raise ValueError("Failed to configure API clients")
-
-    # Create EvaluationRun record
-    eval_run = EvaluationRun(
-        run_name=eval_run_data.run_name,
-        dataset_name=eval_run_data.dataset_name,
-        config=eval_run_data.config,
-        status="pending",
-        organization_id=_current_user.organization_id,
-        project_id=_current_user.project_id,
-        inserted_at=now(),
-        updated_at=now(),
-    )
-
-    _session.add(eval_run)
-    _session.commit()
-    _session.refresh(eval_run)
-
-    logger.info(f"Created EvaluationRun record: id={eval_run.id}")
-
-    # Start the batch evaluation
-    try:
-        eval_run = start_evaluation_batch(
-            langfuse=langfuse,
-            openai_client=openai_client,
-            session=_session,
-            eval_run=eval_run,
-            config=eval_run_data.config,
-        )
-
-        logger.info(
-            f"Batch evaluation started successfully: "
-            f"batch_id={eval_run.batch_id}, total_items={eval_run.total_items}"
-        )
-
-        return eval_run
-
-    except Exception as e:
-        logger.error(
-            f"Failed to start batch evaluation for run {eval_run.id}: {e}",
-            exc_info=True,
-        )
-        # The error is already handled in start_evaluation_batch
-        # Just refresh and return the failed run
-        _session.refresh(eval_run)
-        return eval_run
-
-
 @router.post("/evaluate/batch/poll")
 async def poll_evaluation_batches(
     _session: Session = Depends(get_db),
-    _current_user: UserOrganization = Depends(get_current_user_org),
+    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ) -> dict:
     """
     Manually trigger polling for all pending evaluations in the current organization.
@@ -324,7 +279,7 @@ async def poll_evaluation_batches(
 async def get_evaluation_run_status(
     run_id: int,
     _session: Session = Depends(get_db),
-    _current_user: UserOrganization = Depends(get_current_user_org),
+    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ) -> EvaluationRunPublic:
     """
     Get the current status of a specific evaluation run.
@@ -365,7 +320,7 @@ async def get_evaluation_run_status(
 @router.get("/evaluate/batch/list", response_model=list[EvaluationRunPublic])
 async def list_evaluation_runs(
     _session: Session = Depends(get_db),
-    _current_user: UserOrganization = Depends(get_current_user_org),
+    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
     limit: int = 50,
     offset: int = 0,
 ) -> list[EvaluationRunPublic]:

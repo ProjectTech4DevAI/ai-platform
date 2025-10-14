@@ -110,8 +110,14 @@ def build_batch_jsonl(
         }
 
         # Add vector store IDs if available (for file search)
-        if vector_store_ids:
-            batch_request["body"]["tools"] = [{"type": "file_search"}]
+        # Only add tools if vector_store_ids is a non-empty list
+        if vector_store_ids and len(vector_store_ids) > 0:
+            batch_request["body"]["tools"] = [
+                {
+                    "type": "file_search",
+                    "vector_store_ids": vector_store_ids,
+                }
+            ]
             batch_request["body"]["tool_choice"] = "auto"
 
         batch_file.append(json.dumps(batch_request))
@@ -333,7 +339,8 @@ def poll_batch_status(client: OpenAI, batch_id: str) -> dict[str, Any]:
 
         logger.info(
             f"Batch {batch_id} status: {batch.status} "
-            f"({batch.request_counts.completed}/{batch.request_counts.total} completed)"
+            f"({batch.request_counts.completed}/{batch.request_counts.total} completed), "
+            f"output_file_id={batch.output_file_id}, error_file_id={batch.error_file_id}"
         )
 
         return batch_status
