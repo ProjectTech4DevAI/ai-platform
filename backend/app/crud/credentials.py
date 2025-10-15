@@ -86,7 +86,7 @@ def get_key_by_org(
         Credential.is_active.is_(True),
         Credential.project_id == project_id,
     )
-    creds = session.exec(statement).first()
+    creds = session.exec(statement).one_or_none()
 
     if creds and creds.credential and "api_key" in creds.credential:
         return creds.credential["api_key"]
@@ -164,7 +164,7 @@ def get_provider_credential(
         Credential.provider == provider,
         Credential.project_id == project_id,
     )
-    creds = session.exec(statement).first()
+    creds = session.exec(statement).one_or_none()
 
     if creds and creds.credential:
         return creds if full else decrypt_credentials(creds.credential)
@@ -209,7 +209,7 @@ def update_creds_for_org(
         Credential.is_active.is_(True),
         Credential.project_id == project_id,
     )
-    creds = session.exec(statement).first()
+    creds = session.exec(statement).one_or_none()
     if creds is None:
         logger.error(
             f"[update_creds_for_org] Credentials not found | organization {org_id}, provider {creds_in.provider}, project_id {project_id}"
