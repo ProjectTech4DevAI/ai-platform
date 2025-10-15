@@ -16,11 +16,6 @@ from app.tests.utils.test_data import (
 )
 
 
-@pytest.fixture
-def create_test_credentials(db: Session):
-    return create_test_credential(db)
-
-
 def test_set_credential(
     client: TestClient,
     user_api_key: APIKeyPublic,
@@ -122,9 +117,7 @@ def test_read_credentials_with_creds(
     assert len(data) >= 1
 
 
-def test_read_credentials_not_found(
-    client: TestClient, db: Session, user_api_key: APIKeyPublic
-):
+def test_read_credentials_not_found(client: TestClient, user_api_key: APIKeyPublic):
     # Delete all first to ensure none remain
     client.delete(
         f"{settings.API_V1_STR}/credentials/", headers={"X-API-KEY": user_api_key.key}
@@ -155,7 +148,7 @@ def test_read_provider_credential(
 
 
 def test_read_provider_credential_not_found(
-    client: TestClient, db: Session, user_api_key: APIKeyPublic
+    client: TestClient, user_api_key: APIKeyPublic
 ):
     # Ensure none
     client.delete(
@@ -200,7 +193,7 @@ def test_update_credentials(
 
 
 def test_update_credentials_not_found_for_provider(
-    client: TestClient, db: Session, user_api_key: APIKeyPublic
+    client: TestClient, user_api_key: APIKeyPublic
 ):
     # Ensure none exist
     client.delete(
@@ -254,7 +247,7 @@ def test_delete_provider_credential(
 
 
 def test_delete_provider_credential_not_found(
-    client: TestClient, db: Session, user_api_key: APIKeyPublic
+    client: TestClient, user_api_key: APIKeyPublic
 ):
     # Ensure not exists
     client.delete(
@@ -297,7 +290,7 @@ def test_delete_all_credentials(
 
 
 def test_delete_all_credentials_not_found(
-    client: TestClient, db: Session, user_api_key: APIKeyPublic
+    client: TestClient, user_api_key: APIKeyPublic
 ):
     # Ensure already deleted
     client.delete(
@@ -407,7 +400,6 @@ def test_multiple_provider_credentials(
 
 
 def test_credential_encryption(
-    client: TestClient,
     db: Session,
     user_api_key: APIKeyPublic,
 ):
