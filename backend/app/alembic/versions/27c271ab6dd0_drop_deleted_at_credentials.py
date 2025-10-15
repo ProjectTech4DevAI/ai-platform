@@ -1,17 +1,18 @@
 """drop column deleted_at from credentials
 
-Revision ID: 4be4c5bbea3b
-Revises: b30727137e65
-Create Date: 2025-10-10 11:09:04.840276
+Revision ID: 27c271ab6dd0
+Revises: 93d484f5798e
+Create Date: 2025-10-15 11:10:02.554097
 
 """
 from alembic import op
 import sqlalchemy as sa
+import sqlmodel.sql.sqltypes
 
 
 # revision identifiers, used by Alembic.
-revision = "4be4c5bbea3b"
-down_revision = "b30727137e65"
+revision = "27c271ab6dd0"
+down_revision = "93d484f5798e"
 branch_labels = None
 depends_on = None
 
