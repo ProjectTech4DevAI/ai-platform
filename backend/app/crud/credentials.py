@@ -256,10 +256,10 @@ def remove_provider_credential(
 
     # Execute and get affected rows
     result = session.exec(statement)
-    session.commit()
 
     rows_deleted = result.rowcount
     if rows_deleted == 0:
+        session.rollback()
         logger.error(
             f"[remove_provider_credential] Failed to delete credential | organization_id {org_id}, provider {provider}, project_id {project_id}"
         )
@@ -267,7 +267,7 @@ def remove_provider_credential(
             status_code=500,
             detail="Failed to delete provider credential",
         )
-
+    session.commit()
     logger.info(
         f"[remove_provider_credential] Successfully deleted credential | provider {provider}, organization_id {org_id}, project_id {project_id}"
     )
@@ -285,24 +285,25 @@ def remove_creds_for_org(*, session: Session, org_id: int, project_id: int) -> N
         org_id=org_id,
         project_id=project_id,
     )
-
+    expected_count = len(existing_creds)
     statement = delete(Credential).where(
         Credential.organization_id == org_id,
         Credential.project_id == project_id,
     )
     result = session.exec(statement)
-    session.commit()
+
     rows_deleted = result.rowcount
 
-    if rows_deleted < len(existing_creds):
+    if rows_deleted < expected_count:
         logger.error(
-            f"[remove_creds_for_org] Failed to delete all credentials | organization_id {org_id}, project_id {project_id}, expected {len(existing_creds)}, deleted {rows_deleted}"
+            f"[remove_creds_for_org] Failed to delete all credentials | organization_id {org_id}, project_id {project_id}, expected {expected_count}, deleted {rows_deleted}"
         )
+        session.rollback()
         raise HTTPException(
             status_code=500,
             detail="Failed to delete all credentials",
         )
-
+    session.commit()
     logger.info(
         f"[remove_creds_for_org] Successfully deleted {rows_deleted} credential(s) | organization_id {org_id}, project_id {project_id}"
     )

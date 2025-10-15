@@ -434,7 +434,7 @@ def test_credential_encryption(
 
 
 def test_credential_encryption_consistency(
-    client: TestClient, db: Session, user_api_key: APIKeyPublic
+    client: TestClient, user_api_key: APIKeyPublic
 ):
     # Fetch existing seed data credentials
     response = client.get(
