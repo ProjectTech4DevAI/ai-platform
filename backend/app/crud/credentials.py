@@ -135,8 +135,7 @@ def get_provider_credential(
     project_id: int,
     provider: str,
     full: bool = False,
-    raise_on_not_found: bool = True,
-) -> dict[str, Any] | Credential | None:
+) -> dict[str, Any] | Credential:
     """
     Fetch credentials for a specific provider within a project.
 
@@ -146,16 +145,14 @@ def get_provider_credential(
         project_id: Project ID
         provider: Provider name (e.g., 'openai', 'anthropic')
         full: If True, returns full Credential object; otherwise returns decrypted dict
-        raise_on_not_found: If True, raises HTTPException when not found; otherwise returns None
 
     Returns:
-        dict[str, Any] | Credential | None:
+        dict[str, Any] | Credential:
             - If `full` is True, returns the full Credential SQLModel object.
             - Otherwise, returns the decrypted credentials as a dictionary.
-            - Returns None if not found and raise_on_not_found is False.
 
     Raises:
-        HTTPException: If credentials are not found and raise_on_not_found is True
+        HTTPException: If credentials are not found
     """
     validate_provider(provider)
 
@@ -168,9 +165,6 @@ def get_provider_credential(
 
     if creds and creds.credential:
         return creds if full else decrypt_credentials(creds.credential)
-
-    if not raise_on_not_found:
-        return None
 
     logger.error(
         f"[get_provider_credential] Credentials not found | organization_id {org_id}, provider {provider}, project_id {project_id}"

@@ -35,7 +35,6 @@ def create_new_credential(
     # Project comes from API key context; no cross-org check needed here
     # Database unique constraint ensures no duplicate credentials per provider-org-project combination
 
-    # Create credentials - IntegrityError will be raised if duplicates exist
     created_creds = set_creds_for_org(
         session=session,
         creds_add=creds_in,
