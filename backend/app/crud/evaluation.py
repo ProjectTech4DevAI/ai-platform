@@ -7,7 +7,7 @@ from sqlmodel import Session
 
 from app.core.util import configure_langfuse, configure_openai
 from app.crud.credentials import get_provider_credential
-from app.models import UserOrganization
+from app.models import UserProjectOrg
 from app.models.evaluation import DatasetUploadResponse
 
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ async def upload_dataset_to_langfuse(
     dataset_name: str,
     duplication_factor: int,
     _session: Session,
-    _current_user: UserOrganization,
+    _current_user: UserProjectOrg,
 ) -> tuple[bool, DatasetUploadResponse | None, str | None]:
     """
     Upload a CSV dataset to Langfuse with duplication for flakiness testing.
@@ -38,6 +38,7 @@ async def upload_dataset_to_langfuse(
         langfuse_credentials = get_provider_credential(
             session=_session,
             org_id=_current_user.organization_id,
+            project_id=_current_user.project_id,
             provider="langfuse",
         )
         if not langfuse_credentials:

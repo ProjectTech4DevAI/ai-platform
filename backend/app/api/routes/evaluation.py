@@ -128,11 +128,13 @@ async def evaluate_threads(
     openai_credentials = get_provider_credential(
         session=_session,
         org_id=_current_user.organization_id,
+        project_id=_current_user.project_id,
         provider="openai",
     )
     langfuse_credentials = get_provider_credential(
         session=_session,
         org_id=_current_user.organization_id,
+        project_id=_current_user.project_id,
         provider="langfuse",
     )
 

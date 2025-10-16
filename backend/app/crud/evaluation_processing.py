@@ -354,92 +354,137 @@ async def poll_all_pending_evaluations(session: Session, org_id: int) -> dict[st
 
     logger.info(f"Found {len(pending_runs)} pending evaluations for org_id={org_id}")
 
-    # Get credentials
-    openai_credentials = get_provider_credential(
-        session=session, org_id=org_id, provider="openai"
-    )
-    langfuse_credentials = get_provider_credential(
-        session=session, org_id=org_id, provider="langfuse"
-    )
+    # Group evaluations by project_id since credentials are per project
+    from collections import defaultdict
 
-    if not openai_credentials or not langfuse_credentials:
-        logger.error(
-            f"Missing credentials for org_id={org_id}: "
-            f"openai={bool(openai_credentials)}, langfuse={bool(langfuse_credentials)}"
+    evaluations_by_project = defaultdict(list)
+    for run in pending_runs:
+        evaluations_by_project[run.project_id].append(run)
+
+    # Process each project separately
+    all_results = []
+    total_processed_count = 0
+    total_failed_count = 0
+    total_still_processing_count = 0
+
+    for project_id, project_runs in evaluations_by_project.items():
+        logger.info(
+            f"Processing {len(project_runs)} evaluations for project_id={project_id}"
         )
-        return {
-            "total": len(pending_runs),
-            "processed": 0,
-            "failed": 0,
-            "still_processing": len(pending_runs),
-            "details": [],
-            "error": "Missing OpenAI or Langfuse credentials",
-        }
 
-    # Configure clients
-    openai_client, openai_success = configure_openai(openai_credentials)
-    langfuse, langfuse_success = configure_langfuse(langfuse_credentials)
-
-    if not openai_success or not langfuse_success:
-        logger.error(f"Failed to configure clients for org_id={org_id}")
-        return {
-            "total": len(pending_runs),
-            "processed": 0,
-            "failed": 0,
-            "still_processing": len(pending_runs),
-            "details": [],
-            "error": "Failed to configure API clients",
-        }
-
-    # Process each evaluation
-    results = []
-    processed_count = 0
-    failed_count = 0
-    still_processing_count = 0
-
-    for eval_run in pending_runs:
         try:
-            result = await check_and_process_batch(
-                eval_run=eval_run,
+            # Get credentials for this project
+            openai_credentials = get_provider_credential(
                 session=session,
-                openai_client=openai_client,
-                langfuse=langfuse,
+                org_id=org_id,
+                project_id=project_id,
+                provider="openai",
             )
-            results.append(result)
+            langfuse_credentials = get_provider_credential(
+                session=session,
+                org_id=org_id,
+                project_id=project_id,
+                provider="langfuse",
+            )
 
-            if result["action"] == "processed":
-                processed_count += 1
-            elif result["action"] == "failed":
-                failed_count += 1
-            else:
-                still_processing_count += 1
+            if not openai_credentials or not langfuse_credentials:
+                logger.error(
+                    f"Missing credentials for org_id={org_id}, project_id={project_id}: "
+                    f"openai={bool(openai_credentials)}, langfuse={bool(langfuse_credentials)}"
+                )
+                # Mark all runs in this project as failed due to missing credentials
+                for eval_run in project_runs:
+                    all_results.append(
+                        {
+                            "run_id": eval_run.id,
+                            "run_name": eval_run.run_name,
+                            "action": "failed",
+                            "error": "Missing OpenAI or Langfuse credentials",
+                        }
+                    )
+                    total_failed_count += 1
+                continue
+
+            # Configure clients
+            openai_client, openai_success = configure_openai(openai_credentials)
+            langfuse, langfuse_success = configure_langfuse(langfuse_credentials)
+
+            if not openai_success or not langfuse_success:
+                logger.error(
+                    f"Failed to configure clients for org_id={org_id}, project_id={project_id}"
+                )
+                # Mark all runs in this project as failed due to client configuration
+                for eval_run in project_runs:
+                    all_results.append(
+                        {
+                            "run_id": eval_run.id,
+                            "run_name": eval_run.run_name,
+                            "action": "failed",
+                            "error": "Failed to configure API clients",
+                        }
+                    )
+                    total_failed_count += 1
+                continue
+
+            # Process each evaluation in this project
+            for eval_run in project_runs:
+                try:
+                    result = await check_and_process_batch(
+                        eval_run=eval_run,
+                        session=session,
+                        openai_client=openai_client,
+                        langfuse=langfuse,
+                    )
+                    all_results.append(result)
+
+                    if result["action"] == "processed":
+                        total_processed_count += 1
+                    elif result["action"] == "failed":
+                        total_failed_count += 1
+                    else:
+                        total_still_processing_count += 1
+
+                except Exception as e:
+                    logger.error(
+                        f"Failed to check evaluation run {eval_run.id}: {e}",
+                        exc_info=True,
+                    )
+                    all_results.append(
+                        {
+                            "run_id": eval_run.id,
+                            "run_name": eval_run.run_name,
+                            "action": "failed",
+                            "error": str(e),
+                        }
+                    )
+                    total_failed_count += 1
 
         except Exception as e:
-            logger.error(
-                f"Failed to check evaluation run {eval_run.id}: {e}", exc_info=True
-            )
-            results.append(
-                {
-                    "run_id": eval_run.id,
-                    "run_name": eval_run.run_name,
-                    "action": "failed",
-                    "error": str(e),
-                }
-            )
-            failed_count += 1
+            logger.error(f"Failed to process project {project_id}: {e}", exc_info=True)
+            # Mark all runs in this project as failed
+            for eval_run in project_runs:
+                all_results.append(
+                    {
+                        "run_id": eval_run.id,
+                        "run_name": eval_run.run_name,
+                        "action": "failed",
+                        "error": f"Project processing failed: {str(e)}",
+                    }
+                )
+                total_failed_count += 1
 
     summary = {
         "total": len(pending_runs),
-        "processed": processed_count,
-        "failed": failed_count,
-        "still_processing": still_processing_count,
-        "details": results,
+        "processed": total_processed_count,
+        "failed": total_failed_count,
+        "still_processing": total_still_processing_count,
+        "details": all_results,
     }
 
     logger.info(
         f"Polling summary for org_id={org_id}: "
-        f"{processed_count} processed, {failed_count} failed, "
-        f"{still_processing_count} still processing"
+        f"{total_processed_count} processed, {total_failed_count} failed, "
+        f"{total_still_processing_count} still processing"
     )
 
     return summary
