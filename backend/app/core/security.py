@@ -190,8 +190,18 @@ def decrypt_credentials(encrypted_credentials: str) -> dict:
 
 class APIKeyManager:
     """
-    Handles API key generation and verification using secure hashing.
-    Supports Backwards compatibility with old key format.
+    Handles secure API key generation and verification.
+
+    Overview:
+    - **Old Format (Legacy)**: 43 chars after "ApiKey ", with 12-char prefix and 31-char secret.
+    - **New Format (Current)**: 65 chars after "ApiKey ", with 22-char prefix and 43-char secret.
+    - Generates cryptographically secure API keys with fixed lengths,
+    storing only the hashed secret using bcrypt while keeping the prefix in plaintext for quick lookup.
+    Raw keys are displayed only once during creation for security.
+    The system automatically verifies both old and new key formats to ensure backward compatibility.
+
+    Compatibility:
+    Both old and new formats are supported automatically during verification.
     """
 
     # Configuration constants

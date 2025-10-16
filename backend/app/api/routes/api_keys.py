@@ -35,8 +35,12 @@ def create_api_key_route(
     )
 
     api_key = APIKeyCreateResponse(**api_key.model_dump(), key=raw_key)
-
-    return APIResponse.success_response(api_key)
+    return APIResponse.success_response(
+        data=api_key,
+        metadata={
+            "message": "The raw API key is returned only once during creation. Store it securely as it cannot be retrieved again."
+        },
+    )
 
 
 @router.get(
@@ -53,7 +57,7 @@ def list_api_keys_route(
     """
     List all API keys for the current project.
 
-    Returns masked keys for security - the full key is only shown during creation.
+    Returns key prefix for security - the full key is only shown during creation.
     Supports pagination via skip and limit parameters.
     """
     crud = APIKeyCrud(session, current_user.project_id)

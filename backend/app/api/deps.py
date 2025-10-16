@@ -60,7 +60,7 @@ def get_current_user(
 
         return user  # Return only User object
 
-    if token:
+    elif token:
         try:
             payload = jwt.decode(
                 token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]

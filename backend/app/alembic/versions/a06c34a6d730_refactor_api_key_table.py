@@ -61,4 +61,5 @@ def upgrade():
 
 
 def downgrade():
+    # instead of downgrade, will take a db snapshot and restore from that if needed
     pass

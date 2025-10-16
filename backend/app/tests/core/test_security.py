@@ -172,10 +172,8 @@ class TestAPIKeyManager:
 
     def test_extract_key_parts_new_format(self):
         """Test extracting key parts from new format (65 chars)."""
-        # Generate a test key with known format
         raw_key, expected_prefix, _ = APIKeyManager.generate()
 
-        # Extract parts
         result = APIKeyManager._extract_key_parts(raw_key)
 
         assert result is not None
@@ -206,7 +204,6 @@ class TestAPIKeyManager:
 
     def test_extract_key_parts_invalid_length(self):
         """Test that invalid length returns None."""
-        # Too short
         invalid_key = f"{APIKeyManager.PREFIX_NAME}tooshort"
 
         result = APIKeyManager._extract_key_parts(invalid_key)
@@ -217,7 +214,6 @@ class TestAPIKeyManager:
         """Test verifying a valid API key."""
         api_key = create_test_api_key(db)
 
-        # Verify the key
         auth_context = APIKeyManager.verify(db, api_key.key)
 
         user = db.get(User, api_key.user_id)
@@ -238,7 +234,6 @@ class TestAPIKeyManager:
         # Generate a key but don't store it
         raw_key, _, _ = APIKeyManager.generate()
 
-        # Verify should return None
         auth_context = APIKeyManager.verify(db, raw_key)
 
         assert auth_context is None
@@ -257,16 +252,13 @@ class TestAPIKeyManager:
 
     def test_verify_deleted_key(self, db: Session):
         """Test that deleted API keys cannot be verified."""
-        # Create test API key
         api_key_response = create_test_api_key(db)
         raw_key = api_key_response.key
 
-        # Mark the API key as deleted
         api_key = db.get(APIKey, api_key_response.id)
         api_key.is_deleted = True
         db.commit()
 
-        # Verify should return None for deleted key
         auth_context = APIKeyManager.verify(db, raw_key)
 
         assert auth_context is None
@@ -298,10 +290,8 @@ class TestAPIKeyManager:
 
     def test_generate_creates_verifiable_key(self, db: Session):
         """Integration test: generated key can be verified."""
-        # Create test API key
         api_key_response = create_test_api_key(db)
 
-        # Verify the key works
         auth_context = APIKeyManager.verify(db, api_key_response.key)
 
         assert auth_context is not None
