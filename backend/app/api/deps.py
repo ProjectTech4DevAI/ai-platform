@@ -192,7 +192,6 @@ def get_auth_context(
             raise HTTPException(status_code=403, detail="Inactive user")
 
         auth_context = AuthContext(
-            user_id=user.id,
             user=user,
         )
         return auth_context
