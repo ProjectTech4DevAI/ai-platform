@@ -49,7 +49,7 @@ def get_current_user(
         if not api_key_record:
             raise HTTPException(status_code=401, detail="Invalid API Key")
 
-        user = session.get(User, api_key_record.user_id)
+        user = session.get(User, api_key_record.user.id)
         if not user:
             raise HTTPException(
                 status_code=404, detail="User linked to API Key not found"
@@ -93,8 +93,8 @@ def get_current_user_org(
     if api_key:
         api_key_record = api_key_manager.verify(session, api_key)
         if api_key_record:
-            validate_organization(session, api_key_record.organization_id)
-            organization_id = api_key_record.organization_id
+            validate_organization(session, api_key_record.organization.id)
+            organization_id = api_key_record.organization.id
 
     return UserOrganization(
         **current_user.model_dump(), organization_id=organization_id
@@ -114,9 +114,9 @@ def get_current_user_org_project(
     if api_key:
         api_key_record = api_key_manager.verify(session, api_key)
         if api_key_record:
-            validate_organization(session, api_key_record.organization_id)
-            organization_id = api_key_record.organization_id
-            project_id = api_key_record.project_id
+            validate_organization(session, api_key_record.organization.id)
+            organization_id = api_key_record.organization.id
+            project_id = api_key_record.project.id
 
     else:
         raise HTTPException(status_code=401, detail="Invalid API Key")

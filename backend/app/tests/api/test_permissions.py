@@ -60,7 +60,6 @@ class TestHasPermission:
             session=db, token=None, api_key=api_key_response.key
         )
 
-        auth_context.organization_id = None
         auth_context.organization = None
 
         result = has_permission(auth_context, Permission.REQUIRE_ORGANIZATION, db)
@@ -87,7 +86,6 @@ class TestHasPermission:
             session=db, token=None, api_key=api_key_response.key
         )
 
-        auth_context.project_id = None
         auth_context.project = None
 
         result = has_permission(auth_context, Permission.REQUIRE_PROJECT, db)

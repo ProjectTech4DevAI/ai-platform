@@ -222,9 +222,9 @@ class TestAPIKeyManager:
 
         assert auth_context is not None
         assert isinstance(auth_context, AuthContext)
-        assert auth_context.user_id == api_key.user_id
-        assert auth_context.organization_id == api_key.organization_id
-        assert auth_context.project_id == api_key.project_id
+        assert auth_context.user.id == api_key.user_id
+        assert auth_context.organization.id == api_key.organization_id
+        assert auth_context.project.id == api_key.project_id
         assert auth_context.user == user
         assert auth_context.organization == organization
         assert auth_context.project == project
@@ -295,4 +295,4 @@ class TestAPIKeyManager:
         auth_context = APIKeyManager.verify(db, api_key_response.key)
 
         assert auth_context is not None
-        assert auth_context.user_id == api_key_response.user_id
+        assert auth_context.user.id == api_key_response.user_id

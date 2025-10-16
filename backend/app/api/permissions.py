@@ -35,9 +35,9 @@ def has_permission(
         case Permission.SUPERUSER:
             return auth_context.user.is_superuser
         case Permission.REQUIRE_ORGANIZATION:
-            return auth_context.organization_id is not None
+            return auth_context.organization is not None
         case Permission.REQUIRE_PROJECT:
-            return auth_context.project_id is not None
+            return auth_context.project is not None
         case _:
             return False
 

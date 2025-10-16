@@ -315,9 +315,6 @@ class APIKeyManager:
                 return None
             api_key_record, user, organization, project = result
             auth_context = AuthContext(
-                user_id=user.id,
-                project_id=project.id,
-                organization_id=organization.id,
                 user=user,
                 project=project,
                 organization=organization,

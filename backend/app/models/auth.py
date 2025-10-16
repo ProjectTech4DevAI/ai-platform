@@ -16,10 +16,6 @@ class TokenPayload(SQLModel):
 
 
 class AuthContext(SQLModel):
-    user_id: int
-    project_id: int | None = None
-    organization_id: int | None = None
-
     user: User
     organization: Organization | None = None
     project: Project | None = None

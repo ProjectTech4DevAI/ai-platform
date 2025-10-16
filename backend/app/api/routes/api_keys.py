@@ -60,7 +60,7 @@ def list_api_keys_route(
     Returns key prefix for security - the full key is only shown during creation.
     Supports pagination via skip and limit parameters.
     """
-    crud = APIKeyCrud(session, current_user.project_id)
+    crud = APIKeyCrud(session, current_user.project.id)
     api_keys = crud.read_all(skip=skip, limit=limit)
 
     return APIResponse.success_response(api_keys)
@@ -79,7 +79,7 @@ def delete_api_key_route(
     """
     Delete an API key by its ID.
     """
-    api_key_crud = APIKeyCrud(session=session, project_id=current_user.project_id)
+    api_key_crud = APIKeyCrud(session=session, project_id=current_user.project.id)
     api_key_crud.delete(key_id=key_id)
 
     return APIResponse.success_response(Message(message="API Key deleted successfully"))
