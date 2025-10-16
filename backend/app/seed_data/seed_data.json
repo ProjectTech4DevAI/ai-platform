@@ -69,6 +69,22 @@
       "project_name": "Dalgo",
       "organization_name": "Project Tech4dev",
       "deleted_at": null
+    },
+    {
+      "is_active": true,
+      "provider": "langfuse",
+      "credential": "{\"secret_key\": \"sk-lf-test-glific-secret\", \"public_key\": \"pk-lf-test-glific-public\", \"host\": \"https://cloud.langfuse.com\"}",
+      "project_name": "Glific",
+      "organization_name": "Project Tech4dev",
+      "deleted_at": null
+    },
+    {
+      "is_active": true,
+      "provider": "langfuse",
+      "credential": "{\"secret_key\": \"sk-lf-test-dalgo-secret\", \"public_key\": \"pk-lf-test-dalgo-public\", \"host\": \"https://cloud.langfuse.com\"}",
+      "project_name": "Dalgo",
+      "organization_name": "Project Tech4dev",
+      "deleted_at": null
     }
   ],
   "assistants": [

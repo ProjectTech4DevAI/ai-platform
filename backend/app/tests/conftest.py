@@ -47,8 +47,17 @@ def db() -> Generator[Session, None, None]:
 
 @pytest.fixture(scope="session", autouse=True)
 def seed_baseline():
+    """
+    Seeds the database with baseline test data including credentials.
+
+    This fixture runs automatically before any tests and ensures:
+    - Organizations, users, projects are created
+    - OpenAI credentials are created for all test projects
+    - Langfuse credentials are created for all test projects
+    - All test fixtures can rely on credentials existing
+    """
     with Session(engine) as session:
-        seed_database(session)  # deterministic baseline
+        seed_database(session)  # deterministic baseline with credentials
         yield
 
 
