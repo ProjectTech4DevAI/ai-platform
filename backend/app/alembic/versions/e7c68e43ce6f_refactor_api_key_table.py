@@ -36,12 +36,14 @@ def upgrade():
 
     # Step 3: Migrate existing encrypted keys to the new hashed format and generate UUIDs
     bind = op.get_bind()
-    session = Session(bind=bind)
-    migrate_api_keys(session, generate_uuid=True)
+    with Session(bind=bind) as session:
+        migrate_api_keys(session, generate_uuid=True)
 
-    # Step 4: Verify migration was successful
-    if not verify_migration(session):
-        raise Exception("API key migration verification failed. Please check the logs.")
+        # Step 4: Verify migration was successful
+        if not verify_migration(session):
+            raise Exception("API key migration verification failed. Please check the logs.")
+        
+        session.flush()
 
     # Step 5: Make the columns non-nullable after migration
     op.alter_column("apikey", "key_prefix", nullable=False)
