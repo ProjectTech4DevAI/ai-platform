@@ -1,4 +1,5 @@
 {
+  "_comment":"This data will be used in testing also, modifying this will affect tests. Please ensure to update tests/utils/auth.py if you change this data.",
   "organization": [
     {
       "name": "Project Tech4dev",

@@ -285,7 +285,7 @@ class APIKeyManager:
             raw_key: The raw API key to verify
 
         Returns:
-            Tuple of (APIKey, User, Organization, Project) if valid, None otherwise
+            AuthContext if valid, None otherwise
         """
         try:
             key_parts = cls._extract_key_parts(raw_key)
