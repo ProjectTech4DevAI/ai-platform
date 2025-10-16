@@ -41,8 +41,10 @@ def upgrade():
 
         # Step 4: Verify migration was successful
         if not verify_migration(session):
-            raise Exception("API key migration verification failed. Please check the logs.")
-        
+            raise Exception(
+                "API key migration verification failed. Please check the logs."
+            )
+
         session.flush()
 
     # Step 5: Make the columns non-nullable after migration
