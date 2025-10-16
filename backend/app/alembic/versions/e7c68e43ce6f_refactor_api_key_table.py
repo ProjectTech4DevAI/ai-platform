@@ -1,8 +1,8 @@
 """Refactor API key table
 
-Revision ID: a06c34a6d730
-Revises: b30727137e65
-Create Date: 2025-10-10 18:14:46.423720
+Revision ID: e7c68e43ce6f
+Revises: 27c271ab6dd0
+Create Date: 2025-10-16 13:06:51.777671
 
 """
 from alembic import op
@@ -13,8 +13,8 @@ from app.alembic.migrate_api_key import migrate_api_keys, verify_migration
 
 
 # revision identifiers, used by Alembic.
-revision = "a06c34a6d730"
-down_revision = "b30727137e65"
+revision = 'e7c68e43ce6f'
+down_revision = '27c271ab6dd0'
 branch_labels = None
 depends_on = None
 

@@ -103,7 +103,7 @@ def create_test_api_key(
 
     api_key_crud = APIKeyCrud(session=db, project_id=project_id)
     raw_key, api_key = api_key_crud.create(user_id=user_id, project_id=project_id)
-    return APIKeyCreateResponse(key=raw_key, **api_key.dict())
+    return APIKeyCreateResponse(key=raw_key, **api_key.model_dump())
 
 
 def create_test_credential(db: Session) -> tuple[list[Credential], Project]:
