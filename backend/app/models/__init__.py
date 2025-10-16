@@ -79,11 +79,6 @@ from .organization import (
     OrganizationUpdate,
 )
 
-from .project_user import (
-    ProjectUser,
-    ProjectUserPublic,
-    ProjectUsersPublic,
-)
 from .project import (
     Project,
     ProjectCreate,
