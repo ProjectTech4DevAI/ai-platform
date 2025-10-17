@@ -37,9 +37,6 @@ class Organization(OrganizationBase, table=True):
     updated_at: datetime = Field(default_factory=now, nullable=False)
 
     # Relationship back to Creds
-    api_keys: list["APIKey"] = Relationship(
-        back_populates="organization", cascade_delete=True
-    )
     creds: list["Credential"] = Relationship(
         back_populates="organization", cascade_delete=True
     )

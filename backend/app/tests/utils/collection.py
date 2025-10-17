@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.models import Collection, Organization, Project
 from app.tests.utils.utils import get_user_id_by_email, get_project
 from app.tests.utils.test_data import create_test_project
-from app.crud import create_api_key
+from app.tests.utils.test_data import create_test_api_key
 
 
 class constants:
