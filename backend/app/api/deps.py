@@ -49,13 +49,12 @@ def get_current_user(
         if not api_key_record:
             raise HTTPException(status_code=401, detail="Invalid API Key")
 
-        user = session.get(User, api_key_record.user.id)
-        if not user:
+        if not api_key_record.user.is_active:
             raise HTTPException(
-                status_code=404, detail="User linked to API Key not found"
+                status_code=403, detail="Inactive user"
             )
 
-        return user  # Return only User object
+        return api_key_record.user  # Return only User object
 
     elif token:
         try:
