@@ -19,7 +19,13 @@ from app.models import (
 )
 from app.core.cloud import get_cloud_storage
 from app.crud.document import DocumentCrud
-from app.utils import get_openai_client, APIResponse, mask_string, load_description
+from app.utils import (
+    get_openai_client,
+    handle_openai_error,
+    mask_string,
+    load_description,
+    APIResponse,
+)
 from app.crud import (
     create_fine_tuning_job,
     fetch_by_id,
@@ -32,7 +38,6 @@ from app.core.db import engine
 from app.api.deps import CurrentUserOrgProject, SessionDep
 from app.core.finetune.preprocessing import DataPreprocessor
 from app.api.routes.model_evaluation import run_model_evaluation
-
 
 logger = logging.getLogger(__name__)
 
