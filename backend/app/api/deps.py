@@ -50,9 +50,7 @@ def get_current_user(
             raise HTTPException(status_code=401, detail="Invalid API Key")
 
         if not api_key_record.user.is_active:
-            raise HTTPException(
-                status_code=403, detail="Inactive user"
-            )
+            raise HTTPException(status_code=403, detail="Inactive user")
 
         return api_key_record.user  # Return only User object
 
