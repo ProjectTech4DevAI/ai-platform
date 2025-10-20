@@ -10,6 +10,6 @@ documents can still be accessed via the documents endpoints. The response from t
 endpoint will be a `collection_job` object which will contain the collection `job ID`,
 status and action type ("DELETE"). when you take the id returned and use the collection job
 info endpoint, if the job is successful, you will get the status as successful and nothing will
-be returned as the collection as it has been deleted and marked as deleted. You will recieve a
-message in the `callback_url` about the deletion that if it was successful or not, if you have
-given a `callback_url` in the request body.
+be returned for the collection as it has been deleted. Additionally, if a `callback_url` was
+provided in the request body, you will receive a message indicating whether the deletion was
+successful.

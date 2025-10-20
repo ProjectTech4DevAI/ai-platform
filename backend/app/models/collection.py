@@ -118,7 +118,7 @@ class CreationRequest(
     CallbackRequest,
 ):
     def extract_super_type(self, cls: "CreationRequest"):
-        for field_name in cls.__fields__.keys():
+        for field_name in cls.model_fields.keys():
             field_value = getattr(self, field_name)
             yield (field_name, field_value)
 

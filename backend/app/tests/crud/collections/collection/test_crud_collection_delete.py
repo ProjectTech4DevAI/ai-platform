@@ -10,10 +10,11 @@ from app.models import APIKey, Collection
 from app.crud.rag import OpenAIAssistantCrud
 from app.tests.utils.utils import get_project
 from app.tests.utils.document import DocumentStore
-from app.tests.utils.collection import get_collection, uuid_increment
 
 
-def get_collection(db: Session, client=None, project_id: int = None) -> Collection:
+def get_collection_for_delete(
+    db: Session, client=None, project_id: int = None
+) -> Collection:
     project = get_project(db)
     if client is None:
         client = OpenAI(api_key="test_api_key")
@@ -42,7 +43,7 @@ class TestCollectionDelete:
         client = OpenAI(api_key="sk-test-key")
 
         assistant = OpenAIAssistantCrud(client)
-        collection = get_collection(db, client, project_id=project.id)
+        collection = get_collection_for_delete(db, client, project_id=project.id)
 
         crud = CollectionCrud(db, collection.project_id)
         collection_ = crud.delete(collection, assistant)
@@ -55,7 +56,7 @@ class TestCollectionDelete:
 
         assistant = OpenAIAssistantCrud(client)
         project = get_project(db)
-        collection = get_collection(db, project_id=project.id)
+        collection = get_collection_for_delete(db, project_id=project.id)
 
         crud = CollectionCrud(db, collection.project_id)
         collection_ = crud.delete(collection, assistant)
@@ -76,7 +77,7 @@ class TestCollectionDelete:
         client = OpenAI(api_key="sk-test-key")
         resources = []
         for _ in range(self._n_collections):
-            coll = get_collection(db, client, project_id=project.id)
+            coll = get_collection_for_delete(db, client, project_id=project.id)
             crud = CollectionCrud(db, project_id=project.id)
             collection = crud.create(coll, documents)
             resources.append((crud, collection))

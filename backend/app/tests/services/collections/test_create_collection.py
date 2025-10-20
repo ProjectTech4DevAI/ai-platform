@@ -217,7 +217,7 @@ def test_execute_job_assistant_create_failure_marks_failed_and_deletes_vector(
         callback_url=None,
     )
 
-    mock_client = mock_get_openai_client.return_value
+    _ = mock_get_openai_client.return_value
 
     with patch(
         "app.services.collections.create_collection.Session"

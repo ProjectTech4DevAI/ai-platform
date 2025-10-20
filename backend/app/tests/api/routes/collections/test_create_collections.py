@@ -2,7 +2,6 @@ from uuid import UUID, uuid4
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
-from unittest.mock import patch
 
 from app.core.config import settings
 from app.models import CollectionJobStatus, CollectionActionType

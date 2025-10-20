@@ -41,7 +41,7 @@ class CollectionCrud:
 
     def create(
         self, collection: Collection, documents: Optional[list[Document]] = None
-    ):
+    ) -> Collection:
         existing = None
         try:
             existing = self.read_one(collection.id)
