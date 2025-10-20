@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
-from pydantic import HttpUrl, root_validator
+from pydantic import HttpUrl, model_validator
 
 from app.core.util import now
 from .organization import Organization
@@ -86,7 +86,8 @@ class AssistantOptions(SQLModel):
         ),
     )
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def _assistant_fields_all_or_none(cls, values):
         def norm(x):
             return x.strip() if isinstance(x, str) and x.strip() else None
