@@ -87,22 +87,26 @@ class AssistantOptions(SQLModel):
     )
 
     @model_validator(mode="before")
-    @classmethod
-    def _assistant_fields_all_or_none(cls, values):
-        def norm(x):
-            return x.strip() if isinstance(x, str) and x.strip() else None
+    def _assistant_fields_all_or_none(cls, values: dict[str, Any]) -> dict[str, Any]:
+        def norm(x: Any) -> Any:
+            if x is None:
+                return None
+            if isinstance(x, str):
+                s = x.strip()
+                return s if s else None
+            return x  # let Pydantic handle non-strings
 
         model = norm(values.get("model"))
-        instruction = norm(values.get("instructions"))
+        instructions = norm(values.get("instructions"))
 
-        if bool(model) ^ bool(instruction):
+        if (model is None) ^ (instructions is None):
             raise ValueError(
                 "To create an Assistant, provide BOTH 'model' and 'instructions'. "
                 "If you only want a vector store, remove both fields."
             )
 
         values["model"] = model
-        values["instructions"] = instruction
+        values["instructions"] = instructions
         return values
 
 
