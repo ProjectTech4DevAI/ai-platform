@@ -1,5 +1,4 @@
-Retrieve information about a collection job by the collection job ID. This endpoint can be considered the polling endpoint for collection creation job. This endpoint provides detailed status and metadata for a specific collection job
-in the AI platform. It is especially useful for:
+Retrieve information about a collection job by the collection job ID. This endpoint provides detailed status and metadata for a specific collection job in the AI platform. It is especially useful for:
 
 * Fetching the collection job object containing the ID which will be collection job id, collection ID, status of the job as well as error message.
 
