@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
-from pydantic import HttpUrl
+from pydantic import HttpUrl, root_validator
 
 from app.core.util import now
 from .organization import Organization
@@ -36,21 +36,6 @@ class Collection(SQLModel, table=True):
     project: Project = Relationship(back_populates="collections")
 
 
-class ResponsePayload(SQLModel):
-    """Response metadata for background jobs—gives status, route, a UUID key,
-    and creation time."""
-
-    status: str
-    route: str
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    time: datetime = Field(default_factory=now)
-
-    @classmethod
-    def now(cls):
-        """Returns current UTC time without timezone info"""
-        return now()
-
-
 # pydantic models -
 class DocumentOptions(SQLModel):
     documents: list[UUID] = Field(
@@ -73,26 +58,51 @@ class AssistantOptions(SQLModel):
     # Fields to be passed along to OpenAI. They must be a subset of
     # parameters accepted by the OpenAI.clien.beta.assistants.create
     # API.
-    model: str = Field(
+    model: Optional[str] = Field(
+        default=None,
         description=(
+            "**[To Be Deprecated]**  "
             "OpenAI model to attach to this assistant. The model "
             "must be compatable with the assistants API; see the "
             "OpenAI [model documentation](https://platform.openai.com/docs/models/compare) for more."
         ),
     )
-    instructions: str = Field(
+
+    instructions: Optional[str] = Field(
+        default=None,
         description=(
-            "Assistant instruction. Sometimes referred to as the " '"system" prompt.'
+            "**[To Be Deprecated]**  "
+            "Assistant instruction. Sometimes referred to as the "
+            '"system" prompt.'
         ),
     )
     temperature: float = Field(
         default=1e-6,
         description=(
+            "**[To Be Deprecated]**  "
             "Model temperature. The default is slightly "
             "greater-than zero because it is [unknown how OpenAI "
             "handles zero](https://community.openai.com/t/clarifications-on-setting-temperature-0/886447/5)."
         ),
     )
+
+    @root_validator(pre=True)
+    def _assistant_fields_all_or_none(cls, values):
+        def norm(x):
+            return x.strip() if isinstance(x, str) and x.strip() else None
+
+        model = norm(values.get("model"))
+        instruction = norm(values.get("instructions"))
+
+        if bool(model) ^ bool(instruction):
+            raise ValueError(
+                "To create an Assistant, provide BOTH 'model' and 'instructions'. "
+                "If you only want a vector store, remove both fields."
+            )
+
+        values["model"] = model
+        values["instructions"] = instruction
+        return values
 
 
 class CallbackRequest(SQLModel):

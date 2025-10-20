@@ -6,10 +6,9 @@ from fastapi import HTTPException
 from sqlmodel import Session
 
 from app.crud import CollectionCrud
-from app.core.config import settings
 from app.tests.utils.document import DocumentStore
 from app.tests.utils.utils import get_project
-from app.tests.utils.collection import get_collection, uuid_increment
+from app.tests.utils.collection import get_collection
 
 
 def mk_collection(db: Session):
@@ -17,7 +16,7 @@ def mk_collection(db: Session):
     project = get_project(db)
     with openai_mock.router:
         client = OpenAI(api_key="sk-test-key")
-        collection = get_collection(db, client, project_id=project.id)
+        collection = get_collection(db, project=project)
         store = DocumentStore(db, project_id=collection.project_id)
         documents = store.fill(1)
         crud = CollectionCrud(db, collection.project_id)

@@ -4,15 +4,12 @@ import ast
 import re
 from uuid import UUID
 from typing import List
-from dataclasses import asdict, replace
 
 from pydantic import HttpUrl
 from openai import OpenAIError
 
 from app.core.util import post_callback
 from app.crud.document import DocumentCrud
-from app.models.collection import ResponsePayload
-from app.crud.rag import OpenAIAssistantCrud
 from app.utils import APIResponse
 
 
@@ -70,10 +67,9 @@ def batch_documents(
     return docs_batches
 
 
-# functions related to callback handling -
 class CallbackHandler:
-    def __init__(self, payload: ResponsePayload):
-        self.payload = payload
+    def __init__(self, collection_job):
+        self.collection_job = collection_job
 
     def fail(self, body):
         raise NotImplementedError()
@@ -84,46 +80,50 @@ class CallbackHandler:
 
 class SilentCallback(CallbackHandler):
     def fail(self, body):
-        logger.info(f"[SilentCallback.fail] Silent callback failure")
+        logger.info("[SilentCallback.fail] Silent callback failure")
         return
 
     def success(self, body):
-        logger.info(f"[SilentCallback.success] Silent callback success")
+        logger.info("[SilentCallback.success] Silent callback success")
         return
 
 
 class WebHookCallback(CallbackHandler):
-    def __init__(self, url: HttpUrl, payload: ResponsePayload):
-        super().__init__(payload)
+    def __init__(self, url: HttpUrl, collection_job):
+        super().__init__(collection_job)
         self.url = url
         logger.info(
             f"[WebHookCallback.init] Initialized webhook callback | {{'url': '{url}'}}"
         )
 
-    def __call__(self, response: APIResponse, status: str):
-        time = ResponsePayload.now()
-        payload = replace(self.payload, status=status, time=time)
-        response.metadata = asdict(payload)
+    def __call__(self, response: APIResponse):
         logger.info(
-            f"[WebHookCallback.call] Posting callback | {{'url': '{self.url}', 'status': '{status}'}}"
+            f"[WebHookCallback.call] Posting callback | {{'url': '{self.url}'}}"
         )
         post_callback(self.url, response)
 
     def fail(self, body):
-        logger.warning(f"[WebHookCallback.fail] Callback failed | {{'body': '{body}'}}")
-        self(APIResponse.failure_response(body), "incomplete")
+        logger.warning(
+            f"[WebHookCallback.fail] Callback failed | {{'error': '{body}'}}"
+        )
+        response = APIResponse.failure_response(
+            error=str(body),
+            metadata={"collection_job_id": str(getattr(self.collection_job, "id", ""))},
+        )
+        self(response)
 
     def success(self, body):
-        logger.info(f"[WebHookCallback.success] Callback succeeded")
-        self(APIResponse.success_response(body), "complete")
+        logger.info("[WebHookCallback.success] Callback succeeded")
+        response = APIResponse.success_response(body)
+        self(response)
 
 
-def _backout(crud: OpenAIAssistantCrud, assistant_id: str):
+def _backout(crud, llm_service_id: str):
     """Best-effort cleanup: attempt to delete the assistant by ID"""
     try:
-        crud.delete(assistant_id)
+        crud.delete(llm_service_id)
     except OpenAIError as err:
         logger.error(
-            f"[backout] Failed to delete assistant | {{'assistant_id': '{assistant_id}', 'error': '{str(err)}'}}",
+            f"[backout] Failed to delete resource | {{'llm_service_id': '{llm_service_id}', 'error': '{str(err)}'}}",
             exc_info=True,
         )

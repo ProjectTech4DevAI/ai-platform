@@ -1,14 +1,15 @@
-from uuid import UUID
-from uuid import uuid4
+from uuid import UUID, uuid4
+from typing import Optional
 
-from openai import OpenAI
 from sqlmodel import Session
 
-from app.core.config import settings
-from app.models import Collection, Organization, Project
-from app.tests.utils.utils import get_user_id_by_email, get_project
-from app.tests.utils.test_data import create_test_project
-from app.tests.utils.test_data import create_test_api_key
+from app.models import (
+    Collection,
+    CollectionActionType,
+    CollectionJob,
+    CollectionJobStatus,
+)
+from app.crud import CollectionCrud, CollectionJobCrud
 
 
 class constants:
@@ -17,25 +18,81 @@ class constants:
 
 
 def uuid_increment(value: UUID):
-    inc = int(value) + 1  # hopefully doesn't overflow!
+    inc = int(value) + 1
     return UUID(int=inc)
 
 
-def get_collection(db: Session, client=None, project_id: int = None) -> Collection:
-    project = get_project(db)
-    if client is None:
-        client = OpenAI(api_key="test_api_key")
+def get_collection(
+    db: Session,
+    project,
+    *,
+    assistant_id: Optional[str] = None,
+    model: str = "gpt-4o",
+    collection_id: Optional[UUID] = None,
+) -> Collection:
+    """
+    Create a Collection configured for the Assistant path.
+    execute_job will treat this as `is_vector = False` and use assistant id.
+    """
+    if assistant_id is None:
+        assistant_id = f"asst_{uuid4().hex}"
 
-    vector_store = client.vector_stores.create()
-    assistant = client.beta.assistants.create(
-        model=constants.openai_model,
-        tools=[{"type": "file_search"}],
-        tool_resources={"file_search": {"vector_store_ids": [vector_store.id]}},
-    )
-
-    return Collection(
+    collection = Collection(
+        id=collection_id or uuid4(),
+        project_id=project.id,
         organization_id=project.organization_id,
-        project_id=project_id,
-        llm_service_id=assistant.id,
-        llm_service_name=constants.llm_service_name,
+        llm_service_name="gpt-4o",
+        assistant_id=assistant_id,
+        llm_service_id=assistant_id,
     )
+    return CollectionCrud(db, project.id).create(collection)
+
+
+def get_vector_store_collection(
+    db: Session,
+    project,
+    *,
+    vector_store_id: Optional[str] = None,
+    model: str = "gpt-4o",
+    collection_id: Optional[UUID] = None,
+) -> Collection:
+    """
+    Create a Collection configured for the Vector Store path.
+    execute_job will treat this as `is_vector = True` and use vector store id.
+    """
+    if vector_store_id is None:
+        vector_store_id = f"vs_{uuid4().hex}"
+
+    collection = Collection(
+        id=collection_id or uuid4(),
+        project_id=project.id,
+        organization_id=project.organization_id,
+        llm_service_name="OpenAI Vector Store",
+        vector_store_id=vector_store_id,
+        llm_service_id=vector_store_id,
+    )
+    return CollectionCrud(db, project.id).create(collection)
+
+
+def get_collection_job(
+    db: Session,
+    project,
+    *,
+    action_type: CollectionActionType = CollectionActionType.CREATE,
+    status: CollectionJobStatus = CollectionJobStatus.PENDING,
+    collection_id: Optional[UUID] = None,
+    error_message: Optional[str] = None,
+    job_id: Optional[UUID] = None,
+) -> CollectionJob:
+    """
+    Generic seed for a CollectionJob row.
+    """
+    job = CollectionJob(
+        id=job_id or uuid4(),
+        project_id=project.id,
+        action_type=action_type.value if hasattr(action_type, "value") else action_type,
+        status=status.value if hasattr(status, "value") else status,
+        error_message=error_message,
+        collection_id=collection_id,
+    )
+    return CollectionJobCrud(db, project.id).create(job)

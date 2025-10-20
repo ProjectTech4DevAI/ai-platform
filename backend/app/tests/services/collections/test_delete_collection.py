@@ -1,63 +1,28 @@
 from unittest.mock import patch, MagicMock
-from uuid import uuid4, UUID
+from uuid import uuid4
 
-from sqlmodel import Session
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.models.collection import (
     DeletionRequest,
-    Collection,
-    ResponsePayload,
 )
 from app.tests.utils.utils import get_project
-from app.crud import CollectionCrud, CollectionJobCrud
-from app.models import CollectionJobStatus, CollectionJob, CollectionActionType
+from app.crud import CollectionJobCrud
+from app.models import CollectionJobStatus, CollectionActionType
+from app.tests.utils.collection import get_collection, get_collection_job
 from app.services.collections.delete_collection import start_job, execute_job
 
 
-def create_collection(db: Session, project):
-    collection = Collection(
-        id=uuid4(),
-        project_id=project.id,
-        organization_id=project.organization_id,
-        llm_service_id="asst-nasjnl",
-        llm_service_name="gpt-4o",
-    )
-    return CollectionCrud(db, project.id).create(collection)
-
-
-def create_collection_job(
-    db: Session,
-    project,
-    collection,
-    job_id: UUID | None = None,
-):
-    if job_id is None:
-        job_id = uuid4()
-    job_crud = CollectionJobCrud(db, project.id)
-    return job_crud.create(
-        CollectionJob(
-            id=job_id,
-            action_type=CollectionActionType.DELETE,
-            project_id=project.id,
-            collection_id=collection.id,
-            status=CollectionJobStatus.PENDING,
-        )
-    )
-
-
-def test_start_job_creates_collection_job_and_schedules_task(db: Session):
+def test_start_job_creates_collection_job_and_schedules_task(db):
     """
-    - start_job should update an existing CollectionJob (status=processing, action=delete)
+    - start_job should update an existing CollectionJob (status=PENDING, action=DELETE)
     - schedule the task with the provided job_id and collection_id
-    - return the same job_id (string)
+    - return the same job_id (UUID)
     """
     project = get_project(db)
-    created_collection = create_collection(db, project)
+    created_collection = get_collection(db, project)
 
     req = DeletionRequest(collection_id=created_collection.id)
-    route = "/collections/delete"
-    payload = ResponsePayload(status="processing", route=route)
 
     with patch(
         "app.services.collections.delete_collection.start_low_priority_job"
@@ -65,20 +30,20 @@ def test_start_job_creates_collection_job_and_schedules_task(db: Session):
         mock_schedule.return_value = "fake-task-id"
 
         collection_job_id = uuid4()
-        precreated = create_collection_job(
-            db=db,
-            project=project,
-            collection=created_collection,
+        _ = get_collection_job(
+            db,
+            project,
             job_id=collection_job_id,
+            action_type=CollectionActionType.DELETE,
+            status=CollectionJobStatus.PENDING,
+            collection_id=created_collection.id,
         )
 
         returned = start_job(
             db=db,
             request=req,
-            collection=created_collection,
             project_id=project.id,
             collection_job_id=collection_job_id,
-            payload=payload,
             organization_id=project.organization_id,
         )
 
@@ -103,25 +68,30 @@ def test_start_job_creates_collection_job_and_schedules_task(db: Session):
         assert kwargs["organization_id"] == project.organization_id
         assert kwargs["job_id"] == str(job.id)
         assert kwargs["collection_id"] == str(created_collection.id)
-        assert kwargs["request"] == req.model_dump()
-        assert kwargs["payload"] == payload.model_dump()
+        assert kwargs["request"] == req.model_dump(mode="json")
         assert "trace_id" in kwargs
 
 
 @patch("app.services.collections.delete_collection.get_openai_client")
 def test_execute_job_delete_success_updates_job_and_calls_delete(
-    mock_get_openai_client, db: Session
+    mock_get_openai_client, db
 ):
     """
     - execute_job should set task_id on the CollectionJob
-    - call CollectionCrud.delete(collection, assistant_crud)
+    - call remote delete via OpenAIAssistantCrud.delete(...)
+    - delete local record via CollectionCrud.delete_by_id(...)
     - mark job successful and clear error_message
     """
     project = get_project(db)
 
-    collection = create_collection(db, project)
-
-    job = create_collection_job(db, project, collection)
+    collection = get_collection(db, project, assistant_id="asst_123")
+    job = get_collection_job(
+        db,
+        project,
+        action_type=CollectionActionType.DELETE,
+        status=CollectionJobStatus.PENDING,
+        collection_id=collection.id,
+    )
 
     mock_get_openai_client.return_value = MagicMock()
 
@@ -138,25 +108,18 @@ def test_execute_job_delete_success_updates_job_and_calls_delete(
         collection_crud_instance = MockCollectionCrud.return_value
         collection_crud_instance.read_one.return_value = collection
 
-        deletion_result = MagicMock()
-        deletion_result.model_dump.return_value = {
-            "id": str(collection.id),
-            "deleted": True,
-        }
-        collection_crud_instance.delete.return_value = deletion_result
+        MockAssistantCrud.return_value.delete.return_value = None
 
         task_id = uuid4()
         req = DeletionRequest(collection_id=collection.id)
-        payload = ResponsePayload(status="processing", route="/test/delete")
 
         execute_job(
-            request=req.model_dump(),
-            payload=payload.model_dump(),
+            request=req.model_dump(mode="json"),
             project_id=project.id,
             organization_id=project.organization_id,
             task_id=str(task_id),
             job_id=str(job.id),
-            collection_id=collection.id,
+            collection_id=str(collection.id),
             task_instance=None,
         )
 
@@ -167,26 +130,30 @@ def test_execute_job_delete_success_updates_job_and_calls_delete(
 
         MockCollectionCrud.assert_called_with(db, project.id)
         collection_crud_instance.read_one.assert_called_once_with(collection.id)
-        collection_crud_instance.delete.assert_called_once()
-        args, kwargs = collection_crud_instance.delete.call_args
-        assert isinstance(args[0], Collection)
+
         MockAssistantCrud.assert_called_once()
+        MockAssistantCrud.return_value.delete.assert_called_once_with("asst_123")
+
+        collection_crud_instance.delete_by_id.assert_called_once_with(collection.id)
         mock_get_openai_client.assert_called_once()
 
 
 @patch("app.services.collections.delete_collection.get_openai_client")
-def test_execute_job_delete_failure_marks_job_failed(
-    mock_get_openai_client, db: Session
-):
+def test_execute_job_delete_failure_marks_job_failed(mock_get_openai_client, db):
     """
-    When CollectionCrud.delete raises (e.g., SQLAlchemyError),
-    the job should be marked failed and error_message set.
+    When the remote delete (OpenAIAssistantCrud.delete) raises,
+    the job should be marked FAILED and error_message set.
     """
     project = get_project(db)
 
-    collection = create_collection(db, project)
-
-    job = create_collection_job(db, project, collection)
+    collection = get_collection(db, project, assistant_id="asst_123")
+    job = get_collection_job(
+        db,
+        project,
+        action_type=CollectionActionType.DELETE,
+        status=CollectionJobStatus.PENDING,
+        collection_id=collection.id,
+    )
 
     mock_get_openai_client.return_value = MagicMock()
 
@@ -202,15 +169,16 @@ def test_execute_job_delete_failure_marks_job_failed(
 
         collection_crud_instance = MockCollectionCrud.return_value
         collection_crud_instance.read_one.return_value = collection
-        collection_crud_instance.delete.side_effect = SQLAlchemyError("boom")
+
+        MockAssistantCrud.return_value.delete.side_effect = SQLAlchemyError(
+            "something went wrong"
+        )
 
         task_id = uuid4()
         req = DeletionRequest(collection_id=collection.id)
-        payload = ResponsePayload(status="processing", route="/test/delete")
 
         execute_job(
-            request=req.model_dump(),
-            payload=payload.model_dump(),
+            request=req.model_dump(mode="json"),
             project_id=project.id,
             organization_id=project.organization_id,
             task_id=str(task_id),
@@ -222,7 +190,16 @@ def test_execute_job_delete_failure_marks_job_failed(
         failed_job = CollectionJobCrud(db, project.id).read_one(job.id)
         assert failed_job.task_id == str(task_id)
         assert failed_job.status == CollectionJobStatus.FAILED
-        assert failed_job.error_message and "boom" in failed_job.error_message
+        assert (
+            failed_job.error_message
+            and "something went wrong" in failed_job.error_message
+        )
+
+        MockCollectionCrud.assert_called_with(db, project.id)
+        collection_crud_instance.read_one.assert_called_once_with(collection.id)
 
         MockAssistantCrud.assert_called_once()
-        MockCollectionCrud.assert_called_with(db, project.id)
+        MockAssistantCrud.return_value.delete.assert_called_once_with("asst_123")
+
+        collection_crud_instance.delete_by_id.assert_not_called()
+        mock_get_openai_client.assert_called_once()

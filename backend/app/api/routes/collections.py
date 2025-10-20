@@ -3,9 +3,8 @@ import logging
 from uuid import UUID
 from typing import List
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from fastapi import Path as FastPath
-
 
 from app.api.deps import SessionDep, CurrentUserOrgProject
 from app.crud import (
@@ -20,13 +19,11 @@ from app.models import (
     CollectionJobCreate,
 )
 from app.models.collection import (
-    ResponsePayload,
     CreationRequest,
     DeletionRequest,
     CollectionPublic,
 )
 from app.utils import APIResponse, load_description
-from app.services.collections.helpers import extract_error_message
 from app.services.collections import (
     create_collection as create_service,
     delete_collection as delete_service,
@@ -55,22 +52,31 @@ def create_collection(
         )
     )
 
-    this = inspect.currentframe()
-    route = router.url_path_for(this.f_code.co_name)
-    payload = ResponsePayload(
-        status="processing", route=route, key=str(collection_job.id)
+    # True iff both model and instructions were provided in the request body
+    with_assistant = bool(
+        getattr(request, "model", None) and getattr(request, "instructions", None)
     )
 
     create_service.start_job(
         db=session,
         request=request,
-        payload=payload,
         collection_job_id=collection_job.id,
         project_id=current_user.project_id,
         organization_id=current_user.organization_id,
+        with_assistant=with_assistant,
     )
 
-    return APIResponse.success_response(collection_job)
+    metadata = None
+    if not with_assistant:
+        metadata = {
+            "note": (
+                "This job will create a vector store only (no Assistant). "
+                "Assistant creation happens when both 'model' and 'instructions' are included."
+            ),
+            "with_assistant": False,
+        }
+
+    return APIResponse.success_response(collection_job, metadata=metadata)
 
 
 @router.post(
@@ -82,30 +88,19 @@ def delete_collection(
     current_user: CurrentUserOrgProject,
     request: DeletionRequest,
 ):
-    collection_crud = CollectionCrud(session, current_user.project_id)
-    collection = collection_crud.read_one(request.collection_id)
-
     collection_job_crud = CollectionJobCrud(session, current_user.project_id)
     collection_job = collection_job_crud.create(
         CollectionJobCreate(
             action_type=CollectionActionType.DELETE,
             project_id=current_user.project_id,
             status=CollectionJobStatus.PENDING,
-            collection_id=collection.id,
+            collection_id=request.collection_id,
         )
-    )
-
-    this = inspect.currentframe()
-    route = router.url_path_for(this.f_code.co_name)
-    payload = ResponsePayload(
-        status="processing", route=route, key=str(collection_job.id)
     )
 
     delete_service.start_job(
         db=session,
         request=request,
-        payload=payload,
-        collection=collection,
         collection_job_id=collection_job.id,
         project_id=current_user.project_id,
         organization_id=current_user.organization_id,

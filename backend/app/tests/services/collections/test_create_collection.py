@@ -12,10 +12,11 @@ from app.core.cloud import AmazonCloudStorageClient
 from app.core.config import settings
 from app.crud import CollectionCrud, CollectionJobCrud, DocumentCollectionCrud
 from app.models import CollectionJobStatus, CollectionJob, CollectionActionType
-from app.models.collection import CreationRequest, ResponsePayload
+from app.models.collection import CreationRequest
 from app.services.collections.create_collection import start_job, execute_job
 from app.tests.utils.openai import get_mock_openai_client_with_vector_store
 from app.tests.utils.utils import get_project
+from app.tests.utils.collection import get_collection_job
 from app.tests.utils.document import DocumentStore
 
 
@@ -61,11 +62,16 @@ def test_start_job_creates_collection_job_and_schedules_task(db: Session):
         batch_size=1,
         callback_url=None,
     )
-    route = "/collections/create"
-    payload = ResponsePayload(status="processing", route=route)
     job_id = uuid4()
 
-    _ = create_collection_job_for_create(db, project, job_id)
+    _ = get_collection_job(
+        db,
+        project,
+        job_id=job_id,
+        action_type=CollectionActionType.CREATE,
+        status=CollectionJobStatus.PENDING,
+        collection_id=None,
+    )
 
     with patch(
         "app.services.collections.create_collection.start_low_priority_job"
@@ -76,8 +82,8 @@ def test_start_job_creates_collection_job_and_schedules_task(db: Session):
             db=db,
             request=request,
             project_id=project.id,
-            payload=payload,
             collection_job_id=job_id,
+            with_assistant=True,
             organization_id=project.organization_id,
         )
 
@@ -102,10 +108,7 @@ def test_start_job_creates_collection_job_and_schedules_task(db: Session):
         assert kwargs["project_id"] == project.id
         assert kwargs["organization_id"] == project.organization_id
         assert kwargs["job_id"] == str(job_id)
-        assert kwargs["request"] == request.model_dump()
-
-        passed_payload = kwargs.get("payload", kwargs.get("payload_data"))
-        assert passed_payload == payload.model_dump()
+        assert kwargs["request"] == request.model_dump(mode="json")
 
 
 @pytest.mark.usefixtures("aws_credentials")
@@ -141,20 +144,18 @@ def test_execute_job_success_flow_updates_job_and_creates_collection(
         batch_size=1,
         callback_url=None,
     )
-    sample_payload = ResponsePayload(status="pending", route="/test/route")
 
     mock_client = get_mock_openai_client_with_vector_store()
     mock_get_openai_client.return_value = mock_client
 
     job_id = uuid4()
-    job_crud = CollectionJobCrud(db, project.id)
-    job_crud.create(
-        CollectionJob(
-            id=job_id,
-            project_id=project.id,
-            status=CollectionJobStatus.PENDING,
-            action_type=CollectionActionType.CREATE.value,
-        )
+    _ = get_collection_job(
+        db,
+        project,
+        job_id=job_id,
+        action_type=CollectionActionType.CREATE,
+        status=CollectionJobStatus.PENDING,
+        collection_id=None,
     )
 
     task_id = uuid4()
@@ -165,10 +166,10 @@ def test_execute_job_success_flow_updates_job_and_creates_collection(
 
         execute_job(
             request=sample_request.model_dump(),
-            payload=sample_payload.model_dump(),
             project_id=project.id,
             organization_id=project.organization_id,
             task_id=str(task_id),
+            with_assistant=True,
             job_id=str(job_id),
             task_instance=None,
         )
@@ -188,3 +189,67 @@ def test_execute_job_success_flow_updates_job_and_creates_collection(
     docs = DocumentCollectionCrud(db).read(created_collection, skip=0, limit=10)
     assert len(docs) == 1
     assert docs[0].fname == document.fname
+
+
+@pytest.mark.usefixtures("aws_credentials")
+@mock_aws
+@patch("app.services.collections.create_collection.get_openai_client")
+def test_execute_job_assistant_create_failure_marks_failed_and_deletes_vector(
+    mock_get_openai_client, db
+):
+    project = get_project(db)
+
+    job = get_collection_job(
+        db,
+        project,
+        job_id=uuid4(),
+        action_type=CollectionActionType.CREATE,
+        status=CollectionJobStatus.PENDING,
+        collection_id=None,
+    )
+
+    req = CreationRequest(
+        model="gpt-4o",
+        instructions="string",
+        temperature=0.0,
+        documents=[],
+        batch_size=1,
+        callback_url=None,
+    )
+
+    mock_client = mock_get_openai_client.return_value
+
+    with patch(
+        "app.services.collections.create_collection.Session"
+    ) as SessionCtor, patch(
+        "app.services.collections.create_collection.OpenAIVectorStoreCrud"
+    ) as MockVS, patch(
+        "app.services.collections.create_collection.OpenAIAssistantCrud"
+    ) as MockAsst:
+        SessionCtor.return_value.__enter__.return_value = db
+        SessionCtor.return_value.__exit__.return_value = False
+
+        MockVS.return_value.create.return_value = type(
+            "Vector store", (), {"id": "vs_123"}
+        )()
+        MockVS.return_value.update.return_value = []
+
+        MockAsst.return_value.create.side_effect = RuntimeError("assistant boom")
+
+        task_id = str(uuid4())
+        execute_job(
+            request=req.model_dump(),
+            project_id=project.id,
+            organization_id=project.organization_id,
+            task_id=task_id,
+            with_assistant=True,
+            job_id=str(job.id),
+            task_instance=None,
+        )
+
+        failed = CollectionJobCrud(db, project.id).read_one(job.id)
+        assert failed.task_id == task_id
+        assert failed.status == CollectionJobStatus.FAILED
+        assert "assistant boom" in (failed.error_message or "")
+
+        MockVS.return_value.delete.assert_called_once_with("vs_123")

@@ -1,4 +1,5 @@
 import pytest
+
 from openai_responses import OpenAIMock
 from openai import OpenAI
 from sqlmodel import Session
@@ -17,7 +18,7 @@ def create_collections(db: Session, n: int):
     with openai_mock.router:
         client = OpenAI(api_key="sk-test-key")
         for _ in range(n):
-            collection = get_collection(db, client, project_id=project.id)
+            collection = get_collection(db, project=project)
             store = DocumentStore(db, project_id=collection.project_id)
             documents = store.fill(1)
             if crud is None:
