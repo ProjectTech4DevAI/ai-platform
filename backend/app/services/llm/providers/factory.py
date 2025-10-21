@@ -8,8 +8,9 @@ import logging
 from typing import Any
 
 from app.models.llm import ProviderType
-from app.services.llm.base_provider import BaseProvider
-from app.services.llm.openai_provider import OpenAIProvider
+from app.services.llm.exceptions import UnsupportedProviderError
+from app.services.llm.providers.base import BaseProvider
+from app.services.llm.providers.openai import OpenAIProvider
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ class ProviderFactory:
         # "anthropic": AnthropicProvider,
         # "google": GoogleProvider,
         # "azure": AzureOpenAIProvider,
+        # "cohere": CohereProvider,
     }
 
     @classmethod
@@ -45,15 +47,14 @@ class ProviderFactory:
             Instance of the appropriate provider
 
         Raises:
-            ValueError: If the provider type is not supported
+            UnsupportedProviderError: If the provider type is not supported
         """
         provider_class = cls._PROVIDERS.get(provider_type)
 
         if provider_class is None:
-            supported = ", ".join(cls._PROVIDERS.keys())
-            raise ValueError(
-                f"Unsupported provider type: {provider_type}. "
-                f"Supported providers: {supported}"
+            raise UnsupportedProviderError(
+                provider=provider_type,
+                supported_providers=cls.get_supported_providers()
             )
 
         logger.info(f"[ProviderFactory] Creating {provider_type} provider instance")
@@ -69,7 +70,9 @@ class ProviderFactory:
         return list(cls._PROVIDERS.keys())
 
     @classmethod
-    def register_provider(cls, provider_type: str, provider_class: type[BaseProvider]):
+    def register_provider(
+        cls, provider_type: str, provider_class: type[BaseProvider]
+    ) -> None:
         """Register a new provider type.
 
         This allows for runtime registration of new providers, useful for
@@ -83,7 +86,9 @@ class ProviderFactory:
             TypeError: If provider_class doesn't inherit from BaseProvider
         """
         if not issubclass(provider_class, BaseProvider):
-            raise TypeError(f"{provider_class.__name__} must inherit from BaseProvider")
+            raise TypeError(
+                f"{provider_class.__name__} must inherit from BaseProvider"
+            )
 
         logger.info(f"[ProviderFactory] Registering provider: {provider_type}")
         cls._PROVIDERS[provider_type] = provider_class

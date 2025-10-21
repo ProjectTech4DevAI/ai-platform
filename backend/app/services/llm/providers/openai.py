@@ -3,17 +3,20 @@
 This module implements the BaseProvider interface for OpenAI models,
 including support for standard models, o-series models with reasoning,
 and file search capabilities.
+
+Uses spec-based transformation for configuration conversion.
 """
 
 import logging
-from typing import Any
+from typing import Optional
 
 import openai
 from openai import OpenAI
 from openai.types.responses.response import Response
 
 from app.models.llm import LLMCallRequest, LLMCallResponse
-from app.services.llm.base_provider import BaseProvider
+from app.services.llm.providers.base import BaseProvider
+from app.services.llm.transformers.base import ConfigTransformer
 from app.utils import handle_openai_error
 
 logger = logging.getLogger(__name__)
@@ -27,84 +30,18 @@ class OpenAIProvider(BaseProvider):
     - O-series models with reasoning configuration
     - Text configuration for verbosity control
     - Vector store file search integration
+
+    Uses OpenAITransformer for configuration conversion.
     """
 
-    def __init__(self, client: OpenAI):
-        """Initialize OpenAI provider with client.
+    def __init__(self, client: OpenAI, transformer: Optional[ConfigTransformer] = None):
+        """Initialize OpenAI provider with client and optional transformer.
 
         Args:
             client: OpenAI client instance
+            transformer: Optional config transformer (will auto-create if not provided)
         """
-        super().__init__(client)
-
-    def supports_feature(self, feature: str) -> bool:
-        """Check if OpenAI provider supports a specific feature.
-
-        Args:
-            feature: Feature name (reasoning, text_config, file_search, etc.)
-
-        Returns:
-            True if the feature is supported
-        """
-        supported_features = {
-            "reasoning",
-            "text_config",
-            "file_search",
-            "temperature",
-            "max_tokens",
-            "top_p",
-        }
-        return feature in supported_features
-
-    def build_params(self, request: LLMCallRequest) -> dict[str, Any]:
-        """Build OpenAI API parameters from LLMCallRequest.
-
-        Converts our generic LLM config into OpenAI-specific parameters,
-        including support for advanced features like reasoning and text configs.
-
-        Args:
-            request: LLM call request with configuration
-
-        Returns:
-            Dictionary of OpenAI API parameters
-        """
-        # Extract model spec for easier access
-        model_spec = request.llm.llm_model_spec
-
-        params: dict[str, Any] = {
-            "model": model_spec.model,
-            "input": [{"role": "user", "content": request.llm.prompt}],
-        }
-
-        # Add optional parameters if present
-        if model_spec.temperature is not None:
-            params["temperature"] = model_spec.temperature
-
-        if model_spec.max_tokens is not None:
-            params["max_tokens"] = model_spec.max_tokens
-
-        if model_spec.top_p is not None:
-            params["top_p"] = model_spec.top_p
-
-        # Add advanced OpenAI configs (for o-series models, etc.)
-        if model_spec.reasoning:
-            params["reasoning"] = {"effort": model_spec.reasoning.effort}
-
-        if model_spec.text:
-            params["text"] = {"verbosity": model_spec.text.verbosity}
-
-        # Add vector store file search if provided
-        if request.llm.vector_store_id:
-            params["tools"] = [
-                {
-                    "type": "file_search",
-                    "vector_store_ids": [request.llm.vector_store_id],
-                    "max_num_results": request.max_num_results,
-                }
-            ]
-            params["include"] = ["file_search_call.results"]
-
-        return params
+        super().__init__(client, transformer)
 
     def _extract_file_search_results(self, response: Response) -> list[dict]:
         """Extract file search results from OpenAI response.
@@ -128,6 +65,9 @@ class OpenAIProvider(BaseProvider):
     ) -> tuple[LLMCallResponse | None, str | None]:
         """Execute OpenAI API call.
 
+        Uses the transformer to convert the request to OpenAI format,
+        with automatic validation against model specs.
+
         Args:
             request: LLM call request with configuration
 
@@ -143,7 +83,7 @@ class OpenAIProvider(BaseProvider):
             # Extract model spec for easier access
             model_spec = request.llm.llm_model_spec
 
-            # Build parameters and make OpenAI call
+            # Build parameters using transformer (includes validation)
             params = self.build_params(request)
             logger.info(
                 f"[OpenAIProvider] Making OpenAI call with model: {model_spec.model}"
@@ -171,6 +111,11 @@ class OpenAIProvider(BaseProvider):
                 f"[OpenAIProvider] Successfully generated response: {response.id}"
             )
             return llm_response, None
+
+        except ValueError as e:
+            error_message = f"Configuration validation failed: {str(e)}"
+            logger.error(f"[OpenAIProvider] {error_message}", exc_info=True)
+            return None, error_message
 
         except openai.OpenAIError as e:
             error_message = handle_openai_error(e)

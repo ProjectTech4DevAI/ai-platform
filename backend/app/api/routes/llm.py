@@ -14,9 +14,7 @@ router = APIRouter(tags=["llm"])
 
 @router.post("/llm/call")
 async def llm_call(
-    request: LLMCallRequest,
-    _session: SessionDep,
-    _current_user: AuthContext
+    request: LLMCallRequest, _session: SessionDep, _current_user: AuthContext
 ):
     """
     Endpoint to initiate an LLM call as a background job.

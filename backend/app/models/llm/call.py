@@ -26,7 +26,7 @@ class LLMModelSpec(SQLModel):
     """
 
     model: str
-    provider: ProviderType = "openai"  
+    provider: ProviderType = "openai"
     temperature: Optional[float] = None
     reasoning: Optional[ReasoningConfig] = None
     text: Optional[TextConfig] = None
@@ -40,6 +40,7 @@ class LLMConfig(SQLModel):
     This wraps the model spec and can be extended with additional
     provider-agnostic configuration in the future.
     """
+
     prompt: str
     vector_store_id: Optional[str] = None
     llm_model_spec: LLMModelSpec

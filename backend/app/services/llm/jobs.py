@@ -11,7 +11,7 @@ from app.core.db import engine
 
 from app.models import JobType, JobStatus, JobUpdate
 from app.models.llm import LLMCallRequest, LLMCallResponse
-from app.services.llm import execute_llm_call
+from app.services.llm.orchestrator import execute_llm_call
 from app.utils import get_openai_client
 
 logger = logging.getLogger(__name__)
@@ -123,9 +123,7 @@ def execute_job(
 
     except Exception as e:
         error_message = f"Unexpected error in LLM job execution: {str(e)}"
-        logger.error(
-            f"[execute_job] {error_message} | job_id={job_id}", exc_info=True
-        )
+        logger.error(f"[execute_job] {error_message} | job_id={job_id}", exc_info=True)
         with Session(engine) as session:
             job_crud = JobCrud(session=session)
             job_crud.update(
