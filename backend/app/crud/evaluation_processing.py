@@ -11,17 +11,17 @@ This module coordinates the evaluation-specific workflow:
 import ast
 import json
 import logging
-from collections import defaultdict
-from typing import Any
 
+from collections import defaultdict
 from langfuse import Langfuse
 from openai import OpenAI
 from sqlmodel import Session, select
+from typing import Any
 
 from app.core.batch.openai_provider import OpenAIBatchProvider
 from app.core.util import configure_langfuse, configure_openai, now
 from app.crud.batch_job import get_batch_job
-from app.crud.batch_operations import download_batch_results
+from app.crud.batch_operations import upload_batch_results_to_s3, download_batch_results
 from app.crud.credentials import get_provider_credential
 from app.crud.evaluation_batch import fetch_dataset_items
 from app.crud.evaluation_langfuse import create_langfuse_dataset_run
@@ -189,6 +189,20 @@ async def process_completed_evaluation(
         provider = OpenAIBatchProvider(client=openai_client)
         raw_results = download_batch_results(provider=provider, batch_job=batch_job)
 
+        # Step 2a: Upload raw results to S3 for evaluation_run
+        s3_url = None
+        try:
+            s3_url = upload_batch_results_to_s3(
+                batch_job=batch_job, results=raw_results
+            )
+            logger.info(f"Uploaded evaluation results to S3: {s3_url}")
+        except Exception as s3_error:
+            logger.warning(
+                f"S3 upload failed (AWS credentials may not be configured): {s3_error}. "
+                f"Continuing without S3 storage.",
+                exc_info=True,
+            )
+
         # Step 3: Fetch dataset items (needed for matching ground truth)
         logger.info(f"Step 2: Fetching dataset items for '{eval_run.dataset_name}'")
         dataset_items = fetch_dataset_items(
@@ -218,9 +232,9 @@ async def process_completed_evaluation(
         eval_run.status = "completed"
         eval_run.updated_at = now()
 
-        # Copy S3 URL from batch_job if available
-        if batch_job.raw_output_url:
-            eval_run.s3_url = batch_job.raw_output_url
+        # Set S3 URL if upload was successful
+        if s3_url:
+            eval_run.s3_url = s3_url
 
         session.add(eval_run)
         session.commit()
