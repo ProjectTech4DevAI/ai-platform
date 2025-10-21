@@ -48,6 +48,16 @@ from .fine_tuning import (
 
 from .job import Job, JobType, JobStatus, JobUpdate
 
+from .llm import (
+    LLMCallRequest,
+    LLMCallResponse,
+    LLMConfig,
+    LLMModelSpec,
+    ProviderType,
+    ReasoningConfig,
+    TextConfig,
+)
+
 from .message import Message
 from .model_evaluation import (
     ModelEvaluation,

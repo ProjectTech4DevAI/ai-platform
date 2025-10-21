@@ -15,6 +15,7 @@ class JobStatus(str, Enum):
 
 class JobType(str, Enum):
     RESPONSE = "RESPONSE"
+    LLM_API = "LLM_API"
 
 
 class Job(SQLModel, table=True):
