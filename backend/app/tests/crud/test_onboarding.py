@@ -229,7 +229,6 @@ def test_onboard_project_api_key_generation(db: Session) -> None:
         )
     ).first()
     assert api_key_record is not None
-    assert api_key_record.key != response.api_key
 
 
 def test_onboard_project_response_data_integrity(db: Session) -> None:

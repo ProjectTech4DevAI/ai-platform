@@ -1,8 +1,6 @@
-import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
-from app.models import APIKeyPublic
 from app.core.config import settings
 from app.core.providers import Provider
 from app.models.credentials import Credential
@@ -14,11 +12,12 @@ from app.tests.utils.test_data import (
     create_test_credential,
     test_credential_data,
 )
+from app.tests.utils.auth import TestAuthContext
 
 
 def test_set_credential(
     client: TestClient,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     project_id = user_api_key.project_id
     org_id = user_api_key.organization_id
@@ -62,7 +61,7 @@ def test_set_credential(
 
 def test_set_credentials_ignored_mismatched_ids(
     client: TestClient,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     # Delete existing credentials first
     client.delete(
@@ -88,7 +87,7 @@ def test_set_credentials_ignored_mismatched_ids(
 
 def test_read_credentials_with_creds(
     client: TestClient,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     # Ensure at least one credential exists for current project
     api_key_value = "sk-" + generate_random_string(10)
@@ -117,7 +116,7 @@ def test_read_credentials_with_creds(
     assert len(data) >= 1
 
 
-def test_read_credentials_not_found(client: TestClient, user_api_key: APIKeyPublic):
+def test_read_credentials_not_found(client: TestClient, user_api_key: TestAuthContext):
     # Delete all first to ensure none remain
     client.delete(
         f"{settings.API_V1_STR}/credentials/", headers={"X-API-KEY": user_api_key.key}
@@ -132,7 +131,7 @@ def test_read_credentials_not_found(client: TestClient, user_api_key: APIKeyPubl
 
 def test_read_provider_credential(
     client: TestClient,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     # Seed data already has OpenAI credentials - just test GET
     response = client.get(
@@ -148,7 +147,7 @@ def test_read_provider_credential(
 
 
 def test_read_provider_credential_not_found(
-    client: TestClient, user_api_key: APIKeyPublic
+    client: TestClient, user_api_key: TestAuthContext
 ):
     # Ensure none
     client.delete(
@@ -165,7 +164,7 @@ def test_read_provider_credential_not_found(
 
 def test_update_credentials(
     client: TestClient,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     # Update existing OpenAI credentials from seed data
     update_data = {
@@ -193,7 +192,7 @@ def test_update_credentials(
 
 
 def test_update_credentials_not_found_for_provider(
-    client: TestClient, user_api_key: APIKeyPublic
+    client: TestClient, user_api_key: TestAuthContext
 ):
     # Ensure none exist
     client.delete(
@@ -220,7 +219,7 @@ def test_update_credentials_not_found_for_provider(
 
 def test_delete_provider_credential(
     client: TestClient,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     # Ensure exists
     client.delete(
@@ -247,7 +246,7 @@ def test_delete_provider_credential(
 
 
 def test_delete_provider_credential_not_found(
-    client: TestClient, user_api_key: APIKeyPublic
+    client: TestClient, user_api_key: TestAuthContext
 ):
     # Ensure not exists
     client.delete(
@@ -264,7 +263,7 @@ def test_delete_provider_credential_not_found(
 
 def test_delete_all_credentials(
     client: TestClient,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     # Delete existing credentials from seed data
     response = client.delete(
@@ -290,7 +289,7 @@ def test_delete_all_credentials(
 
 
 def test_delete_all_credentials_not_found(
-    client: TestClient, user_api_key: APIKeyPublic
+    client: TestClient, user_api_key: TestAuthContext
 ):
     # Ensure already deleted
     client.delete(
@@ -311,7 +310,7 @@ def test_delete_all_credentials_not_found(
 def test_duplicate_credential_creation(
     client: TestClient,
     db: Session,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     # Test verifies that the database unique constraint prevents duplicate credentials
     # for the same organization, project, and provider combination.
@@ -335,7 +334,7 @@ def test_duplicate_credential_creation(
 
 def test_multiple_provider_credentials(
     client: TestClient,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     # Ensure clean state for current org/project
     client.delete(
@@ -401,7 +400,7 @@ def test_multiple_provider_credentials(
 
 def test_credential_encryption(
     db: Session,
-    user_api_key: APIKeyPublic,
+    user_api_key: TestAuthContext,
 ):
     # Use existing credentials from seed data to verify encryption
     db_credential = (
@@ -426,7 +425,7 @@ def test_credential_encryption(
 
 
 def test_credential_encryption_consistency(
-    client: TestClient, user_api_key: APIKeyPublic
+    client: TestClient, user_api_key: TestAuthContext
 ):
     # Fetch existing seed data credentials
     response = client.get(
