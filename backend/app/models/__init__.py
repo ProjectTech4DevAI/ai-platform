@@ -54,8 +54,6 @@ from .llm import (
     LLMConfig,
     LLMModelSpec,
     ProviderType,
-    ReasoningConfig,
-    TextConfig,
 )
 
 from .message import Message

@@ -2,9 +2,6 @@
 
 This module contains response models for LLM API calls.
 """
-
-from typing import Optional
-
 from sqlmodel import SQLModel
 
 
@@ -29,4 +26,3 @@ class LLMCallResponse(SQLModel):
     input_tokens: int
     output_tokens: int
     total_tokens: int
-    file_search_results: Optional[list[dict]] = None

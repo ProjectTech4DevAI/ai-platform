@@ -6,11 +6,9 @@ transformation.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 from app.models.llm import LLMCallRequest, LLMCallResponse
-from app.services.llm.transformers.base import ConfigTransformer
-from app.services.llm.transformers.factory import TransformerFactory
 
 
 class BaseProvider(ABC):
@@ -19,60 +17,20 @@ class BaseProvider(ABC):
     All provider implementations (OpenAI, Anthropic, etc.) must inherit from
     this class and implement the required methods.
 
-    This provider uses a transformer-based architecture where configuration
-    transformation is separated from the provider execution logic.
+    Each provider uses its own spec class for parameter validation and conversion
+    to the provider's API format.
 
     Attributes:
         client: The provider-specific client instance
-        transformer: ConfigTransformer for converting requests to provider format
     """
 
-    def __init__(self, client: Any, transformer: Optional[ConfigTransformer] = None):
-        """Initialize the provider with client and optional transformer.
+    def __init__(self, client: Any):
+        """Initialize the provider with client.
 
         Args:
             client: Provider-specific client (e.g., OpenAI, Anthropic client)
-            transformer: Optional config transformer. If not provided, one will
-                        be created using the TransformerFactory.
         """
         self.client = client
-        self.transformer = transformer
-
-    def _get_transformer(self, request: LLMCallRequest) -> ConfigTransformer:
-        """Get or create a transformer for this request.
-
-        Args:
-            request: LLM call request
-
-        Returns:
-            ConfigTransformer instance
-        """
-        if self.transformer is None:
-            # Create transformer using factory
-            provider_name = self.get_provider_name()
-            model_name = request.llm.llm_model_spec.model
-            self.transformer = TransformerFactory.create_transformer(
-                provider=provider_name,
-                model_name=model_name,
-                use_spec=True,
-            )
-        return self.transformer
-
-    def build_params(self, request: LLMCallRequest) -> dict[str, Any]:
-        """Build provider-specific API parameters from the request.
-
-        This method uses the transformer to convert the request.
-        Providers can override this if they need custom logic, but the
-        default implementation uses the transformer.
-
-        Args:
-            request: LLM call request with configuration
-
-        Returns:
-            Dictionary of provider-specific parameters
-        """
-        transformer = self._get_transformer(request)
-        return transformer.validate_and_transform(request)
 
     @abstractmethod
     def execute(

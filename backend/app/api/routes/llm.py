@@ -1,7 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends
-from sqlmodel import Session
+from fastapi import APIRouter
 
 from app.api.deps import AuthContext, SessionDep
 from app.models.llm import LLMCallRequest
@@ -22,23 +21,12 @@ async def llm_call(
     project_id = _current_user.project.id
     organization_id = _current_user.organization.id
 
-    logger.info(
-        f"[llm_call] Scheduling LLM call for provider: {request.llm.llm_model_spec.provider}, "
-        f"model: {request.llm.llm_model_spec.model}, "
-        f"project_id: {project_id}, org_id: {organization_id}"
-    )
-
     # Start background job
     job_id = start_job(
         db=_session,
         request=request,
         project_id=project_id,
         organization_id=organization_id,
-    )
-
-    logger.info(
-        f"[llm_call] LLM call job scheduled successfully | job_id={job_id}, "
-        f"project_id={project_id}"
     )
 
     return APIResponse.success_response(

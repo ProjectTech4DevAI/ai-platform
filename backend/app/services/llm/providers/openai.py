@@ -4,19 +4,19 @@ This module implements the BaseProvider interface for OpenAI models,
 including support for standard models, o-series models with reasoning,
 and file search capabilities.
 
-Uses spec-based transformation for configuration conversion.
+Uses OpenAISpec for parameter validation and API conversion.
 """
 
 import logging
-from typing import Optional
 
 import openai
 from openai import OpenAI
 from openai.types.responses.response import Response
+from pydantic import ValidationError
 
 from app.models.llm import LLMCallRequest, LLMCallResponse
 from app.services.llm.providers.base import BaseProvider
-from app.services.llm.transformers.base import ConfigTransformer
+from app.services.llm.specs import OpenAISpec
 from app.utils import handle_openai_error
 
 logger = logging.getLogger(__name__)
@@ -31,42 +31,24 @@ class OpenAIProvider(BaseProvider):
     - Text configuration for verbosity control
     - Vector store file search integration
 
-    Uses OpenAITransformer for configuration conversion.
+    Uses OpenAISpec for parameter validation and conversion.
     """
 
-    def __init__(self, client: OpenAI, transformer: Optional[ConfigTransformer] = None):
-        """Initialize OpenAI provider with client and optional transformer.
+    def __init__(self, client: OpenAI):
+        """Initialize OpenAI provider with client.
 
         Args:
             client: OpenAI client instance
-            transformer: Optional config transformer (will auto-create if not provided)
         """
-        super().__init__(client, transformer)
-
-    def _extract_file_search_results(self, response: Response) -> list[dict]:
-        """Extract file search results from OpenAI response.
-
-        Args:
-            response: OpenAI response object
-
-        Returns:
-            List of dicts with 'score' and 'text' fields
-        """
-        results = []
-        for tool_call in response.output:
-            if tool_call.type == "file_search_call":
-                results.extend(
-                    {"score": hit.score, "text": hit.text} for hit in tool_call.results
-                )
-        return results
+        super().__init__(client)
+        self.client = client
 
     def execute(
         self, request: LLMCallRequest
     ) -> tuple[LLMCallResponse | None, str | None]:
         """Execute OpenAI API call.
 
-        Uses the transformer to convert the request to OpenAI format,
-        with automatic validation against model specs.
+        Uses OpenAISpec to validate and convert the request to OpenAI format.
 
         Args:
             request: LLM call request with configuration
@@ -80,20 +62,14 @@ class OpenAIProvider(BaseProvider):
         error_message: str | None = None
 
         try:
-            # Extract model spec for easier access
-            model_spec = request.llm.llm_model_spec
+            # Create and validate OpenAI spec from request
+            spec = OpenAISpec.from_llm_request(request)
 
-            # Build parameters using transformer (includes validation)
-            params = self.build_params(request)
-            logger.info(
-                f"[OpenAIProvider] Making OpenAI call with model: {model_spec.model}"
-            )
+            # Convert to API parameters (validation happens during spec creation)
+            params = spec.to_api_params()
+
+            logger.info(f"[OpenAIProvider] Making OpenAI call with model: {spec.model}")
             response = self.client.responses.create(**params)
-
-            # Extract file search results if vector store was used
-            file_search_results = None
-            if request.llm.vector_store_id:
-                file_search_results = self._extract_file_search_results(response)
 
             # Build response
             llm_response = LLMCallResponse(
@@ -104,13 +80,17 @@ class OpenAIProvider(BaseProvider):
                 input_tokens=response.usage.input_tokens,
                 output_tokens=response.usage.output_tokens,
                 total_tokens=response.usage.total_tokens,
-                file_search_results=file_search_results,
             )
 
             logger.info(
                 f"[OpenAIProvider] Successfully generated response: {response.id}"
             )
             return llm_response, None
+
+        except ValidationError as e:
+            error_message = f"Configuration validation failed: {str(e)}"
+            logger.error(f"[OpenAIProvider] {error_message}", exc_info=True)
+            return None, error_message
 
         except ValueError as e:
             error_message = f"Configuration validation failed: {str(e)}"

@@ -10,7 +10,6 @@ from typing import Any
 
 from app.models.llm import LLMCallRequest, LLMCallResponse
 from app.services.llm.providers.factory import ProviderFactory
-from app.services.llm.exceptions import LLMServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -72,11 +71,6 @@ def execute_llm_call(
             logger.error(f"[execute_llm_call] Failed to generate response: {error}")
 
         return response, error
-
-    except LLMServiceError as e:
-        error_message = str(e)
-        logger.error(f"[execute_llm_call] LLM service error: {error_message}")
-        return None, error_message
 
     except Exception as e:
         error_message = f"Unexpected error in LLM service: {str(e)}"

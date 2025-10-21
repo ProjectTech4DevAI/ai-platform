@@ -1,151 +1,151 @@
-"""OpenAI model specifications.
+"""OpenAI specification model.
 
-This module contains specifications for OpenAI models including GPT-4,
-GPT-3.5, and o-series models with reasoning capabilities.
+This module defines the OpenAI-specific parameter specification with built-in
+validation and conversion to API format.
 """
 
-from app.models.llm.specs import (
-    ModelCapabilities,
-    ModelSpec,
-    ParameterSpec,
-    model_spec_registry,
-)
+from typing import Any, Literal
+
+from pydantic import Field, model_validator
+from sqlmodel import SQLModel
+
+from app.models.llm.request import LLMCallRequest
 
 
-def create_openai_specs() -> list[ModelSpec]:
-    """Create specifications for OpenAI models.
+class OpenAISpec(SQLModel):
+    """OpenAI API specification with validation.
 
-    Returns:
-        List of ModelSpec objects for OpenAI models
+    This model defines all OpenAI-specific parameters with their constraints,
+    provides validation, and handles conversion to OpenAI API format.
+
+    Attributes:
+        model: Model identifier (e.g., "gpt-4", "gpt-3.5-turbo", "o1-preview")
+        prompt: The user's input prompt
+        temperature: Sampling temperature (0.0-2.0)
+        max_tokens: Maximum number of tokens to generate (must be positive)
+        top_p: Nucleus sampling parameter (0.0-1.0)
+        reasoning_effort: Optional reasoning effort level for o-series models ("low", "medium", "high")
+        text_verbosity: Optional text verbosity level ("low", "medium", "high")
+        vector_store_id: Optional vector store ID for file search
+        max_num_results: Maximum number of file search results (1-50)
     """
-    specs = []
 
-    # Standard parameters for most OpenAI models
-    standard_params = [
-        ParameterSpec(
-            name="temperature",
-            type="float",
-            required=False,
-            min_value=0.0,
-            max_value=2.0,
-            default=1.0,
-            description="Sampling temperature (0-2). Higher values make output more random.",
-        ),
-        ParameterSpec(
-            name="max_tokens",
-            type="int",
-            required=False,
-            min_value=1,
-            max_value=128000,
-            description="Maximum number of tokens to generate.",
-        ),
-        ParameterSpec(
-            name="top_p",
-            type="float",
-            required=False,
-            min_value=0.0,
-            max_value=1.0,
-            default=1.0,
-            description="Nucleus sampling parameter.",
-        ),
-    ]
+    # Required parameters
+    model: str = Field(description="Model identifier")
+    prompt: str = Field(description="User input prompt")
 
-    # GPT-4 models
-    gpt4_models = [
-        "gpt-4",
-        "gpt-4-turbo",
-        "gpt-4-turbo-preview",
-        "gpt-4o",
-        "gpt-4o-mini",
-    ]
+    # Optional standard parameters
+    temperature: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=2.0,
+        description="Sampling temperature between 0.0 and 2.0",
+    )
+    max_tokens: int | None = Field(
+        default=None, gt=0, description="Maximum tokens to generate"
+    )
+    top_p: float | None = Field(
+        default=None, ge=0.0, le=1.0, description="Nucleus sampling parameter"
+    )
 
-    for model_name in gpt4_models:
-        specs.append(
-            ModelSpec(
-                model_name=model_name,
-                provider="openai",
-                capabilities=ModelCapabilities(
-                    supports_reasoning=False,
-                    supports_text_config=False,
-                    supports_file_search=True,
-                    supports_function_calling=True,
-                    supports_streaming=True,
-                    supports_vision=True
-                    if "4o" in model_name or "vision" in model_name
-                    else False,
-                ),
-                parameters=standard_params.copy(),
-            )
+    # Advanced OpenAI-specific parameters
+    reasoning_effort: Literal["low", "medium", "high"] | None = Field(
+        default=None, description="Reasoning effort level for o-series models"
+    )
+    text_verbosity: Literal["low", "medium", "high"] | None = Field(
+        default=None, description="Text verbosity level"
+    )
+
+    # Vector store file search
+    vector_store_id: str | None = Field(
+        default=None, description="Vector store ID for file search"
+    )
+    max_num_results: int | None = Field(
+        default=None, ge=1, le=50, description="Max file search results"
+    )
+
+    @model_validator(mode="after")
+    def validate_vector_store(self) -> "OpenAISpec":
+        """Validate vector store configuration.
+
+        Ensures that if vector_store_id is provided, it's a valid non-empty string.
+
+        Returns:
+            Self for method chaining
+
+        Raises:
+            ValueError: If vector_store_id is invalid
+        """
+        if self.vector_store_id is not None and not self.vector_store_id.strip():
+            raise ValueError("vector_store_id cannot be empty")
+        return self
+
+    def to_api_params(self) -> dict[str, Any]:
+        """Convert to OpenAI API parameters.
+
+        Transforms this spec into the format expected by OpenAI's Responses API.
+
+        Returns:
+            Dictionary of API parameters ready for openai.responses.create()
+        """
+        # Base parameters - always required
+        params: dict[str, Any] = {
+            "model": self.model,
+            "input": [{"role": "user", "content": self.prompt}],
+        }
+
+        # Add optional standard parameters
+        if self.temperature is not None:
+            params["temperature"] = self.temperature
+
+        if self.max_tokens is not None:
+            params["max_tokens"] = self.max_tokens
+
+        if self.top_p is not None:
+            params["top_p"] = self.top_p
+
+        # Add advanced OpenAI configurations
+        if self.reasoning_effort is not None:
+            params["reasoning"] = {"effort": self.reasoning_effort}
+
+        if self.text_verbosity is not None:
+            params["text"] = {"verbosity": self.text_verbosity}
+
+        # Add vector store file search if provided
+        if self.vector_store_id:
+            params["tools"] = [
+                {
+                    "type": "file_search",
+                    "vector_store_ids": [self.vector_store_id],
+                    "max_num_results": self.max_num_results or 20,
+                }
+            ]
+            params["include"] = ["file_search_call.results"]
+
+        return params
+
+    @classmethod
+    def from_llm_request(cls, request: "LLMCallRequest") -> "OpenAISpec":
+        """Create OpenAISpec from LLMCallRequest.
+
+        Convenience method to convert from the unified API request format.
+
+        Args:
+            request: Unified LLM call request
+
+        Returns:
+            OpenAISpec instance
+        """
+        model_spec = request.llm.llm_model_spec
+
+        return cls(
+            model=model_spec.model,
+            prompt=request.llm.prompt,
+            temperature=model_spec.temperature,
+            max_tokens=model_spec.max_tokens,
+            top_p=model_spec.top_p,
+            reasoning_effort=model_spec.reasoning_effort,
+            text_verbosity=model_spec.text_verbosity,
+            vector_store_id=request.llm.vector_store_id,
+            max_num_results=request.max_num_results,
         )
-
-    # GPT-3.5 models
-    gpt35_models = ["gpt-3.5-turbo", "gpt-3.5-turbo-16k"]
-
-    for model_name in gpt35_models:
-        specs.append(
-            ModelSpec(
-                model_name=model_name,
-                provider="openai",
-                capabilities=ModelCapabilities(
-                    supports_reasoning=False,
-                    supports_text_config=False,
-                    supports_file_search=True,
-                    supports_function_calling=True,
-                    supports_streaming=True,
-                    supports_vision=False,
-                ),
-                parameters=standard_params.copy(),
-            )
-        )
-
-    # O-series models (reasoning models)
-    o_series_params = standard_params.copy() + [
-        ParameterSpec(
-            name="reasoning",
-            type="str",
-            required=False,
-            allowed_values=["low", "medium", "high"],
-            description="Reasoning effort level for o-series models.",
-        ),
-        ParameterSpec(
-            name="text",
-            type="str",
-            required=False,
-            allowed_values=["low", "medium", "high"],
-            description="Text verbosity level for o-series models.",
-        ),
-    ]
-
-    o_series_models = [
-        "o1",
-        "o1-preview",
-        "o1-mini",
-        "o3",
-        "o3-mini",
-    ]
-
-    for model_name in o_series_models:
-        specs.append(
-            ModelSpec(
-                model_name=model_name,
-                provider="openai",
-                capabilities=ModelCapabilities(
-                    supports_reasoning=True,
-                    supports_text_config=True,
-                    supports_file_search=True,
-                    supports_function_calling=False,  # o-series don't support functions yet
-                    supports_streaming=True,
-                    supports_vision=False,
-                ),
-                parameters=o_series_params.copy(),
-            )
-        )
-
-    return specs
-
-
-def register_openai_specs() -> None:
-    """Register all OpenAI model specs with the global registry."""
-    specs = create_openai_specs()
-    for spec in specs:
-        model_spec_registry.register(spec)
