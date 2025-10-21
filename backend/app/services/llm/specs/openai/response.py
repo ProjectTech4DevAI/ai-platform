@@ -12,7 +12,7 @@ from sqlmodel import SQLModel
 from app.models.llm.request import LLMCallRequest
 
 
-class OpenAISpec(SQLModel):
+class OpenAIResponseSpec(SQLModel):
     """OpenAI Responses API specification with validation.
 
     This model defines all OpenAI Responses API parameters with their constraints,
@@ -83,7 +83,7 @@ class OpenAISpec(SQLModel):
     )
 
     @model_validator(mode="after")
-    def validate_vector_store(self) -> "OpenAISpec":
+    def validate_vector_store(self) -> "OpenAIResponseSpec":
         """Validate vector store configuration.
 
         Ensures that if vector_store_id is provided, it's a valid non-empty string.
@@ -170,8 +170,8 @@ class OpenAISpec(SQLModel):
         return params
 
     @classmethod
-    def from_llm_request(cls, request: LLMCallRequest) -> "OpenAISpec":
-        """Create OpenAISpec from LLMCallRequest.
+    def from_llm_request(cls, request: LLMCallRequest) -> "OpenAIResponseSpec":
+        """Create OpenAIResponseSpec from LLMCallRequest.
 
         Convenience method to convert from the unified API request format.
         Maps the provider-agnostic max_tokens to OpenAI's max_output_tokens.
@@ -180,7 +180,7 @@ class OpenAISpec(SQLModel):
             request: Unified LLM call request
 
         Returns:
-            OpenAISpec instance
+            OpenAIResponseSpec instance
         """
         model_spec = request.llm.llm_model_spec
 

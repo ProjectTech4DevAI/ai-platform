@@ -4,7 +4,7 @@ This module implements the BaseProvider interface for OpenAI models,
 including support for standard models, o-series models with reasoning,
 and file search capabilities.
 
-Uses OpenAISpec for parameter validation and API conversion.
+Uses OpenAIResponseSpec for parameter validation and API conversion.
 """
 
 import logging
@@ -16,7 +16,7 @@ from pydantic import ValidationError
 
 from app.models.llm import LLMCallRequest, LLMCallResponse
 from app.services.llm.providers.base import BaseProvider
-from app.services.llm.specs import OpenAISpec
+from app.services.llm.specs import OpenAIResponseSpec
 from app.utils import handle_openai_error
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ class OpenAIProvider(BaseProvider):
     - Text configuration for verbosity control
     - Vector store file search integration
 
-    Uses OpenAISpec for parameter validation and conversion.
+    Uses OpenAIResponseSpec for parameter validation and conversion.
     """
 
     def __init__(self, client: OpenAI):
@@ -77,7 +77,10 @@ class OpenAIProvider(BaseProvider):
                         first_content = item.content[0]
                         if hasattr(first_content, "text"):
                             return first_content.text
-                        elif hasattr(first_content, "type") and first_content.type == "text":
+                        elif (
+                            hasattr(first_content, "type")
+                            and first_content.type == "text"
+                        ):
                             return getattr(first_content, "text", "")
                 return ""
 
@@ -91,7 +94,7 @@ class OpenAIProvider(BaseProvider):
     ) -> tuple[LLMCallResponse | None, str | None]:
         """Execute OpenAI API call.
 
-        Uses OpenAISpec to validate and convert the request to OpenAI format.
+        Uses OpenAIResponseSpec to validate and convert the request to OpenAI format.
 
         Args:
             request: LLM call request with configuration
@@ -106,7 +109,7 @@ class OpenAIProvider(BaseProvider):
 
         try:
             # Create and validate OpenAI spec from request
-            spec = OpenAISpec.from_llm_request(request)
+            spec = OpenAIResponseSpec.from_llm_request(request)
 
             # Convert to API parameters (validation happens during spec creation)
             params = spec.to_api_params()

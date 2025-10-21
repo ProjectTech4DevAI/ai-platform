@@ -1,3 +1,3 @@
-from .openai import OpenAISpec
+from .openai.response import OpenAIResponseSpec
 
-__all__ = ["OpenAISpec"]
+__all__ = ["OpenAIResponseSpec"]
