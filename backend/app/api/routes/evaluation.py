@@ -1,16 +1,16 @@
 import logging
 
-from fastapi import APIRouter, Body, Depends, UploadFile, File, Form
+from fastapi import APIRouter, Body, Depends, File, Form, UploadFile
 from sqlmodel import Session, select
 
 from app.api.deps import get_current_user_org_project, get_db
 from app.core.util import configure_langfuse, configure_openai, now
+from app.crud.assistants import get_assistant_by_id
 from app.crud.credentials import get_provider_credential
 from app.crud.evaluation import upload_dataset_to_langfuse
 from app.crud.evaluation_batch import start_evaluation_batch
 from app.crud.evaluation_processing import poll_all_pending_evaluations
-from app.crud.assistants import get_assistant_by_id
-from app.models import UserProjectOrg, EvaluationRun
+from app.models import EvaluationRun, UserProjectOrg
 from app.models.evaluation import (
     DatasetUploadResponse,
     EvaluationRunPublic,
@@ -90,9 +90,9 @@ async def evaluate_threads(
     This endpoint:
     1. Creates an EvaluationRun record in the database
     2. Fetches dataset items from Langfuse
-    3. Builds JSONL for OpenAI Batch API (using provided config)
-    4. Uploads to OpenAI and creates batch job
-    5. Returns the evaluation run details with batch_id
+    3. Builds JSONL for batch processing (using provided config)
+    4. Creates a batch job via the generic batch infrastructure
+    5. Returns the evaluation run details with batch_job_id
 
     The batch will be processed asynchronously by Celery Beat (every 60s).
     Use GET /evaluate/batch/{run_id}/status to check progress.
@@ -181,7 +181,7 @@ async def evaluate_threads(
                     db_config[key] = config[key]
 
             config = db_config
-            logger.info(f"Using merged config from DB and provided values")
+            logger.info("Using merged config from DB and provided values")
         else:
             logger.warning(
                 f"Assistant {assistant_id} not found in DB, using provided config"
@@ -227,7 +227,7 @@ async def evaluate_threads(
 
         logger.info(
             f"Evaluation started successfully: "
-            f"batch_id={eval_run.batch_id}, total_items={eval_run.total_items}"
+            f"batch_job_id={eval_run.batch_job_id}, total_items={eval_run.total_items}"
         )
 
         return eval_run
@@ -290,7 +290,7 @@ async def get_evaluation_run_status(
         run_id: ID of the evaluation run
 
     Returns:
-        EvaluationRunPublic with current status, batch_status, and results if completed
+        EvaluationRunPublic with current status and results if completed
     """
     logger.info(
         f"Fetching status for evaluation run {run_id} "
@@ -313,7 +313,7 @@ async def get_evaluation_run_status(
 
     logger.info(
         f"Found evaluation run {run_id}: status={eval_run.status}, "
-        f"batch_status={eval_run.batch_status}"
+        f"batch_job_id={eval_run.batch_job_id}"
     )
 
     return eval_run

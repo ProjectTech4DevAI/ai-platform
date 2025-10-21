@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any
 
 from pydantic import BaseModel, Field
 from sqlalchemy import Column, Text, JSON
@@ -59,16 +59,29 @@ class Experiment(BaseModel):
 # Database Models
 
 
-class EvaluationRunBase(SQLModel):
-    """Base model for evaluation runs."""
+class EvaluationRun(SQLModel, table=True):
+    """Database table for evaluation runs."""
+
+    __tablename__ = "evaluation_run"
+
+    id: int = SQLField(default=None, primary_key=True)
 
     # Input fields (provided by user)
     run_name: str = SQLField(index=True, description="Name of the evaluation run")
     dataset_name: str = SQLField(description="Name of the Langfuse dataset")
-    config: dict = SQLField(
-        default={},
-        sa_column=Column(JSON, nullable=False),
-        description="Evaluation configuration (LLM settings, instructions, vector stores)",
+
+    # Config field - dict requires sa_column
+    config: dict[str, Any] = SQLField(
+        default_factory=dict,
+        sa_column=Column(JSON),
+        description="Evaluation configuration",
+    )
+
+    # Batch job reference
+    batch_job_id: Optional[int] = SQLField(
+        default=None,
+        foreign_key="batch_job.id",
+        description="Reference to the batch_job that processes this evaluation",
     )
 
     # Output/Status fields (updated by system during processing)
@@ -76,37 +89,29 @@ class EvaluationRunBase(SQLModel):
         default="pending",
         description="Overall evaluation status: pending, processing, completed, failed",
     )
-    batch_status: Optional[str] = SQLField(
-        default=None,
-        description="OpenAI Batch API status: validating, in_progress, finalizing, completed, failed, expired, cancelling, cancelled (for polling)",
-    )
-    batch_id: Optional[str] = SQLField(
-        default=None, description="OpenAI Batch API batch ID (set during processing)"
-    )
-    batch_file_id: Optional[str] = SQLField(
-        default=None,
-        description="OpenAI file ID for batch input (set during processing)",
-    )
-    batch_output_file_id: Optional[str] = SQLField(
-        default=None,
-        description="OpenAI file ID for batch output (set after completion)",
-    )
     s3_url: Optional[str] = SQLField(
-        default=None, description="S3 URL of OpenAI output file for future reference"
+        default=None,
+        description="S3 URL of processed evaluation results for future reference",
     )
     total_items: int = SQLField(
         default=0, description="Total number of items evaluated (set during processing)"
     )
-    score: Optional[dict] = SQLField(
+
+    # Score field - dict requires sa_column
+    score: Optional[dict[str, Any]] = SQLField(
         default=None,
         sa_column=Column(JSON, nullable=True),
-        description="Evaluation scores (e.g., correctness, cosine_similarity, etc.) (set after completion)",
+        description="Evaluation scores (e.g., correctness, cosine_similarity, etc.)",
     )
+
+    # Error message field
     error_message: Optional[str] = SQLField(
         default=None,
         sa_column=Column(Text, nullable=True),
         description="Error message if failed",
     )
+
+    # Foreign keys
     organization_id: int = SQLField(
         foreign_key="organization.id", nullable=False, ondelete="CASCADE"
     )
@@ -114,19 +119,14 @@ class EvaluationRunBase(SQLModel):
         foreign_key="project.id", nullable=False, ondelete="CASCADE"
     )
 
-
-class EvaluationRun(EvaluationRunBase, table=True):
-    """Database table for evaluation runs."""
-
-    __tablename__ = "evaluation_run"
-
-    id: int = SQLField(default=None, primary_key=True)
+    # Timestamps
     inserted_at: datetime = SQLField(default_factory=now, nullable=False)
     updated_at: datetime = SQLField(default_factory=now, nullable=False)
 
     # Relationships
     project: "Project" = Relationship(back_populates="evaluation_runs")
     organization: "Organization" = Relationship(back_populates="evaluation_runs")
+    batch_job: Optional["BatchJob"] = Relationship()  # noqa: F821
 
 
 class EvaluationRunCreate(SQLModel):
@@ -134,14 +134,26 @@ class EvaluationRunCreate(SQLModel):
 
     run_name: str = Field(description="Name of the evaluation run", min_length=3)
     dataset_name: str = Field(description="Name of the Langfuse dataset", min_length=1)
-    config: dict = Field(
-        description="Evaluation configuration (flexible dict with llm, instructions, vector_store_ids, etc.)"
+    config: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Evaluation configuration (flexible dict with llm, instructions, vector_store_ids, etc.)",
     )
 
 
-class EvaluationRunPublic(EvaluationRunBase):
+class EvaluationRunPublic(SQLModel):
     """Public model for evaluation runs."""
 
     id: int
+    run_name: str
+    dataset_name: str
+    config: dict[str, Any]
+    batch_job_id: Optional[int]
+    status: str
+    s3_url: Optional[str]
+    total_items: int
+    score: Optional[dict[str, Any]]
+    error_message: Optional[str]
+    organization_id: int
+    project_id: int
     inserted_at: datetime
     updated_at: datetime

@@ -11,6 +11,8 @@ if TYPE_CHECKING:
     from .assistants import Assistant
     from .collection import Collection
     from .openai_conversation import OpenAIConversation
+    from .batch_job import BatchJob
+    from .evaluation import EvaluationRun
 
 
 # Shared properties for an Organization
@@ -56,6 +58,9 @@ class Organization(OrganizationBase, table=True):
         back_populates="organization", cascade_delete=True
     )
     evaluation_runs: list["EvaluationRun"] = Relationship(
+        back_populates="organization", cascade_delete=True
+    )
+    batch_jobs: list["BatchJob"] = Relationship(
         back_populates="organization", cascade_delete=True
     )
 

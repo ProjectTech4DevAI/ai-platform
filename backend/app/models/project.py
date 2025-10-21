@@ -61,6 +61,9 @@ class Project(ProjectBase, table=True):
     evaluation_runs: list["EvaluationRun"] = Relationship(
         back_populates="project", cascade_delete=True
     )
+    batch_jobs: list["BatchJob"] = Relationship(
+        back_populates="project", cascade_delete=True
+    )
 
 
 # Properties to return via API

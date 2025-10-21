@@ -1,60 +1,169 @@
 """
 Evaluation batch processing orchestrator.
 
-This module coordinates the complete evaluation workflow:
-1. Polling batch status from OpenAI
-2. Downloading and parsing completed batch results
-3. Uploading results to S3
-4. Creating Langfuse dataset runs with traces
-5. Updating database with final status
+This module coordinates the evaluation-specific workflow:
+1. Monitoring batch_job status for evaluations
+2. Parsing evaluation results from batch output
+3. Creating Langfuse dataset runs with traces
+4. Updating evaluation_run with final status and scores
 """
 
+import ast
+import json
 import logging
+from collections import defaultdict
 from typing import Any
 
 from langfuse import Langfuse
 from openai import OpenAI
-from sqlmodel import Session
+from sqlmodel import Session, select
 
+from app.core.batch.openai_provider import OpenAIBatchProvider
 from app.core.util import configure_langfuse, configure_openai, now
+from app.crud.batch_job import get_batch_job
+from app.crud.batch_operations import download_batch_results
 from app.crud.credentials import get_provider_credential
-from app.crud.evaluation_batch import (
-    download_batch_output,
-    fetch_dataset_items,
-    get_pending_evaluations,
-    parse_batch_output,
-    poll_batch_status,
-    upload_results_to_s3,
-)
+from app.crud.evaluation_batch import fetch_dataset_items
 from app.crud.evaluation_langfuse import create_langfuse_dataset_run
 from app.models import EvaluationRun
 
 logger = logging.getLogger(__name__)
 
 
-async def process_completed_batch(
+def parse_evaluation_output(
+    raw_results: list[dict[str, Any]], dataset_items: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """
+    Parse batch output into evaluation results.
+
+    This function extracts the generated output from the batch results
+    and matches it with the ground truth from the dataset.
+
+    Args:
+        raw_results: Raw results from batch provider (list of JSONL lines)
+        dataset_items: Original dataset items (for matching ground truth)
+
+    Returns:
+        List of results in format:
+        [
+            {
+                "item_id": "item_123",
+                "question": "What is 2+2?",
+                "generated_output": "4",
+                "ground_truth": "4"
+            },
+            ...
+        ]
+    """
+    logger.info("Parsing evaluation results")
+
+    # Create lookup map for dataset items by ID
+    dataset_map = {item["id"]: item for item in dataset_items}
+
+    results = []
+
+    for line_num, response in enumerate(raw_results, 1):
+        try:
+            # Extract custom_id (which is our dataset item ID)
+            item_id = response.get("custom_id")
+            if not item_id:
+                logger.warning(f"Line {line_num}: No custom_id found, skipping")
+                continue
+
+            # Get original dataset item
+            dataset_item = dataset_map.get(item_id)
+            if not dataset_item:
+                logger.warning(f"Line {line_num}: No dataset item found for {item_id}")
+                continue
+
+            # Extract the response body
+            response_body = response.get("response", {}).get("body", {})
+
+            # Handle errors in batch processing
+            if response.get("error"):
+                error_msg = response["error"].get("message", "Unknown error")
+                logger.error(f"Item {item_id} had error: {error_msg}")
+                generated_output = f"ERROR: {error_msg}"
+            else:
+                # Extract text from output (can be string, list, or complex structure)
+                output = response_body.get("output", "")
+
+                # If string, try to parse it (may be JSON or Python repr of list)
+                if isinstance(output, str):
+                    try:
+                        output = json.loads(output)
+                    except (json.JSONDecodeError, ValueError):
+                        try:
+                            output = ast.literal_eval(output)
+                        except (ValueError, SyntaxError):
+                            # Keep as string if parsing fails
+                            generated_output = output
+                            output = None
+
+                # If we have a list structure, extract text from message items
+                if isinstance(output, list):
+                    generated_output = ""
+                    for item in output:
+                        if isinstance(item, dict) and item.get("type") == "message":
+                            for content in item.get("content", []):
+                                if (
+                                    isinstance(content, dict)
+                                    and content.get("type") == "output_text"
+                                ):
+                                    generated_output = content.get("text", "")
+                                    break
+                            if generated_output:
+                                break
+                elif output is not None:
+                    # output was not a string and not a list
+                    generated_output = ""
+                    logger.warning(
+                        f"Item {item_id}: Unexpected output type: {type(output)}"
+                    )
+
+            # Extract question and ground truth from dataset item
+            question = dataset_item["input"].get("question", "")
+            ground_truth = dataset_item["expected_output"].get("answer", "")
+
+            results.append(
+                {
+                    "item_id": item_id,
+                    "question": question,
+                    "generated_output": generated_output,
+                    "ground_truth": ground_truth,
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"Line {line_num}: Unexpected error: {e}")
+            continue
+
+    logger.info(
+        f"Parsed {len(results)} evaluation results from {len(raw_results)} output lines"
+    )
+    return results
+
+
+async def process_completed_evaluation(
     eval_run: EvaluationRun,
     session: Session,
     openai_client: OpenAI,
     langfuse: Langfuse,
-    output_file_id: str,
 ) -> EvaluationRun:
     """
-    Process a completed batch evaluation.
+    Process a completed evaluation batch.
 
     This function:
-    1. Downloads batch output from OpenAI
+    1. Downloads batch output from provider
     2. Parses results into question/output/ground_truth format
-    3. Uploads results to S3
-    4. Creates Langfuse dataset run with traces
-    5. Updates database with completion status
+    3. Creates Langfuse dataset run with traces
+    4. Updates evaluation_run with completion status
 
     Args:
         eval_run: EvaluationRun database object
         session: Database session
         openai_client: Configured OpenAI client
         langfuse: Configured Langfuse client
-        output_file_id: OpenAI file ID for batch output
 
     Returns:
         Updated EvaluationRun object
@@ -62,59 +171,41 @@ async def process_completed_batch(
     Raises:
         Exception: If processing fails
     """
-    logger.info(f"Processing completed batch for evaluation run {eval_run.id}")
+    logger.info(f"Processing completed evaluation for run {eval_run.id}")
 
     try:
-        # Step 1: Download batch output from OpenAI
-        logger.info(f"Step 1: Downloading batch output file: {output_file_id}")
-        jsonl_content = download_batch_output(
-            client=openai_client, output_file_id=output_file_id
-        )
+        # Step 1: Get batch_job
+        if not eval_run.batch_job_id:
+            raise ValueError(f"EvaluationRun {eval_run.id} has no batch_job_id")
 
-        # Step 2: Fetch dataset items (needed for matching ground truth)
+        batch_job = get_batch_job(session=session, batch_job_id=eval_run.batch_job_id)
+        if not batch_job:
+            raise ValueError(
+                f"BatchJob {eval_run.batch_job_id} not found for evaluation {eval_run.id}"
+            )
+
+        # Step 2: Create provider and download results
+        logger.info(f"Step 1: Downloading batch results for batch_job {batch_job.id}")
+        provider = OpenAIBatchProvider(client=openai_client)
+        raw_results = download_batch_results(provider=provider, batch_job=batch_job)
+
+        # Step 3: Fetch dataset items (needed for matching ground truth)
         logger.info(f"Step 2: Fetching dataset items for '{eval_run.dataset_name}'")
         dataset_items = fetch_dataset_items(
             langfuse=langfuse, dataset_name=eval_run.dataset_name
         )
 
-        # Step 3: Parse batch output into structured results
-        logger.info("Step 3: Parsing batch output")
-        results = parse_batch_output(
-            jsonl_content=jsonl_content, dataset_items=dataset_items
+        # Step 4: Parse evaluation results
+        logger.info("Step 3: Parsing evaluation results")
+        results = parse_evaluation_output(
+            raw_results=raw_results, dataset_items=dataset_items
         )
 
         if not results:
             raise ValueError("No valid results found in batch output")
 
-        # Step 4: Upload results to S3 (optional - skip if AWS credentials not configured)
-        s3_url = None
-        try:
-            logger.info("Step 4: Uploading results to S3")
-            s3_url = upload_results_to_s3(
-                jsonl_content=jsonl_content,
-                eval_run=eval_run,
-                project_id=eval_run.project_id,
-            )
-            logger.info(f"Successfully uploaded to S3: {s3_url}")
-        except Exception as s3_error:
-            # S3 upload is optional - log warning but continue processing
-            logger.warning(
-                f"S3 upload failed (AWS credentials may not be configured): {s3_error}. "
-                f"Continuing without S3 storage. Results will be available in Langfuse.",
-                exc_info=True,
-            )
-
-        # Step 5: Update DB with output file ID and S3 URL (if available)
-        logger.info("Step 5: Updating database with output file ID and S3 URL")
-        eval_run.batch_output_file_id = output_file_id
-        eval_run.s3_url = s3_url  # Will be None if S3 upload failed
-        eval_run.updated_at = now()
-        session.add(eval_run)
-        session.commit()
-        session.refresh(eval_run)
-
-        # Step 6: Create Langfuse dataset run with traces
-        logger.info("Step 6: Creating Langfuse dataset run with traces")
+        # Step 5: Create Langfuse dataset run with traces
+        logger.info("Step 4: Creating Langfuse dataset run with traces")
         create_langfuse_dataset_run(
             langfuse=langfuse,
             dataset_name=eval_run.dataset_name,
@@ -122,28 +213,29 @@ async def process_completed_batch(
             results=results,
         )
 
-        # Step 7: Mark as completed
-        logger.info("Step 7: Marking evaluation as completed")
+        # Step 6: Mark evaluation as completed
+        logger.info("Step 5: Marking evaluation as completed")
         eval_run.status = "completed"
         eval_run.updated_at = now()
+
+        # Copy S3 URL from batch_job if available
+        if batch_job.raw_output_url:
+            eval_run.s3_url = batch_job.raw_output_url
+
         session.add(eval_run)
         session.commit()
         session.refresh(eval_run)
 
-        s3_info = (
-            f"S3 URL: {s3_url}" if s3_url else "S3 upload skipped (AWS not configured)"
-        )
         logger.info(
             f"Successfully completed processing for evaluation run {eval_run.id}: "
-            f"{len(results)} items processed, {s3_info}"
+            f"{len(results)} items processed"
         )
 
         return eval_run
 
     except Exception as e:
-        # This catches any errors from steps 1-3 or 5-7 (but NOT S3 upload which is caught above)
         logger.error(
-            f"Failed to process completed batch for run {eval_run.id}: {e}",
+            f"Failed to process completed evaluation for run {eval_run.id}: {e}",
             exc_info=True,
         )
         # Mark as failed
@@ -156,14 +248,17 @@ async def process_completed_batch(
         return eval_run
 
 
-async def check_and_process_batch(
+async def check_and_process_evaluation(
     eval_run: EvaluationRun,
     session: Session,
     openai_client: OpenAI,
     langfuse: Langfuse,
 ) -> dict[str, Any]:
     """
-    Check batch status and process if completed.
+    Check evaluation batch status and process if completed.
+
+    This function checks the batch_job status and triggers evaluation-specific
+    processing when the batch is completed.
 
     Args:
         eval_run: EvaluationRun database object
@@ -182,64 +277,44 @@ async def check_and_process_batch(
             "action": "processed" | "updated" | "failed" | "no_change"
         }
     """
-    logger.info(
-        f"Checking batch status for evaluation run {eval_run.id} (batch_id={eval_run.batch_id})"
-    )
+    logger.info(f"Checking evaluation run {eval_run.id}")
 
     previous_status = eval_run.status
-    previous_batch_status = eval_run.batch_status
 
     try:
-        # Poll batch status from OpenAI
-        batch_status_info = poll_batch_status(
-            client=openai_client, batch_id=eval_run.batch_id
-        )
+        # Get batch_job
+        if not eval_run.batch_job_id:
+            raise ValueError(f"EvaluationRun {eval_run.id} has no batch_job_id")
 
-        new_batch_status = batch_status_info["status"]
-        output_file_id = batch_status_info.get("output_file_id")
-
-        # Update batch status in DB
-        if new_batch_status != previous_batch_status:
-            eval_run.batch_status = new_batch_status
-            eval_run.updated_at = now()
-            session.add(eval_run)
-            session.commit()
-            session.refresh(eval_run)
-            logger.info(
-                f"Updated batch_status for run {eval_run.id}: "
-                f"{previous_batch_status} -> {new_batch_status}"
+        batch_job = get_batch_job(session=session, batch_job_id=eval_run.batch_job_id)
+        if not batch_job:
+            raise ValueError(
+                f"BatchJob {eval_run.batch_job_id} not found for evaluation {eval_run.id}"
             )
 
-        # Handle different batch statuses
-        if new_batch_status == "completed":
-            if not output_file_id:
-                # Sometimes OpenAI returns None for output_file_id even when batch is completed
-                # This is a timing issue. Skip processing for now and let the next poll cycle handle it.
-                logger.warning(
-                    f"Batch {eval_run.batch_id} is completed but output_file_id is None. "
-                    f"This is likely a timing issue. Skipping for now - will retry in next poll cycle. "
-                    f"Request counts: {batch_status_info.get('request_counts')}"
-                )
+        # IMPORTANT: Poll OpenAI to get the latest status before checking
+        logger.info(f"Polling OpenAI for batch status: {batch_job.provider_batch_id}")
+        provider = OpenAIBatchProvider(client=openai_client)
+        from app.crud.batch_operations import poll_batch_status
 
-                return {
-                    "run_id": eval_run.id,
-                    "run_name": eval_run.run_name,
-                    "previous_status": previous_status,
-                    "current_status": eval_run.status,
-                    "batch_status": new_batch_status,
-                    "action": "no_change",
-                    "note": "Batch completed but output_file_id not yet available, will retry next poll",
-                }
+        poll_batch_status(session=session, provider=provider, batch_job=batch_job)
 
-            logger.info(f"Batch {eval_run.batch_id} completed, processing results...")
+        # Refresh batch_job to get the updated provider_status
+        session.refresh(batch_job)
+        provider_status = batch_job.provider_status
 
-            # Process the completed batch
-            await process_completed_batch(
+        # Handle different provider statuses
+        if provider_status == "completed":
+            # Process the completed evaluation
+            logger.info(
+                f"Batch {batch_job.provider_batch_id} completed, processing evaluation results..."
+            )
+
+            await process_completed_evaluation(
                 eval_run=eval_run,
                 session=session,
                 openai_client=openai_client,
                 langfuse=langfuse,
-                output_file_id=output_file_id,
             )
 
             return {
@@ -247,15 +322,13 @@ async def check_and_process_batch(
                 "run_name": eval_run.run_name,
                 "previous_status": previous_status,
                 "current_status": eval_run.status,
-                "batch_status": new_batch_status,
+                "provider_status": provider_status,
                 "action": "processed",
             }
 
-        elif new_batch_status in ["failed", "expired", "cancelled"]:
-            # Mark as failed
-            error_msg = f"Batch {new_batch_status}"
-            if batch_status_info.get("error_file_id"):
-                error_msg += f" (error_file_id: {batch_status_info['error_file_id']})"
+        elif provider_status in ["failed", "expired", "cancelled"]:
+            # Mark evaluation as failed based on provider status
+            error_msg = batch_job.error_message or f"Provider batch {provider_status}"
 
             eval_run.status = "failed"
             eval_run.error_message = error_msg
@@ -264,14 +337,14 @@ async def check_and_process_batch(
             session.commit()
             session.refresh(eval_run)
 
-            logger.error(f"Batch {eval_run.batch_id} failed: {error_msg}")
+            logger.error(f"Batch {batch_job.provider_batch_id} failed: {error_msg}")
 
             return {
                 "run_id": eval_run.id,
                 "run_name": eval_run.run_name,
                 "previous_status": previous_status,
                 "current_status": "failed",
-                "batch_status": new_batch_status,
+                "provider_status": provider_status,
                 "action": "failed",
                 "error": error_msg,
             }
@@ -279,7 +352,7 @@ async def check_and_process_batch(
         else:
             # Still in progress (validating, in_progress, finalizing)
             logger.info(
-                f"Batch {eval_run.batch_id} still processing (status={new_batch_status})"
+                f"Batch {batch_job.provider_batch_id} still processing (provider_status={provider_status})"
             )
 
             return {
@@ -287,20 +360,16 @@ async def check_and_process_batch(
                 "run_name": eval_run.run_name,
                 "previous_status": previous_status,
                 "current_status": eval_run.status,
-                "batch_status": new_batch_status,
-                "action": "updated"
-                if new_batch_status != previous_batch_status
-                else "no_change",
+                "provider_status": provider_status,
+                "action": "no_change",
             }
 
     except Exception as e:
-        logger.error(
-            f"Error checking batch status for run {eval_run.id}: {e}", exc_info=True
-        )
+        logger.error(f"Error checking evaluation run {eval_run.id}: {e}", exc_info=True)
 
         # Mark as failed
         eval_run.status = "failed"
-        eval_run.error_message = f"Polling failed: {str(e)}"
+        eval_run.error_message = f"Checking failed: {str(e)}"
         eval_run.updated_at = now()
         session.add(eval_run)
         session.commit()
@@ -310,7 +379,7 @@ async def check_and_process_batch(
             "run_name": eval_run.run_name,
             "previous_status": previous_status,
             "current_status": "failed",
-            "batch_status": eval_run.batch_status,
+            "provider_status": "unknown",
             "action": "failed",
             "error": str(e),
         }
@@ -336,11 +405,12 @@ async def poll_all_pending_evaluations(session: Session, org_id: int) -> dict[st
     """
     logger.info(f"Polling all pending evaluations for org_id={org_id}")
 
-    # Get pending evaluations
-    pending_runs = get_pending_evaluations(session=session)
-
-    # Filter by org_id
-    pending_runs = [run for run in pending_runs if run.organization_id == org_id]
+    # Get pending evaluations (status = "processing")
+    statement = select(EvaluationRun).where(
+        EvaluationRun.status == "processing",
+        EvaluationRun.organization_id == org_id,
+    )
+    pending_runs = session.exec(statement).all()
 
     if not pending_runs:
         logger.info(f"No pending evaluations found for org_id={org_id}")
@@ -355,8 +425,6 @@ async def poll_all_pending_evaluations(session: Session, org_id: int) -> dict[st
     logger.info(f"Found {len(pending_runs)} pending evaluations for org_id={org_id}")
 
     # Group evaluations by project_id since credentials are per project
-    from collections import defaultdict
-
     evaluations_by_project = defaultdict(list)
     for run in pending_runs:
         evaluations_by_project[run.project_id].append(run)
@@ -429,7 +497,7 @@ async def poll_all_pending_evaluations(session: Session, org_id: int) -> dict[st
             # Process each evaluation in this project
             for eval_run in project_runs:
                 try:
-                    result = await check_and_process_batch(
+                    result = await check_and_process_evaluation(
                         eval_run=eval_run,
                         session=session,
                         openai_client=openai_client,
