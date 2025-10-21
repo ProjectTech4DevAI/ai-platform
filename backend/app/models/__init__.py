@@ -53,7 +53,6 @@ from .llm import (
     LLMCallResponse,
     LLMConfig,
     LLMModelSpec,
-    ProviderType,
 )
 
 from .message import Message

@@ -43,6 +43,49 @@ class OpenAIProvider(BaseProvider):
         super().__init__(client)
         self.client = client
 
+    def _extract_message_from_output(self, output: list) -> str:
+        """Extract message text from response.output array.
+
+        The Responses API returns output as a list that can contain various types:
+        - ResponseOutputMessage: Contains the assistant's text message
+        - ResponseFileSearchToolCall: File search results
+        - ResponseFunctionToolCall: Function call results
+        - ResponseReasoningItem: Reasoning traces
+        - etc.
+
+        Args:
+            output: List of output items from the response
+
+        Returns:
+            The extracted message text, or empty string if no message found
+
+        Raises:
+            ValueError: If output format is unexpected
+        """
+        if not output:
+            logger.warning("[OpenAIProvider] Empty output array in response")
+            return ""
+
+        # Find the first ResponseOutputMessage in the output
+        for item in output:
+            # Check if it's a message type (has 'role' and 'content' attributes)
+            if hasattr(item, "type") and item.type == "message":
+                if hasattr(item, "content"):
+                    # Content is a list of content items
+                    if isinstance(item.content, list) and len(item.content) > 0:
+                        # Get the first text content
+                        first_content = item.content[0]
+                        if hasattr(first_content, "text"):
+                            return first_content.text
+                        elif hasattr(first_content, "type") and first_content.type == "text":
+                            return getattr(first_content, "text", "")
+                return ""
+
+        logger.warning(
+            f"[OpenAIProvider] No message found in output array with {len(output)} items"
+        )
+        return ""
+
     def execute(
         self, request: LLMCallRequest
     ) -> tuple[LLMCallResponse | None, str | None]:
@@ -71,11 +114,15 @@ class OpenAIProvider(BaseProvider):
             logger.info(f"[OpenAIProvider] Making OpenAI call with model: {spec.model}")
             response = self.client.responses.create(**params)
 
+            # Extract message text from response.output array
+            # The output is a list that can contain various item types
+            message_text = self._extract_message_from_output(response.output)
+
             # Build response
             llm_response = LLMCallResponse(
                 status="success",
                 response_id=response.id,
-                message=response.output_text,
+                message=message_text,
                 model=response.model,
                 input_tokens=response.usage.input_tokens,
                 output_tokens=response.usage.output_tokens,

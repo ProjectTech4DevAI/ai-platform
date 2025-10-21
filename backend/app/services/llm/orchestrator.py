@@ -21,11 +21,7 @@ def execute_llm_call(
     """Execute LLM call using the appropriate provider.
 
     This is the main orchestration function that routes requests to
-    provider-specific implementations. It uses the provider factory
-    to instantiate the correct provider based on the request configuration.
-
-    The function is designed to be provider-agnostic, supporting multiple
-    LLM providers (OpenAI, Anthropic, Google, etc.) through a unified interface.
+    provider-specific implementations.
 
     Args:
         request: LLM call request with configuration (includes provider type)
@@ -35,16 +31,6 @@ def execute_llm_call(
         Tuple of (response, error_message)
         - If successful: (LLMCallResponse, None)
         - If failed: (None, error_message)
-
-    Example:
-        >>> request = LLMCallRequest(
-        ...     llm=LLMConfig(
-        ...         provider="openai",
-        ...         prompt="Hello, world!",
-        ...         llm_model_spec=LLMModelSpec(model="gpt-4")
-        ...     )
-        ... )
-        >>> response, error = execute_llm_call(request, openai_client)
     """
     provider_type = request.llm.llm_model_spec.provider
 

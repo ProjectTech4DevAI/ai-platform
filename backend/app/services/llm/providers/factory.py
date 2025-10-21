@@ -7,7 +7,6 @@ LLM provider based on the provider type specified in the request.
 import logging
 from typing import Any
 
-from app.models.llm import ProviderType
 from app.services.llm.providers.base import BaseProvider
 from app.services.llm.providers.openai import OpenAIProvider
 
@@ -33,7 +32,7 @@ class ProviderFactory:
     }
 
     @classmethod
-    def create_provider(cls, provider_type: ProviderType, client: Any) -> BaseProvider:
+    def create_provider(cls, provider_type: str, client: Any) -> BaseProvider:
         """Create a provider instance based on the provider type.
 
         Args:
