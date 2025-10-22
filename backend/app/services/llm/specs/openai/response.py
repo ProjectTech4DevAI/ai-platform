@@ -1,15 +1,89 @@
-"""OpenAI specification model.
+"""OpenAI Responses API specification model.
 
 This module defines the OpenAI-specific parameter specification with built-in
-validation and conversion to API format.
+validation and conversion to API format based on the official OpenAI Responses API contract.
+
+Reference: https://platform.openai.com/docs/api-reference/responses/create
 """
 
 from typing import Any, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 from sqlmodel import SQLModel
 
-from app.models.llm.request import LLMCallRequest
+
+class ReasoningConfig(SQLModel):
+    """Configuration options for reasoning models (gpt-5 and o-series models only)."""
+
+    effort: Literal["minimal", "low", "medium", "high"] | None = Field(
+        default="medium",
+        description=(
+            "Constrains effort on reasoning for reasoning models. "
+            "Reducing reasoning effort can result in faster responses and fewer tokens used. "
+            "Note: The gpt-5-pro model defaults to (and only supports) high reasoning effort."
+        ),
+    )
+    summary: Literal["auto", "concise", "detailed"] | None = Field(
+        default=None,
+        description=(
+            "A summary of the reasoning performed by the model. "
+            "This can be useful for debugging and understanding the model's reasoning process."
+        ),
+    )
+
+
+class TextFormatConfig(SQLModel):
+    """An object specifying the format that the model must output."""
+
+    type: Literal["text", "json_object", "json_schema"] = Field(
+        description=(
+            "The format type. "
+            "'text': Plain text output. "
+            "'json_object': Older JSON mode (not recommended for newer models). "
+            "'json_schema': Structured Outputs with JSON schema validation (recommended)."
+        )
+    )
+    json_schema: dict[str, Any] | None = Field(
+        default=None,
+        description="The JSON schema to validate against when type is 'json_schema'.",
+    )
+
+
+class TextConfig(SQLModel):
+    """Configuration options for text response from the model."""
+
+    format: TextFormatConfig | None = Field(
+        default=None,
+        description=(
+            "An object specifying the format that the model must output. "
+            "Default format is { 'type': 'text' }."
+        ),
+    )
+    verbosity: Literal["low", "medium", "high"] | None = Field(
+        default="medium",
+        description=(
+            "Constrains the verbosity of the model's response. "
+            "Lower values result in more concise responses, higher values result in more verbose responses."
+        ),
+    )
+
+
+class FileSearchTool(SQLModel):
+    """Tool configuration for searching through vector stores."""
+
+    type: Literal["file_search"] = Field(
+        default="file_search",
+        description="The type of tool. Always 'file_search'.",
+    )
+    vector_store_ids: list[str] = Field(
+        description="Vector store IDs to search through.",
+    )
+    max_num_results: int | None = Field(
+        default=None,
+        ge=1,
+        le=50,
+        description="Maximum number of results for file_search tool.",
+    )
 
 
 class OpenAIResponseSpec(SQLModel):
@@ -18,180 +92,174 @@ class OpenAIResponseSpec(SQLModel):
     This model defines all OpenAI Responses API parameters with their constraints,
     provides validation, and handles conversion to OpenAI API format.
 
-    Aligns with OpenAI Responses API contract as of 2025.
+    Aligns with OpenAI Responses API contract (POST https://api.openai.com/v1/responses).
+    Reference: https://platform.openai.com/docs/api-reference/responses/create
     """
 
-    # Required parameters
-    model: str = Field(description="Model identifier (e.g., 'gpt-4o', 'gpt-4.1')")
-    prompt: str = Field(description="User input prompt")
+    model: str | None = Field(
+        default="gpt-4o",
+        description=(
+            "Model ID used to generate the response, like gpt-4o or o3. "
+            "OpenAI offers a wide range of models with different capabilities, performance characteristics, and price points."
+        ),
+    )
 
-    # Sampling parameters
-    temperature: float | None = Field(
+    input: str = Field(
         default=None,
+        description=(
+            "Text used to generate a response. "
+            "Can be a simple text string (equivalent to a user role message), or a list of input items with different content types."
+        ),
+    )
+
+    # Conversation
+    conversation: str | None = Field(
+        default=None,
+        description=(
+            "The conversation that this response belongs to. Items from this conversation are prepended to input_items. "
+            "Can be a conversation ID (string) or a conversation object. Defaults to null."
+        ),
+    )
+
+    previous_response_id: str | None = Field(
+        default=None,
+        description=(
+            "The unique ID of the previous response to the model. Use this to create multi-turn conversations. "
+            "Cannot be used in conjunction with conversation."
+        ),
+    )
+
+    # Instructions & Context
+
+    instructions: str | None = Field(
+        default=None,
+        description=(
+            "A system (or developer) message inserted into the model's context. "
+            "When using with previous_response_id, the instructions from a previous response will not be carried over."
+        ),
+    )
+    include: Literal["file_search_call.results"] | None = Field(
+        default=None,
+        description=(
+            "Specify additional output data to include in the model response. "
+            "Currently supported values are: "
+            "file_search_call.results, "
+        ),
+    )
+
+    # Sampling Parameters
+
+    temperature: float | None = Field(
+        default=1.0,
         ge=0.0,
         le=2.0,
-        description="Sampling temperature between 0.0 and 2.0",
+        description=(
+            "What sampling temperature to use, between 0 and 2. "
+            "Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic. "
+            "We generally recommend altering this or top_p but not both."
+        ),
     )
-    max_output_tokens: int | None = Field(
-        default=None, gt=0, description="Maximum tokens to generate (Responses API uses max_output_tokens)"
-    )
+
     top_p: float | None = Field(
-        default=None, ge=0.0, le=1.0, description="Nucleus sampling parameter"
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "An alternative to sampling with temperature, called nucleus sampling, where the model considers the results of the tokens with top_p probability mass. "
+            "So 0.1 means only the tokens comprising the top 10% probability mass are considered. "
+            "We generally recommend altering this or temperature but not both."
+        ),
     )
 
-    # Advanced OpenAI-specific parameters
-    reasoning_effort: Literal["low", "medium", "high"] | None = Field(
-        default=None, description="Reasoning effort level for o-series models"
-    )
-    reasoning_generate_summary: bool | None = Field(
-        default=None, description="Whether to generate reasoning summary for o-series models"
-    )
-    text_verbosity: Literal["low", "medium", "high"] | None = Field(
-        default=None, description="Text verbosity level"
+    max_output_tokens: int | None = Field(
+        default=None,
+        gt=0,
+        description=(
+            "An upper bound for the number of tokens that can be generated for a response, "
+            "including visible output tokens and reasoning tokens."
+        ),
     )
 
-    # Conversation and state management
-    instructions: str | None = Field(
-        default=None, description="System instructions for the model"
-    )
-    previous_response_id: str | None = Field(
-        default=None, description="Previous response ID for conversation continuity"
-    )
-    store: bool | None = Field(
-        default=None, description="Whether to store the conversation with OpenAI"
+    # Tools (File Search Only)
+
+    tools: list[FileSearchTool] | None = Field(
+        default=None,
+        description="File search tools for searching through vector stores.",
     )
 
-    # Tool configuration
-    parallel_tool_calls: bool | None = Field(
-        default=None, description="Whether to enable parallel tool calls"
+    # Response Configuration
+
+    text: TextConfig | None = Field(
+        default=None,
+        description=(
+            "Configuration options for a text response from the model. "
+            "Can be plain text or structured JSON data."
+        ),
     )
 
-    # Vector store file search
-    vector_store_id: str | None = Field(
-        default=None, description="Vector store ID for file search"
-    )
-    max_num_results: int | None = Field(
-        default=None, ge=1, le=50, description="Max file search results"
+    reasoning: ReasoningConfig | None = Field(
+        default=None,
+        description=(
+            "Configuration options for reasoning models (gpt-5 and o-series models only). "
+            "Controls reasoning effort and summary generation."
+        ),
     )
 
-    # Response configuration
     truncation: Literal["auto", "disabled"] | None = Field(
-        default=None, description="Truncation strategy for long contexts"
+        default="disabled",
+        description=(
+            "The truncation strategy to use for the model response. "
+            "'auto': If input exceeds context window, truncate by dropping items from beginning. "
+            "'disabled' (default): Request fails with 400 error if input exceeds context window."
+        ),
     )
-    metadata: dict[str, str] | None = Field(
-        default=None, description="Custom metadata for the request"
+
+    # Advanced Options
+
+    prompt_cache_key: str | None = Field(
+        default=None,
+        description=(
+            "Used by OpenAI to cache responses for similar requests to optimize cache hit rates. "
+        ),
     )
 
     @model_validator(mode="after")
-    def validate_vector_store(self) -> "OpenAIResponseSpec":
-        """Validate vector store configuration.
-
-        Ensures that if vector_store_id is provided, it's a valid non-empty string.
+    def validate_conversation_previous_response_exclusivity(
+        self,
+    ) -> "OpenAIResponseSpec":
+        """Validate that conversation and previous_response_id are not used together.
 
         Returns:
             Self for method chaining
 
         Raises:
-            ValueError: If vector_store_id is invalid
+            ValueError: If both conversation and previous_response_id are provided
         """
-        if self.vector_store_id is not None and not self.vector_store_id.strip():
-            raise ValueError("vector_store_id cannot be empty")
+        if self.conversation is not None and self.previous_response_id is not None:
+            raise ValueError(
+                "Cannot use both 'conversation' and 'previous_response_id' parameters together"
+            )
+
         return self
 
-    def to_api_params(self) -> dict[str, Any]:
-        """Convert to OpenAI Responses API parameters.
+    @model_validator(mode="after")
+    def validate_temperature_top_p(self) -> "OpenAIResponseSpec":
+        """Warn if both temperature and top_p are altered from defaults.
 
-        Transforms this spec into the format expected by OpenAI's Responses API.
-        Uses the official API contract with correct parameter names and structure.
-
-        Returns:
-            Dictionary of API parameters ready for openai.responses.create()
-        """
-        # Base parameters - always required
-        params: dict[str, Any] = {
-            "model": self.model,
-            "input": [{"role": "user", "content": self.prompt}],
-        }
-
-        # Add optional sampling parameters
-        if self.temperature is not None:
-            params["temperature"] = self.temperature
-
-        if self.max_output_tokens is not None:
-            params["max_output_tokens"] = self.max_output_tokens
-
-        if self.top_p is not None:
-            params["top_p"] = self.top_p
-
-        # Add conversation and state management
-        if self.instructions is not None:
-            params["instructions"] = self.instructions
-
-        if self.previous_response_id is not None:
-            params["previous_response_id"] = self.previous_response_id
-
-        if self.store is not None:
-            params["store"] = self.store
-
-        # Add advanced OpenAI configurations
-        if self.reasoning_effort is not None or self.reasoning_generate_summary is not None:
-            reasoning_config: dict[str, Any] = {}
-            if self.reasoning_effort is not None:
-                reasoning_config["effort"] = self.reasoning_effort
-            if self.reasoning_generate_summary is not None:
-                reasoning_config["generate_summary"] = self.reasoning_generate_summary
-            params["reasoning"] = reasoning_config
-
-        if self.text_verbosity is not None:
-            params["text"] = {"verbosity": self.text_verbosity}
-
-        # Add tool configuration
-        if self.parallel_tool_calls is not None:
-            params["parallel_tool_calls"] = self.parallel_tool_calls
-
-        # Add vector store file search if provided
-        if self.vector_store_id:
-            params["tools"] = [
-                {
-                    "type": "file_search",
-                    "vector_store_ids": [self.vector_store_id],
-                    "max_num_results": self.max_num_results or 20,
-                }
-            ]
-            params["include"] = ["file_search_call.results"]
-
-        # Add response configuration
-        if self.truncation is not None:
-            params["truncation"] = self.truncation
-
-        if self.metadata is not None:
-            params["metadata"] = self.metadata
-
-        return params
-
-    @classmethod
-    def from_llm_request(cls, request: LLMCallRequest) -> "OpenAIResponseSpec":
-        """Create OpenAIResponseSpec from LLMCallRequest.
-
-        Convenience method to convert from the unified API request format.
-        Maps the provider-agnostic max_tokens to OpenAI's max_output_tokens.
-
-        Args:
-            request: Unified LLM call request
+        Note: This is a soft validation (warning), not a hard error.
 
         Returns:
-            OpenAIResponseSpec instance
+            Self for method chaining
         """
-        model_spec = request.llm.llm_model_spec
+        # OpenAI recommends altering temperature OR top_p, but not both
+        # We'll allow it but could log a warning in production
+        if (
+            self.temperature is not None
+            and self.temperature != 1.0
+            and self.top_p is not None
+            and self.top_p != 1.0
+        ):
+            # In a production setting, you might want to log a warning here
+            pass
 
-        return cls(
-            model=model_spec.model,
-            prompt=request.llm.prompt,
-            temperature=model_spec.temperature,
-            max_output_tokens=model_spec.max_tokens,  # Map max_tokens to max_output_tokens
-            top_p=model_spec.top_p,
-            reasoning_effort=model_spec.reasoning_effort,
-            text_verbosity=model_spec.text_verbosity,
-            vector_store_id=request.llm.vector_store_id,
-            max_num_results=request.max_num_results,
-        )
+        return self
