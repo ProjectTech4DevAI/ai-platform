@@ -5,12 +5,12 @@ from fastapi import HTTPException
 from sqlmodel import Session
 from asgi_correlation_id import correlation_id
 
-from app.celery.utils import start_high_priority_job
 from app.crud import JobCrud
 from app.core.db import engine
 
-from app.models import JobType, JobStatus, JobUpdate
-from app.models.llm import LLMCallRequest, LLMCallResponse
+from app.models import JobType, JobStatus, JobUpdate, LLMCallRequest, LLMCallResponse
+
+from app.celery.utils import start_high_priority_job
 from app.services.llm.orchestrator import execute_llm_call
 from app.utils import get_openai_client
 
@@ -63,9 +63,12 @@ def execute_job(
     request = LLMCallRequest(**request_data)
     job_id_uuid = UUID(job_id)
 
+    provider = request.config.completion.provider
+    model = request.config.completion.model
+
     logger.info(
         f"[execute_job] Starting LLM job execution | job_id={job_id}, task_id={task_id}, "
-        f"provider={request.llm.provider}, model={request.llm.llm_model_spec.model}"
+        f"provider={provider}, model={model}"
     )
 
     try:
@@ -76,26 +79,12 @@ def execute_job(
                 job_id=job_id_uuid, job_update=JobUpdate(status=JobStatus.PROCESSING)
             )
 
-            provider_type = request.llm.llm_model_spec.provider
-
-            if provider_type == "openai":
+            if provider == "openai":
                 client = get_openai_client(session, organization_id, project_id)
             else:
-                error_msg = f"Provider '{provider_type}' is not yet supported"
-                logger.error(f"[execute_job] {error_msg} | job_id={job_id}")
-                job_crud = JobCrud(session=session)
-                job_crud.update(
-                    job_id=job_id_uuid,
-                    job_update=JobUpdate(
-                        status=JobStatus.FAILED, error_message=error_msg
-                    ),
-                )
-                return None
+                raise ValueError(f"Unsupported provider: {provider}")
 
-        response, error = execute_llm_call(
-            request=request,
-            client=client,
-        )
+        response, error = execute_llm_call(request=request, client=client)
 
         with Session(engine) as session:
             job_crud = JobCrud(session=session)
@@ -107,7 +96,7 @@ def execute_job(
                     f"[execute_job] Successfully completed LLM job | job_id={job_id}, "
                     f"response_id={response.response_id}, tokens={response.total_tokens}"
                 )
-                return response
+                return response.model_dump()
             else:
                 job_crud.update(
                     job_id=job_id_uuid,

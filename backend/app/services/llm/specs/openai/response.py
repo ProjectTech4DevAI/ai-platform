@@ -7,9 +7,12 @@ Reference: https://platform.openai.com/docs/api-reference/responses/create
 """
 
 from typing import Any, Literal
+import typing
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, model_validator
 from sqlmodel import SQLModel
+
+from app.models.llm.request import CompletionConfig
 
 
 class ReasoningConfig(SQLModel):
@@ -28,42 +31,6 @@ class ReasoningConfig(SQLModel):
         description=(
             "A summary of the reasoning performed by the model. "
             "This can be useful for debugging and understanding the model's reasoning process."
-        ),
-    )
-
-
-class TextFormatConfig(SQLModel):
-    """An object specifying the format that the model must output."""
-
-    type: Literal["text", "json_object", "json_schema"] = Field(
-        description=(
-            "The format type. "
-            "'text': Plain text output. "
-            "'json_object': Older JSON mode (not recommended for newer models). "
-            "'json_schema': Structured Outputs with JSON schema validation (recommended)."
-        )
-    )
-    json_schema: dict[str, Any] | None = Field(
-        default=None,
-        description="The JSON schema to validate against when type is 'json_schema'.",
-    )
-
-
-class TextConfig(SQLModel):
-    """Configuration options for text response from the model."""
-
-    format: TextFormatConfig | None = Field(
-        default=None,
-        description=(
-            "An object specifying the format that the model must output. "
-            "Default format is { 'type': 'text' }."
-        ),
-    )
-    verbosity: Literal["low", "medium", "high"] | None = Field(
-        default="medium",
-        description=(
-            "Constrains the verbosity of the model's response. "
-            "Lower values result in more concise responses, higher values result in more verbose responses."
         ),
     )
 
@@ -189,14 +156,6 @@ class OpenAIResponseSpec(SQLModel):
 
     # Response Configuration
 
-    text: TextConfig | None = Field(
-        default=None,
-        description=(
-            "Configuration options for a text response from the model. "
-            "Can be plain text or structured JSON data."
-        ),
-    )
-
     reasoning: ReasoningConfig | None = Field(
         default=None,
         description=(
@@ -263,3 +222,59 @@ class OpenAIResponseSpec(SQLModel):
             pass
 
         return self
+
+    @classmethod
+    def from_completion_config(cls, config: CompletionConfig) -> "OpenAIResponseSpec":
+        """Convert generic CompletionConfig to OpenAI ResponseSpec.
+
+        Args:
+            config: Generic completion configuration
+
+        Returns:
+            OpenAI-specific response specification
+        """
+        # Build tools list if vector stores are provided
+        tools = None
+        if config.vector_store_ids:
+            tools = [
+                FileSearchTool(
+                    vector_store_ids=config.vector_store_ids,
+                    max_num_results=config.max_num_results,
+                )
+            ]
+
+        # Convert ReasoningOptions to ReasoningConfig if provided
+        reasoning = None
+        if config.reasoning:
+            reasoning = ReasoningConfig(
+                effort=config.reasoning.effort,
+                summary=config.reasoning.summary,
+            )
+
+        return cls(
+            model=config.model,
+            input=config.input,
+            instructions=config.instructions,
+            conversation=config.conversation_id,
+            previous_response_id=config.previous_response_id,
+            temperature=config.temperature,
+            top_p=config.top_p,
+            max_output_tokens=config.max_output_tokens,
+            tools=tools,
+            reasoning=reasoning,
+        )
+
+    def to_api_params(self) -> dict[str, Any]:
+        """Convert OpenAIResponseSpec to OpenAI API parameters.
+
+        Converts the spec to a dictionary suitable for passing to the OpenAI API,
+        excluding None values and properly formatting nested objects.
+
+        Returns:
+            Dictionary of API parameters ready to be passed to openai.responses.create()
+        """
+        params = self.model_dump(exclude_none=True)
+
+        print(params)
+
+        return params

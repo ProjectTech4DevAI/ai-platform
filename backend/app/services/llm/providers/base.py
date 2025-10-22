@@ -8,7 +8,7 @@ transformation.
 from abc import ABC, abstractmethod
 from typing import Any
 
-from app.models.llm import LLMCallRequest, LLMCallResponse
+from app.models import LLMCallRequest, LLMCallResponse
 
 
 class BaseProvider(ABC):

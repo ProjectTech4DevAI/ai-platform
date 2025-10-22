@@ -2,18 +2,18 @@ import logging
 
 from fastapi import APIRouter
 
-from app.api.deps import AuthContext, SessionDep
+from app.api.deps import AuthContextDep, SessionDep
 from app.models.llm import LLMCallRequest
 from app.services.llm.jobs import start_job
 from app.utils import APIResponse
 
 logger = logging.getLogger(__name__)
-router = APIRouter(tags=["llm"])
+router = APIRouter(tags=["LLM"])
 
 
 @router.post("/llm/call")
 async def llm_call(
-    request: LLMCallRequest, _session: SessionDep, _current_user: AuthContext
+    _current_user: AuthContextDep, _session: SessionDep, request: LLMCallRequest
 ):
     """
     Endpoint to initiate an LLM call as a background job.

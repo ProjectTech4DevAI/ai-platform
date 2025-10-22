@@ -51,8 +51,6 @@ from .job import Job, JobType, JobStatus, JobUpdate
 from .llm import (
     LLMCallRequest,
     LLMCallResponse,
-    LLMConfig,
-    LLMModelSpec,
 )
 
 from .message import Message

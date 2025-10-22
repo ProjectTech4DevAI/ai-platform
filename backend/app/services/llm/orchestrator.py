@@ -8,7 +8,7 @@ provider implementation (OpenAI, Anthropic, etc.).
 import logging
 from typing import Any
 
-from app.models.llm import LLMCallRequest, LLMCallResponse
+from app.models import LLMCallRequest, LLMCallResponse
 from app.services.llm.providers.factory import ProviderFactory
 
 logger = logging.getLogger(__name__)
@@ -32,11 +32,11 @@ def execute_llm_call(
         - If successful: (LLMCallResponse, None)
         - If failed: (None, error_message)
     """
-    provider_type = request.llm.llm_model_spec.provider
+    provider_type = request.config.completion.provider
 
     logger.info(
         f"[execute_llm_call] Processing LLM call for provider: {provider_type}, "
-        f"model: {request.llm.llm_model_spec.model}"
+        f"model: {request.config.completion.model}"
     )
 
     try:

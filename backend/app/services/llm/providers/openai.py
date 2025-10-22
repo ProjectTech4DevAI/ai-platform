@@ -17,7 +17,6 @@ from pydantic import ValidationError
 from app.models.llm import LLMCallRequest, LLMCallResponse
 from app.services.llm.providers.base import BaseProvider
 from app.services.llm.specs import OpenAIResponseSpec
-from app.utils import handle_openai_error
 
 logger = logging.getLogger(__name__)
 
@@ -109,12 +108,13 @@ class OpenAIProvider(BaseProvider):
 
         try:
             # Create and validate OpenAI spec from request
-            spec = OpenAIResponseSpec.from_llm_request(request)
+            spec = OpenAIResponseSpec.from_completion_config(request.config.completion)
 
             # Convert to API parameters (validation happens during spec creation)
             params = spec.to_api_params()
 
             logger.info(f"[OpenAIProvider] Making OpenAI call with model: {spec.model}")
+
             response = self.client.responses.create(**params)
 
             # Extract message text from response.output array
@@ -148,6 +148,9 @@ class OpenAIProvider(BaseProvider):
             return None, error_message
 
         except openai.OpenAIError as e:
+            # imported here to avoid circular imports
+            from app.utils import handle_openai_error
+
             error_message = handle_openai_error(e)
             logger.error(
                 f"[OpenAIProvider] OpenAI API error: {error_message}", exc_info=True
