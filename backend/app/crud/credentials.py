@@ -125,7 +125,7 @@ def get_provider_credential(
     project_id: int,
     provider: str,
     full: bool = False,
-) -> dict[str, Any] | Credential:
+) -> dict[str, Any] | Credential | None:
     """
     Fetch credentials for a specific provider within a project.
 
