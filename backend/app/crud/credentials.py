@@ -115,16 +115,6 @@ def get_creds_by_org(
         Credential.project_id == project_id,
     )
     creds = session.exec(statement).all()
-
-    if not creds:
-        logger.error(
-            f"[get_creds_by_org] No credentials found | organization_id {org_id}, project_id {project_id}"
-        )
-        raise HTTPException(
-            status_code=404,
-            detail="Credentials not found for this organization and project",
-        )
-
     return creds
 
 
@@ -166,12 +156,7 @@ def get_provider_credential(
     if creds and creds.credential:
         return creds if full else decrypt_credentials(creds.credential)
 
-    logger.error(
-        f"[get_provider_credential] Credentials not found | organization_id {org_id}, provider {provider}, project_id {project_id}"
-    )
-    raise HTTPException(
-        status_code=404, detail=f"Credentials not found for provider '{provider}'"
-    )
+    return None
 
 
 def get_providers(*, session: Session, org_id: int, project_id: int) -> list[str]:
@@ -234,12 +219,16 @@ def remove_provider_credential(
     validate_provider(provider)
 
     # Verify credentials exist before attempting delete
-    get_provider_credential(
+    creds = get_provider_credential(
         session=session,
         org_id=org_id,
         project_id=project_id,
         provider=provider,
     )
+    if creds is None:
+        raise HTTPException(
+            status_code=404, detail="Credentials not found for this provider"
+        )
 
     # Build delete statement
     statement = delete(Credential).where(
@@ -279,6 +268,10 @@ def remove_creds_for_org(*, session: Session, org_id: int, project_id: int) -> N
         org_id=org_id,
         project_id=project_id,
     )
+    if existing_creds is None or len(existing_creds) == 0:
+        raise HTTPException(
+            status_code=404, detail="No credentials found for this organization"
+        )
     expected_count = len(existing_creds)
     statement = delete(Credential).where(
         Credential.organization_id == org_id,
