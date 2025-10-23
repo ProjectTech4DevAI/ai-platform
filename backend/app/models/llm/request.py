@@ -37,9 +37,7 @@ class LLMCallRequest(SQLModel):
     """User-facing API request for LLM completion."""
 
     query: QueryParams = Field(..., description="Query-specific parameters")
-    config: LLMCallConfig = Field(
-        ..., description="Configuration for the LLM call"
-    )
+    config: LLMCallConfig = Field(..., description="Configuration for the LLM call")
     callback_url: str | None = Field(
         default=None, description="Webhook URL for async response delivery"
     )

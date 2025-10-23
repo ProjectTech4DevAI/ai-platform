@@ -1,6 +1,7 @@
 import logging
 from uuid import UUID
 
+from aiohttp import request
 from fastapi import HTTPException
 from sqlmodel import Session
 from asgi_correlation_id import correlation_id
@@ -12,7 +13,7 @@ from app.models import JobType, JobStatus, JobUpdate, LLMCallRequest, LLMCallRes
 
 from app.celery.utils import start_high_priority_job
 from app.services.llm.orchestrator import execute_llm_call
-from app.utils import get_openai_client
+from app.utils import get_openai_client, send_callback, APIResponse
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,26 @@ def start_job(
     return job.id
 
 
+def handle_job_error(job_id: UUID, callback_url: str | None, error: str):
+    """Handle job failure uniformly callback, and DB update."""
+    with Session(engine) as session:
+        job_crud = JobCrud(session=session)
+
+        callback = APIResponse.failure_response(error=error)
+        if callback_url:
+            send_callback(
+                callback_url=callback_url,
+                data=callback.model_dump(),
+            )
+
+        job_crud.update(
+            job_id=job_id,
+            job_update=JobUpdate(status=JobStatus.FAILED, error_message=error),
+        )
+
+        return callback.model_dump()
+
+
 def execute_job(
     request_data: dict,
     project_id: int,
@@ -61,9 +82,8 @@ def execute_job(
 ) -> LLMCallResponse | None:
     """Celery task to process an LLM request asynchronously."""
 
-
     request = LLMCallRequest(**request_data)
-    job_id_uuid = UUID(job_id)
+    job_id: UUID = UUID(job_id)
 
     config = request.config
     provider = config.completion.provider
@@ -79,7 +99,7 @@ def execute_job(
         with Session(engine) as session:
             job_crud = JobCrud(session=session)
             job_crud.update(
-                job_id=job_id_uuid, job_update=JobUpdate(status=JobStatus.PROCESSING)
+                job_id=job_id, job_update=JobUpdate(status=JobStatus.PROCESSING)
             )
 
             if provider == "openai":
@@ -92,34 +112,26 @@ def execute_job(
         with Session(engine) as session:
             job_crud = JobCrud(session=session)
             if response:
+                callback = APIResponse.success_response(data=response)
+                send_callback(
+                    callback_url=request.callback_url,
+                    data=callback.model_dump(),
+                )
                 job_crud.update(
-                    job_id=job_id_uuid, job_update=JobUpdate(status=JobStatus.SUCCESS)
+                    job_id=job_id, job_update=JobUpdate(status=JobStatus.SUCCESS)
                 )
                 logger.info(
                     f"[execute_job] Successfully completed LLM job | job_id={job_id}, "
                     f"response_id={response.response_id}, tokens={response.total_tokens}"
                 )
-                return response.model_dump()
+                return callback.model_dump()
             else:
-                job_crud.update(
-                    job_id=job_id_uuid,
-                    job_update=JobUpdate(
-                        status=JobStatus.FAILED,
-                        error_message=error or "Unknown error occurred",
-                    ),
-                )
-                logger.error(
-                    f"[execute_job] Failed to execute LLM job | job_id={job_id}, error={error}"
-                )
-                return None
+                return handle_job_error(job_id, request.callback_url, error)
 
     except Exception as e:
-        error_message = f"Unexpected error in LLM job execution: {str(e)}"
-        logger.error(f"[execute_job] {error_message} | job_id={job_id}", exc_info=True)
-        with Session(engine) as session:
-            job_crud = JobCrud(session=session)
-            job_crud.update(
-                job_id=job_id_uuid,
-                job_update=JobUpdate(status=JobStatus.FAILED, error_message=str(e)),
-            )
-        raise
+        error = f"Unexpected error in LLM job execution: {str(e)}"
+        logger.error(
+            f"[execute_job] {error} | job_id={job_id}, task_id={task_id}",
+            exc_info=True,
+        )
+        return handle_job_error(job_id, request.callback_url, error)
