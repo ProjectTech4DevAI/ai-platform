@@ -14,7 +14,12 @@ from openai import OpenAI
 from openai.types.responses.response import Response
 from pydantic import ValidationError
 
-from app.models.llm import CompletionConfig, LLMCallResponse, LLMCallRequest
+from app.models.llm import (
+    CompletionConfig,
+    LLMCallResponse,
+    LLMCallRequest,
+    QueryParams,
+)
 from app.services.llm.providers.base import BaseProvider
 
 logger = logging.getLogger(__name__)
@@ -43,7 +48,7 @@ class OpenAIProvider(BaseProvider):
         self.client = client
 
     def execute(
-        self, request: LLMCallRequest
+        self, completion_config: CompletionConfig, query: QueryParams
     ) -> tuple[LLMCallResponse | None, str | None]:
         """Execute OpenAI API call.
 
@@ -61,16 +66,14 @@ class OpenAIProvider(BaseProvider):
         error_message: str | None = None
 
         try:
-            completion_config = request.config.completion
-
             params = {
                 **completion_config.params,
             }
-            params["input"] = request.query.input
+            params["input"] = query.input
 
             # Add conversation_id if provided
-            if request.query.conversation_id:
-                params["conversation_id"] = request.query.conversation_id
+            if query.conversation_id:
+                params["conversation_id"] = query.conversation_id
 
             response = self.client.responses.create(**params)
 
@@ -90,13 +93,9 @@ class OpenAIProvider(BaseProvider):
             )
             return llm_response, None
 
-        except ValidationError as e:
-            error_message = f"Configuration validation failed: {str(e)}"
-            logger.error(f"[OpenAIProvider] {error_message}", exc_info=True)
-            return None, error_message
-
-        except ValueError as e:
-            error_message = f"Configuration validation failed: {str(e)}"
+        except TypeError as e:
+            # handle unexpected arguments gracefully
+            error_message = f"Invalid or unexpected parameter in Config: {str(e)}"
             logger.error(f"[OpenAIProvider] {error_message}", exc_info=True)
             return None, error_message
 

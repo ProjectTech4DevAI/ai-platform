@@ -8,7 +8,7 @@ transformation.
 from abc import ABC, abstractmethod
 from typing import Any
 
-from app.models import LLMCallRequest, LLMCallResponse
+from app.models.llm import CompletionConfig, LLMCallResponse, QueryParams
 
 
 class BaseProvider(ABC):
@@ -34,7 +34,7 @@ class BaseProvider(ABC):
 
     @abstractmethod
     def execute(
-        self, request: LLMCallRequest
+        self, completion_config: CompletionConfig, query: QueryParams
     ) -> tuple[LLMCallResponse | None, str | None]:
         """Execute an LLM call using the provider.
 

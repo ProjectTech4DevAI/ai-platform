@@ -1,19 +1,18 @@
 import logging
 from uuid import UUID
 
-from aiohttp import request
 from fastapi import HTTPException
 from sqlmodel import Session
 from asgi_correlation_id import correlation_id
 
-from app.crud import JobCrud
+from app.crud.jobs import JobCrud
+from app.utils import send_callback, APIResponse
 from app.core.db import engine
 
 from app.models import JobType, JobStatus, JobUpdate, LLMCallRequest, LLMCallResponse
 
 from app.celery.utils import start_high_priority_job
-from app.services.llm.orchestrator import execute_llm_call
-from app.utils import get_openai_client, send_callback, APIResponse
+from app.services.llm.providers.registry import get_llm_provider
 
 logger = logging.getLogger(__name__)
 
@@ -102,12 +101,16 @@ def execute_job(
                 job_id=job_id, job_update=JobUpdate(status=JobStatus.PROCESSING)
             )
 
-            if provider == "openai":
-                client = get_openai_client(session, organization_id, project_id)
-            else:
-                raise ValueError(f"Unsupported provider: {provider}")
+            provider_instance = get_llm_provider(
+                session=session,
+                provider_type=provider,
+                project_id=project_id,
+                organization_id=organization_id,
+            )
 
-        response, error = execute_llm_call(request=request, client=client)
+        response, error = provider_instance.execute(
+            completion_config=config.completion, query=request.query
+        )
 
         with Session(engine) as session:
             job_crud = JobCrud(session=session)
