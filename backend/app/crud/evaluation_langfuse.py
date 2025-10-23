@@ -20,7 +20,7 @@ def create_langfuse_dataset_run(
     dataset_name: str,
     run_name: str,
     results: list[dict[str, Any]],
-) -> None:
+) -> dict[str, str]:
     """
     Create a dataset run in Langfuse with traces for each evaluation item.
 
@@ -28,6 +28,7 @@ def create_langfuse_dataset_run(
     1. Gets the dataset from Langfuse (which already exists)
     2. For each result, creates a trace linked to the dataset item
     3. Logs input (question), output (generated_output), and expected (ground_truth)
+    4. Returns a mapping of item_id -> trace_id for later score updates
 
     Args:
         langfuse: Configured Langfuse client
@@ -43,6 +44,9 @@ def create_langfuse_dataset_run(
                      },
                      ...
                  ]
+
+    Returns:
+        dict[str, str]: Mapping of item_id to Langfuse trace_id
 
     Raises:
         Exception: If Langfuse operations fail
@@ -62,6 +66,7 @@ def create_langfuse_dataset_run(
 
         created_traces = 0
         skipped_items = 0
+        trace_id_mapping = {}  # Store item_id -> trace_id mapping
 
         # Create a trace for each result
         for idx, result in enumerate(results, 1):
@@ -93,6 +98,8 @@ def create_langfuse_dataset_run(
                         },
                     )
                     created_traces += 1
+                    # Store the trace_id for later score updates
+                    trace_id_mapping[item_id] = trace_id
 
                 if idx % 10 == 0:
                     logger.info(
@@ -111,11 +118,102 @@ def create_langfuse_dataset_run(
 
         logger.info(
             f"Successfully created Langfuse dataset run '{run_name}': "
-            f"{created_traces} traces created, {skipped_items} items skipped"
+            f"{created_traces} traces created, {skipped_items} items skipped, "
+            f"{len(trace_id_mapping)} trace IDs captured"
         )
+
+        return trace_id_mapping
 
     except Exception as e:
         logger.error(
             f"Failed to create Langfuse dataset run '{run_name}': {e}", exc_info=True
         )
         raise
+
+
+def update_traces_with_cosine_scores(
+    langfuse: Langfuse,
+    trace_id_mapping: dict[str, str],
+    per_item_scores: list[dict[str, Any]],
+) -> None:
+    """
+    Update Langfuse traces with cosine similarity scores.
+
+    This function adds custom "cosine_similarity" scores to traces at the trace level,
+    allowing them to be visualized in the Langfuse UI.
+
+    Args:
+        langfuse: Configured Langfuse client
+        trace_id_mapping: Mapping of item_id to Langfuse trace_id
+        per_item_scores: List of per-item score dictionaries from calculate_average_similarity()
+                        Format: [
+                            {
+                                "item_id": "item_123",
+                                "cosine_similarity": 0.95
+                            },
+                            ...
+                        ]
+
+    Note:
+        This function logs errors but does not raise exceptions to avoid blocking
+        evaluation completion if Langfuse updates fail.
+    """
+    logger.info(f"Updating {len(per_item_scores)} traces with cosine similarity scores")
+
+    updated_count = 0
+    error_count = 0
+
+    for score_item in per_item_scores:
+        item_id = score_item.get("item_id")
+        cosine_score = score_item.get("cosine_similarity")
+
+        if not item_id or cosine_score is None:
+            logger.warning(
+                f"Skipping score update: missing item_id or cosine_similarity in {score_item}"
+            )
+            error_count += 1
+            continue
+
+        trace_id = trace_id_mapping.get(item_id)
+        if not trace_id:
+            logger.warning(
+                f"Trace ID not found for item_id '{item_id}', skipping score update"
+            )
+            error_count += 1
+            continue
+
+        try:
+            # Add score to the trace using Langfuse score API
+            langfuse.score(
+                trace_id=trace_id,
+                name="cosine_similarity",
+                value=cosine_score,
+                comment="Cosine similarity between generated output and ground truth embeddings",
+            )
+            updated_count += 1
+
+            if updated_count % 10 == 0:
+                logger.info(
+                    f"Progress: Updated {updated_count}/{len(per_item_scores)} traces with scores"
+                )
+
+        except Exception as e:
+            logger.error(
+                f"Failed to add score for trace {trace_id} (item {item_id}): {e}",
+                exc_info=True,
+            )
+            error_count += 1
+            continue
+
+    # Flush to ensure all scores are sent
+    try:
+        langfuse.flush()
+        logger.info(
+            f"Successfully updated traces with scores: "
+            f"{updated_count} traces updated, {error_count} errors"
+        )
+    except Exception as e:
+        logger.error(
+            f"Failed to flush Langfuse scores: {e}",
+            exc_info=True,
+        )

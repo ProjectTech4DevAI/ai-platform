@@ -29,7 +29,10 @@ from app.crud.evaluation_embeddings import (
     parse_embedding_results,
     start_embedding_batch,
 )
-from app.crud.evaluation_langfuse import create_langfuse_dataset_run
+from app.crud.evaluation_langfuse import (
+    create_langfuse_dataset_run,
+    update_traces_with_cosine_scores,
+)
 from app.models import EvaluationRun
 
 logger = logging.getLogger(__name__)
@@ -225,18 +228,22 @@ async def process_completed_evaluation(
 
         # Step 5: Create Langfuse dataset run with traces
         logger.info("Step 4: Creating Langfuse dataset run with traces")
-        create_langfuse_dataset_run(
+        trace_id_mapping = create_langfuse_dataset_run(
             langfuse=langfuse,
             dataset_name=eval_run.dataset_name,
             run_name=eval_run.run_name,
             results=results,
         )
 
-        # Set S3 URL if upload was successful
+        # Store trace IDs and S3 URL in database
+        eval_run.langfuse_trace_ids = trace_id_mapping
         if s3_url:
             eval_run.s3_url = s3_url
-            session.add(eval_run)
-            session.commit()
+        session.add(eval_run)
+        session.commit()
+        logger.info(
+            f"Stored {len(trace_id_mapping)} trace IDs in evaluation run {eval_run.id}"
+        )
 
         # Step 6: Start embedding batch for similarity scoring
         logger.info("Step 6: Starting embedding batch for similarity scoring")
@@ -292,6 +299,7 @@ async def process_completed_embedding_batch(
     eval_run: EvaluationRun,
     session: Session,
     openai_client: OpenAI,
+    langfuse: Langfuse,
 ) -> EvaluationRun:
     """
     Process a completed embedding batch and calculate similarity scores.
@@ -302,12 +310,14 @@ async def process_completed_embedding_batch(
     3. Calculates cosine similarity for each pair
     4. Calculates average and statistics
     5. Updates eval_run.score with results
-    6. Marks evaluation as completed
+    6. Updates Langfuse traces with per-item cosine similarity scores
+    7. Marks evaluation as completed
 
     Args:
         eval_run: EvaluationRun database object
         session: Database session
         openai_client: Configured OpenAI client
+        langfuse: Configured Langfuse client
 
     Returns:
         Updated EvaluationRun object with similarity scores
@@ -373,7 +383,32 @@ async def process_completed_embedding_batch(
                 "per_item_scores"
             ]
 
-        # Step 6: Mark evaluation as completed
+        # Step 6: Update Langfuse traces with cosine similarity scores
+        logger.info("Step 5: Updating Langfuse traces with cosine similarity scores")
+        per_item_scores = similarity_stats.get("per_item_scores", [])
+        if per_item_scores and eval_run.langfuse_trace_ids:
+            try:
+                update_traces_with_cosine_scores(
+                    langfuse=langfuse,
+                    trace_id_mapping=eval_run.langfuse_trace_ids,
+                    per_item_scores=per_item_scores,
+                )
+                logger.info(
+                    f"Successfully updated {len(per_item_scores)} Langfuse traces with scores"
+                )
+            except Exception as e:
+                # Log error but don't fail the evaluation
+                logger.error(
+                    f"Failed to update Langfuse traces with scores: {e}",
+                    exc_info=True,
+                )
+        else:
+            if not per_item_scores:
+                logger.warning("No per-item scores available to update Langfuse traces")
+            if not eval_run.langfuse_trace_ids:
+                logger.warning("No trace IDs available to update Langfuse traces")
+
+        # Step 7: Mark evaluation as completed
         eval_run.status = "completed"
         eval_run.updated_at = now()
 
@@ -472,6 +507,7 @@ async def check_and_process_evaluation(
                         eval_run=eval_run,
                         session=session,
                         openai_client=openai_client,
+                        langfuse=langfuse,
                     )
 
                     return {
