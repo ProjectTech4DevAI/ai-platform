@@ -11,19 +11,24 @@ This module coordinates the evaluation-specific workflow:
 import ast
 import json
 import logging
-
 from collections import defaultdict
+from typing import Any
+
 from langfuse import Langfuse
 from openai import OpenAI
 from sqlmodel import Session, select
-from typing import Any
 
 from app.core.batch.openai_provider import OpenAIBatchProvider
 from app.core.util import configure_langfuse, configure_openai, now
 from app.crud.batch_job import get_batch_job
-from app.crud.batch_operations import upload_batch_results_to_s3, download_batch_results
+from app.crud.batch_operations import download_batch_results, upload_batch_results_to_s3
 from app.crud.credentials import get_provider_credential
 from app.crud.evaluation_batch import fetch_dataset_items
+from app.crud.evaluation_embeddings import (
+    calculate_average_similarity,
+    parse_embedding_results,
+    start_embedding_batch,
+)
 from app.crud.evaluation_langfuse import create_langfuse_dataset_run
 from app.models import EvaluationRun
 
@@ -157,7 +162,7 @@ async def process_completed_evaluation(
     1. Downloads batch output from provider
     2. Parses results into question/output/ground_truth format
     3. Creates Langfuse dataset run with traces
-    4. Updates evaluation_run with completion status
+    4. Starts embedding batch for similarity scoring (keeps status as "processing")
 
     Args:
         eval_run: EvaluationRun database object
@@ -166,7 +171,7 @@ async def process_completed_evaluation(
         langfuse: Configured Langfuse client
 
     Returns:
-        Updated EvaluationRun object
+        Updated EvaluationRun object (with embedding_batch_job_id set)
 
     Raises:
         Exception: If processing fails
@@ -227,22 +232,43 @@ async def process_completed_evaluation(
             results=results,
         )
 
-        # Step 6: Mark evaluation as completed
-        logger.info("Step 5: Marking evaluation as completed")
-        eval_run.status = "completed"
-        eval_run.updated_at = now()
-
         # Set S3 URL if upload was successful
         if s3_url:
             eval_run.s3_url = s3_url
+            session.add(eval_run)
+            session.commit()
 
-        session.add(eval_run)
-        session.commit()
-        session.refresh(eval_run)
+        # Step 6: Start embedding batch for similarity scoring
+        logger.info("Step 6: Starting embedding batch for similarity scoring")
+        try:
+            eval_run = start_embedding_batch(
+                session=session,
+                openai_client=openai_client,
+                eval_run=eval_run,
+                results=results,
+            )
+            logger.info(
+                f"Successfully started embedding batch for evaluation run {eval_run.id}: "
+                f"embedding_batch_job_id={eval_run.embedding_batch_job_id}"
+            )
+            # Note: Status remains "processing" until embeddings complete
+
+        except Exception as e:
+            logger.error(
+                f"Failed to start embedding batch for run {eval_run.id}: {e}",
+                exc_info=True,
+            )
+            # Don't fail the entire evaluation, just mark as completed without embeddings
+            eval_run.status = "completed"
+            eval_run.error_message = f"Embeddings failed: {str(e)}"
+            eval_run.updated_at = now()
+            session.add(eval_run)
+            session.commit()
+            session.refresh(eval_run)
 
         logger.info(
-            f"Successfully completed processing for evaluation run {eval_run.id}: "
-            f"{len(results)} items processed"
+            f"Successfully processed evaluation run {eval_run.id}: "
+            f"{len(results)} items processed, embedding batch started"
         )
 
         return eval_run
@@ -262,6 +288,121 @@ async def process_completed_evaluation(
         return eval_run
 
 
+async def process_completed_embedding_batch(
+    eval_run: EvaluationRun,
+    session: Session,
+    openai_client: OpenAI,
+) -> EvaluationRun:
+    """
+    Process a completed embedding batch and calculate similarity scores.
+
+    This function:
+    1. Downloads embedding batch results
+    2. Parses embeddings (output + ground_truth pairs)
+    3. Calculates cosine similarity for each pair
+    4. Calculates average and statistics
+    5. Updates eval_run.score with results
+    6. Marks evaluation as completed
+
+    Args:
+        eval_run: EvaluationRun database object
+        session: Database session
+        openai_client: Configured OpenAI client
+
+    Returns:
+        Updated EvaluationRun object with similarity scores
+
+    Raises:
+        Exception: If processing fails
+    """
+    logger.info(f"Processing completed embedding batch for run {eval_run.id}")
+
+    try:
+        # Step 1: Get embedding_batch_job
+        if not eval_run.embedding_batch_job_id:
+            raise ValueError(
+                f"EvaluationRun {eval_run.id} has no embedding_batch_job_id"
+            )
+
+        embedding_batch_job = get_batch_job(
+            session=session, batch_job_id=eval_run.embedding_batch_job_id
+        )
+        if not embedding_batch_job:
+            raise ValueError(
+                f"Embedding BatchJob {eval_run.embedding_batch_job_id} not found for evaluation {eval_run.id}"
+            )
+
+        # Step 2: Create provider and download results
+        logger.info(
+            f"Step 1: Downloading embedding batch results for batch_job {embedding_batch_job.id}"
+        )
+        provider = OpenAIBatchProvider(client=openai_client)
+        raw_results = download_batch_results(
+            provider=provider, batch_job=embedding_batch_job
+        )
+
+        # Step 3: Parse embedding results
+        logger.info("Step 3: Parsing embedding results")
+        embedding_pairs = parse_embedding_results(raw_results=raw_results)
+
+        if not embedding_pairs:
+            raise ValueError("No valid embedding pairs found in batch output")
+
+        # Step 4: Calculate similarity scores
+        logger.info("Step 3: Calculating cosine similarity scores")
+        similarity_stats = calculate_average_similarity(embedding_pairs=embedding_pairs)
+
+        # Step 5: Update evaluation_run with scores
+        logger.info("Step 4: Updating evaluation run with similarity scores")
+
+        # Merge with existing score if any
+        if eval_run.score is None:
+            eval_run.score = {}
+
+        eval_run.score["cosine_similarity"] = {
+            "avg": similarity_stats["cosine_similarity_avg"],
+            "min": similarity_stats["cosine_similarity_min"],
+            "max": similarity_stats["cosine_similarity_max"],
+            "std": similarity_stats["cosine_similarity_std"],
+            "total_pairs": similarity_stats["total_pairs"],
+        }
+
+        # Optionally store per-item scores if not too large
+        if len(similarity_stats.get("per_item_scores", [])) <= 100:
+            eval_run.score["cosine_similarity"]["per_item_scores"] = similarity_stats[
+                "per_item_scores"
+            ]
+
+        # Step 6: Mark evaluation as completed
+        eval_run.status = "completed"
+        eval_run.updated_at = now()
+
+        session.add(eval_run)
+        session.commit()
+        session.refresh(eval_run)
+
+        logger.info(
+            f"Successfully completed embedding processing for evaluation run {eval_run.id}: "
+            f"avg_similarity={similarity_stats['cosine_similarity_avg']:.3f}"
+        )
+
+        return eval_run
+
+    except Exception as e:
+        logger.error(
+            f"Failed to process completed embedding batch for run {eval_run.id}: {e}",
+            exc_info=True,
+        )
+        # Mark as completed anyway, but with error message
+        eval_run.status = "completed"
+        eval_run.error_message = f"Embedding processing failed: {str(e)}"
+        eval_run.updated_at = now()
+        session.add(eval_run)
+        session.commit()
+        session.refresh(eval_run)
+        return eval_run
+
+
 async def check_and_process_evaluation(
     eval_run: EvaluationRun,
     session: Session,
@@ -271,8 +412,10 @@ async def check_and_process_evaluation(
     """
     Check evaluation batch status and process if completed.
 
-    This function checks the batch_job status and triggers evaluation-specific
-    processing when the batch is completed.
+    This function handles both the response batch and embedding batch:
+    1. If embedding_batch_job_id exists, checks and processes embedding batch first
+    2. Otherwise, checks and processes the main response batch
+    3. Triggers appropriate processing based on batch completion status
 
     Args:
         eval_run: EvaluationRun database object
@@ -288,7 +431,7 @@ async def check_and_process_evaluation(
             "previous_status": "processing",
             "current_status": "completed",
             "batch_status": "completed",
-            "action": "processed" | "updated" | "failed" | "no_change"
+            "action": "processed" | "embeddings_completed" | "embeddings_failed" | "failed" | "no_change"
         }
     """
     logger.info(f"Checking evaluation run {eval_run.id}")
@@ -296,7 +439,90 @@ async def check_and_process_evaluation(
     previous_status = eval_run.status
 
     try:
-        # Get batch_job
+        # Check if we need to process embedding batch first
+        if eval_run.embedding_batch_job_id and eval_run.status == "processing":
+            logger.info(
+                f"Checking embedding batch for evaluation run {eval_run.id}: "
+                f"embedding_batch_job_id={eval_run.embedding_batch_job_id}"
+            )
+
+            embedding_batch_job = get_batch_job(
+                session=session, batch_job_id=eval_run.embedding_batch_job_id
+            )
+
+            if embedding_batch_job:
+                # Poll embedding batch status
+                provider = OpenAIBatchProvider(client=openai_client)
+                from app.crud.batch_operations import poll_batch_status
+
+                poll_batch_status(
+                    session=session, provider=provider, batch_job=embedding_batch_job
+                )
+                session.refresh(embedding_batch_job)
+
+                embedding_status = embedding_batch_job.provider_status
+
+                if embedding_status == "completed":
+                    logger.info(
+                        f"Embedding batch {embedding_batch_job.provider_batch_id} completed, "
+                        f"processing similarity scores..."
+                    )
+
+                    await process_completed_embedding_batch(
+                        eval_run=eval_run,
+                        session=session,
+                        openai_client=openai_client,
+                    )
+
+                    return {
+                        "run_id": eval_run.id,
+                        "run_name": eval_run.run_name,
+                        "previous_status": previous_status,
+                        "current_status": eval_run.status,
+                        "provider_status": embedding_status,
+                        "action": "embeddings_completed",
+                    }
+
+                elif embedding_status in ["failed", "expired", "cancelled"]:
+                    logger.error(
+                        f"Embedding batch {embedding_batch_job.provider_batch_id} failed: "
+                        f"{embedding_batch_job.error_message}"
+                    )
+                    # Mark as completed without embeddings
+                    eval_run.status = "completed"
+                    eval_run.error_message = (
+                        f"Embedding batch failed: {embedding_batch_job.error_message}"
+                    )
+                    eval_run.updated_at = now()
+                    session.add(eval_run)
+                    session.commit()
+                    session.refresh(eval_run)
+
+                    return {
+                        "run_id": eval_run.id,
+                        "run_name": eval_run.run_name,
+                        "previous_status": previous_status,
+                        "current_status": "completed",
+                        "provider_status": embedding_status,
+                        "action": "embeddings_failed",
+                    }
+
+                else:
+                    # Embedding batch still processing
+                    logger.info(
+                        f"Embedding batch {embedding_batch_job.provider_batch_id} still processing "
+                        f"(status={embedding_status})"
+                    )
+                    return {
+                        "run_id": eval_run.id,
+                        "run_name": eval_run.run_name,
+                        "previous_status": previous_status,
+                        "current_status": eval_run.status,
+                        "provider_status": embedding_status,
+                        "action": "no_change",
+                    }
+
+        # Get batch_job (main response batch)
         if not eval_run.batch_job_id:
             raise ValueError(f"EvaluationRun {eval_run.id} has no batch_job_id")
 

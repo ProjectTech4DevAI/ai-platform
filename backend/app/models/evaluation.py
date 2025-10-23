@@ -1,9 +1,10 @@
 from datetime import datetime
-from typing import Optional, Any
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
-from sqlalchemy import Column, Text, JSON
-from sqlmodel import Field as SQLField, Relationship, SQLModel
+from sqlalchemy import JSON, Column, Text
+from sqlmodel import Field as SQLField
+from sqlmodel import Relationship, SQLModel
 
 from app.core.util import now
 
@@ -77,11 +78,16 @@ class EvaluationRun(SQLModel, table=True):
         description="Evaluation configuration",
     )
 
-    # Batch job reference
-    batch_job_id: Optional[int] = SQLField(
+    # Batch job references
+    batch_job_id: int | None = SQLField(
         default=None,
         foreign_key="batch_job.id",
-        description="Reference to the batch_job that processes this evaluation",
+        description="Reference to the batch_job that processes this evaluation (responses)",
+    )
+    embedding_batch_job_id: int | None = SQLField(
+        default=None,
+        foreign_key="batch_job.id",
+        description="Reference to the batch_job for embedding-based similarity scoring",
     )
 
     # Output/Status fields (updated by system during processing)
@@ -89,7 +95,7 @@ class EvaluationRun(SQLModel, table=True):
         default="pending",
         description="Overall evaluation status: pending, processing, completed, failed",
     )
-    s3_url: Optional[str] = SQLField(
+    s3_url: str | None = SQLField(
         default=None,
         description="S3 URL of processed evaluation results for future reference",
     )
@@ -98,14 +104,14 @@ class EvaluationRun(SQLModel, table=True):
     )
 
     # Score field - dict requires sa_column
-    score: Optional[dict[str, Any]] = SQLField(
+    score: dict[str, Any] | None = SQLField(
         default=None,
         sa_column=Column(JSON, nullable=True),
         description="Evaluation scores (e.g., correctness, cosine_similarity, etc.)",
     )
 
     # Error message field
-    error_message: Optional[str] = SQLField(
+    error_message: str | None = SQLField(
         default=None,
         sa_column=Column(Text, nullable=True),
         description="Error message if failed",
@@ -126,7 +132,14 @@ class EvaluationRun(SQLModel, table=True):
     # Relationships
     project: "Project" = Relationship(back_populates="evaluation_runs")
     organization: "Organization" = Relationship(back_populates="evaluation_runs")
-    batch_job: Optional["BatchJob"] = Relationship()  # noqa: F821
+    batch_job: Optional["BatchJob"] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[EvaluationRun.batch_job_id]"}
+    )  # noqa: F821
+    embedding_batch_job: Optional["BatchJob"] = Relationship(
+        sa_relationship_kwargs={
+            "foreign_keys": "[EvaluationRun.embedding_batch_job_id]"
+        }
+    )  # noqa: F821
 
 
 class EvaluationRunCreate(SQLModel):
@@ -147,12 +160,13 @@ class EvaluationRunPublic(SQLModel):
     run_name: str
     dataset_name: str
     config: dict[str, Any]
-    batch_job_id: Optional[int]
+    batch_job_id: int | None
+    embedding_batch_job_id: int | None
     status: str
-    s3_url: Optional[str]
+    s3_url: str | None
     total_items: int
-    score: Optional[dict[str, Any]]
-    error_message: Optional[str]
+    score: dict[str, Any] | None
+    error_message: str | None
     organization_id: int
     project_id: int
     inserted_at: datetime
