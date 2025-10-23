@@ -163,6 +163,8 @@ class EvaluationRunCreate(SQLModel):
 class EvaluationRunPublic(SQLModel):
     """Public model for evaluation runs."""
 
+    model_config = {"json_schema_extra": {"exclude": {"langfuse_trace_ids"}}}
+
     id: int
     run_name: str
     dataset_name: str
@@ -173,7 +175,11 @@ class EvaluationRunPublic(SQLModel):
     s3_url: str | None
     total_items: int
     score: dict[str, Any] | None
-    langfuse_trace_ids: dict[str, str] | None
+    langfuse_trace_ids: dict[str, str] | None = Field(
+        default=None,
+        exclude=True,
+        description="Internal: Trace ID mapping (excluded from API)",
+    )
     error_message: str | None
     organization_id: int
     project_id: int

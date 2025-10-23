@@ -179,7 +179,8 @@ async def process_completed_evaluation(
     Raises:
         Exception: If processing fails
     """
-    logger.info(f"Processing completed evaluation for run {eval_run.id}")
+    log_prefix = f"[org={eval_run.organization_id}][project={eval_run.project_id}][eval={eval_run.id}]"
+    logger.info(f"{log_prefix} Processing completed evaluation")
 
     try:
         # Step 1: Get batch_job
@@ -193,7 +194,9 @@ async def process_completed_evaluation(
             )
 
         # Step 2: Create provider and download results
-        logger.info(f"Step 1: Downloading batch results for batch_job {batch_job.id}")
+        logger.info(
+            f"{log_prefix} Downloading batch results for batch_job {batch_job.id}"
+        )
         provider = OpenAIBatchProvider(client=openai_client)
         raw_results = download_batch_results(provider=provider, batch_job=batch_job)
 
@@ -203,22 +206,19 @@ async def process_completed_evaluation(
             s3_url = upload_batch_results_to_s3(
                 batch_job=batch_job, results=raw_results
             )
-            logger.info(f"Uploaded evaluation results to S3: {s3_url}")
         except Exception as s3_error:
-            logger.warning(
-                f"S3 upload failed (AWS credentials may not be configured): {s3_error}. "
-                f"Continuing without S3 storage.",
-                exc_info=True,
-            )
+            logger.warning(f"{log_prefix} S3 upload failed: {s3_error}")
 
         # Step 3: Fetch dataset items (needed for matching ground truth)
-        logger.info(f"Step 2: Fetching dataset items for '{eval_run.dataset_name}'")
+        logger.info(
+            f"{log_prefix} Fetching dataset items for '{eval_run.dataset_name}'"
+        )
         dataset_items = fetch_dataset_items(
             langfuse=langfuse, dataset_name=eval_run.dataset_name
         )
 
         # Step 4: Parse evaluation results
-        logger.info("Step 3: Parsing evaluation results")
+        logger.info(f"{log_prefix} Parsing evaluation results")
         results = parse_evaluation_output(
             raw_results=raw_results, dataset_items=dataset_items
         )
@@ -227,7 +227,7 @@ async def process_completed_evaluation(
             raise ValueError("No valid results found in batch output")
 
         # Step 5: Create Langfuse dataset run with traces
-        logger.info("Step 4: Creating Langfuse dataset run with traces")
+        logger.info(f"{log_prefix} Creating Langfuse dataset run with traces")
         trace_id_mapping = create_langfuse_dataset_run(
             langfuse=langfuse,
             dataset_name=eval_run.dataset_name,
@@ -241,12 +241,9 @@ async def process_completed_evaluation(
             eval_run.s3_url = s3_url
         session.add(eval_run)
         session.commit()
-        logger.info(
-            f"Stored {len(trace_id_mapping)} trace IDs in evaluation run {eval_run.id}"
-        )
 
-        # Step 6: Start embedding batch for similarity scoring
-        logger.info("Step 6: Starting embedding batch for similarity scoring")
+        # Step 5: Start embedding batch for similarity scoring
+        logger.info(f"{log_prefix} Starting embedding batch for similarity scoring")
         try:
             eval_run = start_embedding_batch(
                 session=session,
@@ -254,15 +251,11 @@ async def process_completed_evaluation(
                 eval_run=eval_run,
                 results=results,
             )
-            logger.info(
-                f"Successfully started embedding batch for evaluation run {eval_run.id}: "
-                f"embedding_batch_job_id={eval_run.embedding_batch_job_id}"
-            )
             # Note: Status remains "processing" until embeddings complete
 
         except Exception as e:
             logger.error(
-                f"Failed to start embedding batch for run {eval_run.id}: {e}",
+                f"{log_prefix} Failed to start embedding batch: {e}",
                 exc_info=True,
             )
             # Don't fail the entire evaluation, just mark as completed without embeddings
@@ -273,16 +266,13 @@ async def process_completed_evaluation(
             session.commit()
             session.refresh(eval_run)
 
-        logger.info(
-            f"Successfully processed evaluation run {eval_run.id}: "
-            f"{len(results)} items processed, embedding batch started"
-        )
+        logger.info(f"{log_prefix} Processed evaluation: {len(results)} items")
 
         return eval_run
 
     except Exception as e:
         logger.error(
-            f"Failed to process completed evaluation for run {eval_run.id}: {e}",
+            f"{log_prefix} Failed to process completed evaluation: {e}",
             exc_info=True,
         )
         # Mark as failed
@@ -325,7 +315,8 @@ async def process_completed_embedding_batch(
     Raises:
         Exception: If processing fails
     """
-    logger.info(f"Processing completed embedding batch for run {eval_run.id}")
+    log_prefix = f"[org={eval_run.organization_id}][project={eval_run.project_id}][eval={eval_run.id}]"
+    logger.info(f"{log_prefix} Processing completed embedding batch")
 
     try:
         # Step 1: Get embedding_batch_job
@@ -343,29 +334,22 @@ async def process_completed_embedding_batch(
             )
 
         # Step 2: Create provider and download results
-        logger.info(
-            f"Step 1: Downloading embedding batch results for batch_job {embedding_batch_job.id}"
-        )
         provider = OpenAIBatchProvider(client=openai_client)
         raw_results = download_batch_results(
             provider=provider, batch_job=embedding_batch_job
         )
 
         # Step 3: Parse embedding results
-        logger.info("Step 3: Parsing embedding results")
         embedding_pairs = parse_embedding_results(raw_results=raw_results)
 
         if not embedding_pairs:
             raise ValueError("No valid embedding pairs found in batch output")
 
         # Step 4: Calculate similarity scores
-        logger.info("Step 3: Calculating cosine similarity scores")
+        logger.info(f"{log_prefix} Calculating cosine similarity scores")
         similarity_stats = calculate_average_similarity(embedding_pairs=embedding_pairs)
 
         # Step 5: Update evaluation_run with scores
-        logger.info("Step 4: Updating evaluation run with similarity scores")
-
-        # Merge with existing score if any
         if eval_run.score is None:
             eval_run.score = {}
 
@@ -384,7 +368,9 @@ async def process_completed_embedding_batch(
             ]
 
         # Step 6: Update Langfuse traces with cosine similarity scores
-        logger.info("Step 5: Updating Langfuse traces with cosine similarity scores")
+        logger.info(
+            f"{log_prefix} Updating Langfuse traces with cosine similarity scores"
+        )
         per_item_scores = similarity_stats.get("per_item_scores", [])
         if per_item_scores and eval_run.langfuse_trace_ids:
             try:
@@ -393,20 +379,12 @@ async def process_completed_embedding_batch(
                     trace_id_mapping=eval_run.langfuse_trace_ids,
                     per_item_scores=per_item_scores,
                 )
-                logger.info(
-                    f"Successfully updated {len(per_item_scores)} Langfuse traces with scores"
-                )
             except Exception as e:
                 # Log error but don't fail the evaluation
                 logger.error(
-                    f"Failed to update Langfuse traces with scores: {e}",
+                    f"{log_prefix} Failed to update Langfuse traces with scores: {e}",
                     exc_info=True,
                 )
-        else:
-            if not per_item_scores:
-                logger.warning("No per-item scores available to update Langfuse traces")
-            if not eval_run.langfuse_trace_ids:
-                logger.warning("No trace IDs available to update Langfuse traces")
 
         # Step 7: Mark evaluation as completed
         eval_run.status = "completed"
@@ -417,7 +395,7 @@ async def process_completed_embedding_batch(
         session.refresh(eval_run)
 
         logger.info(
-            f"Successfully completed embedding processing for evaluation run {eval_run.id}: "
+            f"{log_prefix} Completed evaluation: "
             f"avg_similarity={similarity_stats['cosine_similarity_avg']:.3f}"
         )
 
@@ -425,7 +403,7 @@ async def process_completed_embedding_batch(
 
     except Exception as e:
         logger.error(
-            f"Failed to process completed embedding batch for run {eval_run.id}: {e}",
+            f"{log_prefix} Failed to process completed embedding batch: {e}",
             exc_info=True,
         )
         # Mark as completed anyway, but with error message
@@ -469,18 +447,12 @@ async def check_and_process_evaluation(
             "action": "processed" | "embeddings_completed" | "embeddings_failed" | "failed" | "no_change"
         }
     """
-    logger.info(f"Checking evaluation run {eval_run.id}")
-
+    log_prefix = f"[org={eval_run.organization_id}][project={eval_run.project_id}][eval={eval_run.id}]"
     previous_status = eval_run.status
 
     try:
         # Check if we need to process embedding batch first
         if eval_run.embedding_batch_job_id and eval_run.status == "processing":
-            logger.info(
-                f"Checking embedding batch for evaluation run {eval_run.id}: "
-                f"embedding_batch_job_id={eval_run.embedding_batch_job_id}"
-            )
-
             embedding_batch_job = get_batch_job(
                 session=session, batch_job_id=eval_run.embedding_batch_job_id
             )
@@ -499,8 +471,7 @@ async def check_and_process_evaluation(
 
                 if embedding_status == "completed":
                     logger.info(
-                        f"Embedding batch {embedding_batch_job.provider_batch_id} completed, "
-                        f"processing similarity scores..."
+                        f"{log_prefix} Processing embedding batch {embedding_batch_job.provider_batch_id}"
                     )
 
                     await process_completed_embedding_batch(
@@ -521,7 +492,7 @@ async def check_and_process_evaluation(
 
                 elif embedding_status in ["failed", "expired", "cancelled"]:
                     logger.error(
-                        f"Embedding batch {embedding_batch_job.provider_batch_id} failed: "
+                        f"{log_prefix} Embedding batch {embedding_batch_job.provider_batch_id} failed: "
                         f"{embedding_batch_job.error_message}"
                     )
                     # Mark as completed without embeddings
@@ -545,10 +516,6 @@ async def check_and_process_evaluation(
 
                 else:
                     # Embedding batch still processing
-                    logger.info(
-                        f"Embedding batch {embedding_batch_job.provider_batch_id} still processing "
-                        f"(status={embedding_status})"
-                    )
                     return {
                         "run_id": eval_run.id,
                         "run_name": eval_run.run_name,
@@ -569,7 +536,6 @@ async def check_and_process_evaluation(
             )
 
         # IMPORTANT: Poll OpenAI to get the latest status before checking
-        logger.info(f"Polling OpenAI for batch status: {batch_job.provider_batch_id}")
         provider = OpenAIBatchProvider(client=openai_client)
         from app.crud.batch_operations import poll_batch_status
 
@@ -582,10 +548,6 @@ async def check_and_process_evaluation(
         # Handle different provider statuses
         if provider_status == "completed":
             # Process the completed evaluation
-            logger.info(
-                f"Batch {batch_job.provider_batch_id} completed, processing evaluation results..."
-            )
-
             await process_completed_evaluation(
                 eval_run=eval_run,
                 session=session,
@@ -613,7 +575,9 @@ async def check_and_process_evaluation(
             session.commit()
             session.refresh(eval_run)
 
-            logger.error(f"Batch {batch_job.provider_batch_id} failed: {error_msg}")
+            logger.error(
+                f"{log_prefix} Batch {batch_job.provider_batch_id} failed: {error_msg}"
+            )
 
             return {
                 "run_id": eval_run.id,
@@ -627,10 +591,6 @@ async def check_and_process_evaluation(
 
         else:
             # Still in progress (validating, in_progress, finalizing)
-            logger.info(
-                f"Batch {batch_job.provider_batch_id} still processing (provider_status={provider_status})"
-            )
-
             return {
                 "run_id": eval_run.id,
                 "run_name": eval_run.run_name,
@@ -641,7 +601,7 @@ async def check_and_process_evaluation(
             }
 
     except Exception as e:
-        logger.error(f"Error checking evaluation run {eval_run.id}: {e}", exc_info=True)
+        logger.error(f"{log_prefix} Error checking evaluation: {e}", exc_info=True)
 
         # Mark as failed
         eval_run.status = "failed"
@@ -679,8 +639,6 @@ async def poll_all_pending_evaluations(session: Session, org_id: int) -> dict[st
             "details": [...]
         }
     """
-    logger.info(f"Polling all pending evaluations for org_id={org_id}")
-
     # Get pending evaluations (status = "processing")
     statement = select(EvaluationRun).where(
         EvaluationRun.status == "processing",
@@ -689,7 +647,6 @@ async def poll_all_pending_evaluations(session: Session, org_id: int) -> dict[st
     pending_runs = session.exec(statement).all()
 
     if not pending_runs:
-        logger.info(f"No pending evaluations found for org_id={org_id}")
         return {
             "total": 0,
             "processed": 0,
@@ -697,9 +654,6 @@ async def poll_all_pending_evaluations(session: Session, org_id: int) -> dict[st
             "still_processing": 0,
             "details": [],
         }
-
-    logger.info(f"Found {len(pending_runs)} pending evaluations for org_id={org_id}")
-
     # Group evaluations by project_id since credentials are per project
     evaluations_by_project = defaultdict(list)
     for run in pending_runs:
@@ -712,10 +666,6 @@ async def poll_all_pending_evaluations(session: Session, org_id: int) -> dict[st
     total_still_processing_count = 0
 
     for project_id, project_runs in evaluations_by_project.items():
-        logger.info(
-            f"Processing {len(project_runs)} evaluations for project_id={project_id}"
-        )
-
         try:
             # Get credentials for this project
             openai_credentials = get_provider_credential(
