@@ -60,11 +60,14 @@ def execute_job(
     task_instance,
 ) -> LLMCallResponse | None:
     """Celery task to process an LLM request asynchronously."""
+
+
     request = LLMCallRequest(**request_data)
     job_id_uuid = UUID(job_id)
 
-    provider = request.config.completion.provider
-    model = request.config.completion.model
+    config = request.config
+    provider = config.completion.provider
+    model = config.completion.params.get("model", "N/A")
 
     logger.info(
         f"[execute_job] Starting LLM job execution | job_id={job_id}, task_id={task_id}, "

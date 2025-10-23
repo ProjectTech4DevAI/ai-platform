@@ -32,12 +32,8 @@ def execute_llm_call(
         - If successful: (LLMCallResponse, None)
         - If failed: (None, error_message)
     """
-    provider_type = request.config.completion.provider
 
-    logger.info(
-        f"[execute_llm_call] Processing LLM call for provider: {provider_type}, "
-        f"model: {request.config.completion.model}"
-    )
+    provider_type = request.config.completion.provider
 
     try:
         # Create the appropriate provider using the factory

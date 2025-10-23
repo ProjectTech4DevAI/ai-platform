@@ -49,12 +49,13 @@ class ProviderFactory:
 
         if provider_class is None:
             supported = cls.get_supported_providers()
+            logger.error(
+                f"[ProviderFactory] Unsupported provider type requested: {provider_type}"
+            )
             raise ValueError(
                 f"Provider '{provider_type}' is not supported. "
                 f"Supported providers: {', '.join(supported)}"
             )
-
-        logger.info(f"[ProviderFactory] Creating {provider_type} provider instance")
         return provider_class(client=client)
 
     @classmethod
