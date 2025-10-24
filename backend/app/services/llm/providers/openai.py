@@ -27,21 +27,11 @@ class OpenAIProvider(BaseProvider):
         self.client = client
 
     def execute(
-        self, completion_config: CompletionConfig, query: QueryParams
+        self,
+        completion_config: CompletionConfig,
+        query: QueryParams,
+        include_provider_response: bool = False,
     ) -> tuple[LLMCallResponse | None, str | None]:
-        """Execute OpenAI API call.
-
-        Directly passes the user's config params to OpenAI API along with input.
-
-        Args:
-            completion_config: Configuration for the completion request
-            query: Query parameters including input and optional conversation_id
-
-        Returns:
-            Tuple of (response, error_message)
-            - If successful: (LLMCallResponse, None)
-            - If failed: (None, error_message)
-        """
         response: Response | None = None
         error_message: str | None = None
 
@@ -59,14 +49,18 @@ class OpenAIProvider(BaseProvider):
 
             # Build response
             llm_response = LLMCallResponse(
-                status="success",
-                response_id=response.id,
-                message=response.output_text,
-                model=response.model,
-                input_tokens=response.usage.input_tokens,
-                output_tokens=response.usage.output_tokens,
-                total_tokens=response.usage.total_tokens,
+                id=response.id,
+                output=response.output_text,
+                usage={
+                    "input_tokens": response.usage.input_tokens,
+                    "output_tokens": response.usage.output_tokens,
+                    "total_tokens": response.usage.total_tokens,
+                    "model": response.model,
+                    "provider": "openai",
+                },
             )
+            if include_provider_response:
+                llm_response.llm_response = response.model_dump()
 
             logger.info(
                 f"[OpenAIProvider] Successfully generated response: {response.id}"
@@ -76,7 +70,6 @@ class OpenAIProvider(BaseProvider):
         except TypeError as e:
             # handle unexpected arguments gracefully
             error_message = f"Invalid or unexpected parameter in Config: {str(e)}"
-            logger.error(f"[OpenAIProvider] {error_message}", exc_info=True)
             return None, error_message
 
         except openai.OpenAIError as e:

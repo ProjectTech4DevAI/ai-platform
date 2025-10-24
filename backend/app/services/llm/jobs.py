@@ -108,7 +108,9 @@ def execute_job(
             )
 
         response, error = provider_instance.execute(
-            completion_config=config.completion, query=request.query
+            completion_config=config.completion,
+            query=request.query,
+            include_provider_response=request.include_provider_response,
         )
 
         with Session(engine) as session:
@@ -124,7 +126,7 @@ def execute_job(
                 )
                 logger.info(
                     f"[execute_job] Successfully completed LLM job | job_id={job_id}, "
-                    f"response_id={response.response_id}, tokens={response.total_tokens}"
+                    f"response_id={response.id}, tokens={response.usage.total_tokens}"
                 )
                 return callback.model_dump()
             else:
