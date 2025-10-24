@@ -50,7 +50,7 @@ def start_job(
     return job.id
 
 
-def handle_job_error(job_id: UUID, callback_url: str | None, error: str):
+def handle_job_error(job_id: UUID, callback_url: str | None, error: str) -> dict:
     """Handle job failure uniformly callback, and DB update."""
     with Session(engine) as session:
         job_crud = JobCrud(session=session)
@@ -77,8 +77,12 @@ def execute_job(
     job_id: str,
     task_id: str,
     task_instance,
-) -> LLMCallResponse | None:
-    """Celery task to process an LLM request asynchronously."""
+) -> dict:
+    """Celery task to process an LLM request asynchronously.
+
+    Returns:
+        dict: Serialized APIResponse[LLMCallResponse] on success, APIResponse[None] on failure
+    """
 
     request = LLMCallRequest(**request_data)
     job_id: UUID = UUID(job_id)
@@ -114,10 +118,11 @@ def execute_job(
 
         if response:
             callback = APIResponse.success_response(data=response)
-            send_callback(
-                callback_url=request.callback_url,
-                data=callback.model_dump(),
-            )
+            if request.callback_url:
+                send_callback(
+                    callback_url=request.callback_url,
+                    data=callback.model_dump(),
+                )
 
             with Session(engine) as session:
                 job_crud = JobCrud(session=session)

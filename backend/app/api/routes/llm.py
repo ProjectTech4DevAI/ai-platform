@@ -3,16 +3,37 @@ import logging
 from fastapi import APIRouter
 
 from app.api.deps import AuthContextDep, SessionDep
-from app.models import LLMCallRequest, Message
+from app.models import LLMCallRequest, LLMCallResponse, Message
 from app.services.llm.jobs import start_job
 from app.utils import APIResponse
 
 
 logger = logging.getLogger(__name__)
+
 router = APIRouter(tags=["LLM"])
+llm_callback_router = APIRouter()
 
 
-@router.post("/llm/call", response_model=APIResponse[Message])
+@llm_callback_router.post(
+    "{$callback_url}",
+    name="llm_callback",
+)
+def llm_callback_notification(body: APIResponse[LLMCallResponse]):
+    """
+    Callback endpoint specification for LLM call completion.
+
+    The callback will receive:
+    - On success: APIResponse with success=True and data containing LLMCallResponse
+    - On failure: APIResponse with success=False and error message
+    """
+    ...
+
+
+@router.post(
+    "/llm/call",
+    response_model=APIResponse[Message],
+    callbacks=llm_callback_router.routes,
+)
 async def llm_call(
     _current_user: AuthContextDep, _session: SessionDep, request: LLMCallRequest
 ):
