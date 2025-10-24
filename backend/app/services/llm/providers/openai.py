@@ -1,12 +1,3 @@
-"""OpenAI provider implementation.
-
-This module implements the BaseProvider interface for OpenAI models,
-including support for standard models, o-series models with reasoning,
-and file search capabilities.
-
-Directly passes user configuration to OpenAI API without transformation.
-"""
-
 import logging
 
 import openai
@@ -26,18 +17,6 @@ logger = logging.getLogger(__name__)
 
 
 class OpenAIProvider(BaseProvider):
-    """OpenAI implementation of the LLM provider.
-
-    Supports:
-    - Standard OpenAI models (GPT-4, GPT-3.5, etc.)
-    - O-series models with reasoning configuration
-    - Text configuration for verbosity control
-    - Vector store file search integration
-
-    Directly passes user configuration to OpenAI API.
-    User is responsible for providing valid OpenAI parameters.
-    """
-
     def __init__(self, client: OpenAI):
         """Initialize OpenAI provider with client.
 
@@ -55,7 +34,8 @@ class OpenAIProvider(BaseProvider):
         Directly passes the user's config params to OpenAI API along with input.
 
         Args:
-            request: LLM call request with configuration
+            completion_config: Configuration for the completion request
+            query: Query parameters including input and optional conversation_id
 
         Returns:
             Tuple of (response, error_message)

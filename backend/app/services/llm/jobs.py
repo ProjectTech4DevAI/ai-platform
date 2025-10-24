@@ -86,11 +86,10 @@ def execute_job(
 
     config = request.config
     provider = config.completion.provider
-    model = config.completion.params.get("model", "N/A")
 
     logger.info(
         f"[execute_job] Starting LLM job execution | job_id={job_id}, task_id={task_id}, "
-        f"provider={provider}, model={model}"
+        f"provider={provider}"
     )
 
     try:

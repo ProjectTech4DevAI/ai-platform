@@ -1,8 +1,7 @@
 """Base provider interface for LLM providers.
 
 This module defines the abstract base class that all LLM providers must implement.
-It provides a provider-agnostic interface for executing LLM calls with spec-based
-transformation.
+It provides a provider-agnostic interface for executing LLM calls.
 """
 
 from abc import ABC, abstractmethod
@@ -17,18 +16,18 @@ class BaseProvider(ABC):
     All provider implementations (OpenAI, Anthropic, etc.) must inherit from
     this class and implement the required methods.
 
-    Each provider uses its own spec class for parameter validation and conversion
-    to the provider's API format.
+    Providers directly pass user configuration to their respective APIs.
+    User is responsible for providing valid provider-specific parameters.
 
     Attributes:
         client: The provider-specific client instance
     """
 
     def __init__(self, client: Any):
-        """Initialize the provider with client.
+        """Initialize provider with client.
 
         Args:
-            client: Provider-specific client (e.g., OpenAI, Anthropic client)
+            client: Provider-specific client instance
         """
         self.client = client
 
@@ -36,25 +35,18 @@ class BaseProvider(ABC):
     def execute(
         self, completion_config: CompletionConfig, query: QueryParams
     ) -> tuple[LLMCallResponse | None, str | None]:
-        """Execute an LLM call using the provider.
+        """Execute LLM API call.
 
-        This is the main method that must be implemented by all providers.
-        It should handle the complete lifecycle of an LLM request:
-        1. Build provider-specific parameters (using transformer)
-        2. Make the API call to the provider
-        3. Extract results (including any additional features like RAG)
-        4. Return standardized response
+        Directly passes the user's config params to provider API along with input.
 
         Args:
-            request: LLM call request with configuration
+            completion_config: LLM completion configuration
+            query: Query parameters including input and conversation_id
 
         Returns:
             Tuple of (response, error_message)
             - If successful: (LLMCallResponse, None)
             - If failed: (None, error_message)
-
-        Raises:
-            NotImplementedError: If the provider hasn't implemented this method
         """
         raise NotImplementedError("Providers must implement execute method")
 

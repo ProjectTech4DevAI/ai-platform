@@ -1,9 +1,3 @@
-"""Provider factory for creating LLM provider instances.
-
-This module provides a registry pattern for instantiating the appropriate
-LLM provider based on the provider type specified in the request.
-"""
-
 import logging
 from typing import Any
 
@@ -26,6 +20,7 @@ PROVIDER_REGISTRY: dict[str, type[BaseProvider]] = {
 def get_llm_provider(
     session: Session, provider_type: str, project_id: int, organization_id: int
 ) -> BaseProvider:
+    # Import here to avoid circular imports
     from app.utils import get_openai_client
 
     provider_class = PROVIDER_REGISTRY.get(provider_type)
