@@ -77,7 +77,8 @@ class OpenAIProvider(BaseProvider):
 
             error_message = handle_openai_error(e)
             logger.error(
-                f"[OpenAIProvider.execute] OpenAI API error: {error_message}", exc_info=True
+                f"[OpenAIProvider.execute] OpenAI API error: {error_message}",
+                exc_info=True,
             )
             return None, error_message
 

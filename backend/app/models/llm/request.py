@@ -7,10 +7,18 @@ from sqlmodel import Field, SQLModel
 class QueryParams(SQLModel):
     """Query-specific parameters for each LLM call."""
 
-    input: str = Field(..., min_length=1, description="User input text/prompt")
+    input: str = Field(
+        ...,
+        min_length=1,
+        description="User input question/query/prompt, used to generate a response.",
+    )
     conversation_id: str | None = Field(
         default=None,
-        description="Optional conversation ID. If not provided, a new conversation will be created.",
+        description=(
+            "Identifier for an existing conversation. "
+            "Used to retrieve the previous message context and continue the chat. "
+            "If not provided, a new conversation will be created."
+        ),
     )
 
 
@@ -21,7 +29,8 @@ class CompletionConfig(SQLModel):
         default="openai", description="LLM provider to use"
     )
     params: dict[str, Any] = Field(
-        ..., description="Provider-specific parameters (schema varies by provider)"
+        ...,
+        description="Provider-specific parameters (schema varies by provider), should exactly match the provider's endpoint params structure",
     )
 
 
