@@ -1,5 +1,6 @@
-from sqlmodel import SQLModel, Field
 from typing import Any, Literal
+
+from sqlmodel import Field, SQLModel
 
 
 # Query Parameters (dynamic per request)

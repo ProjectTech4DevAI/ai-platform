@@ -1,9 +1,10 @@
 import logging
-from typing import Any
 
 from sqlmodel import Session
+
 from app.services.llm.providers.base import BaseProvider
 from app.services.llm.providers.openai import OpenAIProvider
+
 
 logger = logging.getLogger(__name__)
 

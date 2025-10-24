@@ -1,18 +1,17 @@
 import logging
 from uuid import UUID
 
+from asgi_correlation_id import correlation_id
 from fastapi import HTTPException
 from sqlmodel import Session
-from asgi_correlation_id import correlation_id
 
-from app.crud.jobs import JobCrud
-from app.utils import send_callback, APIResponse
 from app.core.db import engine
-
-from app.models import JobType, JobStatus, JobUpdate, LLMCallRequest, LLMCallResponse
-
+from app.crud.jobs import JobCrud
+from app.models import JobStatus, JobType, JobUpdate, LLMCallRequest, LLMCallResponse
+from app.utils import APIResponse, send_callback
 from app.celery.utils import start_high_priority_job
 from app.services.llm.providers.registry import get_llm_provider
+
 
 logger = logging.getLogger(__name__)
 
@@ -113,14 +112,16 @@ def execute_job(
             include_provider_response=request.include_provider_response,
         )
 
-        with Session(engine) as session:
-            job_crud = JobCrud(session=session)
-            if response:
-                callback = APIResponse.success_response(data=response)
-                send_callback(
-                    callback_url=request.callback_url,
-                    data=callback.model_dump(),
-                )
+        if response:
+            callback = APIResponse.success_response(data=response)
+            send_callback(
+                callback_url=request.callback_url,
+                data=callback.model_dump(),
+            )
+
+            with Session(engine) as session:
+                job_crud = JobCrud(session=session)
+
                 job_crud.update(
                     job_id=job_id, job_update=JobUpdate(status=JobStatus.SUCCESS)
                 )
@@ -129,8 +130,10 @@ def execute_job(
                     f"response_id={response.id}, tokens={response.usage.total_tokens}"
                 )
                 return callback.model_dump()
-            else:
-                return handle_job_error(job_id, request.callback_url, error)
+
+        return handle_job_error(
+            job_id, request.callback_url, error=error or "Unknown error occurred"
+        )
 
     except Exception as e:
         error = f"Unexpected error in LLM job execution: {str(e)}"
@@ -138,4 +141,4 @@ def execute_job(
             f"[execute_job] {error} | job_id={job_id}, task_id={task_id}",
             exc_info=True,
         )
-        return handle_job_error(job_id, request.callback_url, error)
+        return handle_job_error(job_id, request.callback_url, error=error)

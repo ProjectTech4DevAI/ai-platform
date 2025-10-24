@@ -3,15 +3,14 @@ import logging
 import openai
 from openai import OpenAI
 from openai.types.responses.response import Response
-from pydantic import ValidationError
 
 from app.models.llm import (
     CompletionConfig,
     LLMCallResponse,
-    LLMCallRequest,
     QueryParams,
 )
 from app.services.llm.providers.base import BaseProvider
+
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +62,7 @@ class OpenAIProvider(BaseProvider):
                 llm_response.llm_response = response.model_dump()
 
             logger.info(
-                f"[OpenAIProvider] Successfully generated response: {response.id}"
+                f"[OpenAIProvider.execute] Successfully generated response: {response.id}"
             )
             return llm_response, None
 
@@ -78,11 +77,11 @@ class OpenAIProvider(BaseProvider):
 
             error_message = handle_openai_error(e)
             logger.error(
-                f"[OpenAIProvider] OpenAI API error: {error_message}", exc_info=True
+                f"[OpenAIProvider.execute] OpenAI API error: {error_message}", exc_info=True
             )
             return None, error_message
 
         except Exception as e:
             error_message = f"Unexpected error: {str(e)}"
-            logger.error(f"[OpenAIProvider] {error_message}", exc_info=True)
+            logger.error(f"[OpenAIProvider.execute] {error_message}", exc_info=True)
             return None, error_message
