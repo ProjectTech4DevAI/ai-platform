@@ -235,14 +235,14 @@ async def process_completed_evaluation(
             results=results,
         )
 
-        # Store trace IDs and S3 URL in database
-        eval_run.langfuse_trace_ids = trace_id_mapping
+        # Store S3 URL in database
         if s3_url:
             eval_run.s3_url = s3_url
-        session.add(eval_run)
-        session.commit()
+            session.add(eval_run)
+            session.commit()
 
-        # Step 5: Start embedding batch for similarity scoring
+        # Step 6: Start embedding batch for similarity scoring
+        # Pass trace_id_mapping directly without storing in DB
         logger.info(f"{log_prefix} Starting embedding batch for similarity scoring")
         try:
             eval_run = start_embedding_batch(
@@ -250,6 +250,7 @@ async def process_completed_evaluation(
                 openai_client=openai_client,
                 eval_run=eval_run,
                 results=results,
+                trace_id_mapping=trace_id_mapping,
             )
             # Note: Status remains "processing" until embeddings complete
 
@@ -372,11 +373,10 @@ async def process_completed_embedding_batch(
             f"{log_prefix} Updating Langfuse traces with cosine similarity scores"
         )
         per_item_scores = similarity_stats.get("per_item_scores", [])
-        if per_item_scores and eval_run.langfuse_trace_ids:
+        if per_item_scores:
             try:
                 update_traces_with_cosine_scores(
                     langfuse=langfuse,
-                    trace_id_mapping=eval_run.langfuse_trace_ids,
                     per_item_scores=per_item_scores,
                 )
             except Exception as e:

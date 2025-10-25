@@ -110,13 +110,6 @@ class EvaluationRun(SQLModel, table=True):
         description="Evaluation scores (e.g., correctness, cosine_similarity, etc.)",
     )
 
-    # Langfuse trace IDs mapping (item_id -> trace_id)
-    langfuse_trace_ids: dict[str, str] | None = SQLField(
-        default=None,
-        sa_column=Column(JSON, nullable=True),
-        description="Mapping of item_id to Langfuse trace_id for updating traces with scores",
-    )
-
     # Error message field
     error_message: str | None = SQLField(
         default=None,
@@ -163,8 +156,6 @@ class EvaluationRunCreate(SQLModel):
 class EvaluationRunPublic(SQLModel):
     """Public model for evaluation runs."""
 
-    model_config = {"json_schema_extra": {"exclude": {"langfuse_trace_ids"}}}
-
     id: int
     run_name: str
     dataset_name: str
@@ -175,11 +166,6 @@ class EvaluationRunPublic(SQLModel):
     s3_url: str | None
     total_items: int
     score: dict[str, Any] | None
-    langfuse_trace_ids: dict[str, str] | None = Field(
-        default=None,
-        exclude=True,
-        description="Internal: Trace ID mapping (excluded from API)",
-    )
     error_message: str | None
     organization_id: int
     project_id: int

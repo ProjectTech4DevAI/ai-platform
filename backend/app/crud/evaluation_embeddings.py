@@ -49,13 +49,14 @@ def validate_embedding_model(model: str) -> None:
 
 def build_embedding_jsonl(
     results: list[dict[str, Any]],
+    trace_id_mapping: dict[str, str],
     embedding_model: str = "text-embedding-3-large",
 ) -> list[dict[str, Any]]:
     """
     Build JSONL data for embedding batch using OpenAI Embeddings API.
 
     Each line is a dict with:
-    - custom_id: Unique identifier (dataset item ID)
+    - custom_id: Langfuse trace_id (for direct score updates)
     - method: POST
     - url: /v1/embeddings
     - body: Embedding request with input array [output, ground_truth]
@@ -71,6 +72,7 @@ def build_embedding_jsonl(
                      },
                      ...
                  ]
+        trace_id_mapping: Mapping of item_id to Langfuse trace_id
         embedding_model: OpenAI embedding model to use (default: text-embedding-3-large)
 
     Returns:
@@ -94,15 +96,21 @@ def build_embedding_jsonl(
             logger.warning("Skipping result with no item_id")
             continue
 
+        # Get trace_id from mapping
+        trace_id = trace_id_mapping.get(item_id)
+        if not trace_id:
+            logger.warning(f"Skipping item {item_id} - no trace_id found")
+            continue
+
         # Skip if either output or ground_truth is empty
         if not generated_output or not ground_truth:
             logger.warning(f"Skipping item {item_id} - empty output or ground_truth")
             continue
 
         # Build the batch request object for Embeddings API
-        # Use input array to get both embeddings in one request
+        # Use trace_id as custom_id for direct score updates
         batch_request = {
-            "custom_id": item_id,
+            "custom_id": trace_id,
             "method": "POST",
             "url": "/v1/embeddings",
             "body": {
@@ -132,7 +140,7 @@ def parse_embedding_results(raw_results: list[dict[str, Any]]) -> list[dict[str,
         List of embedding pairs in format:
         [
             {
-                "item_id": "item_123",
+                "trace_id": "trace-uuid-123",
                 "output_embedding": [0.1, 0.2, ...],
                 "ground_truth_embedding": [0.15, 0.22, ...]
             },
@@ -145,16 +153,16 @@ def parse_embedding_results(raw_results: list[dict[str, Any]]) -> list[dict[str,
 
     for line_num, response in enumerate(raw_results, 1):
         try:
-            # Extract custom_id (dataset item ID)
-            item_id = response.get("custom_id")
-            if not item_id:
+            # Extract custom_id (which is now the Langfuse trace_id)
+            trace_id = response.get("custom_id")
+            if not trace_id:
                 logger.warning(f"Line {line_num}: No custom_id found, skipping")
                 continue
 
             # Handle errors in batch processing
             if response.get("error"):
                 error_msg = response["error"].get("message", "Unknown error")
-                logger.error(f"Item {item_id} had error: {error_msg}")
+                logger.error(f"Trace {trace_id} had error: {error_msg}")
                 continue
 
             # Extract the response body
@@ -163,7 +171,7 @@ def parse_embedding_results(raw_results: list[dict[str, Any]]) -> list[dict[str,
 
             if len(embedding_data) < 2:
                 logger.warning(
-                    f"Item {item_id}: Expected 2 embeddings, got {len(embedding_data)}"
+                    f"Trace {trace_id}: Expected 2 embeddings, got {len(embedding_data)}"
                 )
                 continue
 
@@ -187,14 +195,14 @@ def parse_embedding_results(raw_results: list[dict[str, Any]]) -> list[dict[str,
 
             if output_embedding is None or ground_truth_embedding is None:
                 logger.warning(
-                    f"Item {item_id}: Missing embeddings (output={output_embedding is not None}, "
+                    f"Trace {trace_id}: Missing embeddings (output={output_embedding is not None}, "
                     f"ground_truth={ground_truth_embedding is not None})"
                 )
                 continue
 
             embedding_pairs.append(
                 {
-                    "item_id": item_id,
+                    "trace_id": trace_id,
                     "output_embedding": output_embedding,
                     "ground_truth_embedding": ground_truth_embedding,
                 }
@@ -261,7 +269,7 @@ def calculate_average_similarity(
             "cosine_similarity_max": 0.98,
             "cosine_similarity_std": 0.12,
             "total_pairs": 50,
-            "per_item_scores": [...]  # Optional: individual scores
+            "per_item_scores": [...]  # Individual scores with trace_ids
         }
     """
     logger.info(f"Calculating similarity for {len(embedding_pairs)} pairs")
@@ -289,14 +297,14 @@ def calculate_average_similarity(
 
             per_item_scores.append(
                 {
-                    "item_id": pair["item_id"],
+                    "trace_id": pair["trace_id"],
                     "cosine_similarity": similarity,
                 }
             )
 
         except Exception as e:
             logger.error(
-                f"Error calculating similarity for item {pair.get('item_id')}: {e}"
+                f"Error calculating similarity for trace {pair.get('trace_id')}: {e}"
             )
             continue
 
@@ -338,12 +346,13 @@ def start_embedding_batch(
     openai_client: OpenAI,
     eval_run: EvaluationRun,
     results: list[dict[str, Any]],
+    trace_id_mapping: dict[str, str],
 ) -> EvaluationRun:
     """
     Start embedding batch for similarity scoring.
 
     This function orchestrates the embedding batch creation:
-    1. Builds embedding JSONL from evaluation results
+    1. Builds embedding JSONL from evaluation results with trace_ids
     2. Creates batch via generic infrastructure (job_type="embedding")
     3. Links embedding_batch_job_id to eval_run
     4. Keeps status as "processing"
@@ -353,6 +362,7 @@ def start_embedding_batch(
         openai_client: Configured OpenAI client
         eval_run: EvaluationRun database object
         results: Parsed evaluation results (output + ground_truth pairs)
+        trace_id_mapping: Mapping of item_id to Langfuse trace_id
 
     Returns:
         Updated EvaluationRun with embedding_batch_job_id populated
@@ -378,9 +388,10 @@ def start_embedding_batch(
             )
             embedding_model = "text-embedding-3-large"
 
-        # Step 1: Build embedding JSONL
+        # Step 1: Build embedding JSONL with trace_ids
         jsonl_data = build_embedding_jsonl(
             results=results,
+            trace_id_mapping=trace_id_mapping,
             embedding_model=embedding_model,
         )
 

@@ -110,7 +110,6 @@ def create_langfuse_dataset_run(
 
 def update_traces_with_cosine_scores(
     langfuse: Langfuse,
-    trace_id_mapping: dict[str, str],
     per_item_scores: list[dict[str, Any]],
 ) -> None:
     """
@@ -121,11 +120,10 @@ def update_traces_with_cosine_scores(
 
     Args:
         langfuse: Configured Langfuse client
-        trace_id_mapping: Mapping of item_id to Langfuse trace_id
         per_item_scores: List of per-item score dictionaries from calculate_average_similarity()
                         Format: [
                             {
-                                "item_id": "item_123",
+                                "trace_id": "trace-uuid-123",
                                 "cosine_similarity": 0.95
                             },
                             ...
@@ -136,11 +134,11 @@ def update_traces_with_cosine_scores(
         evaluation completion if Langfuse updates fail.
     """
     for score_item in per_item_scores:
-        item_id = score_item.get("item_id")
+        trace_id = score_item.get("trace_id")
         cosine_score = score_item.get("cosine_similarity")
-        trace_id = trace_id_mapping.get(item_id)
 
         if not trace_id:
+            logger.warning("Score item missing trace_id, skipping")
             continue
 
         try:
@@ -152,7 +150,7 @@ def update_traces_with_cosine_scores(
             )
         except Exception as e:
             logger.error(
-                f"Failed to add score for trace {trace_id} (item {item_id}): {e}",
+                f"Failed to add score for trace {trace_id}: {e}",
                 exc_info=True,
             )
 
