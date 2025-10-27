@@ -40,9 +40,18 @@ class OpenAIProvider(BaseProvider):
             }
             params["input"] = query.input
 
-            # Add conversation_id if provided
-            if query.conversation_id:
-                params["conversation_id"] = query.conversation_id
+            conversation_cfg = query.conversation
+
+            if conversation_cfg and conversation_cfg.id:
+                params["conversation"] = {"id": conversation_cfg.id}
+
+            elif conversation_cfg and conversation_cfg.auto_create:
+                conversation = self.client.conversations.create()
+                params["conversation"] = {"id": conversation.id}
+
+            else:
+                # only accept conversation_id if explicitly provided
+                params.pop("conversation", None)
 
             response = self.client.responses.create(**params)
 
@@ -50,6 +59,9 @@ class OpenAIProvider(BaseProvider):
             llm_response = LLMCallResponse(
                 id=response.id,
                 output=response.output_text,
+                conversation_id=response.conversation.id
+                if response.conversation
+                else None,
                 usage={
                     "input_tokens": response.usage.input_tokens,
                     "output_tokens": response.usage.output_tokens,

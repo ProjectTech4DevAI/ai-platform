@@ -1,6 +1,30 @@
 from typing import Any, Literal
 
 from sqlmodel import Field, SQLModel
+from pydantic import model_validator
+
+
+class ConversationConfig(SQLModel):
+    id: str | None = Field(
+        default=None,
+        description=(
+            "Identifier for an existing conversation. "
+            "Used to retrieve the previous message context and continue the chat. "
+            "If not provided, a new conversation will be created."
+        ),
+    )
+    auto_create: bool = Field(
+        default=False,
+        description=(
+            "Only if True and no `id` is provided, a new conversation will be created automatically."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def validate_conversation_logic(self):
+        if self.id and self.auto_create:
+            self.auto_create = False
+        return self
 
 
 # Query Parameters (dynamic per request)
@@ -12,13 +36,9 @@ class QueryParams(SQLModel):
         min_length=1,
         description="User input question/query/prompt, used to generate a response.",
     )
-    conversation_id: str | None = Field(
+    conversation: ConversationConfig | None = Field(
         default=None,
-        description=(
-            "Identifier for an existing conversation. "
-            "Used to retrieve the previous message context and continue the chat. "
-            "If not provided, a new conversation will be created."
-        ),
+        description="Conversation control configuration for context handling.",
     )
 
 
