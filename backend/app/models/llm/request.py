@@ -1,7 +1,7 @@
 from typing import Any, Literal
 
 from sqlmodel import Field, SQLModel
-from pydantic import model_validator
+from pydantic import model_validator, HttpUrl
 
 
 class ConversationConfig(SQLModel):
@@ -68,7 +68,7 @@ class LLMCallRequest(SQLModel):
 
     query: QueryParams = Field(..., description="Query-specific parameters")
     config: LLMCallConfig = Field(..., description="Configuration for the LLM call")
-    callback_url: str | None = Field(
+    callback_url: HttpUrl | None = Field(
         default=None, description="Webhook URL for async response delivery"
     )
     include_provider_response: bool = Field(
