@@ -8,6 +8,7 @@ from app.models.llm import (
     CompletionConfig,
     LLMCallResponse,
     QueryParams,
+    Usage,
 )
 from app.services.llm.providers.base import BaseProvider
 
@@ -59,16 +60,16 @@ class OpenAIProvider(BaseProvider):
             llm_response = LLMCallResponse(
                 id=response.id,
                 output=response.output_text,
+                model=response.model,
+                provider="openai",
                 conversation_id=response.conversation.id
                 if response.conversation
                 else None,
-                usage={
-                    "input_tokens": response.usage.input_tokens,
-                    "output_tokens": response.usage.output_tokens,
-                    "total_tokens": response.usage.total_tokens,
-                    "model": response.model,
-                    "provider": "openai",
-                },
+                usage=Usage(
+                    input_tokens=response.usage.input_tokens,
+                    output_tokens=response.usage.output_tokens,
+                    total_tokens=response.usage.total_tokens,
+                ),
             )
             if include_provider_response:
                 llm_response.llm_response = response.model_dump()
