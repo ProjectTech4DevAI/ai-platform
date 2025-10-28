@@ -21,13 +21,11 @@ from app.services.llm.jobs import start_job, handle_job_error, execute_job
 from app.tests.utils.utils import get_project
 
 
-
 class TestStartJob:
     """Test cases for the start_job function."""
 
     @pytest.fixture
     def llm_call_request(self):
-        
         return LLMCallRequest(
             query=QueryParams(input="Test query"),
             config=LLMCallConfig(
@@ -64,8 +62,9 @@ class TestStartJob:
             assert kwargs["job_id"] == str(job_id)
             assert "request_data" in kwargs
 
-
-    def test_start_job_celery_scheduling_fails(self, db: Session, llm_call_request: LLMCallRequest):
+    def test_start_job_celery_scheduling_fails(
+        self, db: Session, llm_call_request: LLMCallRequest
+    ):
         """Test start_job when Celery task scheduling fails."""
         project = get_project(db)
 
@@ -80,8 +79,9 @@ class TestStartJob:
                 exc_info.value.detail
             )
 
-
-    def test_start_job_exception_during_job_creation(self, db: Session, llm_call_request: LLMCallRequest):
+    def test_start_job_exception_during_job_creation(
+        self, db: Session, llm_call_request: LLMCallRequest
+    ):
         """Test handling of exceptions during job creation in database."""
         project = get_project(db)
 
@@ -110,15 +110,14 @@ class TestHandleJobError:
         callback_url = "https://example.com/callback"
         error_message = "Test error occurred"
 
-        with patch("app.services.llm.jobs.Session") as mock_session_class, \
-             patch("app.services.llm.jobs.send_callback") as mock_send_callback:
+        with patch("app.services.llm.jobs.Session") as mock_session_class, patch(
+            "app.services.llm.jobs.send_callback"
+        ) as mock_send_callback:
             mock_session_class.return_value.__enter__.return_value = db
             mock_session_class.return_value.__exit__.return_value = None
 
             result = handle_job_error(
-                job_id=job.id,
-                callback_url=callback_url,
-                error=error_message
+                job_id=job.id, callback_url=callback_url, error=error_message
             )
 
             mock_send_callback.assert_called_once()
@@ -138,7 +137,6 @@ class TestHandleJobError:
             assert result["error"] == error_message
             assert result["data"] is None
 
-
     def test_handle_job_error_without_callback_url(self, db: Session):
         """Test handle_job_error updates job when no callback URL provided."""
         job_crud = JobCrud(session=db)
@@ -147,15 +145,14 @@ class TestHandleJobError:
 
         error_message = "Another test error"
 
-        with patch("app.services.llm.jobs.Session") as mock_session_class, \
-             patch("app.services.llm.jobs.send_callback") as mock_send_callback:
+        with patch("app.services.llm.jobs.Session") as mock_session_class, patch(
+            "app.services.llm.jobs.send_callback"
+        ) as mock_send_callback:
             mock_session_class.return_value.__enter__.return_value = db
             mock_session_class.return_value.__exit__.return_value = None
 
             result = handle_job_error(
-                job_id=job.id,
-                callback_url=None,
-                error=error_message
+                job_id=job.id, callback_url=None, error=error_message
             )
 
             mock_send_callback.assert_not_called()
@@ -168,7 +165,6 @@ class TestHandleJobError:
             assert result["success"] is False
             assert result["error"] == error_message
 
-
     def test_handle_job_error_callback_failure_still_updates_job(self, db: Session):
         """Test that job is updated even if callback sending fails."""
         job_crud = JobCrud(session=db)
@@ -178,8 +174,9 @@ class TestHandleJobError:
         callback_url = "https://example.com/callback"
         error_message = "Test error with callback failure"
 
-        with patch("app.services.llm.jobs.Session") as mock_session_class, \
-             patch("app.services.llm.jobs.send_callback") as mock_send_callback:
+        with patch("app.services.llm.jobs.Session") as mock_session_class, patch(
+            "app.services.llm.jobs.send_callback"
+        ) as mock_send_callback:
             mock_session_class.return_value.__enter__.return_value = db
             mock_session_class.return_value.__exit__.return_value = None
 
@@ -187,9 +184,7 @@ class TestHandleJobError:
 
             with pytest.raises(Exception) as exc_info:
                 handle_job_error(
-                    job_id=job.id,
-                    callback_url=callback_url,
-                    error=error_message
+                    job_id=job.id, callback_url=callback_url, error=error_message
                 )
 
             assert "Callback service unavailable" in str(exc_info.value)
@@ -200,7 +195,9 @@ class TestExecuteJob:
 
     @pytest.fixture
     def job_for_execution(self, db: Session):
-        job = JobCrud(session=db).create(job_type=JobType.LLM_API, trace_id="test-trace")
+        job = JobCrud(session=db).create(
+            job_type=JobType.LLM_API, trace_id="test-trace"
+        )
         db.commit()
         return job
 
@@ -208,7 +205,9 @@ class TestExecuteJob:
     def request_data(self):
         return {
             "query": {"input": "Test query"},
-            "config": {"completion": {"provider": "openai", "params": {"model": "gpt-4"}}},
+            "config": {
+                "completion": {"provider": "openai", "params": {"model": "gpt-4"}}
+            },
             "include_provider_response": False,
             "callback_url": None,
         }
@@ -223,7 +222,7 @@ class TestExecuteJob:
             usage=Usage(input_tokens=10, output_tokens=20, total_tokens=30),
             llm_response=None,
         )
-    
+
     @pytest.fixture
     def job_env(self, db, mock_llm_response):
         """Set up common environment with patched Session, provider, and callback."""
@@ -273,7 +272,9 @@ class TestExecuteJob:
         db.refresh(job_for_execution)
         assert job_for_execution.status == JobStatus.SUCCESS
 
-    def test_success_without_callback(self, db, job_env, job_for_execution, request_data):
+    def test_success_without_callback(
+        self, db, job_env, job_for_execution, request_data
+    ):
         """Successful execution without callback."""
         env = job_env
         env["provider"].execute.return_value = (env["mock_llm_response"], None)
@@ -297,7 +298,9 @@ class TestExecuteJob:
         db.refresh(job_for_execution)
         assert job_for_execution.status == JobStatus.FAILED
 
-    def test_provider_error_with_callback(self, db, job_env, job_for_execution, request_data):
+    def test_provider_error_with_callback(
+        self, db, job_env, job_for_execution, request_data
+    ):
         """Provider returns error (with callback)."""
         env = job_env
         request_data["callback_url"] = "https://example.com/callback"
@@ -308,7 +311,9 @@ class TestExecuteJob:
         env["send_callback"].assert_called_once()
         assert not result["success"]
 
-    def test_exception_during_execution(self, db, job_env, job_for_execution, request_data):
+    def test_exception_during_execution(
+        self, db, job_env, job_for_execution, request_data
+    ):
         """Unhandled exception in provider execution."""
         env = job_env
         env["provider"].execute.side_effect = Exception("Network timeout")
@@ -318,7 +323,9 @@ class TestExecuteJob:
         assert not result["success"]
         assert "Network timeout" in result["error"]
 
-    def test_exception_during_provider_retrieval(self, db, job_env, job_for_execution, request_data):
+    def test_exception_during_provider_retrieval(
+        self, db, job_env, job_for_execution, request_data
+    ):
         """Provider not configured exception."""
         env = job_env
         env["get_provider"].side_effect = Exception("Provider not configured")
