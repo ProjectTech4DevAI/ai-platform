@@ -30,7 +30,7 @@ def start_job(
             project_id=project_id,
             job_id=str(job.id),
             trace_id=trace_id,
-            request_data=request.model_dump(),
+            request_data=request.model_dump(mode="json"),
             organization_id=organization_id,
         )
     except Exception as e:
