@@ -10,7 +10,7 @@ from app.models.llm import (
     QueryParams,
     LLMOutput,
     LLMResponse,
-    Usage
+    Usage,
 )
 from app.services.llm.providers.base import BaseProvider
 
