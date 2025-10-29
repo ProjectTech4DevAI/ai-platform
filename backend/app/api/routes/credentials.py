@@ -66,6 +66,9 @@ def read_credential(
         org_id=_current_user.organization_id,
         project_id=_current_user.project_id,
     )
+    if not creds:
+        raise HTTPException(status_code=404, detail="Credentials not found")
+
     return APIResponse.success_response([cred.to_public() for cred in creds])
 
 
@@ -88,6 +91,9 @@ def read_provider_credential(
         provider=provider_enum,
         project_id=_current_user.project_id,
     )
+    if credential is None:
+        raise HTTPException(status_code=404, detail="Provider credentials not found")
+
     return APIResponse.success_response(credential)
 
 
