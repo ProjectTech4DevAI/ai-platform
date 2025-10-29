@@ -11,13 +11,18 @@ class Usage(SQLModel):
     total_tokens: int
 
 
+# class LLMOutput(SQLModel):
+#     text: str = Field(..., description="Primary text content of the LLM response.")
+
+
 class LLMCallResponse(SQLModel):
     id: str = Field(..., description="Unique id provided by the LLM provider.")
     conversation_id: str | None = None
-    output: str
+    # output: LLMOutput = Field(..., description="Structured output containing text and other data.")
+    output: str = Field(..., description="Primary text content of the LLM response.")
     model: str
     provider: str
     usage: Usage
-    llm_response: dict | None = Field(
+    provider_raw_response: dict | None = Field(
         default=None, description="Raw Response from LLM provider."
     )

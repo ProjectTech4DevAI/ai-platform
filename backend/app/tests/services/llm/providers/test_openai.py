@@ -64,7 +64,7 @@ class TestOpenAIProvider:
         assert result.usage.input_tokens == mock_response.usage.input_tokens
         assert result.usage.output_tokens == mock_response.usage.output_tokens
         assert result.usage.total_tokens == mock_response.usage.total_tokens
-        assert result.llm_response is None
+        assert result.provider_raw_response is None
 
         mock_client.responses.create.assert_called_once()
 
@@ -121,10 +121,10 @@ class TestOpenAIProvider:
         call_args = mock_client.responses.create.call_args
         assert call_args[1]["conversation"] == {"id": new_conversation_id}
 
-    def test_execute_with_include_provider_response(
+    def test_execute_with_include_provider_raw_response(
         self, provider, mock_client, completion_config, query_params
     ):
-        """Test execution with include_provider_response=True."""
+        """Test execution with include_provider_raw_response=True."""
         mock_response = mock_openai_response(
             text="Test response",
             model="gpt-4",
@@ -133,14 +133,14 @@ class TestOpenAIProvider:
         mock_client.responses.create.return_value = mock_response
 
         result, error = provider.execute(
-            completion_config, query_params, include_provider_response=True
+            completion_config, query_params, include_provider_raw_response=True
         )
 
         assert error is None
         assert result is not None
-        assert result.llm_response is not None
-        assert isinstance(result.llm_response, dict)
-        assert result.llm_response == mock_response.model_dump()
+        assert result.provider_raw_response is not None
+        assert isinstance(result.provider_raw_response, dict)
+        assert result.provider_raw_response == mock_response.model_dump()
 
     def test_execute_with_type_error(
         self, provider, mock_client, completion_config, query_params

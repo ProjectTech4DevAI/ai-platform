@@ -208,7 +208,7 @@ class TestExecuteJob:
             "config": {
                 "completion": {"provider": "openai", "params": {"model": "gpt-4"}}
             },
-            "include_provider_response": False,
+            "include_provider_raw_response": False,
             "callback_url": None,
         }
 
@@ -220,7 +220,7 @@ class TestExecuteJob:
             model="gpt-4",
             provider="openai",
             usage=Usage(input_tokens=10, output_tokens=20, total_tokens=30),
-            llm_response=None,
+            provider_raw_response=None,
         )
 
     @pytest.fixture

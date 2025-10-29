@@ -30,7 +30,7 @@ class OpenAIProvider(BaseProvider):
         self,
         completion_config: CompletionConfig,
         query: QueryParams,
-        include_provider_response: bool = False,
+        include_provider_raw_response: bool = False,
     ) -> tuple[LLMCallResponse | None, str | None]:
         response: Response | None = None
         error_message: str | None = None
@@ -71,8 +71,8 @@ class OpenAIProvider(BaseProvider):
                     total_tokens=response.usage.total_tokens,
                 ),
             )
-            if include_provider_response:
-                llm_response.llm_response = response.model_dump()
+            if include_provider_raw_response:
+                llm_response.provider_raw_response = response.model_dump()
 
             logger.info(
                 f"[OpenAIProvider.execute] Successfully generated response: {response.id}"

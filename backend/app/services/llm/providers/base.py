@@ -36,7 +36,7 @@ class BaseProvider(ABC):
         self,
         completion_config: CompletionConfig,
         query: QueryParams,
-        include_provider_response: bool = False,
+        include_provider_raw_response: bool = False,
     ) -> tuple[LLMCallResponse | None, str | None]:
         """Execute LLM API call.
 
@@ -45,7 +45,7 @@ class BaseProvider(ABC):
         Args:
             completion_config: LLM completion configuration
             query: Query parameters including input and conversation_id
-            include_provider_response: Whether to include the raw LLM provider response in the output
+            include_provider_raw_response: Whether to include the raw LLM provider response in the output
 
         Returns:
             Tuple of (response, error_message)

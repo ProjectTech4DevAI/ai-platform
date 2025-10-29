@@ -113,7 +113,7 @@ def execute_job(
         response, error = provider_instance.execute(
             completion_config=config.completion,
             query=request.query,
-            include_provider_response=request.include_provider_response,
+            include_provider_raw_response=request.include_provider_raw_response,
         )
 
         if response:

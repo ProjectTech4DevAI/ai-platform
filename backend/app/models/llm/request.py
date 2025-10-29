@@ -71,7 +71,7 @@ class LLMCallRequest(SQLModel):
     callback_url: HttpUrl | None = Field(
         default=None, description="Webhook URL for async response delivery"
     )
-    include_provider_response: bool = Field(
+    include_provider_raw_response: bool = Field(
         default=False,
         description="Whether to include the raw LLM provider response in the output",
     )
