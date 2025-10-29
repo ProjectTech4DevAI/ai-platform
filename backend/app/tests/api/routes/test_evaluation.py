@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlmodel import select
 
-from app.crud.evaluation_batch import build_batch_jsonl
+from app.crud.evaluation_batch import build_evaluation_jsonl
 from app.models import EvaluationRun
 
 
@@ -64,7 +64,7 @@ class TestDatasetUploadValidation:
             filename, file_obj = create_csv_file(valid_csv_content)
 
             response = client.post(
-                "/api/v1/dataset/upload",
+                "/api/v1/evaluations/datasets",
                 files={"file": (filename, file_obj, "text/csv")},
                 data={
                     "dataset_name": "test_dataset",
@@ -102,7 +102,7 @@ class TestDatasetUploadValidation:
             filename, file_obj = create_csv_file(invalid_csv_missing_columns)
 
             response = client.post(
-                "/api/v1/dataset/upload",
+                "/api/v1/evaluations/datasets",
                 files={"file": (filename, file_obj, "text/csv")},
                 data={
                     "dataset_name": "test_dataset",
@@ -131,7 +131,7 @@ class TestDatasetUploadValidation:
             filename, file_obj = create_csv_file(csv_with_empty_rows)
 
             response = client.post(
-                "/api/v1/dataset/upload",
+                "/api/v1/evaluations/datasets",
                 files={"file": (filename, file_obj, "text/csv")},
                 data={
                     "dataset_name": "test_dataset",
@@ -166,7 +166,7 @@ class TestDatasetUploadDuplication:
             filename, file_obj = create_csv_file(valid_csv_content)
 
             response = client.post(
-                "/api/v1/dataset/upload",
+                "/api/v1/evaluations/datasets",
                 files={"file": (filename, file_obj, "text/csv")},
                 data={
                     "dataset_name": "test_dataset",
@@ -197,7 +197,7 @@ class TestDatasetUploadDuplication:
             filename, file_obj = create_csv_file(valid_csv_content)
 
             response = client.post(
-                "/api/v1/dataset/upload",
+                "/api/v1/evaluations/datasets",
                 files={"file": (filename, file_obj, "text/csv")},
                 data={
                     "dataset_name": "test_dataset",
@@ -228,7 +228,7 @@ class TestDatasetUploadDuplication:
             filename, file_obj = create_csv_file(valid_csv_content)
 
             response = client.post(
-                "/api/v1/dataset/upload",
+                "/api/v1/evaluations/datasets",
                 files={"file": (filename, file_obj, "text/csv")},
                 data={
                     "dataset_name": "test_dataset",
@@ -267,7 +267,7 @@ class TestDatasetUploadErrors:
             filename, file_obj = create_csv_file(valid_csv_content)
 
             response = client.post(
-                "/api/v1/dataset/upload",
+                "/api/v1/evaluations/datasets",
                 files={"file": (filename, file_obj, "text/csv")},
                 data={
                     "dataset_name": "test_dataset",
@@ -289,7 +289,7 @@ class TestDatasetUploadErrors:
             mock_langfuse.return_value = (mock_client, True)
 
             response = client.post(
-                "/api/v1/dataset/upload",
+                "/api/v1/evaluations/datasets",
                 files={"file": (filename, file_obj, "text/csv")},
                 data={
                     "dataset_name": "test_dataset",
@@ -306,7 +306,7 @@ class TestDatasetUploadErrors:
         filename, file_obj = create_csv_file(valid_csv_content)
 
         response = client.post(
-            "/api/v1/dataset/upload",
+            "/api/v1/evaluations/datasets",
             files={"file": (filename, file_obj, "text/csv")},
             data={
                 "dataset_name": "test_dataset",
@@ -392,7 +392,7 @@ class TestBatchEvaluation:
             mock_langfuse.return_value = (mock_langfuse_client, True)
 
             response = client.post(
-                "/api/v1/evaluate/batch",
+                "/api/v1/evaluations",
                 json={
                     "run_name": "test_evaluation_run",
                     "dataset_name": "test_dataset",
@@ -462,7 +462,7 @@ class TestBatchEvaluation:
             mock_langfuse.return_value = (mock_langfuse_client, True)
 
             response = client.post(
-                "/api/v1/evaluate/batch",
+                "/api/v1/evaluations",
                 json={
                     "run_name": "test_with_vector_stores",
                     "dataset_name": "test_dataset",
@@ -498,7 +498,7 @@ class TestBatchEvaluation:
             mock_langfuse.return_value = (mock_langfuse_client, True)
 
             response = client.post(
-                "/api/v1/evaluate/batch",
+                "/api/v1/evaluations",
                 json={
                     "run_name": "test_evaluation_run",
                     "dataset_name": "invalid_dataset",
@@ -534,7 +534,7 @@ class TestBatchEvaluation:
             mock_langfuse.return_value = (mock_langfuse_client, True)
 
             response = client.post(
-                "/api/v1/evaluate/batch",
+                "/api/v1/evaluations",
                 json={
                     "run_name": "test_evaluation_run",
                     "dataset_name": "empty_dataset",
@@ -551,7 +551,7 @@ class TestBatchEvaluation:
     ):
         """Test batch evaluation requires authentication."""
         response = client.post(
-            "/api/v1/evaluate/batch",
+            "/api/v1/evaluations",
             json={
                 "run_name": "test_evaluation_run",
                 "dataset_name": "test_dataset",
@@ -581,7 +581,7 @@ class TestBatchEvaluation:
             # This should still work because config is flexible (dict)
             # but build_batch_jsonl will use defaults for missing values
             response = client.post(
-                "/api/v1/evaluate/batch",
+                "/api/v1/evaluations",
                 json={
                     "run_name": "test_evaluation_run",
                     "dataset_name": "test_dataset",
@@ -634,7 +634,7 @@ class TestBatchEvaluation:
             mock_langfuse.return_value = (mock_langfuse_client, True)
 
             response = client.post(
-                "/api/v1/evaluate/batch",
+                "/api/v1/evaluations",
                 json={
                     "run_name": "database_test_run",
                     "dataset_name": "test_dataset",
@@ -682,7 +682,7 @@ class TestBatchEvaluationJSONLBuilding:
             "vector_store_ids": [],
         }
 
-        batch_file = build_batch_jsonl(dataset_items, config)
+        batch_file = build_evaluation_jsonl(dataset_items, config)
 
         assert len(batch_file) == 1
 
@@ -713,7 +713,7 @@ class TestBatchEvaluationJSONLBuilding:
             "vector_store_ids": ["vs_abc123"],
         }
 
-        batch_file = build_batch_jsonl(dataset_items, config)
+        batch_file = build_evaluation_jsonl(dataset_items, config)
 
         assert len(batch_file) == 1
 
@@ -735,7 +735,7 @@ class TestBatchEvaluationJSONLBuilding:
 
         config = {}  # Empty config, should use defaults
 
-        batch_file = build_batch_jsonl(dataset_items, config)
+        batch_file = build_evaluation_jsonl(dataset_items, config)
 
         assert len(batch_file) == 1
 
@@ -772,7 +772,7 @@ class TestBatchEvaluationJSONLBuilding:
 
         config = {"llm": {"model": "gpt-4o"}, "instructions": "Test"}
 
-        batch_file = build_batch_jsonl(dataset_items, config)
+        batch_file = build_evaluation_jsonl(dataset_items, config)
 
         # Should only have 1 valid item
         assert len(batch_file) == 1
@@ -798,7 +798,7 @@ class TestBatchEvaluationJSONLBuilding:
             "vector_store_ids": [],
         }
 
-        batch_file = build_batch_jsonl(dataset_items, config)
+        batch_file = build_evaluation_jsonl(dataset_items, config)
 
         assert len(batch_file) == 5
 

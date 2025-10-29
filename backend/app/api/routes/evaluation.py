@@ -8,7 +8,6 @@ from app.core.util import configure_langfuse, configure_openai, now
 from app.crud.assistants import get_assistant_by_id
 from app.crud.credentials import get_provider_credential
 from app.crud.evaluation_batch import start_evaluation_batch
-from app.crud.evaluation_processing import poll_all_pending_evaluations
 from app.models import EvaluationRun, UserProjectOrg
 from app.models.evaluation import (
     DatasetUploadResponse,
@@ -20,7 +19,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["evaluation"])
 
 
-@router.post("/dataset/upload", response_model=DatasetUploadResponse)
+@router.post("/evaluations/datasets", response_model=DatasetUploadResponse)
 async def upload_dataset(
     file: UploadFile = File(
         ..., description="CSV file with 'question' and 'answer' columns"
@@ -203,7 +202,7 @@ async def upload_dataset(
         raise ValueError(f"Failed to save dataset metadata: {e}")
 
 
-@router.get("/dataset/{dataset_id}", response_model=DatasetUploadResponse)
+@router.get("/evaluations/datasets/{dataset_id}", response_model=DatasetUploadResponse)
 async def get_dataset(
     dataset_id: int,
     _session: Session = Depends(get_db),
@@ -248,7 +247,7 @@ async def get_dataset(
     )
 
 
-@router.get("/datasets", response_model=list[DatasetUploadResponse])
+@router.get("/evaluations/datasets", response_model=list[DatasetUploadResponse])
 async def list_datasets_endpoint(
     limit: int = 50,
     offset: int = 0,
@@ -306,7 +305,7 @@ async def list_datasets_endpoint(
     return response
 
 
-@router.delete("/dataset/{dataset_id}")
+@router.delete("/evaluations/datasets/{dataset_id}")
 async def delete_dataset(
     dataset_id: int,
     _session: Session = Depends(get_db),
@@ -347,7 +346,7 @@ async def delete_dataset(
     return {"message": message, "dataset_id": dataset_id}
 
 
-@router.post("/evaluate", response_model=EvaluationRunPublic)
+@router.post("/evaluations", response_model=EvaluationRunPublic)
 async def evaluate_threads(
     dataset_id: int = Body(..., description="ID of the evaluation dataset"),
     experiment_name: str = Body(
@@ -374,10 +373,10 @@ async def evaluate_threads(
     7. Returns the evaluation run details with batch_job_id
 
     The batch will be processed asynchronously by Celery Beat (every 60s).
-    Use GET /evaluate/batch/{run_id}/status to check progress.
+    Use GET /evaluations/{evaluation_id} to check progress.
 
     Args:
-        dataset_id: ID of the evaluation dataset (from /dataset/upload)
+        dataset_id: ID of the evaluation dataset (from /evaluations/datasets)
         experiment_name: Name for this evaluation experiment/run
         config: Configuration dict that will be used as-is in JSONL generation.
             Can include any OpenAI Responses API parameters like:
@@ -627,45 +626,9 @@ async def evaluate_threads(
         return eval_run
 
 
-@router.post("/evaluate/batch/poll")
-async def poll_evaluation_batches(
-    _session: Session = Depends(get_db),
-    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
-) -> dict:
-    """
-    Manually trigger polling for all pending evaluations in the current organization.
-
-    This endpoint is useful for:
-    - Testing the evaluation flow
-    - Immediately checking status instead of waiting for Celery beat
-    - Debugging evaluation issues
-
-    Returns:
-        Summary of polling results including processed, failed, and still
-        processing counts
-    """
-    logger.info(
-        f"Manual polling triggered for org_id={_current_user.organization_id} "
-        f"by user_id={_current_user.user_id}"
-    )
-
-    summary = await poll_all_pending_evaluations(
-        session=_session, org_id=_current_user.organization_id
-    )
-
-    logger.info(
-        f"Manual polling completed for org_id={_current_user.organization_id}: "
-        f"{summary.get('total', 0)} evaluations checked, "
-        f"{summary.get('processed', 0)} processed, "
-        f"{summary.get('failed', 0)} failed"
-    )
-
-    return summary
-
-
-@router.get("/evaluate/batch/{run_id}/status", response_model=EvaluationRunPublic)
+@router.get("/evaluations/{evaluation_id}", response_model=EvaluationRunPublic)
 async def get_evaluation_run_status(
-    run_id: int,
+    evaluation_id: int,
     _session: Session = Depends(get_db),
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ) -> EvaluationRunPublic:
@@ -673,20 +636,20 @@ async def get_evaluation_run_status(
     Get the current status of a specific evaluation run.
 
     Args:
-        run_id: ID of the evaluation run
+        evaluation_id: ID of the evaluation run
 
     Returns:
         EvaluationRunPublic with current status and results if completed
     """
     logger.info(
-        f"Fetching status for evaluation run {run_id} "
+        f"Fetching status for evaluation run {evaluation_id} "
         f"(org_id={_current_user.organization_id})"
     )
 
     # Query the evaluation run
     statement = (
         select(EvaluationRun)
-        .where(EvaluationRun.id == run_id)
+        .where(EvaluationRun.id == evaluation_id)
         .where(EvaluationRun.organization_id == _current_user.organization_id)
     )
 
@@ -694,18 +657,18 @@ async def get_evaluation_run_status(
 
     if not eval_run:
         raise ValueError(
-            f"Evaluation run {run_id} not found or not accessible to this organization"
+            f"Evaluation run {evaluation_id} not found or not accessible to this organization"
         )
 
     logger.info(
-        f"Found evaluation run {run_id}: status={eval_run.status}, "
+        f"Found evaluation run {evaluation_id}: status={eval_run.status}, "
         f"batch_job_id={eval_run.batch_job_id}"
     )
 
     return eval_run
 
 
-@router.get("/evaluate/batch/list", response_model=list[EvaluationRunPublic])
+@router.get("/evaluations", response_model=list[EvaluationRunPublic])
 async def list_evaluation_runs(
     _session: Session = Depends(get_db),
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
