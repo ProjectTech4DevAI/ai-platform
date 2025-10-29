@@ -7,7 +7,6 @@ from app.api.deps import get_current_user_org_project, get_db
 from app.core.util import configure_langfuse, configure_openai, now
 from app.crud.assistants import get_assistant_by_id
 from app.crud.credentials import get_provider_credential
-from app.crud.evaluation import upload_dataset_to_langfuse
 from app.crud.evaluation_batch import start_evaluation_batch
 from app.crud.evaluation_processing import poll_all_pending_evaluations
 from app.models import EvaluationRun, UserProjectOrg
@@ -26,7 +25,8 @@ async def upload_dataset(
     file: UploadFile = File(
         ..., description="CSV file with 'question' and 'answer' columns"
     ),
-    dataset_name: str = Form(..., description="Name for the dataset in Langfuse"),
+    dataset_name: str = Form(..., description="Name for the dataset"),
+    description: str | None = Form(None, description="Optional dataset description"),
     duplication_factor: int = Form(
         default=5, description="Number of times to duplicate each item"
     ),
@@ -34,8 +34,13 @@ async def upload_dataset(
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ) -> DatasetUploadResponse:
     """
-    Upload a CSV file containing Golden Q&A pairs to Langfuse as a dataset.
-    Each question will be duplicated N times (default 5) to test LLM flakiness.
+    Upload a CSV file containing Golden Q&A pairs.
+
+    This endpoint:
+    1. Validates and parses the CSV file
+    2. Uploads CSV to AWS S3 (if credentials configured)
+    3. Uploads dataset to Langfuse (for immediate use)
+    4. Stores metadata in database
 
     CSV Format:
     - Must contain 'question' and 'answer' columns
@@ -47,40 +52,312 @@ async def upload_dataset(
     "What is the capital of France?","Paris"
     "What is 2+2?","4"
     ```
+
+    Returns:
+        DatasetUploadResponse with dataset_id, s3_url, and Langfuse details
     """
+    from app.core.cloud import get_cloud_storage
+    from app.crud.evaluation_dataset import create_evaluation_dataset, upload_csv_to_s3
+    from app.crud.evaluation_langfuse import upload_dataset_to_langfuse_from_csv
+
     logger.info(
-        f"Uploading dataset: {dataset_name} with duplication factor: {duplication_factor}"
+        f"Uploading dataset: {dataset_name} with duplication factor: "
+        f"{duplication_factor}, org_id={_current_user.organization_id}, "
+        f"project_id={_current_user.project_id}"
     )
 
     # Read CSV content
-    content = await file.read()
+    csv_content = await file.read()
 
-    success, data, error = await upload_dataset_to_langfuse(
-        csv_content=content,
-        dataset_name=dataset_name,
-        duplication_factor=duplication_factor,
-        _session=_session,
-        _current_user=_current_user,
-    )
+    # Step 1: Parse and validate CSV
+    import csv
+    import io
 
-    if not success or data is None:
-        raise ValueError(error or "Failed to upload dataset")
+    try:
+        csv_text = csv_content.decode("utf-8")
+        csv_reader = csv.DictReader(io.StringIO(csv_text))
+
+        # Validate headers
+        if (
+            "question" not in csv_reader.fieldnames
+            or "answer" not in csv_reader.fieldnames
+        ):
+            raise ValueError(
+                f"CSV must contain 'question' and 'answer' columns. "
+                f"Found columns: {csv_reader.fieldnames}"
+            )
+
+        # Count original items
+        original_items = []
+        for row in csv_reader:
+            question = row.get("question", "").strip()
+            answer = row.get("answer", "").strip()
+            if question and answer:
+                original_items.append({"question": question, "answer": answer})
+
+        if not original_items:
+            raise ValueError("No valid items found in CSV file")
+
+        original_items_count = len(original_items)
+        total_items_count = original_items_count * duplication_factor
+
+        logger.info(
+            f"Parsed {original_items_count} items from CSV, "
+            f"will create {total_items_count} total items with duplication"
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to parse CSV: {e}", exc_info=True)
+        raise ValueError(f"Invalid CSV file: {e}")
+
+    # Step 2: Upload to AWS S3 (if credentials configured)
+    s3_url = None
+    try:
+        storage = get_cloud_storage(
+            session=_session, project_id=_current_user.project_id
+        )
+        s3_url = upload_csv_to_s3(
+            storage=storage, csv_content=csv_content, dataset_name=dataset_name
+        )
+        if s3_url:
+            logger.info(f"Successfully uploaded CSV to S3: {s3_url}")
+        else:
+            logger.info("S3 upload returned None, continuing without S3 storage")
+    except Exception as e:
+        logger.warning(
+            f"Failed to upload CSV to S3 (continuing without S3): {e}", exc_info=True
+        )
+        s3_url = None
+
+    # Step 3: Upload to Langfuse
+    langfuse_dataset_id = None
+    try:
+        # Get Langfuse credentials
+        langfuse_credentials = get_provider_credential(
+            session=_session,
+            org_id=_current_user.organization_id,
+            project_id=_current_user.project_id,
+            provider="langfuse",
+        )
+        if not langfuse_credentials:
+            raise ValueError("Langfuse credentials not configured")
+
+        langfuse, langfuse_success = configure_langfuse(langfuse_credentials)
+        if not langfuse_success:
+            raise ValueError("Failed to configure Langfuse client")
+
+        # Upload to Langfuse
+        langfuse_dataset_id, _ = upload_dataset_to_langfuse_from_csv(
+            langfuse=langfuse,
+            csv_content=csv_content,
+            dataset_name=dataset_name,
+            duplication_factor=duplication_factor,
+        )
+
+        logger.info(
+            f"Successfully uploaded dataset to Langfuse: {dataset_name} "
+            f"(id={langfuse_dataset_id})"
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to upload dataset to Langfuse: {e}", exc_info=True)
+        raise ValueError(f"Failed to upload dataset to Langfuse: {e}")
+
+    # Step 4: Store metadata in database
+    try:
+        metadata = {
+            "original_items_count": original_items_count,
+            "total_items_count": total_items_count,
+            "duplication_factor": duplication_factor,
+        }
+
+        dataset = create_evaluation_dataset(
+            session=_session,
+            name=dataset_name,
+            description=description,
+            dataset_metadata=metadata,
+            s3_url=s3_url,
+            langfuse_dataset_id=langfuse_dataset_id,
+            organization_id=_current_user.organization_id,
+            project_id=_current_user.project_id,
+        )
+
+        logger.info(
+            f"Successfully created dataset record in database: id={dataset.id}, "
+            f"name={dataset_name}"
+        )
+
+        # Return response
+        return DatasetUploadResponse(
+            dataset_id=dataset.id,
+            dataset_name=dataset_name,
+            total_items=total_items_count,
+            original_items=original_items_count,
+            duplication_factor=duplication_factor,
+            langfuse_dataset_id=langfuse_dataset_id,
+            s3_url=s3_url,
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to create dataset record in database: {e}", exc_info=True)
+        raise ValueError(f"Failed to save dataset metadata: {e}")
+
+
+@router.get("/dataset/{dataset_id}", response_model=DatasetUploadResponse)
+async def get_dataset(
+    dataset_id: int,
+    _session: Session = Depends(get_db),
+    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
+) -> DatasetUploadResponse:
+    """
+    Get details of a specific dataset by ID.
+
+    Args:
+        dataset_id: ID of the dataset to retrieve
+
+    Returns:
+        DatasetUploadResponse with dataset details
+    """
+    from app.crud.evaluation_dataset import get_dataset_by_id
 
     logger.info(
-        f"Successfully uploaded dataset: {dataset_name} with {data.total_items} items "
-        f"({data.original_items} original items × {duplication_factor})"
+        f"Fetching dataset: id={dataset_id}, "
+        f"org_id={_current_user.organization_id}, "
+        f"project_id={_current_user.project_id}"
     )
 
-    return data
+    dataset = get_dataset_by_id(
+        session=_session,
+        dataset_id=dataset_id,
+        organization_id=_current_user.organization_id,
+        project_id=_current_user.project_id,
+    )
+
+    if not dataset:
+        raise ValueError(f"Dataset {dataset_id} not found or not accessible")
+
+    # Build response
+    return DatasetUploadResponse(
+        dataset_id=dataset.id,
+        dataset_name=dataset.name,
+        total_items=dataset.dataset_metadata.get("total_items_count", 0),
+        original_items=dataset.dataset_metadata.get("original_items_count", 0),
+        duplication_factor=dataset.dataset_metadata.get("duplication_factor", 1),
+        langfuse_dataset_id=dataset.langfuse_dataset_id,
+        s3_url=dataset.s3_url,
+    )
+
+
+@router.get("/datasets", response_model=list[DatasetUploadResponse])
+async def list_datasets_endpoint(
+    limit: int = 50,
+    offset: int = 0,
+    _session: Session = Depends(get_db),
+    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
+) -> list[DatasetUploadResponse]:
+    """
+    List all datasets for the current organization and project.
+
+    Args:
+        limit: Maximum number of datasets to return (default 50, max 100)
+        offset: Number of datasets to skip for pagination (default 0)
+
+    Returns:
+        List of DatasetUploadResponse objects, ordered by most recent first
+    """
+    from app.crud.evaluation_dataset import list_datasets
+
+    # Enforce maximum limit
+    if limit > 100:
+        limit = 100
+
+    logger.info(
+        f"Listing datasets: org_id={_current_user.organization_id}, "
+        f"project_id={_current_user.project_id}, limit={limit}, "
+        f"offset={offset}"
+    )
+
+    datasets = list_datasets(
+        session=_session,
+        organization_id=_current_user.organization_id,
+        project_id=_current_user.project_id,
+        limit=limit,
+        offset=offset,
+    )
+
+    # Convert to response format
+    response = []
+    for dataset in datasets:
+        response.append(
+            DatasetUploadResponse(
+                dataset_id=dataset.id,
+                dataset_name=dataset.name,
+                total_items=dataset.dataset_metadata.get("total_items_count", 0),
+                original_items=dataset.dataset_metadata.get("original_items_count", 0),
+                duplication_factor=dataset.dataset_metadata.get(
+                    "duplication_factor", 1
+                ),
+                langfuse_dataset_id=dataset.langfuse_dataset_id,
+                s3_url=dataset.s3_url,
+            )
+        )
+
+    logger.info(f"Found {len(response)} datasets")
+    return response
+
+
+@router.delete("/dataset/{dataset_id}")
+async def delete_dataset(
+    dataset_id: int,
+    _session: Session = Depends(get_db),
+    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
+) -> dict:
+    """
+    Delete a dataset by ID.
+
+    This will remove the dataset record from the database. The CSV file in S3
+    (if exists) will remain for audit purposes, but the dataset will no longer
+    be accessible for creating new evaluations.
+
+    Args:
+        dataset_id: ID of the dataset to delete
+
+    Returns:
+        Success message with deleted dataset details
+    """
+    from app.crud.evaluation_dataset import delete_dataset as delete_dataset_crud
+
+    logger.info(
+        f"Deleting dataset: id={dataset_id}, "
+        f"org_id={_current_user.organization_id}, "
+        f"project_id={_current_user.project_id}"
+    )
+
+    success, message = delete_dataset_crud(
+        session=_session,
+        dataset_id=dataset_id,
+        organization_id=_current_user.organization_id,
+        project_id=_current_user.project_id,
+    )
+
+    if not success:
+        raise ValueError(message)
+
+    logger.info(f"Successfully deleted dataset: id={dataset_id}")
+    return {"message": message, "dataset_id": dataset_id}
 
 
 @router.post("/evaluate", response_model=EvaluationRunPublic)
 async def evaluate_threads(
-    dataset_name: str = Body(..., description="Name of the Langfuse dataset"),
+    dataset_id: int = Body(..., description="ID of the evaluation dataset"),
     experiment_name: str = Body(
         ..., description="Name for this evaluation experiment/run"
     ),
-    config: dict = Body(..., description="Evaluation configuration"),
+    config: dict = Body(default_factory=dict, description="Evaluation configuration"),
+    assistant_id: str
+    | None = Body(
+        None, description="Optional assistant ID to fetch configuration from"
+    ),
     _session: Session = Depends(get_db),
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ) -> EvaluationRunPublic:
@@ -88,41 +365,101 @@ async def evaluate_threads(
     Start an evaluation using OpenAI Batch API.
 
     This endpoint:
-    1. Creates an EvaluationRun record in the database
-    2. Fetches dataset items from Langfuse
-    3. Builds JSONL for batch processing (using provided config)
-    4. Creates a batch job via the generic batch infrastructure
-    5. Returns the evaluation run details with batch_job_id
+    1. Fetches the dataset from database
+    2. Ensures dataset is uploaded to Langfuse (re-uploads from S3 if needed)
+    3. Creates an EvaluationRun record in the database
+    4. Fetches dataset items from Langfuse
+    5. Builds JSONL for batch processing (config is used as-is)
+    6. Creates a batch job via the generic batch infrastructure
+    7. Returns the evaluation run details with batch_job_id
 
     The batch will be processed asynchronously by Celery Beat (every 60s).
     Use GET /evaluate/batch/{run_id}/status to check progress.
 
     Args:
-        dataset_name: Name of the Langfuse dataset
+        dataset_id: ID of the evaluation dataset (from /dataset/upload)
         experiment_name: Name for this evaluation experiment/run
-        config: Configuration dict with optional fields:
-            - assistant_id (optional): If provided, fetch config from openai_assistant table
-            - llm (optional): {"model": "gpt-4o", "temperature": 0.2}
-            - instructions (optional): System instructions
-            - vector_store_ids (optional): List of vector store IDs
+        config: Configuration dict that will be used as-is in JSONL generation.
+            Can include any OpenAI Responses API parameters like:
+            - model: str (e.g., "gpt-4o", "gpt-5")
+            - instructions: str
+            - tools: list (e.g., [{"type": "file_search", "vector_store_ids": [...]}])
+            - reasoning: dict (e.g., {"effort": "low"})
+            - text: dict (e.g., {"verbosity": "low"})
+            - temperature: float
+            - include: list (e.g., ["file_search_call.results"])
+            Note: "input" will be added automatically from the dataset
+        assistant_id: Optional assistant ID. If provided, configuration will be
+            fetched from the assistant in the database. Config can be passed as
+            empty dict {} when using assistant_id.
 
-    Example config:
+    Example with config:
     {
-        "llm": {"model": "gpt-4o", "temperature": 0.2},
-        "instructions": "You are a friendly assistant",
-        "vector_store_ids": ["vs_abc123"],
-        "assistant_id": "asst_xyz"  # Optional - fetches from DB if provided
+        "dataset_id": 123,
+        "experiment_name": "test_run",
+        "config": {
+            "model": "gpt-4.1",
+            "instructions": "You are a helpful FAQ assistant.",
+            "tools": [
+                {
+                    "type": "file_search",
+                    "vector_store_ids": ["vs_12345"],
+                    "max_num_results": 3
+                }
+            ],
+            "include": ["file_search_call.results"]
+        }
+    }
+
+    Example with assistant_id:
+    {
+        "dataset_id": 123,
+        "experiment_name": "test_run",
+        "config": {},
+        "assistant_id": "asst_xyz"
     }
 
     Returns:
         EvaluationRunPublic with batch details and status
     """
+    from app.core.cloud import get_cloud_storage
+    from app.crud.evaluation_dataset import (
+        download_csv_from_s3,
+        get_dataset_by_id,
+        update_dataset_langfuse_id,
+    )
+    from app.crud.evaluation_langfuse import upload_dataset_to_langfuse_from_csv
+
     logger.info(
         f"Starting evaluation: experiment_name={experiment_name}, "
-        f"dataset={dataset_name}, "
+        f"dataset_id={dataset_id}, "
         f"org_id={_current_user.organization_id}, "
+        f"assistant_id={assistant_id}, "
         f"config_keys={list(config.keys())}"
     )
+
+    # Step 1: Fetch dataset from database
+    dataset = get_dataset_by_id(
+        session=_session,
+        dataset_id=dataset_id,
+        organization_id=_current_user.organization_id,
+        project_id=_current_user.project_id,
+    )
+
+    if not dataset:
+        raise ValueError(
+            f"Dataset {dataset_id} not found or not accessible to this "
+            f"organization/project"
+        )
+
+    logger.info(
+        f"Found dataset: id={dataset.id}, name={dataset.name}, "
+        f"s3_url={'present' if dataset.s3_url else 'None'}, "
+        f"langfuse_id={dataset.langfuse_dataset_id}"
+    )
+
+    dataset_name = dataset.name
+    duplication_factor = dataset.dataset_metadata.get("duplication_factor", 5)
 
     # Get credentials
     openai_credentials = get_provider_credential(
@@ -148,8 +485,56 @@ async def evaluate_threads(
     if not openai_success or not langfuse_success:
         raise ValueError("Failed to configure API clients")
 
-    # Check if assistant_id is provided in config
-    assistant_id = config.get("assistant_id")
+    # Step 2: Ensure dataset is in Langfuse (re-upload from S3 if needed)
+    if not dataset.langfuse_dataset_id:
+        logger.info(f"Dataset {dataset_id} not yet in Langfuse, uploading from S3")
+
+        if not dataset.s3_url:
+            raise ValueError(
+                f"Dataset {dataset_id} has no S3 URL and no Langfuse ID. "
+                "Cannot proceed with evaluation."
+            )
+
+        try:
+            # Download CSV from S3
+            storage = get_cloud_storage(
+                session=_session, project_id=_current_user.project_id
+            )
+            csv_content = download_csv_from_s3(storage=storage, s3_url=dataset.s3_url)
+
+            # Upload to Langfuse
+            langfuse_dataset_id, _ = upload_dataset_to_langfuse_from_csv(
+                langfuse=langfuse,
+                csv_content=csv_content,
+                dataset_name=dataset_name,
+                duplication_factor=duplication_factor,
+            )
+
+            # Update dataset record with langfuse_dataset_id
+            update_dataset_langfuse_id(
+                session=_session,
+                dataset_id=dataset.id,
+                langfuse_dataset_id=langfuse_dataset_id,
+            )
+
+            logger.info(
+                f"Successfully uploaded dataset {dataset_id} to Langfuse: "
+                f"langfuse_id={langfuse_dataset_id}"
+            )
+
+        except Exception as e:
+            logger.error(
+                f"Failed to upload dataset {dataset_id} to Langfuse from S3: {e}",
+                exc_info=True,
+            )
+            raise ValueError(f"Failed to prepare dataset for evaluation: {e}")
+    else:
+        logger.info(
+            f"Dataset {dataset_id} already in Langfuse: "
+            f"langfuse_id={dataset.langfuse_dataset_id}"
+        )
+
+    # Handle assistant_id if provided
     if assistant_id:
         # Fetch assistant details from database
         assistant = get_assistant_by_id(
@@ -158,49 +543,49 @@ async def evaluate_threads(
             project_id=_current_user.project_id,
         )
 
-        if assistant:
-            logger.info(
-                f"Found assistant in DB: id={assistant.id}, "
-                f"model={assistant.model}, instructions={assistant.instructions[:50]}..."
-            )
+        if not assistant:
+            raise ValueError(f"Assistant {assistant_id} not found")
 
-            # Merge DB config with provided config (provided config takes precedence)
-            db_config = {
-                "assistant_id": assistant_id,
-                "llm": {
-                    "model": assistant.model,
-                    "temperature": assistant.temperature,
-                },
-                "instructions": assistant.instructions,
-                "vector_store_ids": assistant.vector_store_ids or [],
-            }
+        logger.info(
+            f"Found assistant in DB: id={assistant.id}, "
+            f"model={assistant.model}, instructions="
+            f"{assistant.instructions[:50] if assistant.instructions else 'None'}..."
+        )
 
-            # Override with provided config values
-            for key in ["llm", "instructions", "vector_store_ids"]:
-                if key in config:
-                    db_config[key] = config[key]
+        # Build config from assistant (use provided config values to override
+        # if present)
+        config = {
+            "model": config.get("model", assistant.model),
+            "instructions": config.get("instructions", assistant.instructions),
+            "temperature": config.get("temperature", assistant.temperature),
+        }
 
-            config = db_config
-            logger.info("Using merged config from DB and provided values")
-        else:
-            logger.warning(
-                f"Assistant {assistant_id} not found in DB, using provided config"
-            )
+        # Add tools if vector stores are available
+        vector_store_ids = config.get(
+            "vector_store_ids", assistant.vector_store_ids or []
+        )
+        if vector_store_ids and len(vector_store_ids) > 0:
+            config["tools"] = [
+                {
+                    "type": "file_search",
+                    "vector_store_ids": vector_store_ids,
+                }
+            ]
+
+        logger.info("Using config from assistant")
     else:
-        logger.info("No assistant_id provided, using provided config directly")
-
-    # Ensure config has required fields with defaults
-    if "llm" not in config:
-        config["llm"] = {"model": "gpt-4o", "temperature": 0.2}
-    if "instructions" not in config:
-        config["instructions"] = "You are a helpful assistant"
-    if "vector_store_ids" not in config:
-        config["vector_store_ids"] = []
+        logger.info("Using provided config directly")
+        # Validate that config has minimum required fields
+        if not config.get("model"):
+            raise ValueError(
+                "Config must include 'model' when assistant_id is not provided"
+            )
 
     # Create EvaluationRun record
     eval_run = EvaluationRun(
         run_name=experiment_name,
         dataset_name=dataset_name,
+        dataset_id=dataset_id,
         config=config,
         status="pending",
         organization_id=_current_user.organization_id,
@@ -256,7 +641,8 @@ async def poll_evaluation_batches(
     - Debugging evaluation issues
 
     Returns:
-        Summary of polling results including processed, failed, and still processing counts
+        Summary of polling results including processed, failed, and still
+        processing counts
     """
     logger.info(
         f"Manual polling triggered for org_id={_current_user.organization_id} "

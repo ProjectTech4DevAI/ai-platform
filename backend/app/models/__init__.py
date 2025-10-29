@@ -45,6 +45,9 @@ from .batch_job import (
 )
 
 from .evaluation import (
+    EvaluationDataset,
+    EvaluationDatasetCreate,
+    EvaluationDatasetPublic,
     EvaluationRun,
     EvaluationRunCreate,
     EvaluationRunPublic,

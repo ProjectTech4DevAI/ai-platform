@@ -35,8 +35,6 @@ def fetch_dataset_items(langfuse: Langfuse, dataset_name: str) -> list[dict[str,
     Raises:
         ValueError: If dataset not found or empty
     """
-    logger.info(f"Fetching dataset: {dataset_name}")
-
     try:
         dataset = langfuse.get_dataset(dataset_name)
     except Exception as e:
@@ -56,8 +54,6 @@ def fetch_dataset_items(langfuse: Langfuse, dataset_name: str) -> list[dict[str,
                 "metadata": item.metadata if hasattr(item, "metadata") else {},
             }
         )
-
-    logger.info(f"Fetched {len(items)} items from dataset '{dataset_name}'")
     return items
 
 
@@ -71,23 +67,25 @@ def build_evaluation_jsonl(
     - custom_id: Unique identifier for the request (dataset item ID)
     - method: POST
     - url: /v1/responses
-    - body: Response request with model, instructions, and input
+    - body: Response request using config as-is with input from dataset
 
     Args:
         dataset_items: List of dataset items from Langfuse
-        config: Evaluation configuration dict with llm, instructions, vector_store_ids
+        config: Evaluation configuration dict with OpenAI Responses API parameters.
+            This config is used as-is in the body, with only "input" being added
+            from the dataset. Config can include any fields like:
+            - model (required)
+            - instructions
+            - tools
+            - reasoning
+            - text
+            - temperature
+            - include
+            etc.
 
     Returns:
         List of dictionaries (JSONL data)
     """
-    # Extract config values
-    llm_config = config.get("llm", {})
-    model = llm_config.get("model", "gpt-4o")
-    instructions = config.get("instructions", "You are a helpful assistant")
-    vector_store_ids = config.get("vector_store_ids", [])
-
-    logger.info(f"Building JSONL for {len(dataset_items)} items with model {model}")
-
     jsonl_data = []
 
     for item in dataset_items:
@@ -98,30 +96,18 @@ def build_evaluation_jsonl(
             continue
 
         # Build the batch request object for Responses API
+        # Use config as-is and only add the input field
         batch_request = {
             "custom_id": item["id"],
             "method": "POST",
             "url": "/v1/responses",
             "body": {
-                "model": model,
-                "instructions": instructions,
-                "input": question,
+                **config,  # Use config as-is
+                "input": question,  # Add input from dataset
             },
         }
 
-        # Add vector store IDs if available (for file search)
-        if vector_store_ids and len(vector_store_ids) > 0:
-            batch_request["body"]["tools"] = [
-                {
-                    "type": "file_search",
-                    "vector_store_ids": vector_store_ids,
-                }
-            ]
-            batch_request["body"]["tool_choice"] = "auto"
-
         jsonl_data.append(batch_request)
-
-    logger.info(f"Built {len(jsonl_data)} JSONL lines")
     return jsonl_data
 
 
@@ -169,10 +155,8 @@ def start_evaluation_batch(
             "endpoint": "/v1/responses",
             "description": f"Evaluation: {eval_run.run_name}",
             "completion_window": "24h",
-            # Store complete config including LLM settings for reference
-            "llm": config.get("llm", {}),
-            "instructions": config.get("instructions"),
-            "vector_store_ids": config.get("vector_store_ids", []),
+            # Store complete config for reference
+            "evaluation_config": config,
         }
 
         # Step 5: Start batch job using generic infrastructure

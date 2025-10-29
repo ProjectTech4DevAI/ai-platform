@@ -19,6 +19,7 @@ class DatasetItem(BaseModel):
 class DatasetUploadResponse(BaseModel):
     """Response model for dataset upload."""
 
+    dataset_id: int = Field(..., description="Database ID of the created dataset")
     dataset_name: str = Field(..., description="Name of the created dataset")
     total_items: int = Field(
         ..., description="Total number of items uploaded (after duplication)"
@@ -32,6 +33,7 @@ class DatasetUploadResponse(BaseModel):
     langfuse_dataset_id: str | None = Field(
         None, description="Langfuse dataset ID if available"
     )
+    s3_url: str | None = Field(None, description="AWS S3 URL if uploaded")
 
 
 class EvaluationResult(BaseModel):
@@ -60,6 +62,61 @@ class Experiment(BaseModel):
 # Database Models
 
 
+class EvaluationDataset(SQLModel, table=True):
+    """Database table for evaluation datasets."""
+
+    __tablename__ = "evaluation_dataset"
+
+    id: int = SQLField(default=None, primary_key=True)
+
+    # Dataset information
+    name: str = SQLField(index=True, description="Name of the dataset")
+    description: str | None = SQLField(
+        default=None, description="Optional description of the dataset"
+    )
+
+    # Dataset metadata stored as JSON
+    dataset_metadata: dict[str, Any] = SQLField(
+        default_factory=dict,
+        sa_column=Column(JSON),
+        description=(
+            "Dataset metadata (original_items_count, total_items_count, "
+            "duplication_factor)"
+        ),
+    )
+
+    # Storage references
+    s3_url: str | None = SQLField(
+        default=None, description="AWS S3 URL where CSV is stored"
+    )
+    langfuse_dataset_id: str | None = SQLField(
+        default=None, description="Langfuse dataset ID for reference"
+    )
+
+    # Foreign keys
+    organization_id: int = SQLField(
+        foreign_key="organization.id", nullable=False, ondelete="CASCADE"
+    )
+    project_id: int = SQLField(
+        foreign_key="project.id", nullable=False, ondelete="CASCADE"
+    )
+
+    # Timestamps
+    inserted_at: datetime = SQLField(default_factory=now, nullable=False)
+    updated_at: datetime = SQLField(default_factory=now, nullable=False)
+
+    # Relationships
+    project: "Project" = Relationship(
+        back_populates="evaluation_datasets"
+    )  # noqa: F821
+    organization: "Organization" = Relationship(
+        back_populates="evaluation_datasets"
+    )  # noqa: F821
+    evaluation_runs: list["EvaluationRun"] = Relationship(
+        back_populates="evaluation_dataset"
+    )
+
+
 class EvaluationRun(SQLModel, table=True):
     """Database table for evaluation runs."""
 
@@ -78,11 +135,20 @@ class EvaluationRun(SQLModel, table=True):
         description="Evaluation configuration",
     )
 
+    # Dataset reference
+    dataset_id: int | None = SQLField(
+        default=None,
+        foreign_key="evaluation_dataset.id",
+        description="Reference to the evaluation_dataset used for this run",
+    )
+
     # Batch job references
     batch_job_id: int | None = SQLField(
         default=None,
         foreign_key="batch_job.id",
-        description="Reference to the batch_job that processes this evaluation (responses)",
+        description=(
+            "Reference to the batch_job that processes this evaluation " "(responses)"
+        ),
     )
     embedding_batch_job_id: int | None = SQLField(
         default=None,
@@ -130,26 +196,34 @@ class EvaluationRun(SQLModel, table=True):
     updated_at: datetime = SQLField(default_factory=now, nullable=False)
 
     # Relationships
-    project: "Project" = Relationship(back_populates="evaluation_runs")
-    organization: "Organization" = Relationship(back_populates="evaluation_runs")
-    batch_job: Optional["BatchJob"] = Relationship(
-        sa_relationship_kwargs={"foreign_keys": "[EvaluationRun.batch_job_id]"}
+    project: "Project" = Relationship(back_populates="evaluation_runs")  # noqa: F821
+    organization: "Organization" = Relationship(
+        back_populates="evaluation_runs"
     )  # noqa: F821
-    embedding_batch_job: Optional["BatchJob"] = Relationship(
+    evaluation_dataset: Optional["EvaluationDataset"] = Relationship(
+        back_populates="evaluation_runs"
+    )
+    batch_job: Optional["BatchJob"] = Relationship(  # noqa: F821
+        sa_relationship_kwargs={"foreign_keys": "[EvaluationRun.batch_job_id]"}
+    )
+    embedding_batch_job: Optional["BatchJob"] = Relationship(  # noqa: F821
         sa_relationship_kwargs={
             "foreign_keys": "[EvaluationRun.embedding_batch_job_id]"
         }
-    )  # noqa: F821
+    )
 
 
 class EvaluationRunCreate(SQLModel):
     """Model for creating an evaluation run."""
 
     run_name: str = Field(description="Name of the evaluation run", min_length=3)
-    dataset_name: str = Field(description="Name of the Langfuse dataset", min_length=1)
+    dataset_id: int = Field(description="ID of the evaluation dataset")
     config: dict[str, Any] = Field(
         default_factory=dict,
-        description="Evaluation configuration (flexible dict with llm, instructions, vector_store_ids, etc.)",
+        description=(
+            "Evaluation configuration (flexible dict with llm, instructions, "
+            "vector_store_ids, etc.)"
+        ),
     )
 
 
@@ -160,6 +234,7 @@ class EvaluationRunPublic(SQLModel):
     run_name: str
     dataset_name: str
     config: dict[str, Any]
+    dataset_id: int | None
     batch_job_id: int | None
     embedding_batch_job_id: int | None
     status: str
@@ -167,6 +242,39 @@ class EvaluationRunPublic(SQLModel):
     total_items: int
     score: dict[str, Any] | None
     error_message: str | None
+    organization_id: int
+    project_id: int
+    inserted_at: datetime
+    updated_at: datetime
+
+
+class EvaluationDatasetCreate(SQLModel):
+    """Model for creating an evaluation dataset."""
+
+    name: str = Field(description="Name of the dataset", min_length=1)
+    description: str | None = Field(None, description="Optional dataset description")
+    dataset_metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Dataset metadata (original_items_count, total_items_count, "
+            "duplication_factor)"
+        ),
+    )
+    s3_url: str | None = Field(None, description="AWS S3 URL where CSV is stored")
+    langfuse_dataset_id: str | None = Field(
+        None, description="Langfuse dataset ID for reference"
+    )
+
+
+class EvaluationDatasetPublic(SQLModel):
+    """Public model for evaluation datasets."""
+
+    id: int
+    name: str
+    description: str | None
+    dataset_metadata: dict[str, Any]
+    s3_url: str | None
+    langfuse_dataset_id: str | None
     organization_id: int
     project_id: int
     inserted_at: datetime

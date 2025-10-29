@@ -96,7 +96,8 @@ def create_langfuse_dataset_run(
 
         langfuse.flush()
         logger.info(
-            f"Created Langfuse dataset run '{run_name}' with {len(trace_id_mapping)} traces"
+            f"Created Langfuse dataset run '{run_name}' with "
+            f"{len(trace_id_mapping)} traces"
         )
 
         return trace_id_mapping
@@ -120,7 +121,8 @@ def update_traces_with_cosine_scores(
 
     Args:
         langfuse: Configured Langfuse client
-        per_item_scores: List of per-item score dictionaries from calculate_average_similarity()
+        per_item_scores: List of per-item score dictionaries from
+            calculate_average_similarity()
                         Format: [
                             {
                                 "trace_id": "trace-uuid-123",
@@ -146,7 +148,10 @@ def update_traces_with_cosine_scores(
                 trace_id=trace_id,
                 name="cosine_similarity",
                 value=cosine_score,
-                comment="Cosine similarity between generated output and ground truth embeddings",
+                comment=(
+                    "Cosine similarity between generated output and "
+                    "ground truth embeddings"
+                ),
             )
         except Exception as e:
             logger.error(
@@ -155,3 +160,117 @@ def update_traces_with_cosine_scores(
             )
 
     langfuse.flush()
+
+
+def upload_dataset_to_langfuse_from_csv(
+    langfuse: Langfuse,
+    csv_content: bytes,
+    dataset_name: str,
+    duplication_factor: int,
+) -> tuple[str, int]:
+    """
+    Upload a dataset to Langfuse from CSV content.
+
+    This function parses CSV content and uploads it to Langfuse with duplication.
+    Used when re-uploading datasets from S3 storage.
+
+    Args:
+        langfuse: Configured Langfuse client
+        csv_content: Raw CSV content as bytes
+        dataset_name: Name for the dataset in Langfuse
+        duplication_factor: Number of times to duplicate each item
+
+    Returns:
+        Tuple of (langfuse_dataset_id, total_items_uploaded)
+
+    Raises:
+        ValueError: If CSV is invalid or empty
+        Exception: If Langfuse operations fail
+    """
+    import csv
+    import io
+
+    logger.info(
+        f"Uploading dataset '{dataset_name}' to Langfuse from CSV "
+        f"(duplication_factor={duplication_factor})"
+    )
+
+    try:
+        # Parse CSV content
+        csv_text = csv_content.decode("utf-8")
+        csv_reader = csv.DictReader(io.StringIO(csv_text))
+
+        # Validate CSV headers
+        if (
+            "question" not in csv_reader.fieldnames
+            or "answer" not in csv_reader.fieldnames
+        ):
+            raise ValueError(
+                f"CSV must contain 'question' and 'answer' columns. "
+                f"Found columns: {csv_reader.fieldnames}"
+            )
+
+        # Read all rows from CSV
+        original_items = []
+        for row in csv_reader:
+            question = row.get("question", "").strip()
+            answer = row.get("answer", "").strip()
+
+            if not question or not answer:
+                logger.warning(f"Skipping row with empty question or answer: {row}")
+                continue
+
+            original_items.append({"question": question, "answer": answer})
+
+        if not original_items:
+            raise ValueError("No valid items found in CSV file")
+
+        logger.info(
+            f"Parsed {len(original_items)} items from CSV. "
+            f"Will duplicate {duplication_factor}x for a total of "
+            f"{len(original_items) * duplication_factor} items."
+        )
+
+        # Create or get dataset in Langfuse
+        dataset = langfuse.create_dataset(name=dataset_name)
+
+        # Upload items with duplication
+        total_uploaded = 0
+        for item in original_items:
+            # Duplicate each item N times
+            for duplicate_num in range(duplication_factor):
+                try:
+                    langfuse.create_dataset_item(
+                        dataset_name=dataset_name,
+                        input={"question": item["question"]},
+                        expected_output={"answer": item["answer"]},
+                        metadata={
+                            "original_question": item["question"],
+                            "duplicate_number": duplicate_num + 1,
+                            "duplication_factor": duplication_factor,
+                        },
+                    )
+                    total_uploaded += 1
+                except Exception as e:
+                    logger.error(
+                        f"Failed to upload item (duplicate {duplicate_num + 1}): "
+                        f"{item['question'][:50]}... Error: {e}"
+                    )
+
+        # Flush to ensure all items are uploaded
+        langfuse.flush()
+
+        langfuse_dataset_id = dataset.id if hasattr(dataset, "id") else None
+
+        logger.info(
+            f"Successfully uploaded {total_uploaded} items to Langfuse dataset "
+            f"'{dataset_name}' (id={langfuse_dataset_id})"
+        )
+
+        return langfuse_dataset_id, total_uploaded
+
+    except Exception as e:
+        logger.error(
+            f"Failed to upload dataset '{dataset_name}' to Langfuse: {e}", exc_info=True
+        )
+        raise
