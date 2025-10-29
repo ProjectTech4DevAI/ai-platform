@@ -50,24 +50,30 @@ def start_job(
     return job.id
 
 
-def handle_job_error(job_id: UUID, callback_url: str | None, error: str) -> dict:
-    """Handle job failure uniformly callback, and DB update."""
+def handle_job_error(
+    job_id: UUID,
+    callback_url: str | None,
+    callback_response: APIResponse,
+) -> dict:
+    """Handle job failure uniformly — send callback and update DB."""
     with Session(engine) as session:
         job_crud = JobCrud(session=session)
 
-        callback = APIResponse.failure_response(error=error)
         if callback_url:
             send_callback(
                 callback_url=callback_url,
-                data=callback.model_dump(),
+                data=callback_response.model_dump(),
             )
 
         job_crud.update(
             job_id=job_id,
-            job_update=JobUpdate(status=JobStatus.FAILED, error_message=error),
+            job_update=JobUpdate(
+                status=JobStatus.FAILED,
+                error_message=callback_response.error,
+            ),
         )
 
-        return callback.model_dump()
+    return callback_response.model_dump()
 
 
 def execute_job(
@@ -117,7 +123,9 @@ def execute_job(
         )
 
         if response:
-            callback = APIResponse.success_response(data=response)
+            callback = APIResponse.success_response(
+                data=response, metadata=request.request_metadata
+            )
             if request.callback_url:
                 send_callback(
                     callback_url=request.callback_url,
@@ -132,18 +140,23 @@ def execute_job(
                 )
                 logger.info(
                     f"[execute_job] Successfully completed LLM job | job_id={job_id}, "
-                    f"response_id={response.id}, tokens={response.usage.total_tokens}"
+                    f"provider_response_id={response.provider_response_id}, tokens={response.usage.total_tokens}"
                 )
                 return callback.model_dump()
 
-        return handle_job_error(
-            job_id, request.callback_url, error=error or "Unknown error occurred"
+        callback = APIResponse.failure_response(
+            error=error or "Unknown error occurred",
+            metadata=request.request_metadata,
         )
+        return handle_job_error(job_id, request.callback_url, callback)
 
     except Exception as e:
-        error = f"Unexpected error in LLM job execution: {str(e)}"
+        callback = APIResponse.failure_response(
+            error=f"Unexpected error in LLM job execution: {str(e)}",
+            metadata=request.request_metadata,
+        )
         logger.error(
-            f"[execute_job] {error} | job_id={job_id}, task_id={task_id}",
+            f"[execute_job] {callback.error} | job_id={job_id}, task_id={task_id}",
             exc_info=True,
         )
-        return handle_job_error(job_id, request.callback_url, error=error)
+        return handle_job_error(job_id, request.callback_url, callback)

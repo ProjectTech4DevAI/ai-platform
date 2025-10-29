@@ -75,3 +75,7 @@ class LLMCallRequest(SQLModel):
         default=False,
         description="Whether to include the raw LLM provider response in the output",
     )
+    request_metadata: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional metadata for tracking or additional context, always included in the callback response in metadata field",
+    )

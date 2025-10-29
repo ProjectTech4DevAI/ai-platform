@@ -25,6 +25,7 @@ def llm_callback_notification(body: APIResponse[LLMCallResponse]):
     The callback will receive:
     - On success: APIResponse with success=True and data containing LLMCallResponse
     - On failure: APIResponse with success=False and error message
+    - metadata field will always be included if provided in the request
     """
     ...
 

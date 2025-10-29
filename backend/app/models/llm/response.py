@@ -16,7 +16,9 @@ class Usage(SQLModel):
 
 
 class LLMCallResponse(SQLModel):
-    id: str = Field(..., description="Unique id provided by the LLM provider.")
+    provider_response_id: str = Field(
+        description="Unique response id provided by the LLM provider.",
+    )
     conversation_id: str | None = None
     # output: LLMOutput = Field(..., description="Structured output containing text and other data.")
     output: str = Field(..., description="Primary text content of the LLM response.")

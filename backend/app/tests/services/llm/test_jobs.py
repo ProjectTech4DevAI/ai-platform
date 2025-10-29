@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from sqlmodel import Session
 
 from app.crud import JobCrud
+from app.utils import APIResponse
 from app.models import JobStatus, JobType
 from app.models.llm import (
     LLMCallRequest,
@@ -108,7 +109,7 @@ class TestHandleJobError:
         db.commit()
 
         callback_url = "https://example.com/callback"
-        error_message = "Test error occurred"
+        callback_response = APIResponse.failure_response(error="Test error occurred")
 
         with patch("app.services.llm.jobs.Session") as mock_session_class, patch(
             "app.services.llm.jobs.send_callback"
@@ -117,7 +118,9 @@ class TestHandleJobError:
             mock_session_class.return_value.__exit__.return_value = None
 
             result = handle_job_error(
-                job_id=job.id, callback_url=callback_url, error=error_message
+                job_id=job.id,
+                callback_url=callback_url,
+                callback_response=callback_response,
             )
 
             mock_send_callback.assert_called_once()
@@ -126,15 +129,15 @@ class TestHandleJobError:
 
             callback_data = call_args[1]["data"]
             assert callback_data["success"] is False
-            assert callback_data["error"] == error_message
+            assert callback_data["error"] == callback_response.error
             assert callback_data["data"] is None
 
             db.refresh(job)
             assert job.status == JobStatus.FAILED
-            assert job.error_message == error_message
+            assert job.error_message == callback_response.error
 
             assert result["success"] is False
-            assert result["error"] == error_message
+            assert result["error"] == callback_response.error
             assert result["data"] is None
 
     def test_handle_job_error_without_callback_url(self, db: Session):
@@ -143,7 +146,7 @@ class TestHandleJobError:
         job = job_crud.create(job_type=JobType.LLM_API, trace_id="test-trace")
         db.commit()
 
-        error_message = "Another test error"
+        callback_response = APIResponse.failure_response(error="Test error occurred")
 
         with patch("app.services.llm.jobs.Session") as mock_session_class, patch(
             "app.services.llm.jobs.send_callback"
@@ -152,18 +155,18 @@ class TestHandleJobError:
             mock_session_class.return_value.__exit__.return_value = None
 
             result = handle_job_error(
-                job_id=job.id, callback_url=None, error=error_message
+                job_id=job.id, callback_url=None, callback_response=callback_response
             )
 
             mock_send_callback.assert_not_called()
 
             db.refresh(job)
             assert job.status == JobStatus.FAILED
-            assert job.error_message == error_message
+            assert job.error_message == callback_response.error
 
             # Verify return value structure
             assert result["success"] is False
-            assert result["error"] == error_message
+            assert result["error"] == callback_response.error
 
     def test_handle_job_error_callback_failure_still_updates_job(self, db: Session):
         """Test that job is updated even if callback sending fails."""
@@ -172,7 +175,9 @@ class TestHandleJobError:
         db.commit()
 
         callback_url = "https://example.com/callback"
-        error_message = "Test error with callback failure"
+        callback_response = APIResponse.failure_response(
+            error="Test error with callback failure"
+        )
 
         with patch("app.services.llm.jobs.Session") as mock_session_class, patch(
             "app.services.llm.jobs.send_callback"
@@ -184,7 +189,9 @@ class TestHandleJobError:
 
             with pytest.raises(Exception) as exc_info:
                 handle_job_error(
-                    job_id=job.id, callback_url=callback_url, error=error_message
+                    job_id=job.id,
+                    callback_url=callback_url,
+                    callback_response=callback_response,
                 )
 
             assert "Callback service unavailable" in str(exc_info.value)
@@ -215,7 +222,7 @@ class TestExecuteJob:
     @pytest.fixture
     def mock_llm_response(self):
         return LLMCallResponse(
-            id="resp-123",
+            provider_response_id="resp-123",
             output="Test response",
             model="gpt-4",
             provider="openai",
@@ -334,3 +341,35 @@ class TestExecuteJob:
 
         assert not result["success"]
         assert "Provider not configured" in result["error"]
+
+    def test_metadata_in_callback_response(
+        self, db, job_env, job_for_execution, request_data
+    ):
+        """Test that request metadata is included in callback response."""
+        env = job_env
+        request_data["callback_url"] = "https://example.com/callback"
+        request_data["request_metadata"] = {"tracking_id": "track-123"}
+
+        env["provider"].execute.return_value = (env["mock_llm_response"], None)
+
+        self._execute_job(job_for_execution, db, request_data)
+
+        env["send_callback"].assert_called_once()
+        callback_data = env["send_callback"].call_args[1]["data"]
+        assert callback_data["metadata"] == {"tracking_id": "track-123"}
+
+    def test_metadata_in_error_callback(
+        self, db, job_env, job_for_execution, request_data
+    ):
+        """Test that request metadata is included in error callback response."""
+        env = job_env
+        request_data["callback_url"] = "https://example.com/callback"
+        request_data["request_metadata"] = {"tracking_id": "track-456"}
+
+        env["provider"].execute.return_value = (None, "Some provider error")
+
+        self._execute_job(job_for_execution, db, request_data)
+
+        env["send_callback"].assert_called_once()
+        callback_data = env["send_callback"].call_args[1]["data"]
+        assert callback_data["metadata"] == {"tracking_id": "track-456"}

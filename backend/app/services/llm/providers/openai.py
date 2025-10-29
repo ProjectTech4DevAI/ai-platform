@@ -58,7 +58,7 @@ class OpenAIProvider(BaseProvider):
 
             # Build response
             llm_response = LLMCallResponse(
-                id=response.id,
+                provider_response_id=response.id,
                 output=response.output_text,
                 model=response.model,
                 provider="openai",
