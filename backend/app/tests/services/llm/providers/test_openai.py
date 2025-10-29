@@ -57,10 +57,10 @@ class TestOpenAIProvider:
 
         assert error is None
         assert result is not None
-        assert result.output == mock_response.output_text
-        assert result.model == mock_response.model
-        assert result.provider == "openai"
-        assert result.conversation_id is None
+        assert result.response.output.text == mock_response.output_text
+        assert result.response.model == mock_response.model
+        assert result.response.provider == "openai"
+        assert result.response.conversation_id is None
         assert result.usage.input_tokens == mock_response.usage.input_tokens
         assert result.usage.output_tokens == mock_response.usage.output_tokens
         assert result.usage.total_tokens == mock_response.usage.total_tokens
@@ -86,7 +86,7 @@ class TestOpenAIProvider:
 
         assert error is None
         assert result is not None
-        assert result.conversation_id == conversation_id
+        assert result.response.conversation_id == conversation_id
 
         # Verify conversation ID was passed
         call_args = mock_client.responses.create.call_args
@@ -114,7 +114,7 @@ class TestOpenAIProvider:
 
         assert error is None
         assert result is not None
-        assert result.conversation_id == new_conversation_id
+        assert result.response.conversation_id == new_conversation_id
 
         mock_client.conversations.create.assert_called_once()
 

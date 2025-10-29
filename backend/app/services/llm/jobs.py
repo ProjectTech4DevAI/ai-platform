@@ -140,7 +140,7 @@ def execute_job(
                 )
                 logger.info(
                     f"[execute_job] Successfully completed LLM job | job_id={job_id}, "
-                    f"provider_response_id={response.provider_response_id}, tokens={response.usage.total_tokens}"
+                    f"provider_response_id={response.response.provider_response_id}, tokens={response.usage.total_tokens}"
                 )
                 return callback.model_dump()
 

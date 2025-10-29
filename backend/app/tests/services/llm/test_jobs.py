@@ -15,6 +15,8 @@ from app.models.llm import (
     CompletionConfig,
     QueryParams,
     LLMCallResponse,
+    LLMResponse,
+    LLMOutput,
     Usage,
 )
 from app.models.llm.request import LLMCallConfig
@@ -222,10 +224,13 @@ class TestExecuteJob:
     @pytest.fixture
     def mock_llm_response(self):
         return LLMCallResponse(
-            provider_response_id="resp-123",
-            output="Test response",
-            model="gpt-4",
-            provider="openai",
+            response=LLMResponse(
+                provider_response_id="resp-123",
+                conversation_id=None,
+                model="gpt-4",
+                provider="openai",
+                output=LLMOutput(text="Test response"),
+            ),
             usage=Usage(input_tokens=10, output_tokens=20, total_tokens=30),
             provider_raw_response=None,
         )
