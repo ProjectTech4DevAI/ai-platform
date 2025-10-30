@@ -1,4 +1,4 @@
-import logging
+import logging, re
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.exc import IntegrityError
@@ -20,6 +20,54 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["evaluation"])
 
 
+def sanitize_dataset_name(name: str) -> str:
+    """
+    Sanitize dataset name for Langfuse compatibility.
+
+    Langfuse has issues with spaces and special characters in dataset names.
+    This function ensures the name can be both created and fetched.
+
+    Rules:
+    - Replace spaces with underscores
+    - Replace hyphens with underscores
+    - Keep only alphanumeric characters and underscores
+    - Convert to lowercase for consistency
+    - Remove leading/trailing underscores
+    - Collapse multiple consecutive underscores into one
+
+    Args:
+        name: Original dataset name
+
+    Returns:
+        Sanitized dataset name safe for Langfuse
+
+    Examples:
+        "testing 0001" -> "testing_0001"
+        "My Dataset!" -> "my_dataset"
+        "Test--Data__Set" -> "test_data_set"
+    """
+    # Convert to lowercase
+    sanitized = name.lower()
+
+    # Replace spaces and hyphens with underscores
+    sanitized = sanitized.replace(" ", "_").replace("-", "_")
+
+    # Keep only alphanumeric characters and underscores
+    sanitized = re.sub(r"[^a-z0-9_]", "", sanitized)
+
+    # Collapse multiple underscores into one
+    sanitized = re.sub(r"_+", "_", sanitized)
+
+    # Remove leading/trailing underscores
+    sanitized = sanitized.strip("_")
+
+    # Ensure name is not empty
+    if not sanitized:
+        raise ValueError("Dataset name cannot be empty after sanitization")
+
+    return sanitized
+
+
 @router.post("/evaluations/datasets", response_model=DatasetUploadResponse)
 async def upload_dataset(
     file: UploadFile = File(
@@ -37,10 +85,18 @@ async def upload_dataset(
     Upload a CSV file containing Golden Q&A pairs.
 
     This endpoint:
-    1. Validates and parses the CSV file
-    2. Uploads CSV to AWS S3 (if credentials configured)
-    3. Uploads dataset to Langfuse (for immediate use)
-    4. Stores metadata in database
+    1. Sanitizes the dataset name (removes spaces, special characters)
+    2. Validates and parses the CSV file
+    3. Uploads CSV to AWS S3 (if credentials configured)
+    4. Uploads dataset to Langfuse (for immediate use)
+    5. Stores metadata in database
+
+    Dataset Name:
+    - Will be sanitized for Langfuse compatibility
+    - Spaces replaced with underscores
+    - Special characters removed
+    - Converted to lowercase
+    - Example: "My Dataset 01!" becomes "my_dataset_01"
 
     CSV Format:
     - Must contain 'question' and 'answer' columns
@@ -56,10 +112,21 @@ async def upload_dataset(
 
     Returns:
         DatasetUploadResponse with dataset_id, s3_url, and Langfuse details
+        (dataset_name in response will be the sanitized version)
     """
     from app.core.cloud import get_cloud_storage
     from app.crud.evaluation_dataset import create_evaluation_dataset, upload_csv_to_s3
     from app.crud.evaluation_langfuse import upload_dataset_to_langfuse_from_csv
+
+    # Sanitize dataset name for Langfuse compatibility
+    original_name = dataset_name
+    try:
+        dataset_name = sanitize_dataset_name(dataset_name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid dataset name: {str(e)}")
+
+    if original_name != dataset_name:
+        logger.info(f"Dataset name sanitized: '{original_name}' -> '{dataset_name}'")
 
     logger.info(
         f"Uploading dataset: {dataset_name} with duplication factor: "
@@ -735,7 +802,10 @@ async def get_evaluation_run_status(
     if not eval_run:
         raise HTTPException(
             status_code=404,
-            detail=f"Evaluation run {evaluation_id} not found or not accessible to this organization",
+            detail=(
+                f"Evaluation run {evaluation_id} not found or not accessible "
+                "to this organization"
+            ),
         )
 
     logger.info(
