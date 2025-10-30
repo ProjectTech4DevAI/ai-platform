@@ -1,4 +1,4 @@
-"""create_evaluation_run_table and batch_job_table
+"""create_evaluation_run_table, batch_job_table, and evaluation_dataset_table
 
 Revision ID: d5747495bd7c
 Revises: e7c68e43ce6f
@@ -108,13 +108,55 @@ def upgrade():
         op.f("ix_batch_job_project_id"), "batch_job", ["project_id"], unique=False
     )
 
-    # Create evaluation_run table with batch_job_id reference (no old batch columns)
+    # Create evaluation_dataset table
+    op.create_table(
+        "evaluation_dataset",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("description", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+        sa.Column(
+            "dataset_metadata",
+            postgresql.JSONB(astext_type=sa.Text()),
+            nullable=False,
+            server_default=sa.text("'{}'::jsonb"),
+        ),
+        sa.Column("s3_url", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+        sa.Column(
+            "langfuse_dataset_id",
+            sqlmodel.sql.sqltypes.AutoString(),
+            nullable=True,
+        ),
+        sa.Column("organization_id", sa.Integer(), nullable=False),
+        sa.Column("project_id", sa.Integer(), nullable=False),
+        sa.Column("inserted_at", sa.DateTime(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["organization_id"], ["organization.id"], ondelete="CASCADE"
+        ),
+        sa.ForeignKeyConstraint(["project_id"], ["project.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_evaluation_dataset_name"),
+        "evaluation_dataset",
+        ["name"],
+        unique=False,
+    )
+
+    # Create evaluation_run table with all columns and foreign key references
     op.create_table(
         "evaluation_run",
         sa.Column("run_name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("dataset_name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("config", sa.JSON(), nullable=False),
         sa.Column("batch_job_id", sa.Integer(), nullable=True),
+        sa.Column(
+            "embedding_batch_job_id",
+            sa.Integer(),
+            nullable=True,
+            comment="Reference to the batch_job for embedding-based similarity scoring",
+        ),
+        sa.Column("dataset_id", sa.Integer(), nullable=True),
         sa.Column("status", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("s3_url", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column("total_items", sa.Integer(), nullable=False),
@@ -127,6 +169,16 @@ def upgrade():
         sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.ForeignKeyConstraint(["batch_job_id"], ["batch_job.id"]),
         sa.ForeignKeyConstraint(
+            ["embedding_batch_job_id"],
+            ["batch_job.id"],
+            name="fk_evaluation_run_embedding_batch_job_id",
+        ),
+        sa.ForeignKeyConstraint(
+            ["dataset_id"],
+            ["evaluation_dataset.id"],
+            name="fk_evaluation_run_dataset_id",
+        ),
+        sa.ForeignKeyConstraint(
             ["organization_id"], ["organization.id"], ondelete="CASCADE"
         ),
         sa.ForeignKeyConstraint(["project_id"], ["project.id"], ondelete="CASCADE"),
@@ -138,9 +190,13 @@ def upgrade():
 
 
 def downgrade():
-    # Drop evaluation_run table first
+    # Drop evaluation_run table first (has foreign keys to batch_job and evaluation_dataset)
     op.drop_index(op.f("ix_evaluation_run_run_name"), table_name="evaluation_run")
     op.drop_table("evaluation_run")
+
+    # Drop evaluation_dataset table
+    op.drop_index(op.f("ix_evaluation_dataset_name"), table_name="evaluation_dataset")
+    op.drop_table("evaluation_dataset")
 
     # Drop batch_job table
     op.drop_index(op.f("ix_batch_job_project_id"), table_name="batch_job")
