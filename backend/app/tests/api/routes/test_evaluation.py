@@ -1,12 +1,11 @@
 import io
-import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from sqlmodel import select
 
 from app.crud.evaluation_batch import build_evaluation_jsonl
-from app.models import EvaluationRun
+from app.models import EvaluationDataset
 
 
 # Helper function to create CSV file-like object
@@ -52,11 +51,13 @@ class TestDatasetUploadValidation:
         self, client, user_api_key_header, valid_csv_content, db
     ):
         """Test uploading a valid CSV file."""
-        with patch("app.core.cloud.get_cloud_storage") as _mock_storage, patch(
-            "app.crud.evaluation_dataset.upload_csv_to_s3"
-        ) as mock_s3_upload, patch(
-            "app.crud.evaluation_langfuse.upload_dataset_to_langfuse_from_csv"
-        ) as mock_langfuse_upload:
+        with (
+            patch("app.core.cloud.get_cloud_storage") as _mock_storage,
+            patch("app.crud.evaluation_dataset.upload_csv_to_s3") as mock_s3_upload,
+            patch(
+                "app.crud.evaluation_langfuse.upload_dataset_to_langfuse_from_csv"
+            ) as mock_langfuse_upload,
+        ):
             # Mock S3 upload
             mock_s3_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
 
@@ -126,11 +127,13 @@ class TestDatasetUploadValidation:
         self, client, user_api_key_header, csv_with_empty_rows
     ):
         """Test uploading CSV with empty rows (should skip them)."""
-        with patch("app.core.cloud.get_cloud_storage") as _mock_storage, patch(
-            "app.crud.evaluation_dataset.upload_csv_to_s3"
-        ) as mock_s3_upload, patch(
-            "app.crud.evaluation_langfuse.upload_dataset_to_langfuse_from_csv"
-        ) as mock_langfuse_upload:
+        with (
+            patch("app.core.cloud.get_cloud_storage") as _mock_storage,
+            patch("app.crud.evaluation_dataset.upload_csv_to_s3") as mock_s3_upload,
+            patch(
+                "app.crud.evaluation_langfuse.upload_dataset_to_langfuse_from_csv"
+            ) as mock_langfuse_upload,
+        ):
             # Mock S3 and Langfuse uploads
             mock_s3_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
             mock_langfuse_upload.return_value = ("test_dataset_id", 4)
@@ -162,11 +165,13 @@ class TestDatasetUploadDuplication:
         self, client, user_api_key_header, valid_csv_content
     ):
         """Test uploading with default duplication factor (5)."""
-        with patch("app.core.cloud.get_cloud_storage") as _mock_storage, patch(
-            "app.crud.evaluation_dataset.upload_csv_to_s3"
-        ) as mock_s3_upload, patch(
-            "app.crud.evaluation_langfuse.upload_dataset_to_langfuse_from_csv"
-        ) as mock_langfuse_upload:
+        with (
+            patch("app.core.cloud.get_cloud_storage") as _mock_storage,
+            patch("app.crud.evaluation_dataset.upload_csv_to_s3") as mock_s3_upload,
+            patch(
+                "app.crud.evaluation_langfuse.upload_dataset_to_langfuse_from_csv"
+            ) as mock_langfuse_upload,
+        ):
             mock_s3_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
             mock_langfuse_upload.return_value = ("test_dataset_id", 15)
 
@@ -193,11 +198,13 @@ class TestDatasetUploadDuplication:
         self, client, user_api_key_header, valid_csv_content
     ):
         """Test uploading with custom duplication factor."""
-        with patch("app.core.cloud.get_cloud_storage") as _mock_storage, patch(
-            "app.crud.evaluation_dataset.upload_csv_to_s3"
-        ) as mock_s3_upload, patch(
-            "app.crud.evaluation_langfuse.upload_dataset_to_langfuse_from_csv"
-        ) as mock_langfuse_upload:
+        with (
+            patch("app.core.cloud.get_cloud_storage") as _mock_storage,
+            patch("app.crud.evaluation_dataset.upload_csv_to_s3") as mock_s3_upload,
+            patch(
+                "app.crud.evaluation_langfuse.upload_dataset_to_langfuse_from_csv"
+            ) as mock_langfuse_upload,
+        ):
             mock_s3_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
             mock_langfuse_upload.return_value = ("test_dataset_id", 30)
 
@@ -224,11 +231,13 @@ class TestDatasetUploadDuplication:
         self, client, user_api_key_header, valid_csv_content, db
     ):
         """Test uploading with a description."""
-        with patch("app.core.cloud.get_cloud_storage") as _mock_storage, patch(
-            "app.crud.evaluation_dataset.upload_csv_to_s3"
-        ) as mock_s3_upload, patch(
-            "app.crud.evaluation_langfuse.upload_dataset_to_langfuse_from_csv"
-        ) as mock_langfuse_upload:
+        with (
+            patch("app.core.cloud.get_cloud_storage") as _mock_storage,
+            patch("app.crud.evaluation_dataset.upload_csv_to_s3") as mock_s3_upload,
+            patch(
+                "app.crud.evaluation_langfuse.upload_dataset_to_langfuse_from_csv"
+            ) as mock_langfuse_upload,
+        ):
             mock_s3_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
             mock_langfuse_upload.return_value = ("test_dataset_id", 9)
 
@@ -249,10 +258,6 @@ class TestDatasetUploadDuplication:
             data = response.json()
 
             # Verify the description is stored
-            from sqlmodel import select
-
-            from app.models import EvaluationDataset
-
             dataset = db.exec(
                 select(EvaluationDataset).where(
                     EvaluationDataset.id == data["dataset_id"]
@@ -270,11 +275,11 @@ class TestDatasetUploadErrors:
         self, client, user_api_key_header, valid_csv_content
     ):
         """Test when Langfuse client configuration fails."""
-        with patch("app.core.cloud.get_cloud_storage") as _mock_storage, patch(
-            "app.crud.evaluation_dataset.upload_csv_to_s3"
-        ) as mock_s3_upload, patch(
-            "app.crud.credentials.get_provider_credential"
-        ) as mock_get_cred:
+        with (
+            patch("app.core.cloud.get_cloud_storage") as _mock_storage,
+            patch("app.crud.evaluation_dataset.upload_csv_to_s3") as mock_s3_upload,
+            patch("app.crud.credentials.get_provider_credential") as mock_get_cred,
+        ):
             # Mock S3 upload succeeds
             mock_s3_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
             # Mock Langfuse credentials not found
@@ -430,8 +435,6 @@ class TestBatchEvaluationJSONLBuilding:
 
     def test_build_batch_jsonl_basic(self):
         """Test basic JSONL building with minimal config."""
-        from app.crud.evaluation_batch import build_evaluation_jsonl
-
         dataset_items = [
             {
                 "id": "item1",
@@ -463,8 +466,6 @@ class TestBatchEvaluationJSONLBuilding:
 
     def test_build_batch_jsonl_with_tools(self):
         """Test JSONL building with tools configuration."""
-        from app.crud.evaluation_batch import build_evaluation_jsonl
-
         dataset_items = [
             {
                 "id": "item1",
@@ -494,8 +495,6 @@ class TestBatchEvaluationJSONLBuilding:
 
     def test_build_batch_jsonl_minimal_config(self):
         """Test JSONL building with minimal config (only model required)."""
-        from app.crud.evaluation_batch import build_evaluation_jsonl
-
         dataset_items = [
             {
                 "id": "item1",
@@ -516,8 +515,6 @@ class TestBatchEvaluationJSONLBuilding:
 
     def test_build_batch_jsonl_skips_empty_questions(self):
         """Test that items with empty questions are skipped."""
-        from app.crud.evaluation_batch import build_evaluation_jsonl
-
         dataset_items = [
             {
                 "id": "item1",
@@ -549,8 +546,6 @@ class TestBatchEvaluationJSONLBuilding:
 
     def test_build_batch_jsonl_multiple_items(self):
         """Test JSONL building with multiple items."""
-        from app.crud.evaluation_batch import build_evaluation_jsonl
-
         dataset_items = [
             {
                 "id": f"item{i}",
