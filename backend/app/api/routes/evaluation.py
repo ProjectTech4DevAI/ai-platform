@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.api.deps import get_current_user_org_project, get_db
@@ -44,6 +45,7 @@ async def upload_dataset(
     CSV Format:
     - Must contain 'question' and 'answer' columns
     - Can have additional columns (will be ignored)
+    - Missing values in 'question' or 'answer' rows will be skipped
 
     Example CSV:
     ```
@@ -75,6 +77,7 @@ async def upload_dataset(
     try:
         csv_text = csv_content.decode("utf-8")
         csv_reader = csv.DictReader(io.StringIO(csv_text))
+        csv_reader.fieldnames = [name.strip() for name in csv_reader.fieldnames]
 
         # Validate headers
         if (
@@ -206,6 +209,17 @@ async def upload_dataset(
             s3_url=s3_url,
         )
 
+    except IntegrityError as e:
+        logger.error(
+            f"Database integrity error creating dataset '{dataset_name}': {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=f"Dataset with name '{dataset_name}' already exists in this "
+            "organization and project. Please choose a different name.",
+        )
+
     except Exception as e:
         logger.error(f"Failed to create dataset record in database: {e}", exc_info=True)
         raise HTTPException(
@@ -213,54 +227,7 @@ async def upload_dataset(
         )
 
 
-@router.get("/evaluations/datasets/{dataset_id}", response_model=DatasetUploadResponse)
-async def get_dataset(
-    dataset_id: int,
-    _session: Session = Depends(get_db),
-    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
-) -> DatasetUploadResponse:
-    """
-    Get details of a specific dataset by ID.
-
-    Args:
-        dataset_id: ID of the dataset to retrieve
-
-    Returns:
-        DatasetUploadResponse with dataset details
-    """
-    from app.crud.evaluation_dataset import get_dataset_by_id
-
-    logger.info(
-        f"Fetching dataset: id={dataset_id}, "
-        f"org_id={_current_user.organization_id}, "
-        f"project_id={_current_user.project_id}"
-    )
-
-    dataset = get_dataset_by_id(
-        session=_session,
-        dataset_id=dataset_id,
-        organization_id=_current_user.organization_id,
-        project_id=_current_user.project_id,
-    )
-
-    if not dataset:
-        raise HTTPException(
-            status_code=404, detail=f"Dataset {dataset_id} not found or not accessible"
-        )
-
-    # Build response
-    return DatasetUploadResponse(
-        dataset_id=dataset.id,
-        dataset_name=dataset.name,
-        total_items=dataset.dataset_metadata.get("total_items_count", 0),
-        original_items=dataset.dataset_metadata.get("original_items_count", 0),
-        duplication_factor=dataset.dataset_metadata.get("duplication_factor", 1),
-        langfuse_dataset_id=dataset.langfuse_dataset_id,
-        s3_url=dataset.s3_url,
-    )
-
-
-@router.get("/evaluations/datasets", response_model=list[DatasetUploadResponse])
+@router.get("/evaluations/datasets/list", response_model=list[DatasetUploadResponse])
 async def list_datasets_endpoint(
     limit: int = 50,
     offset: int = 0,
@@ -316,6 +283,53 @@ async def list_datasets_endpoint(
 
     logger.info(f"Found {len(response)} datasets")
     return response
+
+
+@router.get("/evaluations/datasets/{dataset_id}", response_model=DatasetUploadResponse)
+async def get_dataset(
+    dataset_id: int,
+    _session: Session = Depends(get_db),
+    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
+) -> DatasetUploadResponse:
+    """
+    Get details of a specific dataset by ID.
+
+    Args:
+        dataset_id: ID of the dataset to retrieve
+
+    Returns:
+        DatasetUploadResponse with dataset details
+    """
+    from app.crud.evaluation_dataset import get_dataset_by_id
+
+    logger.info(
+        f"Fetching dataset: id={dataset_id}, "
+        f"org_id={_current_user.organization_id}, "
+        f"project_id={_current_user.project_id}"
+    )
+
+    dataset = get_dataset_by_id(
+        session=_session,
+        dataset_id=dataset_id,
+        organization_id=_current_user.organization_id,
+        project_id=_current_user.project_id,
+    )
+
+    if not dataset:
+        raise HTTPException(
+            status_code=404, detail=f"Dataset {dataset_id} not found or not accessible"
+        )
+
+    # Build response
+    return DatasetUploadResponse(
+        dataset_id=dataset.id,
+        dataset_name=dataset.name,
+        total_items=dataset.dataset_metadata.get("total_items_count", 0),
+        original_items=dataset.dataset_metadata.get("original_items_count", 0),
+        duplication_factor=dataset.dataset_metadata.get("duplication_factor", 1),
+        langfuse_dataset_id=dataset.langfuse_dataset_id,
+        s3_url=dataset.s3_url,
+    )
 
 
 @router.delete("/evaluations/datasets/{dataset_id}")
@@ -652,6 +666,43 @@ async def evaluate_threads(
         return eval_run
 
 
+@router.get("/evaluations/list", response_model=list[EvaluationRunPublic])
+async def list_evaluation_runs(
+    _session: Session = Depends(get_db),
+    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
+    limit: int = 50,
+    offset: int = 0,
+) -> list[EvaluationRunPublic]:
+    """
+    List all evaluation runs for the current organization.
+
+    Args:
+        limit: Maximum number of runs to return (default 50)
+        offset: Number of runs to skip (for pagination)
+
+    Returns:
+        List of EvaluationRunPublic objects, ordered by most recent first
+    """
+    logger.info(
+        f"Listing evaluation runs for org_id={_current_user.organization_id} "
+        f"(limit={limit}, offset={offset})"
+    )
+
+    statement = (
+        select(EvaluationRun)
+        .where(EvaluationRun.organization_id == _current_user.organization_id)
+        .order_by(EvaluationRun.inserted_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+
+    runs = _session.exec(statement).all()
+
+    logger.info(f"Found {len(runs)} evaluation runs")
+
+    return list(runs)
+
+
 @router.get("/evaluations/{evaluation_id}", response_model=EvaluationRunPublic)
 async def get_evaluation_run_status(
     evaluation_id: int,
@@ -693,40 +744,3 @@ async def get_evaluation_run_status(
     )
 
     return eval_run
-
-
-@router.get("/evaluations", response_model=list[EvaluationRunPublic])
-async def list_evaluation_runs(
-    _session: Session = Depends(get_db),
-    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
-    limit: int = 50,
-    offset: int = 0,
-) -> list[EvaluationRunPublic]:
-    """
-    List all evaluation runs for the current organization.
-
-    Args:
-        limit: Maximum number of runs to return (default 50)
-        offset: Number of runs to skip (for pagination)
-
-    Returns:
-        List of EvaluationRunPublic objects, ordered by most recent first
-    """
-    logger.info(
-        f"Listing evaluation runs for org_id={_current_user.organization_id} "
-        f"(limit={limit}, offset={offset})"
-    )
-
-    statement = (
-        select(EvaluationRun)
-        .where(EvaluationRun.organization_id == _current_user.organization_id)
-        .order_by(EvaluationRun.inserted_at.desc())
-        .limit(limit)
-        .offset(offset)
-    )
-
-    runs = _session.exec(statement).all()
-
-    logger.info(f"Found {len(runs)} evaluation runs")
-
-    return list(runs)

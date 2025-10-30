@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field
-from sqlalchemy import JSON, Column, Text
+from sqlalchemy import JSON, Column, Text, UniqueConstraint
 from sqlmodel import Field as SQLField
 from sqlmodel import Relationship, SQLModel
 
@@ -66,6 +66,14 @@ class EvaluationDataset(SQLModel, table=True):
     """Database table for evaluation datasets."""
 
     __tablename__ = "evaluation_dataset"
+    __table_args__ = (
+        UniqueConstraint(
+            "name",
+            "organization_id",
+            "project_id",
+            name="uq_evaluation_dataset_name_org_project",
+        ),
+    )
 
     id: int = SQLField(default=None, primary_key=True)
 

@@ -135,6 +135,12 @@ def upgrade():
         ),
         sa.ForeignKeyConstraint(["project_id"], ["project.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "name",
+            "organization_id",
+            "project_id",
+            name="uq_evaluation_dataset_name_org_project",
+        ),
     )
     op.create_index(
         op.f("ix_evaluation_dataset_name"),

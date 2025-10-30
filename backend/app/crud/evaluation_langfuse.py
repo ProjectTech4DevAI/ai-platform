@@ -199,6 +199,7 @@ def upload_dataset_to_langfuse_from_csv(
         # Parse CSV content
         csv_text = csv_content.decode("utf-8")
         csv_reader = csv.DictReader(io.StringIO(csv_text))
+        csv_reader.fieldnames = [name.strip() for name in csv_reader.fieldnames]
 
         # Validate CSV headers
         if (
