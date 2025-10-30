@@ -63,6 +63,10 @@ class CollectionJob(CollectionJobBase, table=True):
         description="Last time the job record was updated",
     )
 
+    @property
+    def job_id(self) -> UUID:
+        return self.id
+
 
 class CollectionJobCreate(SQLModel):
     collection_id: UUID | None = None
@@ -80,7 +84,7 @@ class CollectionJobUpdate(SQLModel):
 
 
 class CollectionJobPublic(SQLModel):
-    id: UUID
+    job_id: UUID
     action_type: CollectionActionType
     collection_id: UUID | None = None
     status: CollectionJobStatus

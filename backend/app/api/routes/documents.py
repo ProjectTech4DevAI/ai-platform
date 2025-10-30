@@ -23,7 +23,7 @@ from app.core.doctransform.registry import (
     resolve_transformer,
 )
 from app.crud import CollectionCrud, DocumentCrud
-from app.crud.rag import OpenAIAssistantCrud
+from app.crud.rag import OpenAIAssistantCrud, OpenAIVectorStoreCrud
 from app.models import (
     Document,
     DocumentPublic,
@@ -31,6 +31,7 @@ from app.models import (
     Message,
     TransformationJobInfo,
 )
+from app.services.collections.helpers import pick_service_for_documennt
 from app.utils import APIResponse, get_openai_client, load_description
 
 
@@ -164,11 +165,16 @@ def remove_doc(
     )
 
     a_crud = OpenAIAssistantCrud(client)
+    v_crud = OpenAIVectorStoreCrud(client)
     d_crud = DocumentCrud(session, current_user.project_id)
     c_crud = CollectionCrud(session, current_user.project_id)
 
     document = d_crud.delete(doc_id)
-    data = c_crud.delete(document, a_crud)
+
+    remote = pick_service_for_documennt(
+        session, doc_id, a_crud, v_crud
+    )  # assistant crud or vector store crud
+    c_crud.delete(document, remote)
 
     return APIResponse.success_response(
         Message(message="Document Deleted Successfully")
@@ -189,13 +195,17 @@ def permanent_delete_doc(
         session, current_user.organization_id, current_user.project_id
     )
     a_crud = OpenAIAssistantCrud(client)
+    v_crud = OpenAIVectorStoreCrud(client)
     d_crud = DocumentCrud(session, current_user.project_id)
     c_crud = CollectionCrud(session, current_user.project_id)
     storage = get_cloud_storage(session=session, project_id=current_user.project_id)
 
     document = d_crud.read_one(doc_id)
 
-    c_crud.delete(document, a_crud)
+    remote = pick_service_for_documennt(
+        session, doc_id, a_crud, v_crud
+    )  # assistant crud or vector store crud
+    c_crud.delete(document, remote)
 
     storage.delete(document.object_store_url)
     d_crud.delete(doc_id)

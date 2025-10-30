@@ -6,14 +6,19 @@ from uuid import UUID
 from typing import List
 
 from pydantic import HttpUrl
+from sqlmodel import select
 from openai import OpenAIError
 
 from app.core.util import post_callback
 from app.crud.document import DocumentCrud
 from app.utils import APIResponse
+from app.models import DocumentCollection, Collection
 
 
 logger = logging.getLogger(__name__)
+
+# llm service name for when only an openai vector store is being made
+OPENAI_VECTOR_STORE = "openai vector store"
 
 
 def extract_error_message(err: Exception) -> str:
@@ -127,3 +132,29 @@ def _backout(crud, llm_service_id: str):
             f"[backout] Failed to delete resource | {{'llm_service_id': '{llm_service_id}', 'error': '{str(err)}'}}",
             exc_info=True,
         )
+
+
+# Even though this function is used in the documents router, it's kept here for now since the assistant creation logic will
+# eventually be removed from Kaapi. Once that happens, this function can be safely deleted -
+
+
+def pick_service_for_documennt(session, doc_id: UUID, a_crud, v_crud):
+    """
+    Return the correct remote (v_crud or a_crud) for this document
+    by inspecting an active linked Collection's llm_service_name.
+    Defaults to a_crud if not vector store.
+    """
+    coll = session.exec(
+        select(Collection)
+        .join(DocumentCollection, DocumentCollection.collection_id == Collection.id)
+        .where(
+            DocumentCollection.document_id == doc_id,
+            Collection.deleted_at.is_(None),
+        )
+        .limit(1)
+    ).first()
+
+    service = (
+        (getattr(coll, "llm_service_name", "") or "").strip().lower() if coll else ""
+    )
+    return v_crud if service == OPENAI_VECTOR_STORE else a_crud

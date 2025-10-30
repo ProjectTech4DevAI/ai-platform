@@ -12,6 +12,7 @@ from app.models.collection import DeletionRequest
 from app.services.collections.helpers import (
     SilentCallback,
     WebHookCallback,
+    OPENAI_VECTOR_STORE,
 )
 from app.celery.utils import start_low_priority_job
 from app.utils import get_openai_client
@@ -60,6 +61,8 @@ def execute_job(
     collection_id: str,
     task_instance,
 ) -> None:
+    """Celery worker entrypoint for deleting a collection (both remote and local)."""
+
     deletion_request = DeletionRequest(**request)
 
     collection_id = UUID(collection_id)
@@ -78,10 +81,13 @@ def execute_job(
             CollectionJobUpdate(task_id=task_id, status=CollectionJobStatus.PROCESSING),
         )
 
+        # Load the collection record
         collection = CollectionCrud(session, project_id).read_one(collection_id)
 
+        # Identify which external service (assistant/vector store) this collection belongs to
         service = (collection.llm_service_name or "").strip().lower()
-        is_vector = service == "openai vector store"
+        is_vector = service == OPENAI_VECTOR_STORE
+
         llm_service_id = (
             (
                 getattr(collection, "vector_store_id", None)
@@ -100,12 +106,15 @@ def execute_job(
             else WebHookCallback(deletion_request.callback_url, collection_job)
         )
 
+    #  EXTERNAL SERVICE DELETION
     try:
+        # Validate that we have a valid external service ID
         if not llm_service_id:
             raise ValueError(
                 f"Missing llm service id for service '{collection.llm_service_name}' on collection {collection_id}"
             )
 
+        # Delete the corresponding OpenAI resource (vector store or assistant)
         if is_vector:
             OpenAIVectorStoreCrud(client).delete(llm_service_id)
         else:
@@ -136,14 +145,17 @@ def execute_job(
             exc_info=True,
         )
 
+        # Notify via callback if configured
         if callback:
             callback.collection_job = collection_job
             callback.fail(str(err))
         return
 
+    #  LOCAL DELETION
     try:
         with Session(engine) as session:
             CollectionCrud(session, project_id).delete_by_id(collection_id)
+
             collection_job_crud = CollectionJobCrud(session, project_id)
             collection_job_crud.update(
                 collection_job.id,
@@ -164,6 +176,7 @@ def execute_job(
             callback.success({"collection_id": str(collection_id), "deleted": True})
 
     except Exception as err:
+        # Handle any failure during local DB deletion
         try:
             with Session(engine) as session:
                 collection_job_crud = CollectionJobCrud(session, project_id)

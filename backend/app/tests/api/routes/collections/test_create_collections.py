@@ -38,12 +38,11 @@ def test_collection_creation_with_assistant_calls_start_job_and_returns_job(
     body = resp.json()
 
     data = body["data"]
+    print("data body = ", data)
     assert data["action_type"] == CollectionActionType.CREATE
     assert data["status"] == CollectionJobStatus.PENDING
-    assert data["project_id"] == user_api_key.project_id
     assert data["collection_id"] is None
-    assert data["task_id"] is None
-    assert "trace_id" in data
+    assert data["collection"] is None
     assert data["inserted_at"]
     assert data["updated_at"]
 
@@ -56,7 +55,7 @@ def test_collection_creation_with_assistant_calls_start_job_and_returns_job(
     assert kwargs["organization_id"] == user_api_key.organization_id
     assert kwargs["with_assistant"] is True
 
-    returned_job_id = UUID(data["id"])
+    returned_job_id = UUID(data["job_id"])
     assert kwargs["collection_job_id"] == returned_job_id
 
     assert kwargs["request"].model_dump(mode="json") == creation_data.model_dump(
@@ -90,7 +89,6 @@ def test_collection_creation_vector_only_adds_metadata_and_sets_with_assistant_f
     data = body["data"]
     assert data["action_type"] == CollectionActionType.CREATE
     assert data["status"] == CollectionJobStatus.PENDING
-    assert data["project_id"] == user_api_key.project_id
 
     meta = _extract_metadata(body)
     assert isinstance(meta, dict)
@@ -102,7 +100,7 @@ def test_collection_creation_vector_only_adds_metadata_and_sets_with_assistant_f
     assert kwargs["project_id"] == user_api_key.project_id
     assert kwargs["organization_id"] == user_api_key.organization_id
     assert kwargs["with_assistant"] is False
-    assert kwargs["collection_job_id"] == UUID(data["id"])
+    assert kwargs["collection_job_id"] == UUID(data["job_id"])
     assert kwargs["request"].model_dump(mode="json") == creation_data.model_dump(
         mode="json"
     )

@@ -17,6 +17,7 @@ from app.models import (
     CollectionJobStatus,
     CollectionActionType,
     CollectionJobCreate,
+    CollectionJobPublic,
 )
 from app.models.collection import (
     CreationRequest,
@@ -37,6 +38,7 @@ router = APIRouter(prefix="/collections", tags=["collections"])
 @router.post(
     "/create",
     description=load_description("collections/create.md"),
+    response_model=APIResponse[CollectionJobPublic],
 )
 def create_collection(
     session: SessionDep,
@@ -82,6 +84,7 @@ def create_collection(
 @router.post(
     "/delete",
     description=load_description("collections/delete.md"),
+    response_model=APIResponse[CollectionJobPublic],
 )
 def delete_collection(
     session: SessionDep,

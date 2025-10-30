@@ -51,7 +51,7 @@ def test_collection_info_successful(
     assert resp.status_code == 200
     data = resp.json()["data"]
 
-    assert data["id"] == str(collection_job.id)
+    assert data["job_id"] == str(collection_job.id)
     assert data["status"] == CollectionJobStatus.SUCCESSFUL
     assert data["action_type"] == CollectionActionType.CREATE
     assert data["collection_id"] == str(collection.id)

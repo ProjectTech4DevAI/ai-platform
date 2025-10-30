@@ -29,6 +29,7 @@ from app.services.collections.helpers import (
     batch_documents,
     SilentCallback,
     WebHookCallback,
+    OPENAI_VECTOR_STORE,
 )
 from app.celery.utils import start_low_priority_job
 from app.utils import get_openai_client
@@ -80,9 +81,12 @@ def execute_job(
 ) -> None:
     """
     Worker entrypoint scheduled by start_job.
+    Orchestrates: job state, client/storage init, batching, vector-store upload,
+    optional assistant creation, collection persistence, linking, callbacks, and cleanup.
     """
     start_time = time.time()
 
+    # Keep references for potential backout/cleanup on failure
     assistant = None
     assistant_crud = None
     vector_store = None
@@ -94,6 +98,7 @@ def execute_job(
         creation_request = CreationRequest(**request)
         job_uuid = UUID(job_id)
 
+        #  Phase 1: DB setup, job -> PROCESSING, clients, batching
         with Session(engine) as session:
             collection_job_crud = CollectionJobCrud(session, project_id)
             collection_job = collection_job_crud.read_one(job_uuid)
@@ -108,6 +113,7 @@ def execute_job(
             client = get_openai_client(session, organization_id, project_id)
             storage = get_cloud_storage(session=session, project_id=project_id)
 
+            # Batch documents for upload, and flatten for linking/metrics later
             document_crud = DocumentCrud(session, project_id)
             docs_batches = batch_documents(
                 document_crud,
@@ -122,12 +128,17 @@ def execute_job(
                 else WebHookCallback(creation_request.callback_url, collection_job)
             )
 
+        #  Phase 2: Create vector store and upload all batches
         vector_store_crud = OpenAIVectorStoreCrud(client)
         vector_store = vector_store_crud.create()
+        # Update returns a generator; iterating ensures uploads are performed
         list(vector_store_crud.update(vector_store.id, storage, docs_batches))
 
+        #  if with_assistant is true, create assistant backed by the vector store
         if with_assistant:
             assistant_crud = OpenAIAssistantCrud(client)
+
+            # Filter out None to avoid sending unset options
             assistant_options = dict(
                 creation_request.extract_super_type(AssistantOptions)
             )
@@ -145,17 +156,20 @@ def execute_job(
                 vector_store.id,
             )
         else:
+            # If no assistant, the collection points directly at the vector store
             llm_service_id = vector_store.id
-            llm_service_name = "openai vector store"
+            llm_service_name = OPENAI_VECTOR_STORE
             logger.info(
                 "[execute_job] Skipping assistant creation | with_assistant=False"
             )
 
+        # metrics for logging (file types and sizes)
         file_exts = {doc.fname.split(".")[-1] for doc in flat_docs if "." in doc.fname}
         file_sizes_kb = [
             storage.get_file_size_kb(doc.object_store_url) for doc in flat_docs
         ]
 
+        # Phase 3: Persist collection + link docs + mark job SUCCESS
         with Session(engine) as session:
             collection_crud = CollectionCrud(session, project_id)
 
@@ -170,6 +184,7 @@ def execute_job(
             collection_crud.create(collection)
             collection = collection_crud.read_one(collection.id)
 
+            # Link documents to the new collection
             if flat_docs:
                 DocumentCollectionCrud(session).create(collection, flat_docs)
 
@@ -182,7 +197,7 @@ def execute_job(
                 ),
             )
 
-            success_payload = collection.model_dump(mode="json", exclude_none=True)
+            success_payload = collection.model_dump(mode="json")
 
         elapsed = time.time() - start_time
         logger.info(
@@ -205,6 +220,7 @@ def execute_job(
             exc_info=True,
         )
 
+        # Best-effort cleanup of partially created remote resources when the job has failed
         try:
             if assistant is not None and assistant_crud is not None:
                 _backout(assistant_crud, assistant.id)

@@ -6,6 +6,7 @@ import logging
 
 from fastapi import HTTPException
 from sqlmodel import Session, select, and_
+from sqlalchemy.exc import IntegrityError
 
 from app.models import Document, Collection, DocumentCollection
 from app.core.util import now
@@ -40,24 +41,14 @@ class CollectionCrud:
         return present
 
     def create(
-        self, collection: Collection, documents: Optional[list[Document]] = None
+        self, collection: Collection, documents: list[Document] | None = None
     ) -> Collection:
-        existing = None
-        try:
-            existing = self.read_one(collection.id)
-        except HTTPException as e:
-            if e.status_code != 404:
-                raise
-
-        if existing is not None:
-            logger.warning(
-                "[CollectionCrud.create] Collection already present | "
-                f"{{'collection_id': '{collection.id}'}}"
-            )
-            return existing
-
         self.session.add(collection)
-        self.session.commit()
+        try:
+            self.session.commit()
+        except IntegrityError:
+            self.session.rollback()
+            return self.read_one(collection.id)
         self.session.refresh(collection)
 
         if documents:
