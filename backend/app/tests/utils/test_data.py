@@ -4,6 +4,7 @@ from app.models import (
     Organization,
     Project,
     APIKey,
+    APIKeyCreateResponse,
     Credential,
     OrganizationCreate,
     ProjectCreate,
@@ -17,10 +18,10 @@ from app.models import (
 from app.crud import (
     create_organization,
     create_project,
-    create_api_key,
     set_creds_for_org,
     create_fine_tuning_job,
     create_model_evaluation,
+    APIKeyCrud,
 )
 from app.core.providers import Provider
 from app.tests.utils.user import create_random_user
@@ -62,23 +63,6 @@ def create_test_project(db: Session) -> Project:
     return create_project(session=db, project_create=project_in)
 
 
-def create_test_api_key(db: Session) -> APIKey:
-    """
-    Creates and returns an API key for a test project and test user.
-
-    Persists a test user, organization, project, and API key to the database
-    """
-    project = create_test_project(db)
-    user = create_random_user(db)
-    api_key = create_api_key(
-        db,
-        organization_id=project.organization_id,
-        user_id=user.id,
-        project_id=project.id,
-    )
-    return api_key
-
-
 def test_credential_data(db: Session) -> CredsCreate:
     """
     Returns credential data for a test project in the form of a CredsCreate schema.
@@ -97,6 +81,29 @@ def test_credential_data(db: Session) -> CredsCreate:
         },
     )
     return creds_data
+
+
+def create_test_api_key(
+    db: Session,
+    project_id: int | None = None,
+    user_id: int | None = None,
+) -> APIKeyCreateResponse:
+    """
+    Creates and returns a test API key for a specific project and user.
+
+    Persists the API key to the database.
+    """
+    if user_id is None:
+        user = create_random_user(db)
+        user_id = user.id
+
+    if project_id is None:
+        project = create_test_project(db)
+        project_id = project.id
+
+    api_key_crud = APIKeyCrud(session=db, project_id=project_id)
+    raw_key, api_key = api_key_crud.create(user_id=user_id, project_id=project_id)
+    return APIKeyCreateResponse(key=raw_key, **api_key.model_dump())
 
 
 def create_test_credential(db: Session) -> tuple[list[Credential], Project]:
