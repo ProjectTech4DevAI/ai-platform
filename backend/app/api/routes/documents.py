@@ -168,13 +168,13 @@ def remove_doc(
     v_crud = OpenAIVectorStoreCrud(client)
     d_crud = DocumentCrud(session, current_user.project_id)
     c_crud = CollectionCrud(session, current_user.project_id)
-
-    document = d_crud.delete(doc_id)
+    document = d_crud.read_one(doc_id)
 
     remote = pick_service_for_documennt(
         session, doc_id, a_crud, v_crud
     )  # assistant crud or vector store crud
     c_crud.delete(document, remote)
+    d_crud.delete(doc_id)
 
     return APIResponse.success_response(
         Message(message="Document Deleted Successfully")
