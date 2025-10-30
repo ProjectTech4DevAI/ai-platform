@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Body, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
 from sqlmodel import Session, select
 
 from app.api.deps import get_current_user_org_project, get_db
@@ -81,9 +81,10 @@ async def upload_dataset(
             "question" not in csv_reader.fieldnames
             or "answer" not in csv_reader.fieldnames
         ):
-            raise ValueError(
-                f"CSV must contain 'question' and 'answer' columns. "
-                f"Found columns: {csv_reader.fieldnames}"
+            raise HTTPException(
+                status_code=400,
+                detail=f"CSV must contain 'question' and 'answer' columns. "
+                f"Found columns: {csv_reader.fieldnames}",
             )
 
         # Count original items
@@ -95,7 +96,9 @@ async def upload_dataset(
                 original_items.append({"question": question, "answer": answer})
 
         if not original_items:
-            raise ValueError("No valid items found in CSV file")
+            raise HTTPException(
+                status_code=400, detail="No valid items found in CSV file"
+            )
 
         original_items_count = len(original_items)
         total_items_count = original_items_count * duplication_factor
@@ -107,7 +110,7 @@ async def upload_dataset(
 
     except Exception as e:
         logger.error(f"Failed to parse CSV: {e}", exc_info=True)
-        raise ValueError(f"Invalid CSV file: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid CSV file: {e}")
 
     # Step 2: Upload to AWS S3 (if credentials configured)
     s3_url = None
@@ -139,11 +142,15 @@ async def upload_dataset(
             provider="langfuse",
         )
         if not langfuse_credentials:
-            raise ValueError("Langfuse credentials not configured")
+            raise HTTPException(
+                status_code=400, detail="Langfuse credentials not configured"
+            )
 
         langfuse, langfuse_success = configure_langfuse(langfuse_credentials)
         if not langfuse_success:
-            raise ValueError("Failed to configure Langfuse client")
+            raise HTTPException(
+                status_code=500, detail="Failed to configure Langfuse client"
+            )
 
         # Upload to Langfuse
         langfuse_dataset_id, _ = upload_dataset_to_langfuse_from_csv(
@@ -160,7 +167,9 @@ async def upload_dataset(
 
     except Exception as e:
         logger.error(f"Failed to upload dataset to Langfuse: {e}", exc_info=True)
-        raise ValueError(f"Failed to upload dataset to Langfuse: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to upload dataset to Langfuse: {e}"
+        )
 
     # Step 4: Store metadata in database
     try:
@@ -199,7 +208,9 @@ async def upload_dataset(
 
     except Exception as e:
         logger.error(f"Failed to create dataset record in database: {e}", exc_info=True)
-        raise ValueError(f"Failed to save dataset metadata: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to save dataset metadata: {e}"
+        )
 
 
 @router.get("/evaluations/datasets/{dataset_id}", response_model=DatasetUploadResponse)
@@ -233,7 +244,9 @@ async def get_dataset(
     )
 
     if not dataset:
-        raise ValueError(f"Dataset {dataset_id} not found or not accessible")
+        raise HTTPException(
+            status_code=404, detail=f"Dataset {dataset_id} not found or not accessible"
+        )
 
     # Build response
     return DatasetUploadResponse(
@@ -340,7 +353,11 @@ async def delete_dataset(
     )
 
     if not success:
-        raise ValueError(message)
+        # Check if it's a not found error or other error type
+        if "not found" in message.lower():
+            raise HTTPException(status_code=404, detail=message)
+        else:
+            raise HTTPException(status_code=400, detail=message)
 
     logger.info(f"Successfully deleted dataset: id={dataset_id}")
     return {"message": message, "dataset_id": dataset_id}
@@ -446,9 +463,10 @@ async def evaluate_threads(
     )
 
     if not dataset:
-        raise ValueError(
-            f"Dataset {dataset_id} not found or not accessible to this "
-            f"organization/project"
+        raise HTTPException(
+            status_code=404,
+            detail=f"Dataset {dataset_id} not found or not accessible to this "
+            f"organization/project",
         )
 
     logger.info(
@@ -475,23 +493,26 @@ async def evaluate_threads(
     )
 
     if not openai_credentials or not langfuse_credentials:
-        raise ValueError("OpenAI or Langfuse credentials not configured")
+        raise HTTPException(
+            status_code=400, detail="OpenAI or Langfuse credentials not configured"
+        )
 
     # Configure clients
     openai_client, openai_success = configure_openai(openai_credentials)
     langfuse, langfuse_success = configure_langfuse(langfuse_credentials)
 
     if not openai_success or not langfuse_success:
-        raise ValueError("Failed to configure API clients")
+        raise HTTPException(status_code=500, detail="Failed to configure API clients")
 
     # Step 2: Ensure dataset is in Langfuse (re-upload from S3 if needed)
     if not dataset.langfuse_dataset_id:
         logger.info(f"Dataset {dataset_id} not yet in Langfuse, uploading from S3")
 
         if not dataset.s3_url:
-            raise ValueError(
-                f"Dataset {dataset_id} has no S3 URL and no Langfuse ID. "
-                "Cannot proceed with evaluation."
+            raise HTTPException(
+                status_code=400,
+                detail=f"Dataset {dataset_id} has no S3 URL and no Langfuse ID. "
+                "Cannot proceed with evaluation.",
             )
 
         try:
@@ -526,7 +547,9 @@ async def evaluate_threads(
                 f"Failed to upload dataset {dataset_id} to Langfuse from S3: {e}",
                 exc_info=True,
             )
-            raise ValueError(f"Failed to prepare dataset for evaluation: {e}")
+            raise HTTPException(
+                status_code=500, detail=f"Failed to prepare dataset for evaluation: {e}"
+            )
     else:
         logger.info(
             f"Dataset {dataset_id} already in Langfuse: "
@@ -543,7 +566,9 @@ async def evaluate_threads(
         )
 
         if not assistant:
-            raise ValueError(f"Assistant {assistant_id} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Assistant {assistant_id} not found"
+            )
 
         logger.info(
             f"Found assistant in DB: id={assistant.id}, "
@@ -576,8 +601,9 @@ async def evaluate_threads(
         logger.info("Using provided config directly")
         # Validate that config has minimum required fields
         if not config.get("model"):
-            raise ValueError(
-                "Config must include 'model' when assistant_id is not provided"
+            raise HTTPException(
+                status_code=400,
+                detail="Config must include 'model' when assistant_id is not provided",
             )
 
     # Create EvaluationRun record
@@ -656,8 +682,9 @@ async def get_evaluation_run_status(
     eval_run = _session.exec(statement).first()
 
     if not eval_run:
-        raise ValueError(
-            f"Evaluation run {evaluation_id} not found or not accessible to this organization"
+        raise HTTPException(
+            status_code=404,
+            detail=f"Evaluation run {evaluation_id} not found or not accessible to this organization",
         )
 
     logger.info(

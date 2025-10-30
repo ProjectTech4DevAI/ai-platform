@@ -63,8 +63,6 @@ def parse_evaluation_output(
             ...
         ]
     """
-    logger.info("Parsing evaluation results")
-
     # Create lookup map for dataset items by ID
     dataset_map = {item["id"]: item for item in dataset_items}
 
@@ -218,7 +216,6 @@ async def process_completed_evaluation(
         )
 
         # Step 4: Parse evaluation results
-        logger.info(f"{log_prefix} Parsing evaluation results")
         results = parse_evaluation_output(
             raw_results=raw_results, dataset_items=dataset_items
         )
@@ -227,7 +224,6 @@ async def process_completed_evaluation(
             raise ValueError("No valid results found in batch output")
 
         # Step 5: Create Langfuse dataset run with traces
-        logger.info(f"{log_prefix} Creating Langfuse dataset run with traces")
         trace_id_mapping = create_langfuse_dataset_run(
             langfuse=langfuse,
             dataset_name=eval_run.dataset_name,
@@ -243,7 +239,6 @@ async def process_completed_evaluation(
 
         # Step 6: Start embedding batch for similarity scoring
         # Pass trace_id_mapping directly without storing in DB
-        logger.info(f"{log_prefix} Starting embedding batch for similarity scoring")
         try:
             eval_run = start_embedding_batch(
                 session=session,
@@ -347,7 +342,6 @@ async def process_completed_embedding_batch(
             raise ValueError("No valid embedding pairs found in batch output")
 
         # Step 4: Calculate similarity scores
-        logger.info(f"{log_prefix} Calculating cosine similarity scores")
         similarity_stats = calculate_average_similarity(embedding_pairs=embedding_pairs)
 
         # Step 5: Update evaluation_run with scores

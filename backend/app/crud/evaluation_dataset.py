@@ -9,14 +9,17 @@ This module handles database operations for evaluation datasets including:
 """
 
 import logging
+
 from pathlib import Path
 from typing import Any
-
 from sqlmodel import Session, select
+from datetime import datetime
 
 from app.core.cloud.storage import CloudStorage, CloudStorageError
 from app.core.util import now
 from app.models import EvaluationDataset
+from app.models import EvaluationRun
+
 
 logger = logging.getLogger(__name__)
 
@@ -205,8 +208,6 @@ def upload_csv_to_s3(
     try:
         # Create a file path for the CSV
         # Format: datasets/{dataset_name}_{timestamp}.csv
-        from datetime import datetime
-
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         file_path = Path(f"datasets/{dataset_name}_{timestamp}.csv")
 
@@ -332,10 +333,6 @@ def delete_dataset(
         )
 
     # Check if dataset is being used by any evaluation runs
-    from sqlmodel import select
-
-    from app.models import EvaluationRun
-
     statement = select(EvaluationRun).where(EvaluationRun.dataset_id == dataset_id)
     evaluation_runs = session.exec(statement).all()
 

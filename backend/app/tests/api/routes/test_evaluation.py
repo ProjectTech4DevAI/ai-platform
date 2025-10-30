@@ -104,19 +104,22 @@ class TestDatasetUploadValidation:
 
         # The CSV validation happens before any mocked functions are called
         # so this test checks the actual validation logic
-        with pytest.raises(Exception) as exc_info:
-            client.post(
-                "/api/v1/evaluations/datasets",
-                files={"file": (filename, file_obj, "text/csv")},
-                data={
-                    "dataset_name": "test_dataset",
-                    "duplication_factor": 5,
-                },
-                headers=user_api_key_header,
-            )
+        response = client.post(
+            "/api/v1/evaluations/datasets",
+            files={"file": (filename, file_obj, "text/csv")},
+            data={
+                "dataset_name": "test_dataset",
+                "duplication_factor": 5,
+            },
+            headers=user_api_key_header,
+        )
 
-        # Check that the error message mentions the missing columns
-        error_str = str(exc_info.value)
+        # Check that the response indicates a bad request
+        assert response.status_code == 400
+        response_data = response.json()
+        error_str = response_data.get(
+            "detail", response_data.get("message", str(response_data))
+        )
         assert "question" in error_str.lower() or "answer" in error_str.lower()
 
     def test_upload_dataset_empty_rows(
@@ -279,27 +282,7 @@ class TestDatasetUploadErrors:
 
             filename, file_obj = create_csv_file(valid_csv_content)
 
-            with pytest.raises(Exception) as exc_info:
-                client.post(
-                    "/api/v1/evaluations/datasets",
-                    files={"file": (filename, file_obj, "text/csv")},
-                    data={
-                        "dataset_name": "test_dataset",
-                        "duplication_factor": 5,
-                    },
-                    headers=user_api_key_header,
-                )
-
-            error_str = str(exc_info.value)
-            assert "langfuse" in error_str.lower() or "credential" in error_str.lower()
-
-    def test_upload_invalid_csv_format(self, client, user_api_key_header):
-        """Test uploading invalid CSV format."""
-        invalid_csv = "not,a,valid\ncsv format here!!!"
-        filename, file_obj = create_csv_file(invalid_csv)
-
-        with pytest.raises(Exception) as exc_info:
-            client.post(
+            response = client.post(
                 "/api/v1/evaluations/datasets",
                 files={"file": (filename, file_obj, "text/csv")},
                 data={
@@ -309,8 +292,39 @@ class TestDatasetUploadErrors:
                 headers=user_api_key_header,
             )
 
+            # Accept either 400 (credentials not configured) or 500 (configuration/auth fails)
+            assert response.status_code in [400, 500]
+            response_data = response.json()
+            error_str = response_data.get(
+                "detail", response_data.get("message", str(response_data))
+            )
+            assert (
+                "langfuse" in error_str.lower()
+                or "credential" in error_str.lower()
+                or "unauthorized" in error_str.lower()
+            )
+
+    def test_upload_invalid_csv_format(self, client, user_api_key_header):
+        """Test uploading invalid CSV format."""
+        invalid_csv = "not,a,valid\ncsv format here!!!"
+        filename, file_obj = create_csv_file(invalid_csv)
+
+        response = client.post(
+            "/api/v1/evaluations/datasets",
+            files={"file": (filename, file_obj, "text/csv")},
+            data={
+                "dataset_name": "test_dataset",
+                "duplication_factor": 5,
+            },
+            headers=user_api_key_header,
+        )
+
         # Should fail validation - check error contains expected message
-        error_str = str(exc_info.value)
+        assert response.status_code == 400
+        response_data = response.json()
+        error_str = response_data.get(
+            "detail", response_data.get("message", str(response_data))
+        )
         assert (
             "question" in error_str.lower()
             or "answer" in error_str.lower()
@@ -350,18 +364,21 @@ class TestBatchEvaluation:
     ):
         """Test batch evaluation fails with invalid dataset_id."""
         # Try to start evaluation with non-existent dataset_id
-        with pytest.raises(Exception) as exc_info:
-            client.post(
-                "/api/v1/evaluations",
-                json={
-                    "experiment_name": "test_evaluation_run",
-                    "dataset_id": 99999,  # Non-existent
-                    "config": sample_evaluation_config,
-                },
-                headers=user_api_key_header,
-            )
+        response = client.post(
+            "/api/v1/evaluations",
+            json={
+                "experiment_name": "test_evaluation_run",
+                "dataset_id": 99999,  # Non-existent
+                "config": sample_evaluation_config,
+            },
+            headers=user_api_key_header,
+        )
 
-        error_str = str(exc_info.value)
+        assert response.status_code == 404
+        response_data = response.json()
+        error_str = response_data.get(
+            "detail", response_data.get("message", str(response_data))
+        )
         assert "not found" in error_str.lower() or "not accessible" in error_str.lower()
 
     def test_start_batch_evaluation_missing_model(self, client, user_api_key_header):
@@ -373,18 +390,22 @@ class TestBatchEvaluation:
             "temperature": 0.5,
         }
 
-        with pytest.raises(Exception) as exc_info:
-            client.post(
-                "/api/v1/evaluations",
-                json={
-                    "experiment_name": "test_no_model",
-                    "dataset_id": 1,  # Dummy ID, error should come before this is checked
-                    "config": invalid_config,
-                },
-                headers=user_api_key_header,
-            )
+        response = client.post(
+            "/api/v1/evaluations",
+            json={
+                "experiment_name": "test_no_model",
+                "dataset_id": 1,  # Dummy ID, error should come before this is checked
+                "config": invalid_config,
+            },
+            headers=user_api_key_header,
+        )
 
-        error_str = str(exc_info.value)
+        # Should fail with either 400 (model missing) or 404 (dataset not found)
+        assert response.status_code in [400, 404]
+        response_data = response.json()
+        error_str = response_data.get(
+            "detail", response_data.get("message", str(response_data))
+        )
         # Should fail with either "model" missing or "dataset not found" (both acceptable)
         assert "model" in error_str.lower() or "not found" in error_str.lower()
 
