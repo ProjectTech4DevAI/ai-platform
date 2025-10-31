@@ -15,10 +15,8 @@ from app.crud.credentials import get_provider_credential
 from app.crud.evaluation_batch import start_evaluation_batch
 from app.crud.evaluation_dataset import (
     create_evaluation_dataset,
-    download_csv_from_s3,
     get_dataset_by_id,
     list_datasets,
-    update_dataset_langfuse_id,
     upload_csv_to_s3,
 )
 from app.crud.evaluation_dataset import (
@@ -465,13 +463,12 @@ async def evaluate_threads(
     Start an evaluation using OpenAI Batch API.
 
     This endpoint:
-    1. Fetches the dataset from database
-    2. Ensures dataset is uploaded to Langfuse (re-uploads from S3 if needed)
-    3. Creates an EvaluationRun record in the database
-    4. Fetches dataset items from Langfuse
-    5. Builds JSONL for batch processing (config is used as-is)
-    6. Creates a batch job via the generic batch infrastructure
-    7. Returns the evaluation run details with batch_job_id
+    1. Fetches the dataset from database and validates it has Langfuse dataset ID
+    2. Creates an EvaluationRun record in the database
+    3. Fetches dataset items from Langfuse
+    4. Builds JSONL for batch processing (config is used as-is)
+    5. Creates a batch job via the generic batch infrastructure
+    6. Returns the evaluation run details with batch_job_id
 
     The batch will be processed asynchronously by Celery Beat (every 60s).
     Use GET /evaluations/{evaluation_id} to check progress.
@@ -552,7 +549,6 @@ async def evaluate_threads(
     )
 
     dataset_name = dataset.name
-    duplication_factor = dataset.dataset_metadata.get("duplication_factor", 5)
 
     # Get credentials
     openai_credentials = get_provider_credential(
@@ -580,56 +576,12 @@ async def evaluate_threads(
     if not openai_success or not langfuse_success:
         raise HTTPException(status_code=500, detail="Failed to configure API clients")
 
-    # Step 2: Ensure dataset is in Langfuse (re-upload from S3 if needed)
+    # Validate dataset has Langfuse ID (should have been set during dataset creation)
     if not dataset.langfuse_dataset_id:
-        logger.info(f"Dataset {dataset_id} not yet in Langfuse, uploading from S3")
-
-        if not dataset.s3_url:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Dataset {dataset_id} has no S3 URL and no Langfuse ID. "
-                "Cannot proceed with evaluation.",
-            )
-
-        try:
-            # Download CSV from S3
-            storage = get_cloud_storage(
-                session=_session, project_id=_current_user.project_id
-            )
-            csv_content = download_csv_from_s3(storage=storage, s3_url=dataset.s3_url)
-
-            # Upload to Langfuse
-            langfuse_dataset_id, _ = upload_dataset_to_langfuse_from_csv(
-                langfuse=langfuse,
-                csv_content=csv_content,
-                dataset_name=dataset_name,
-                duplication_factor=duplication_factor,
-            )
-
-            # Update dataset record with langfuse_dataset_id
-            update_dataset_langfuse_id(
-                session=_session,
-                dataset_id=dataset.id,
-                langfuse_dataset_id=langfuse_dataset_id,
-            )
-
-            logger.info(
-                f"Successfully uploaded dataset {dataset_id} to Langfuse: "
-                f"langfuse_id={langfuse_dataset_id}"
-            )
-
-        except Exception as e:
-            logger.error(
-                f"Failed to upload dataset {dataset_id} to Langfuse from S3: {e}",
-                exc_info=True,
-            )
-            raise HTTPException(
-                status_code=500, detail=f"Failed to prepare dataset for evaluation: {e}"
-            )
-    else:
-        logger.info(
-            f"Dataset {dataset_id} already in Langfuse: "
-            f"langfuse_id={dataset.langfuse_dataset_id}"
+        raise HTTPException(
+            status_code=400,
+            detail=f"Dataset {dataset_id} does not have a Langfuse dataset ID. "
+            "Please ensure Langfuse credentials were configured when the dataset was created.",
         )
 
     # Handle assistant_id if provided
