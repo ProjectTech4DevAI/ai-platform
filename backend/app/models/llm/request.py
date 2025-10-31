@@ -10,7 +10,7 @@ class ConversationConfig(SQLModel):
         description=(
             "Identifier for an existing conversation. "
             "Used to retrieve the previous message context and continue the chat. "
-            "If not provided, a new conversation will be created."
+            "If not provided and `auto_create` is True, a new conversation will be created."
         ),
     )
     auto_create: bool = Field(
@@ -23,7 +23,10 @@ class ConversationConfig(SQLModel):
     @model_validator(mode="after")
     def validate_conversation_logic(self):
         if self.id and self.auto_create:
-            self.auto_create = False
+            raise ValueError(
+                "Cannot specify both 'id' and 'auto_create=True'. "
+                "Use 'id' to continue an existing conversation, or set 'auto_create=True' to create a new one."
+            )
         return self
 
 
@@ -77,5 +80,9 @@ class LLMCallRequest(SQLModel):
     )
     request_metadata: dict[str, Any] | None = Field(
         default=None,
-        description="Optional metadata for tracking or additional context, always included in the callback response in metadata field",
+        description=(
+            "Client-provided metadata passed through unchanged in the response. "
+            "Use this to correlate responses with requests or track request state. "
+            "The exact dictionary provided here will be returned in the response metadata field."
+        ),
     )
