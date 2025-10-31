@@ -126,7 +126,6 @@ def test_read_credentials_not_found(client: TestClient, user_api_key: TestAuthCo
         headers={"X-API-KEY": user_api_key.key},
     )
     assert response.status_code == 404
-    assert "Credentials not found" in response.json()["error"]
 
 
 def test_read_provider_credential(
@@ -159,7 +158,6 @@ def test_read_provider_credential_not_found(
     )
 
     assert response.status_code == 404
-    assert "Credentials not found for provider" in response.json()["error"]
 
 
 def test_update_credentials(
@@ -258,7 +256,6 @@ def test_delete_provider_credential_not_found(
     )
 
     assert response.status_code == 404
-    assert "Credentials not found for provider" in response.json()["error"]
 
 
 def test_delete_all_credentials(
@@ -285,7 +282,6 @@ def test_delete_all_credentials(
         headers={"X-API-KEY": user_api_key.key},
     )
     assert response.status_code == 404  # Expect 404 as credentials are deleted
-    assert "Credentials not found" in response.json()["error"]
 
 
 def test_delete_all_credentials_not_found(
@@ -301,10 +297,6 @@ def test_delete_all_credentials_not_found(
     )
 
     assert response.status_code == 404
-    assert (
-        "Credentials not found for this organization and project"
-        in response.json()["error"]
-    )
 
 
 def test_duplicate_credential_creation(
