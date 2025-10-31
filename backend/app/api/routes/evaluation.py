@@ -322,12 +322,6 @@ async def list_datasets_endpoint(
     if limit > 100:
         limit = 100
 
-    logger.info(
-        f"Listing datasets: org_id={_current_user.organization_id}, "
-        f"project_id={_current_user.project_id}, limit={limit}, "
-        f"offset={offset}"
-    )
-
     datasets = list_datasets(
         session=_session,
         organization_id=_current_user.organization_id,
@@ -353,7 +347,6 @@ async def list_datasets_endpoint(
             )
         )
 
-    logger.info(f"Found {len(response)} datasets")
     return response
 
 
@@ -390,7 +383,6 @@ async def get_dataset(
             status_code=404, detail=f"Dataset {dataset_id} not found or not accessible"
         )
 
-    # Build response
     return DatasetUploadResponse(
         dataset_id=dataset.id,
         dataset_name=dataset.name,
@@ -698,13 +690,14 @@ async def list_evaluation_runs(
         List of EvaluationRunPublic objects, ordered by most recent first
     """
     logger.info(
-        f"Listing evaluation runs for org_id={_current_user.organization_id} "
-        f"(limit={limit}, offset={offset})"
+        f"Listing evaluation runs for org_id={_current_user.organization_id}, "
+        f"project_id={_current_user.project_id} (limit={limit}, offset={offset})"
     )
 
     statement = (
         select(EvaluationRun)
         .where(EvaluationRun.organization_id == _current_user.organization_id)
+        .where(EvaluationRun.project_id == _current_user.project_id)
         .order_by(EvaluationRun.inserted_at.desc())
         .limit(limit)
         .offset(offset)
@@ -734,7 +727,8 @@ async def get_evaluation_run_status(
     """
     logger.info(
         f"Fetching status for evaluation run {evaluation_id} "
-        f"(org_id={_current_user.organization_id})"
+        f"(org_id={_current_user.organization_id}, "
+        f"project_id={_current_user.project_id})"
     )
 
     # Query the evaluation run
@@ -742,6 +736,7 @@ async def get_evaluation_run_status(
         select(EvaluationRun)
         .where(EvaluationRun.id == evaluation_id)
         .where(EvaluationRun.organization_id == _current_user.organization_id)
+        .where(EvaluationRun.project_id == _current_user.project_id)
     )
 
     eval_run = _session.exec(statement).first()
