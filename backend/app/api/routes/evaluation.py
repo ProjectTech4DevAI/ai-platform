@@ -1,14 +1,30 @@
-import logging, re
+import csv
+import io
+import logging
+import re
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.api.deps import get_current_user_org_project, get_db
+from app.core.cloud import get_cloud_storage
 from app.core.util import configure_langfuse, configure_openai, now
 from app.crud.assistants import get_assistant_by_id
 from app.crud.credentials import get_provider_credential
 from app.crud.evaluation_batch import start_evaluation_batch
+from app.crud.evaluation_dataset import (
+    create_evaluation_dataset,
+    download_csv_from_s3,
+    get_dataset_by_id,
+    list_datasets,
+    update_dataset_langfuse_id,
+    upload_csv_to_s3,
+)
+from app.crud.evaluation_dataset import (
+    delete_dataset as delete_dataset_crud,
+)
+from app.crud.evaluation_langfuse import upload_dataset_to_langfuse_from_csv
 from app.models import EvaluationRun, UserProjectOrg
 from app.models.evaluation import (
     DatasetUploadResponse,
@@ -114,10 +130,6 @@ async def upload_dataset(
         DatasetUploadResponse with dataset_id, s3_url, and Langfuse details
         (dataset_name in response will be the sanitized version)
     """
-    from app.core.cloud import get_cloud_storage
-    from app.crud.evaluation_dataset import create_evaluation_dataset, upload_csv_to_s3
-    from app.crud.evaluation_langfuse import upload_dataset_to_langfuse_from_csv
-
     # Sanitize dataset name for Langfuse compatibility
     original_name = dataset_name
     try:
@@ -138,9 +150,6 @@ async def upload_dataset(
     csv_content = await file.read()
 
     # Step 1: Parse and validate CSV
-    import csv
-    import io
-
     try:
         csv_text = csv_content.decode("utf-8")
         csv_reader = csv.DictReader(io.StringIO(csv_text))
@@ -311,8 +320,6 @@ async def list_datasets_endpoint(
     Returns:
         List of DatasetUploadResponse objects, ordered by most recent first
     """
-    from app.crud.evaluation_dataset import list_datasets
-
     # Enforce maximum limit
     if limit > 100:
         limit = 100
@@ -367,8 +374,6 @@ async def get_dataset(
     Returns:
         DatasetUploadResponse with dataset details
     """
-    from app.crud.evaluation_dataset import get_dataset_by_id
-
     logger.info(
         f"Fetching dataset: id={dataset_id}, "
         f"org_id={_current_user.organization_id}, "
@@ -418,8 +423,6 @@ async def delete_dataset(
     Returns:
         Success message with deleted dataset details
     """
-    from app.crud.evaluation_dataset import delete_dataset as delete_dataset_crud
-
     logger.info(
         f"Deleting dataset: id={dataset_id}, "
         f"org_id={_current_user.organization_id}, "
@@ -519,14 +522,6 @@ async def evaluate_threads(
     Returns:
         EvaluationRunPublic with batch details and status
     """
-    from app.core.cloud import get_cloud_storage
-    from app.crud.evaluation_dataset import (
-        download_csv_from_s3,
-        get_dataset_by_id,
-        update_dataset_langfuse_id,
-    )
-    from app.crud.evaluation_langfuse import upload_dataset_to_langfuse_from_csv
-
     logger.info(
         f"Starting evaluation: experiment_name={experiment_name}, "
         f"dataset_id={dataset_id}, "
