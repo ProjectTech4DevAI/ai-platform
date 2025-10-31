@@ -168,15 +168,13 @@ def test_remove_provider_credential(db: Session) -> None:
         project_id=project.id,
     )
 
-    # Verify the credentials are no longer retrievable
-    with pytest.raises(HTTPException) as exc_info:
-        get_provider_credential(
-            session=db,
-            org_id=credential.organization_id,
-            provider="openai",
-            project_id=project.id,
-        )
-    assert exc_info.value.status_code == 404
+    creds = get_provider_credential(
+        session=db,
+        org_id=credential.organization_id,
+        provider="openai",
+        project_id=project.id,
+    )
+    assert creds is None
 
 
 def test_remove_creds_for_org(db: Session) -> None:
@@ -209,12 +207,10 @@ def test_remove_creds_for_org(db: Session) -> None:
         session=db, org_id=project.organization_id, project_id=project.id
     )
 
-    # Verify no credentials are retrievable
-    with pytest.raises(HTTPException) as exc_info:
-        get_creds_by_org(
-            session=db, org_id=project.organization_id, project_id=project.id
-        )
-    assert exc_info.value.status_code == 404
+    creds = get_creds_by_org(
+        session=db, org_id=project.organization_id, project_id=project.id
+    )
+    assert creds == []
 
 
 def test_invalid_provider(db: Session) -> None:
