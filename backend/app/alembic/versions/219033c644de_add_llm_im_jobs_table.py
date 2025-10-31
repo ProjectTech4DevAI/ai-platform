@@ -21,4 +21,6 @@ def upgrade():
 
 
 def downgrade():
+    # Enum value removal requires manual intervention if 'LLM_API' is in use.
+    # If rollback is necessary, run SQL manually to recreate the enum without 'LLM_API'.
     pass

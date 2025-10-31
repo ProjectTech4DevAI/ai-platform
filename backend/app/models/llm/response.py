@@ -27,11 +27,11 @@ class LLMResponse(SQLModel):
     conversation_id: str | None = Field(
         default=None, description="Conversation or thread ID for context (if any)."
     )
-    model: str = Field(
-        ..., description="Model used by the provider (e.g., gpt-4-turbo)."
-    )
     provider: str = Field(
         ..., description="Name of the LLM provider (e.g., openai, anthropic)."
+    )
+    model: str = Field(
+        ..., description="Model used by the provider (e.g., gpt-4-turbo)."
     )
     output: LLMOutput = Field(
         ...,
