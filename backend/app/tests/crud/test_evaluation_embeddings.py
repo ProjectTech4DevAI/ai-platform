@@ -310,8 +310,6 @@ class TestCalculateAverageSimilarity:
         stats = calculate_average_similarity(embedding_pairs)
 
         assert stats["total_pairs"] == 3
-        assert stats["cosine_similarity_min"] == pytest.approx(0.0)
-        assert stats["cosine_similarity_max"] == pytest.approx(1.0)
         # Average of [1.0, 0.0, 0.707] ≈ 0.569
         assert stats["cosine_similarity_avg"] == pytest.approx(0.569, abs=0.01)
         assert "cosine_similarity_std" in stats
@@ -325,8 +323,7 @@ class TestCalculateAverageSimilarity:
 
         assert stats["total_pairs"] == 0
         assert stats["cosine_similarity_avg"] == 0.0
-        assert stats["cosine_similarity_min"] == 0.0
-        assert stats["cosine_similarity_max"] == 0.0
+        assert stats["cosine_similarity_std"] == 0.0
         assert stats["per_item_scores"] == []
 
     def test_calculate_average_similarity_per_item_scores(self):
@@ -382,8 +379,6 @@ class TestCalculateAverageSimilarity:
 
         # Similarities = [1.0, 0.0, 1.0, 0.0]
         assert stats["cosine_similarity_avg"] == pytest.approx(0.5)
-        assert stats["cosine_similarity_min"] == pytest.approx(0.0)
-        assert stats["cosine_similarity_max"] == pytest.approx(1.0)
         # Standard deviation of [1, 0, 1, 0] = 0.5
         assert stats["cosine_similarity_std"] == pytest.approx(0.5)
         assert stats["total_pairs"] == 4

@@ -86,6 +86,7 @@ def poll_evaluation_batches_task(self):
                         f"[poll_evaluation_batches] Error processing org_id={org.id}: {e}",
                         exc_info=True,
                     )
+                    session.rollback()
                     results.append(
                         {"org_id": org.id, "org_name": org.name, "error": str(e)}
                     )

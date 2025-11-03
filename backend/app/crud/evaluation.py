@@ -3,11 +3,11 @@ import io
 import logging
 
 from langfuse import Langfuse
-from sqlmodel import Session
+from sqlmodel import Session, select
 
-from app.core.util import configure_langfuse, configure_openai
+from app.core.util import configure_langfuse, configure_openai, now
 from app.crud.credentials import get_provider_credential
-from app.models import UserProjectOrg
+from app.models import EvaluationRun, UserProjectOrg
 from app.models.evaluation import DatasetUploadResponse
 
 logger = logging.getLogger(__name__)
@@ -133,3 +133,128 @@ async def upload_dataset_to_langfuse(
     except Exception as e:
         logger.error(f"Error uploading dataset: {str(e)}", exc_info=True)
         return False, None, f"Failed to upload dataset: {str(e)}"
+
+
+def create_evaluation_run(
+    session: Session,
+    run_name: str,
+    dataset_name: str,
+    dataset_id: int,
+    config: dict,
+    organization_id: int,
+    project_id: int,
+) -> EvaluationRun:
+    """
+    Create a new evaluation run record in the database.
+
+    Args:
+        session: Database session
+        run_name: Name of the evaluation run/experiment
+        dataset_name: Name of the dataset being used
+        dataset_id: ID of the dataset
+        config: Configuration dict for the evaluation
+        organization_id: Organization ID
+        project_id: Project ID
+
+    Returns:
+        The created EvaluationRun instance
+    """
+    eval_run = EvaluationRun(
+        run_name=run_name,
+        dataset_name=dataset_name,
+        dataset_id=dataset_id,
+        config=config,
+        status="pending",
+        organization_id=organization_id,
+        project_id=project_id,
+        inserted_at=now(),
+        updated_at=now(),
+    )
+
+    session.add(eval_run)
+    session.commit()
+    session.refresh(eval_run)
+
+    logger.info(f"Created EvaluationRun record: id={eval_run.id}, run_name={run_name}")
+
+    return eval_run
+
+
+def list_evaluation_runs(
+    session: Session,
+    organization_id: int,
+    project_id: int,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[EvaluationRun]:
+    """
+    List all evaluation runs for an organization and project.
+
+    Args:
+        session: Database session
+        organization_id: Organization ID to filter by
+        project_id: Project ID to filter by
+        limit: Maximum number of runs to return (default 50)
+        offset: Number of runs to skip (for pagination)
+
+    Returns:
+        List of EvaluationRun objects, ordered by most recent first
+    """
+    statement = (
+        select(EvaluationRun)
+        .where(EvaluationRun.organization_id == organization_id)
+        .where(EvaluationRun.project_id == project_id)
+        .order_by(EvaluationRun.inserted_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+
+    runs = session.exec(statement).all()
+
+    logger.info(
+        f"Found {len(runs)} evaluation runs for org_id={organization_id}, "
+        f"project_id={project_id}"
+    )
+
+    return list(runs)
+
+
+def get_evaluation_run_by_id(
+    session: Session,
+    evaluation_id: int,
+    organization_id: int,
+    project_id: int,
+) -> EvaluationRun | None:
+    """
+    Get a specific evaluation run by ID.
+
+    Args:
+        session: Database session
+        evaluation_id: ID of the evaluation run
+        organization_id: Organization ID (for access control)
+        project_id: Project ID (for access control)
+
+    Returns:
+        EvaluationRun if found and accessible, None otherwise
+    """
+    statement = (
+        select(EvaluationRun)
+        .where(EvaluationRun.id == evaluation_id)
+        .where(EvaluationRun.organization_id == organization_id)
+        .where(EvaluationRun.project_id == project_id)
+    )
+
+    eval_run = session.exec(statement).first()
+
+    if eval_run:
+        logger.info(
+            f"Found evaluation run {evaluation_id}: status={eval_run.status}, "
+            f"batch_job_id={eval_run.batch_job_id}"
+        )
+    else:
+        logger.warning(
+            f"Evaluation run {evaluation_id} not found or not accessible "
+            f"for org_id={organization_id}, project_id={project_id}"
+        )
+
+    return eval_run

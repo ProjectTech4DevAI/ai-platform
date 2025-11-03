@@ -265,8 +265,6 @@ def calculate_average_similarity(
         Dictionary with similarity statistics:
         {
             "cosine_similarity_avg": 0.87,
-            "cosine_similarity_min": 0.65,
-            "cosine_similarity_max": 0.98,
             "cosine_similarity_std": 0.12,
             "total_pairs": 50,
             "per_item_scores": [...]  # Individual scores with trace_ids
@@ -277,8 +275,6 @@ def calculate_average_similarity(
     if not embedding_pairs:
         return {
             "cosine_similarity_avg": 0.0,
-            "cosine_similarity_min": 0.0,
-            "cosine_similarity_max": 0.0,
             "cosine_similarity_std": 0.0,
             "total_pairs": 0,
             "per_item_scores": [],
@@ -312,8 +308,6 @@ def calculate_average_similarity(
         logger.warning("No valid similarities calculated")
         return {
             "cosine_similarity_avg": 0.0,
-            "cosine_similarity_min": 0.0,
-            "cosine_similarity_max": 0.0,
             "cosine_similarity_std": 0.0,
             "total_pairs": 0,
             "per_item_scores": [],
@@ -324,8 +318,6 @@ def calculate_average_similarity(
 
     stats = {
         "cosine_similarity_avg": float(np.mean(similarities_array)),
-        "cosine_similarity_min": float(np.min(similarities_array)),
-        "cosine_similarity_max": float(np.max(similarities_array)),
         "cosine_similarity_std": float(np.std(similarities_array)),
         "total_pairs": len(similarities),
         "per_item_scores": per_item_scores,
@@ -333,8 +325,6 @@ def calculate_average_similarity(
 
     logger.info(
         f"Calculated similarity stats: avg={stats['cosine_similarity_avg']:.3f}, "
-        f"min={stats['cosine_similarity_min']:.3f}, "
-        f"max={stats['cosine_similarity_max']:.3f}, "
         f"std={stats['cosine_similarity_std']:.3f}"
     )
 

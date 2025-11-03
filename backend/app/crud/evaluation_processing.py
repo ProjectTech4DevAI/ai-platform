@@ -353,8 +353,6 @@ async def process_completed_embedding_batch(
 
         eval_run.score["cosine_similarity"] = {
             "avg": similarity_stats["cosine_similarity_avg"],
-            "min": similarity_stats["cosine_similarity_min"],
-            "max": similarity_stats["cosine_similarity_max"],
             "std": similarity_stats["cosine_similarity_std"],
             "total_pairs": similarity_stats["total_pairs"],
         }

@@ -5,13 +5,18 @@ import re
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from app.api.deps import get_current_user_org_project, get_db
 from app.core.cloud import get_cloud_storage
-from app.core.util import configure_langfuse, configure_openai, now
+from app.core.util import configure_langfuse, configure_openai
 from app.crud.assistants import get_assistant_by_id
 from app.crud.credentials import get_provider_credential
+from app.crud.evaluation import (
+    create_evaluation_run,
+    get_evaluation_run_by_id,
+    list_evaluation_runs as list_evaluation_runs_crud,
+)
 from app.crud.evaluation_batch import start_evaluation_batch
 from app.crud.evaluation_dataset import (
     create_evaluation_dataset,
@@ -23,7 +28,7 @@ from app.crud.evaluation_dataset import (
     delete_dataset as delete_dataset_crud,
 )
 from app.crud.evaluation_langfuse import upload_dataset_to_langfuse_from_csv
-from app.models import EvaluationRun, UserProjectOrg
+from app.models import UserProjectOrg
 from app.models.evaluation import (
     DatasetUploadResponse,
     EvaluationRunPublic,
@@ -443,7 +448,7 @@ async def delete_dataset(
 
 
 @router.post("/evaluations", response_model=EvaluationRunPublic)
-async def evaluate_threads(
+async def evaluate(
     dataset_id: int = Body(..., description="ID of the evaluation dataset"),
     experiment_name: str = Body(
         ..., description="Name for this evaluation experiment/run"
@@ -632,23 +637,15 @@ async def evaluate_threads(
             )
 
     # Create EvaluationRun record
-    eval_run = EvaluationRun(
+    eval_run = create_evaluation_run(
+        session=_session,
         run_name=experiment_name,
         dataset_name=dataset_name,
         dataset_id=dataset_id,
         config=config,
-        status="pending",
         organization_id=_current_user.organization_id,
         project_id=_current_user.project_id,
-        inserted_at=now(),
-        updated_at=now(),
     )
-
-    _session.add(eval_run)
-    _session.commit()
-    _session.refresh(eval_run)
-
-    logger.info(f"Created EvaluationRun record: id={eval_run.id}")
 
     # Start the batch evaluation
     try:
@@ -699,20 +696,13 @@ async def list_evaluation_runs(
         f"project_id={_current_user.project_id} (limit={limit}, offset={offset})"
     )
 
-    statement = (
-        select(EvaluationRun)
-        .where(EvaluationRun.organization_id == _current_user.organization_id)
-        .where(EvaluationRun.project_id == _current_user.project_id)
-        .order_by(EvaluationRun.inserted_at.desc())
-        .limit(limit)
-        .offset(offset)
+    return list_evaluation_runs_crud(
+        session=_session,
+        organization_id=_current_user.organization_id,
+        project_id=_current_user.project_id,
+        limit=limit,
+        offset=offset,
     )
-
-    runs = _session.exec(statement).all()
-
-    logger.info(f"Found {len(runs)} evaluation runs")
-
-    return list(runs)
 
 
 @router.get("/evaluations/{evaluation_id}", response_model=EvaluationRunPublic)
@@ -736,15 +726,12 @@ async def get_evaluation_run_status(
         f"project_id={_current_user.project_id})"
     )
 
-    # Query the evaluation run
-    statement = (
-        select(EvaluationRun)
-        .where(EvaluationRun.id == evaluation_id)
-        .where(EvaluationRun.organization_id == _current_user.organization_id)
-        .where(EvaluationRun.project_id == _current_user.project_id)
+    eval_run = get_evaluation_run_by_id(
+        session=_session,
+        evaluation_id=evaluation_id,
+        organization_id=_current_user.organization_id,
+        project_id=_current_user.project_id,
     )
-
-    eval_run = _session.exec(statement).first()
 
     if not eval_run:
         raise HTTPException(
@@ -754,10 +741,5 @@ async def get_evaluation_run_status(
                 "to this organization"
             ),
         )
-
-    logger.info(
-        f"Found evaluation run {evaluation_id}: status={eval_run.status}, "
-        f"batch_job_id={eval_run.batch_job_id}"
-    )
 
     return eval_run
