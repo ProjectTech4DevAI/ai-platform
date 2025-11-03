@@ -159,7 +159,7 @@ async def upload_dataset(
             or "answer" not in csv_reader.fieldnames
         ):
             raise HTTPException(
-                status_code=400,
+                status_code=422,
                 detail=f"CSV must contain 'question' and 'answer' columns. "
                 f"Found columns: {csv_reader.fieldnames}",
             )
@@ -174,7 +174,7 @@ async def upload_dataset(
 
         if not original_items:
             raise HTTPException(
-                status_code=400, detail="No valid items found in CSV file"
+                status_code=422, detail="No valid items found in CSV file"
             )
 
         original_items_count = len(original_items)
@@ -187,7 +187,7 @@ async def upload_dataset(
 
     except Exception as e:
         logger.error(f"Failed to parse CSV: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail=f"Invalid CSV file: {e}")
+        raise HTTPException(status_code=422, detail=f"Invalid CSV file: {e}")
 
     # Step 2: Upload to AWS S3 (if credentials configured)
     s3_url = None
@@ -289,7 +289,7 @@ async def upload_dataset(
             exc_info=True,
         )
         raise HTTPException(
-            status_code=400,
+            status_code=409,
             detail=f"Dataset with name '{dataset_name}' already exists in this "
             "organization and project. Please choose a different name.",
         )

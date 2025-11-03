@@ -53,13 +53,19 @@ class TestDatasetUploadValidation:
         """Test uploading a valid CSV file."""
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
-            patch("app.crud.evaluation_dataset.upload_csv_to_s3") as mock_s3_upload,
+            patch("app.api.routes.evaluation.upload_csv_to_s3") as mock_s3_upload,
             patch(
-                "app.crud.evaluation_langfuse.upload_dataset_to_langfuse_from_csv"
+                "app.api.routes.evaluation.configure_langfuse"
+            ) as mock_configure_langfuse,
+            patch(
+                "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
             ) as mock_langfuse_upload,
         ):
             # Mock S3 upload
             mock_s3_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
+
+            # Mock Langfuse configuration
+            mock_configure_langfuse.return_value = (None, True)
 
             # Mock Langfuse upload
             mock_langfuse_upload.return_value = ("test_dataset_id", 9)
@@ -115,8 +121,8 @@ class TestDatasetUploadValidation:
             headers=user_api_key_header,
         )
 
-        # Check that the response indicates a bad request
-        assert response.status_code == 400
+        # Check that the response indicates unprocessable entity
+        assert response.status_code == 422
         response_data = response.json()
         error_str = response_data.get(
             "detail", response_data.get("message", str(response_data))
@@ -129,13 +135,17 @@ class TestDatasetUploadValidation:
         """Test uploading CSV with empty rows (should skip them)."""
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
-            patch("app.crud.evaluation_dataset.upload_csv_to_s3") as mock_s3_upload,
+            patch("app.api.routes.evaluation.upload_csv_to_s3") as mock_s3_upload,
             patch(
-                "app.crud.evaluation_langfuse.upload_dataset_to_langfuse_from_csv"
+                "app.api.routes.evaluation.configure_langfuse"
+            ) as mock_configure_langfuse,
+            patch(
+                "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
             ) as mock_langfuse_upload,
         ):
             # Mock S3 and Langfuse uploads
             mock_s3_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
+            mock_configure_langfuse.return_value = (None, True)
             mock_langfuse_upload.return_value = ("test_dataset_id", 4)
 
             filename, file_obj = create_csv_file(csv_with_empty_rows)
@@ -167,12 +177,16 @@ class TestDatasetUploadDuplication:
         """Test uploading with default duplication factor (5)."""
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
-            patch("app.crud.evaluation_dataset.upload_csv_to_s3") as mock_s3_upload,
+            patch("app.api.routes.evaluation.upload_csv_to_s3") as mock_s3_upload,
             patch(
-                "app.crud.evaluation_langfuse.upload_dataset_to_langfuse_from_csv"
+                "app.api.routes.evaluation.configure_langfuse"
+            ) as mock_configure_langfuse,
+            patch(
+                "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
             ) as mock_langfuse_upload,
         ):
             mock_s3_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
+            mock_configure_langfuse.return_value = (None, True)
             mock_langfuse_upload.return_value = ("test_dataset_id", 15)
 
             filename, file_obj = create_csv_file(valid_csv_content)
@@ -200,12 +214,16 @@ class TestDatasetUploadDuplication:
         """Test uploading with custom duplication factor."""
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
-            patch("app.crud.evaluation_dataset.upload_csv_to_s3") as mock_s3_upload,
+            patch("app.api.routes.evaluation.upload_csv_to_s3") as mock_s3_upload,
             patch(
-                "app.crud.evaluation_langfuse.upload_dataset_to_langfuse_from_csv"
+                "app.api.routes.evaluation.configure_langfuse"
+            ) as mock_configure_langfuse,
+            patch(
+                "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
             ) as mock_langfuse_upload,
         ):
             mock_s3_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
+            mock_configure_langfuse.return_value = (None, True)
             mock_langfuse_upload.return_value = ("test_dataset_id", 30)
 
             filename, file_obj = create_csv_file(valid_csv_content)
@@ -233,12 +251,16 @@ class TestDatasetUploadDuplication:
         """Test uploading with a description."""
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
-            patch("app.crud.evaluation_dataset.upload_csv_to_s3") as mock_s3_upload,
+            patch("app.api.routes.evaluation.upload_csv_to_s3") as mock_s3_upload,
             patch(
-                "app.crud.evaluation_langfuse.upload_dataset_to_langfuse_from_csv"
+                "app.api.routes.evaluation.configure_langfuse"
+            ) as mock_configure_langfuse,
+            patch(
+                "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
             ) as mock_langfuse_upload,
         ):
             mock_s3_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
+            mock_configure_langfuse.return_value = (None, True)
             mock_langfuse_upload.return_value = ("test_dataset_id", 9)
 
             filename, file_obj = create_csv_file(valid_csv_content)
@@ -277,7 +299,7 @@ class TestDatasetUploadErrors:
         """Test when Langfuse client configuration fails."""
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
-            patch("app.crud.evaluation_dataset.upload_csv_to_s3") as mock_s3_upload,
+            patch("app.api.routes.evaluation.upload_csv_to_s3") as mock_s3_upload,
             patch("app.crud.credentials.get_provider_credential") as mock_get_cred,
         ):
             # Mock S3 upload succeeds
@@ -325,7 +347,7 @@ class TestDatasetUploadErrors:
         )
 
         # Should fail validation - check error contains expected message
-        assert response.status_code == 400
+        assert response.status_code == 422
         response_data = response.json()
         error_str = response_data.get(
             "detail", response_data.get("message", str(response_data))
