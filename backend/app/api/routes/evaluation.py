@@ -2,6 +2,7 @@ import csv
 import io
 import logging
 import re
+from pathlib import Path
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.exc import IntegrityError
@@ -37,6 +38,15 @@ from app.models.evaluation import (
 )
 
 logger = logging.getLogger(__name__)
+
+# File upload security constants
+MAX_FILE_SIZE = 1024 * 1024  # 1 MB
+ALLOWED_EXTENSIONS = {".csv"}
+ALLOWED_MIME_TYPES = {
+    "text/csv",
+    "application/csv",
+    "text/plain",  # Some systems report CSV as text/plain
+}
 
 router = APIRouter(tags=["evaluation"])
 
@@ -160,6 +170,36 @@ async def upload_dataset(
         f"{duplication_factor}, org_id={_current_user.organization_id}, "
         f"project_id={_current_user.project_id}"
     )
+
+    # Security validation: Check file extension
+    file_ext = Path(file.filename).suffix.lower()
+    if file_ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid file type. Only CSV files are allowed. Got: {file_ext}",
+        )
+
+    # Security validation: Check MIME type
+    content_type = file.content_type
+    if content_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid content type. Expected CSV, got: {content_type}",
+        )
+
+    # Security validation: Check file size
+    file.file.seek(0, 2)  # Seek to end
+    file_size = file.file.tell()
+    file.file.seek(0)  # Reset to beginning
+
+    if file_size > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size: {MAX_FILE_SIZE / (1024*1024):.0f}MB",
+        )
+
+    if file_size == 0:
+        raise HTTPException(status_code=422, detail="Empty file uploaded")
 
     # Read CSV content
     csv_content = await file.read()

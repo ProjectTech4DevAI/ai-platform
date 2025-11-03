@@ -176,11 +176,16 @@ def upgrade():
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("inserted_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
-        sa.ForeignKeyConstraint(["batch_job_id"], ["batch_job.id"]),
+        sa.ForeignKeyConstraint(
+            ["batch_job_id"],
+            ["batch_job.id"],
+            ondelete="SET NULL",
+        ),
         sa.ForeignKeyConstraint(
             ["embedding_batch_job_id"],
             ["batch_job.id"],
             name="fk_evaluation_run_embedding_batch_job_id",
+            ondelete="SET NULL",
         ),
         sa.ForeignKeyConstraint(
             ["dataset_id"],
