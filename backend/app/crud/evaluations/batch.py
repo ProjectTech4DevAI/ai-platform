@@ -144,6 +144,11 @@ def start_evaluation_batch(
             langfuse=langfuse, dataset_name=eval_run.dataset_name
         )
 
+        if not jsonl_data:
+            raise ValueError(
+                "Evaluation dataset did not produce any JSONL entries (missing questions?)."
+            )
+
         # Step 2: Build evaluation-specific JSONL
         jsonl_data = build_evaluation_jsonl(dataset_items=dataset_items, config=config)
 

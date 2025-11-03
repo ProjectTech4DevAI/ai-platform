@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.crud.evaluation_langfuse import (
+from app.crud.evaluations.langfuse import (
     create_langfuse_dataset_run,
     update_traces_with_cosine_scores,
     upload_dataset_to_langfuse_from_csv,

@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from app.crud.evaluation_embeddings import (
+from app.crud.evaluations.embeddings import (
     build_embedding_jsonl,
     calculate_average_similarity,
     calculate_cosine_similarity,

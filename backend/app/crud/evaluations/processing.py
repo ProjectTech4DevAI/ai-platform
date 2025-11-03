@@ -26,13 +26,13 @@ from app.crud.batch_operations import (
     upload_batch_results_to_object_store,
 )
 from app.crud.credentials import get_provider_credential
-from app.crud.evaluation_batch import fetch_dataset_items
-from app.crud.evaluation_embeddings import (
+from app.crud.evaluations.batch import fetch_dataset_items
+from app.crud.evaluations.embeddings import (
     calculate_average_similarity,
     parse_embedding_results,
     start_embedding_batch,
 )
-from app.crud.evaluation_langfuse import (
+from app.crud.evaluations.langfuse import (
     create_langfuse_dataset_run,
     update_traces_with_cosine_scores,
 )

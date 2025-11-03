@@ -4,7 +4,7 @@ from unittest.mock import patch
 import pytest
 from sqlmodel import select
 
-from app.crud.evaluation_batch import build_evaluation_jsonl
+from app.crud.evaluations.batch import build_evaluation_jsonl
 from app.models import EvaluationDataset
 
 

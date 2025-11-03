@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 async def upload_dataset_to_langfuse(
     csv_content: bytes,
     dataset_name: str,
+    dataset_id: int,
     duplication_factor: int,
     _session: Session,
     _current_user: UserProjectOrg,
@@ -26,6 +27,7 @@ async def upload_dataset_to_langfuse(
     Args:
         csv_content: Raw CSV file content as bytes
         dataset_name: Name for the dataset in Langfuse
+        dataset_id: Database ID of the created dataset
         duplication_factor: Number of times to duplicate each item (default 5)
         _session: Database session
         _current_user: Current user organization
@@ -121,6 +123,7 @@ async def upload_dataset_to_langfuse(
         return (
             True,
             DatasetUploadResponse(
+                dataset_id=dataset_id,
                 dataset_name=dataset_name,
                 total_items=total_uploaded,
                 original_items=len(original_items),

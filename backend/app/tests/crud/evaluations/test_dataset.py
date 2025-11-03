@@ -8,7 +8,7 @@ import pytest
 from sqlmodel import Session, select
 
 from app.core.cloud.storage import CloudStorageError
-from app.crud.evaluation_dataset import (
+from app.crud.evaluations.dataset import (
     create_evaluation_dataset,
     download_csv_from_object_store,
     get_dataset_by_id,

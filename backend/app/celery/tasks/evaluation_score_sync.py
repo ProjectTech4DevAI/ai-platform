@@ -12,7 +12,7 @@ from celery import shared_task
 from sqlmodel import Session, select
 
 from app.core.db import get_engine
-from app.crud.evaluation_processing import poll_all_pending_evaluations
+from app.crud.evaluations.processing import poll_all_pending_evaluations
 from app.models import Organization
 
 logger = logging.getLogger(__name__)

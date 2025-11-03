@@ -203,8 +203,12 @@ class EvaluationRun(SQLModel, table=True):
     )
 
     # Timestamps
-    inserted_at: datetime = SQLField(default_factory=now, nullable=False)
-    updated_at: datetime = SQLField(default_factory=now, nullable=False)
+    inserted_at: datetime = Field(
+        default_factory=now, description="The timestamp when the document was inserted"
+    )
+    updated_at: datetime = Field(
+        default_factory=now, description="The timestamp when the document was inserted"
+    )
 
     # Relationships
     project: "Project" = Relationship(back_populates="evaluation_runs")  # noqa: F821

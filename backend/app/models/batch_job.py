@@ -5,6 +5,8 @@ from sqlalchemy import Column
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
+from app.core.util import now
+
 
 class BatchJob(SQLModel, table=True):
     """Batch job table for tracking async LLM batch operations."""
@@ -61,8 +63,12 @@ class BatchJob(SQLModel, table=True):
     project_id: int = Field(foreign_key="project.id")
 
     # Timestamps
-    inserted_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    inserted_at: datetime = Field(
+        default_factory=now, description="The timestamp when the document was inserted"
+    )
+    updated_at: datetime = Field(
+        default_factory=now, description="The timestamp when the document was inserted"
+    )
 
     # Relationships
     organization: Optional["Organization"] = Relationship(  # noqa: F821
