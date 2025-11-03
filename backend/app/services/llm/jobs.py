@@ -95,6 +95,7 @@ def execute_job(
 
     config = request.config
     provider = config.completion.provider
+    callback = None
 
     logger.info(
         f"[execute_job] Starting LLM job execution | job_id={job_id}, task_id={task_id}, "
@@ -109,12 +110,21 @@ def execute_job(
                 job_id=job_id, job_update=JobUpdate(status=JobStatus.PROCESSING)
             )
 
-            provider_instance = get_llm_provider(
-                session=session,
-                provider_type=provider,
-                project_id=project_id,
-                organization_id=organization_id,
-            )
+            try:
+                provider_instance = get_llm_provider(
+                    session=session,
+                    provider_type=provider,
+                    project_id=project_id,
+                    organization_id=organization_id,
+                )
+            except ValueError as ve:
+                callback = APIResponse.failure_response(
+                    error=str(ve),
+                    metadata=request.request_metadata,
+                )
+
+        if callback:
+            return handle_job_error(job_id, request.callback_url, callback)
 
         response, error = provider_instance.execute(
             completion_config=config.completion,
@@ -152,11 +162,11 @@ def execute_job(
 
     except Exception as e:
         callback = APIResponse.failure_response(
-            error=f"Unexpected error in LLM job execution: {str(e)}",
+            error=f"Unexpected error occurred",
             metadata=request.request_metadata,
         )
         logger.error(
-            f"[execute_job] {callback.error} | job_id={job_id}, task_id={task_id}",
+            f"[execute_job] {callback.error} {str(e)} | job_id={job_id}, task_id={task_id}",
             exc_info=True,
         )
         return handle_job_error(job_id, request.callback_url, callback)

@@ -182,14 +182,14 @@ class TestOpenAIProvider:
     ):
         """Test handling of unexpected exceptions."""
         mock_client.responses.create.side_effect = Exception(
-            "Unexpected error occurred"
+            "Timeout occurred"
         )
 
         result, error = provider.execute(completion_config, query_params)
 
         assert result is None
         assert error is not None
-        assert "Unexpected error: Unexpected error occurred" in error
+        assert "Unexpected error occurred" in error
 
     def test_execute_with_conversation_config_without_id_or_auto_create(
         self, provider, mock_client, completion_config, query_params

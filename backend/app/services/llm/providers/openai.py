@@ -103,6 +103,8 @@ class OpenAIProvider(BaseProvider):
             return None, error_message
 
         except Exception as e:
-            error_message = f"Unexpected error: {str(e)}"
-            logger.error(f"[OpenAIProvider.execute] {error_message}", exc_info=True)
+            error_message = "Unexpected error occurred"
+            logger.error(
+                f"[OpenAIProvider.execute] {error_message}: {str(e)}", exc_info=True
+            )
             return None, error_message

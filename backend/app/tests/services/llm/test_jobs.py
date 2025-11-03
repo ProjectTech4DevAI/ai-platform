@@ -333,14 +333,14 @@ class TestExecuteJob:
         result = self._execute_job(job_for_execution, db, request_data)
 
         assert not result["success"]
-        assert "Network timeout" in result["error"]
+        assert "Unexpected error occurred" in result["error"]
 
     def test_exception_during_provider_retrieval(
         self, db, job_env, job_for_execution, request_data
     ):
         """Provider not configured exception."""
         env = job_env
-        env["get_provider"].side_effect = Exception("Provider not configured")
+        env["get_provider"].side_effect = ValueError("Provider not configured")
 
         result = self._execute_job(job_for_execution, db, request_data)
 
