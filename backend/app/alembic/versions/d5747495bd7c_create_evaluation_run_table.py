@@ -163,7 +163,7 @@ def upgrade():
             nullable=True,
             comment="Reference to the batch_job for embedding-based similarity scoring",
         ),
-        sa.Column("dataset_id", sa.Integer(), nullable=True),
+        sa.Column("dataset_id", sa.Integer(), nullable=False),
         sa.Column("status", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column(
             "object_store_url", sqlmodel.sql.sqltypes.AutoString(), nullable=True
@@ -186,6 +186,7 @@ def upgrade():
             ["dataset_id"],
             ["evaluation_dataset.id"],
             name="fk_evaluation_run_dataset_id",
+            ondelete="CASCADE",
         ),
         sa.ForeignKeyConstraint(
             ["organization_id"], ["organization.id"], ondelete="CASCADE"

@@ -146,9 +146,10 @@ class EvaluationRun(SQLModel, table=True):
     )
 
     # Dataset reference
-    dataset_id: int | None = SQLField(
-        default=None,
+    dataset_id: int = SQLField(
         foreign_key="evaluation_dataset.id",
+        nullable=False,
+        ondelete="CASCADE",
         description="Reference to the evaluation_dataset used for this run",
     )
 
@@ -210,7 +211,7 @@ class EvaluationRun(SQLModel, table=True):
     organization: "Organization" = Relationship(
         back_populates="evaluation_runs"
     )  # noqa: F821
-    evaluation_dataset: Optional["EvaluationDataset"] = Relationship(
+    evaluation_dataset: "EvaluationDataset" = Relationship(
         back_populates="evaluation_runs"
     )
     batch_job: Optional["BatchJob"] = Relationship(  # noqa: F821
@@ -244,7 +245,7 @@ class EvaluationRunPublic(SQLModel):
     run_name: str
     dataset_name: str
     config: dict[str, Any]
-    dataset_id: int | None
+    dataset_id: int
     batch_job_id: int | None
     embedding_batch_job_id: int | None
     status: str

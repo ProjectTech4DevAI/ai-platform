@@ -150,7 +150,7 @@ async def upload_dataset(
     try:
         dataset_name = sanitize_dataset_name(dataset_name)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid dataset name: {str(e)}")
+        raise HTTPException(status_code=422, detail=f"Invalid dataset name: {str(e)}")
 
     if original_name != dataset_name:
         logger.info(f"Dataset name sanitized: '{original_name}' -> '{dataset_name}'")
