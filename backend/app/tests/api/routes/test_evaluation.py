@@ -232,7 +232,7 @@ class TestDatasetUploadDuplication:
         ):
             mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
             mock_configure_langfuse.return_value = (None, True)
-            mock_langfuse_upload.return_value = ("test_dataset_id", 30)
+            mock_langfuse_upload.return_value = ("test_dataset_id", 12)
 
             filename, file_obj = create_csv_file(valid_csv_content)
 
@@ -241,7 +241,7 @@ class TestDatasetUploadDuplication:
                 files={"file": (filename, file_obj, "text/csv")},
                 data={
                     "dataset_name": "test_dataset",
-                    "duplication_factor": 10,
+                    "duplication_factor": 4,
                 },
                 headers=user_api_key_header,
             )
@@ -249,9 +249,9 @@ class TestDatasetUploadDuplication:
             assert response.status_code == 200, response.text
             data = response.json()
 
-            assert data["duplication_factor"] == 10
+            assert data["duplication_factor"] == 4
             assert data["original_items"] == 3
-            assert data["total_items"] == 30  # 3 items * 10 duplication
+            assert data["total_items"] == 12  # 3 items * 4 duplication
 
     def test_upload_with_description(
         self, client, user_api_key_header, valid_csv_content, db
@@ -298,6 +298,89 @@ class TestDatasetUploadDuplication:
 
             assert dataset is not None
             assert dataset.description == "This is a test dataset for evaluation"
+
+    def test_upload_with_duplication_factor_below_minimum(
+        self, client, user_api_key_header, valid_csv_content
+    ):
+        """Test uploading with duplication factor below minimum (0)."""
+        filename, file_obj = create_csv_file(valid_csv_content)
+
+        response = client.post(
+            "/api/v1/evaluations/datasets",
+            files={"file": (filename, file_obj, "text/csv")},
+            data={
+                "dataset_name": "test_dataset",
+                "duplication_factor": 0,
+            },
+            headers=user_api_key_header,
+        )
+
+        assert response.status_code == 422
+        response_data = response.json()
+        # Check that the error mentions validation and minimum value
+        assert "error" in response_data
+        assert "greater than or equal to 1" in response_data["error"]
+
+    def test_upload_with_duplication_factor_above_maximum(
+        self, client, user_api_key_header, valid_csv_content
+    ):
+        """Test uploading with duplication factor above maximum (6)."""
+        filename, file_obj = create_csv_file(valid_csv_content)
+
+        response = client.post(
+            "/api/v1/evaluations/datasets",
+            files={"file": (filename, file_obj, "text/csv")},
+            data={
+                "dataset_name": "test_dataset",
+                "duplication_factor": 6,
+            },
+            headers=user_api_key_header,
+        )
+
+        assert response.status_code == 422
+        response_data = response.json()
+        # Check that the error mentions validation and maximum value
+        assert "error" in response_data
+        assert "less than or equal to 5" in response_data["error"]
+
+    def test_upload_with_duplication_factor_boundary_minimum(
+        self, client, user_api_key_header, valid_csv_content
+    ):
+        """Test uploading with duplication factor at minimum boundary (1)."""
+        with (
+            patch("app.core.cloud.get_cloud_storage") as _mock_storage,
+            patch(
+                "app.api.routes.evaluation.upload_csv_to_object_store"
+            ) as mock_store_upload,
+            patch(
+                "app.api.routes.evaluation.configure_langfuse"
+            ) as mock_configure_langfuse,
+            patch(
+                "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
+            ) as mock_langfuse_upload,
+        ):
+            mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
+            mock_configure_langfuse.return_value = (None, True)
+            mock_langfuse_upload.return_value = ("test_dataset_id", 3)
+
+            filename, file_obj = create_csv_file(valid_csv_content)
+
+            response = client.post(
+                "/api/v1/evaluations/datasets",
+                files={"file": (filename, file_obj, "text/csv")},
+                data={
+                    "dataset_name": "test_dataset",
+                    "duplication_factor": 1,
+                },
+                headers=user_api_key_header,
+            )
+
+            assert response.status_code == 200, response.text
+            data = response.json()
+
+            assert data["duplication_factor"] == 1
+            assert data["original_items"] == 3
+            assert data["total_items"] == 3  # 3 items * 1 duplication
 
 
 class TestDatasetUploadErrors:

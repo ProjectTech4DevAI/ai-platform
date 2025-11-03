@@ -15,6 +15,8 @@ from app.crud.credentials import get_provider_credential
 from app.crud.evaluation import (
     create_evaluation_run,
     get_evaluation_run_by_id,
+)
+from app.crud.evaluation import (
     list_evaluation_runs as list_evaluation_runs_crud,
 )
 from app.crud.evaluation_batch import start_evaluation_batch
@@ -95,7 +97,10 @@ async def upload_dataset(
     dataset_name: str = Form(..., description="Name for the dataset"),
     description: str | None = Form(None, description="Optional dataset description"),
     duplication_factor: int = Form(
-        default=5, description="Number of times to duplicate each item"
+        default=5,
+        ge=1,
+        le=5,
+        description="Number of times to duplicate each item (min: 1, max: 5)",
     ),
     _session: Session = Depends(get_db),
     _current_user: UserProjectOrg = Depends(get_current_user_org_project),
@@ -121,6 +126,13 @@ async def upload_dataset(
     - Must contain 'question' and 'answer' columns
     - Can have additional columns (will be ignored)
     - Missing values in 'question' or 'answer' rows will be skipped
+
+    Duplication Factor:
+    - Minimum: 1 (no duplication)
+    - Maximum: 5
+    - Default: 5
+    - Each item in the dataset will be duplicated this many times
+    - Used to ensure statistical significance in evaluation results
 
     Example CSV:
     ```
