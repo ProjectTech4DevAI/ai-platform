@@ -53,7 +53,9 @@ class TestDatasetUploadValidation:
         """Test uploading a valid CSV file."""
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
-            patch("app.api.routes.evaluation.upload_csv_to_s3") as mock_s3_upload,
+            patch(
+                "app.api.routes.evaluation.upload_csv_to_object_store"
+            ) as mock_store_upload,
             patch(
                 "app.api.routes.evaluation.configure_langfuse"
             ) as mock_configure_langfuse,
@@ -61,8 +63,8 @@ class TestDatasetUploadValidation:
                 "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
             ) as mock_langfuse_upload,
         ):
-            # Mock S3 upload
-            mock_s3_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
+            # Mock object store upload
+            mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
 
             # Mock Langfuse configuration
             mock_configure_langfuse.return_value = (None, True)
@@ -91,11 +93,11 @@ class TestDatasetUploadValidation:
             assert data["total_items"] == 9  # 3 items * 3 duplication
             assert data["duplication_factor"] == 3
             assert data["langfuse_dataset_id"] == "test_dataset_id"
-            assert data["s3_url"] == "s3://bucket/datasets/test_dataset.csv"
+            assert data["object_store_url"] == "s3://bucket/datasets/test_dataset.csv"
             assert "dataset_id" in data
 
-            # Verify S3 upload was called
-            mock_s3_upload.assert_called_once()
+            # Verify object store upload was called
+            mock_store_upload.assert_called_once()
 
             # Verify Langfuse upload was called
             mock_langfuse_upload.assert_called_once()
@@ -135,7 +137,9 @@ class TestDatasetUploadValidation:
         """Test uploading CSV with empty rows (should skip them)."""
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
-            patch("app.api.routes.evaluation.upload_csv_to_s3") as mock_s3_upload,
+            patch(
+                "app.api.routes.evaluation.upload_csv_to_object_store"
+            ) as mock_store_upload,
             patch(
                 "app.api.routes.evaluation.configure_langfuse"
             ) as mock_configure_langfuse,
@@ -143,8 +147,8 @@ class TestDatasetUploadValidation:
                 "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
             ) as mock_langfuse_upload,
         ):
-            # Mock S3 and Langfuse uploads
-            mock_s3_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
+            # Mock object store and Langfuse uploads
+            mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
             mock_configure_langfuse.return_value = (None, True)
             mock_langfuse_upload.return_value = ("test_dataset_id", 4)
 
@@ -177,7 +181,9 @@ class TestDatasetUploadDuplication:
         """Test uploading with default duplication factor (5)."""
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
-            patch("app.api.routes.evaluation.upload_csv_to_s3") as mock_s3_upload,
+            patch(
+                "app.api.routes.evaluation.upload_csv_to_object_store"
+            ) as mock_store_upload,
             patch(
                 "app.api.routes.evaluation.configure_langfuse"
             ) as mock_configure_langfuse,
@@ -185,7 +191,7 @@ class TestDatasetUploadDuplication:
                 "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
             ) as mock_langfuse_upload,
         ):
-            mock_s3_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
+            mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
             mock_configure_langfuse.return_value = (None, True)
             mock_langfuse_upload.return_value = ("test_dataset_id", 15)
 
@@ -214,7 +220,9 @@ class TestDatasetUploadDuplication:
         """Test uploading with custom duplication factor."""
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
-            patch("app.api.routes.evaluation.upload_csv_to_s3") as mock_s3_upload,
+            patch(
+                "app.api.routes.evaluation.upload_csv_to_object_store"
+            ) as mock_store_upload,
             patch(
                 "app.api.routes.evaluation.configure_langfuse"
             ) as mock_configure_langfuse,
@@ -222,7 +230,7 @@ class TestDatasetUploadDuplication:
                 "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
             ) as mock_langfuse_upload,
         ):
-            mock_s3_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
+            mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
             mock_configure_langfuse.return_value = (None, True)
             mock_langfuse_upload.return_value = ("test_dataset_id", 30)
 
@@ -251,7 +259,9 @@ class TestDatasetUploadDuplication:
         """Test uploading with a description."""
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
-            patch("app.api.routes.evaluation.upload_csv_to_s3") as mock_s3_upload,
+            patch(
+                "app.api.routes.evaluation.upload_csv_to_object_store"
+            ) as mock_store_upload,
             patch(
                 "app.api.routes.evaluation.configure_langfuse"
             ) as mock_configure_langfuse,
@@ -259,7 +269,7 @@ class TestDatasetUploadDuplication:
                 "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
             ) as mock_langfuse_upload,
         ):
-            mock_s3_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
+            mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
             mock_configure_langfuse.return_value = (None, True)
             mock_langfuse_upload.return_value = ("test_dataset_id", 9)
 
@@ -299,11 +309,13 @@ class TestDatasetUploadErrors:
         """Test when Langfuse client configuration fails."""
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
-            patch("app.api.routes.evaluation.upload_csv_to_s3") as mock_s3_upload,
+            patch(
+                "app.api.routes.evaluation.upload_csv_to_object_store"
+            ) as mock_store_upload,
             patch("app.crud.credentials.get_provider_credential") as mock_get_cred,
         ):
-            # Mock S3 upload succeeds
-            mock_s3_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
+            # Mock object store upload succeeds
+            mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
             # Mock Langfuse credentials not found
             mock_get_cred.return_value = None
 

@@ -10,12 +10,12 @@ from sqlmodel import Session, select
 from app.core.cloud.storage import CloudStorageError
 from app.crud.evaluation_dataset import (
     create_evaluation_dataset,
-    download_csv_from_s3,
+    download_csv_from_object_store,
     get_dataset_by_id,
     get_dataset_by_name,
     list_datasets,
     update_dataset_langfuse_id,
-    upload_csv_to_s3,
+    upload_csv_to_object_store,
 )
 from app.models import Organization, Project
 
@@ -46,7 +46,7 @@ class TestCreateEvaluationDataset:
         assert dataset.organization_id == org.id
         assert dataset.project_id == project.id
         assert dataset.description is None
-        assert dataset.s3_url is None
+        assert dataset.object_store_url is None
         assert dataset.langfuse_dataset_id is None
 
     def test_create_evaluation_dataset_complete(self, db: Session):
@@ -66,7 +66,7 @@ class TestCreateEvaluationDataset:
                 "total_items_count": 25,
                 "duplication_factor": 5,
             },
-            s3_url="s3://bucket/datasets/complete_dataset.csv",
+            object_store_url="s3://bucket/datasets/complete_dataset.csv",
             langfuse_dataset_id="langfuse_123",
             organization_id=org.id,
             project_id=project.id,
@@ -76,7 +76,7 @@ class TestCreateEvaluationDataset:
         assert dataset.name == "complete_dataset"
         assert dataset.description == "A complete test dataset"
         assert dataset.dataset_metadata["duplication_factor"] == 5
-        assert dataset.s3_url == "s3://bucket/datasets/complete_dataset.csv"
+        assert dataset.object_store_url == "s3://bucket/datasets/complete_dataset.csv"
         assert dataset.langfuse_dataset_id == "langfuse_123"
         assert dataset.inserted_at is not None
         assert dataset.updated_at is not None
@@ -288,84 +288,88 @@ class TestListDatasets:
         assert len(set(page1_names) & set(page2_names)) == 0
 
 
-class TestUploadCsvToS3:
-    """Test CSV upload to S3."""
+class TestUploadCsvToObjectStore:
+    """Test CSV upload to object store."""
 
-    def test_upload_csv_to_s3_success(self):
-        """Test successful S3 upload."""
+    def test_upload_csv_to_object_store_success(self):
+        """Test successful object store upload."""
         mock_storage = MagicMock()
         mock_storage.put.return_value = "s3://bucket/datasets/test_dataset.csv"
 
         csv_content = b"question,answer\nWhat is 2+2?,4\n"
 
-        s3_url = upload_csv_to_s3(
+        object_store_url = upload_csv_to_object_store(
             storage=mock_storage, csv_content=csv_content, dataset_name="test_dataset"
         )
 
-        assert s3_url == "s3://bucket/datasets/test_dataset.csv"
+        assert object_store_url == "s3://bucket/datasets/test_dataset.csv"
         mock_storage.put.assert_called_once()
 
-    def test_upload_csv_to_s3_cloud_storage_error(self):
-        """Test S3 upload with CloudStorageError."""
+    def test_upload_csv_to_object_store_cloud_storage_error(self):
+        """Test object store upload with CloudStorageError."""
         mock_storage = MagicMock()
-        mock_storage.put.side_effect = CloudStorageError("S3 bucket not found")
+        mock_storage.put.side_effect = CloudStorageError(
+            "Object store bucket not found"
+        )
 
         csv_content = b"question,answer\nWhat is 2+2?,4\n"
 
         # Should return None on error
-        s3_url = upload_csv_to_s3(
+        object_store_url = upload_csv_to_object_store(
             storage=mock_storage, csv_content=csv_content, dataset_name="test_dataset"
         )
 
-        assert s3_url is None
+        assert object_store_url is None
 
-    def test_upload_csv_to_s3_unexpected_error(self):
-        """Test S3 upload with unexpected error."""
+    def test_upload_csv_to_object_store_unexpected_error(self):
+        """Test object store upload with unexpected error."""
         mock_storage = MagicMock()
         mock_storage.put.side_effect = Exception("Unexpected error")
 
         csv_content = b"question,answer\nWhat is 2+2?,4\n"
 
         # Should return None on error
-        s3_url = upload_csv_to_s3(
+        object_store_url = upload_csv_to_object_store(
             storage=mock_storage, csv_content=csv_content, dataset_name="test_dataset"
         )
 
-        assert s3_url is None
+        assert object_store_url is None
 
 
-class TestDownloadCsvFromS3:
-    """Test CSV download from S3."""
+class TestDownloadCsvFromObjectStore:
+    """Test CSV download from object store."""
 
-    def test_download_csv_from_s3_success(self):
-        """Test successful S3 download."""
+    def test_download_csv_from_object_store_success(self):
+        """Test successful object store download."""
         mock_storage = MagicMock()
         mock_body = MagicMock()
         mock_body.read.return_value = b"question,answer\nWhat is 2+2?,4\n"
         mock_storage.stream.return_value = mock_body
 
-        csv_content = download_csv_from_s3(
-            storage=mock_storage, s3_url="s3://bucket/datasets/test.csv"
+        csv_content = download_csv_from_object_store(
+            storage=mock_storage, object_store_url="s3://bucket/datasets/test.csv"
         )
 
         assert csv_content == b"question,answer\nWhat is 2+2?,4\n"
         mock_storage.stream.assert_called_once_with("s3://bucket/datasets/test.csv")
 
-    def test_download_csv_from_s3_empty_url(self):
+    def test_download_csv_from_object_store_empty_url(self):
         """Test download with empty URL."""
         mock_storage = MagicMock()
 
-        with pytest.raises(ValueError, match="s3_url cannot be None or empty"):
-            download_csv_from_s3(storage=mock_storage, s3_url=None)
+        with pytest.raises(
+            ValueError, match="object_store_url cannot be None or empty"
+        ):
+            download_csv_from_object_store(storage=mock_storage, object_store_url=None)
 
-    def test_download_csv_from_s3_error(self):
+    def test_download_csv_from_object_store_error(self):
         """Test download with storage error."""
         mock_storage = MagicMock()
-        mock_storage.stream.side_effect = Exception("S3 download failed")
+        mock_storage.stream.side_effect = Exception("Object store download failed")
 
-        with pytest.raises(Exception, match="S3 download failed"):
-            download_csv_from_s3(
-                storage=mock_storage, s3_url="s3://bucket/datasets/test.csv"
+        with pytest.raises(Exception, match="Object store download failed"):
+            download_csv_from_object_store(
+                storage=mock_storage, object_store_url="s3://bucket/datasets/test.csv"
             )
 
 

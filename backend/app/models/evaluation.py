@@ -33,7 +33,9 @@ class DatasetUploadResponse(BaseModel):
     langfuse_dataset_id: str | None = Field(
         None, description="Langfuse dataset ID if available"
     )
-    s3_url: str | None = Field(None, description="AWS S3 URL if uploaded")
+    object_store_url: str | None = Field(
+        None, description="Object store URL if uploaded"
+    )
 
 
 class EvaluationResult(BaseModel):
@@ -94,8 +96,8 @@ class EvaluationDataset(SQLModel, table=True):
     )
 
     # Storage references
-    s3_url: str | None = SQLField(
-        default=None, description="AWS S3 URL where CSV is stored"
+    object_store_url: str | None = SQLField(
+        default=None, description="Object store URL where CSV is stored"
     )
     langfuse_dataset_id: str | None = SQLField(
         default=None, description="Langfuse dataset ID for reference"
@@ -169,9 +171,9 @@ class EvaluationRun(SQLModel, table=True):
         default="pending",
         description="Overall evaluation status: pending, processing, completed, failed",
     )
-    s3_url: str | None = SQLField(
+    object_store_url: str | None = SQLField(
         default=None,
-        description="S3 URL of processed evaluation results for future reference",
+        description="Object store URL of processed evaluation results for future reference",
     )
     total_items: int = SQLField(
         default=0, description="Total number of items evaluated (set during processing)"
@@ -246,7 +248,7 @@ class EvaluationRunPublic(SQLModel):
     batch_job_id: int | None
     embedding_batch_job_id: int | None
     status: str
-    s3_url: str | None
+    object_store_url: str | None
     total_items: int
     score: dict[str, Any] | None
     error_message: str | None
@@ -268,7 +270,9 @@ class EvaluationDatasetCreate(SQLModel):
             "duplication_factor)"
         ),
     )
-    s3_url: str | None = Field(None, description="AWS S3 URL where CSV is stored")
+    object_store_url: str | None = Field(
+        None, description="Object store URL where CSV is stored"
+    )
     langfuse_dataset_id: str | None = Field(
         None, description="Langfuse dataset ID for reference"
     )
@@ -281,7 +285,7 @@ class EvaluationDatasetPublic(SQLModel):
     name: str
     description: str | None
     dataset_metadata: dict[str, Any]
-    s3_url: str | None
+    object_store_url: str | None
     langfuse_dataset_id: str | None
     organization_id: int
     project_id: int

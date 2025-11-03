@@ -1,14 +1,13 @@
 """Generic batch operations orchestrator."""
 
-import json
 import logging
-from io import BytesIO
 from typing import Any
 
 from sqlmodel import Session
 
 from app.core.batch.provider_interface import BatchProvider
-from app.core.cloud.storage import AmazonCloudStorageClient, SimpleStorageName
+from app.core.cloud import get_cloud_storage
+from app.core.storage_utils import upload_jsonl_to_object_store as shared_upload_jsonl
 from app.crud.batch_job import (
     create_batch_job,
     update_batch_job,
@@ -209,21 +208,21 @@ def process_completed_batch(
     session: Session,
     provider: BatchProvider,
     batch_job: BatchJob,
-    upload_to_s3: bool = True,
+    upload_to_object_store: bool = True,
 ) -> tuple[list[dict[str, Any]], str | None]:
     """
-    Process a completed batch: download results and optionally upload to S3.
+    Process a completed batch: download results and optionally upload to object store.
 
     Args:
         session: Database session
         provider: BatchProvider instance
         batch_job: BatchJob object
-        upload_to_s3: Whether to upload raw results to S3
+        upload_to_object_store: Whether to upload raw results to object store
 
     Returns:
-        Tuple of (results, s3_url)
+        Tuple of (results, object_store_url)
         - results: List of result dictionaries
-        - s3_url: S3 URL if uploaded, None otherwise
+        - object_store_url: Object store URL if uploaded, None otherwise
 
     Raises:
         Exception: If processing fails
@@ -234,87 +233,86 @@ def process_completed_batch(
         # Download results
         results = download_batch_results(provider=provider, batch_job=batch_job)
 
-        # Upload to S3 if requested
-        s3_url = None
-        if upload_to_s3:
+        # Upload to object store if requested
+        object_store_url = None
+        if upload_to_object_store:
             try:
-                s3_url = upload_batch_results_to_s3(
-                    batch_job=batch_job, results=results
+                object_store_url = upload_batch_results_to_object_store(
+                    session=session, batch_job=batch_job, results=results
                 )
-                logger.info(f"Uploaded batch results to S3: {s3_url}")
-            except Exception as s3_error:
+                logger.info(
+                    f"Uploaded batch results to object store: {object_store_url}"
+                )
+            except Exception as store_error:
                 logger.warning(
-                    f"S3 upload failed (AWS credentials may not be configured): {s3_error}. "
-                    f"Continuing without S3 storage.",
+                    f"Object store upload failed (credentials may not be configured): {store_error}. "
+                    f"Continuing without object store storage.",
                     exc_info=True,
                 )
 
-        # Update batch_job with S3 URL
-        if s3_url:
-            batch_job_update = BatchJobUpdate(raw_output_url=s3_url)
+        # Update batch_job with object store URL
+        if object_store_url:
+            batch_job_update = BatchJobUpdate(raw_output_url=object_store_url)
             update_batch_job(
                 session=session, batch_job=batch_job, batch_job_update=batch_job_update
             )
 
-        return results, s3_url
+        return results, object_store_url
 
     except Exception as e:
         logger.error(f"Failed to process completed batch: {e}", exc_info=True)
         raise
 
 
-def upload_batch_results_to_s3(
-    batch_job: BatchJob, results: list[dict[str, Any]]
-) -> str:
+def upload_batch_results_to_object_store(
+    session: Session, batch_job: BatchJob, results: list[dict[str, Any]]
+) -> str | None:
     """
-    Upload batch results to S3.
+    Upload batch results to object store.
+
+    This function uses the shared storage utility for consistent upload behavior.
 
     Args:
+        session: Database session (for getting cloud storage)
         batch_job: BatchJob object
         results: List of result dictionaries
 
     Returns:
-        S3 URL
+        Object store URL if successful, None if failed
 
     Raises:
         Exception: If upload fails
     """
-    logger.info(f"Uploading batch results to S3 for batch_job {batch_job.id}")
+    logger.info(f"Uploading batch results to object store for batch_job {batch_job.id}")
 
     try:
-        # Create S3 key path
+        # Get cloud storage instance
+        storage = get_cloud_storage(session=session, project_id=batch_job.project_id)
+
+        # Define subdirectory and filename
         # Format: {job_type}/batch-{id}/results.jsonl
-        s3_key = f"{batch_job.job_type}/batch-{batch_job.id}/results.jsonl"
+        subdirectory = f"{batch_job.job_type}/batch-{batch_job.id}"
+        filename = "results.jsonl"
 
-        # Convert results to JSONL
-        jsonl_content = "\n".join([json.dumps(result) for result in results])
-        content_bytes = jsonl_content.encode("utf-8")
-        file_like = BytesIO(content_bytes)
-
-        # Upload to S3
-        aws_client = AmazonCloudStorageClient()
-        aws_client.client.upload_fileobj(
-            file_like,
-            Bucket=aws_client.client._client_config.__dict__.get(
-                "bucket", "kaapi-storage"
-            ),
-            Key=s3_key,
-            ExtraArgs={"ContentType": "application/jsonl"},
+        # Use shared utility for upload
+        object_store_url = shared_upload_jsonl(
+            storage=storage,
+            results=results,
+            filename=filename,
+            subdirectory=subdirectory,
         )
 
-        # Construct S3 URL
-        storage_name = SimpleStorageName(Key=s3_key)
-        s3_url = str(storage_name)
-
-        logger.info(
-            f"Successfully uploaded batch results to S3: {s3_url} ({len(content_bytes)} bytes)"
-        )
-
-        return s3_url
+        return object_store_url
 
     except Exception as e:
-        logger.error(f"Failed to upload batch results to S3: {e}", exc_info=True)
+        logger.error(
+            f"Failed to upload batch results to object store: {e}", exc_info=True
+        )
         raise
+
+
+# Backward compatibility alias
+upload_batch_results_to_s3 = upload_batch_results_to_object_store
 
 
 # NOTE: Batch-level polling has been removed from this module.

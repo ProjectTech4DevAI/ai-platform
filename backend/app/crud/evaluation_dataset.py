@@ -9,17 +9,19 @@ This module handles database operations for evaluation datasets including:
 """
 
 import logging
-
-from pathlib import Path
 from typing import Any
+
 from sqlmodel import Session, select
-from datetime import datetime
 
-from app.core.cloud.storage import CloudStorage, CloudStorageError
+from app.core.cloud.storage import CloudStorage
+from app.core.storage_utils import (
+    generate_timestamped_filename,
+)
+from app.core.storage_utils import (
+    upload_csv_to_object_store as shared_upload_csv,
+)
 from app.core.util import now
-from app.models import EvaluationDataset
-from app.models import EvaluationRun
-
+from app.models import EvaluationDataset, EvaluationRun
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +33,7 @@ def create_evaluation_dataset(
     organization_id: int,
     project_id: int,
     description: str | None = None,
-    s3_url: str | None = None,
+    object_store_url: str | None = None,
     langfuse_dataset_id: str | None = None,
 ) -> EvaluationDataset:
     """
@@ -45,7 +47,7 @@ def create_evaluation_dataset(
         organization_id: Organization ID
         project_id: Project ID
         description: Optional dataset description
-        s3_url: Optional AWS S3 URL where CSV is stored
+        object_store_url: Optional object store URL where CSV is stored
         langfuse_dataset_id: Optional Langfuse dataset ID
 
     Returns:
@@ -55,7 +57,7 @@ def create_evaluation_dataset(
         name=name,
         description=description,
         dataset_metadata=dataset_metadata,
-        s3_url=s3_url,
+        object_store_url=object_store_url,
         langfuse_dataset_id=langfuse_dataset_id,
         organization_id=organization_id,
         project_id=project_id,
@@ -185,13 +187,16 @@ def list_datasets(
     return list(datasets)
 
 
-def upload_csv_to_s3(
+def upload_csv_to_object_store(
     storage: CloudStorage,
     csv_content: bytes,
     dataset_name: str,
 ) -> str | None:
     """
-    Upload CSV file to AWS S3.
+    Upload CSV file to object store.
+
+    This is a wrapper around the shared storage utility function,
+    providing dataset-specific file naming.
 
     Args:
         storage: CloudStorage instance
@@ -199,77 +204,66 @@ def upload_csv_to_s3(
         dataset_name: Name of the dataset (used for file naming)
 
     Returns:
-        S3 URL as string if successful, None if failed
+        Object store URL as string if successful, None if failed
 
     Note:
         This function handles errors gracefully and returns None on failure.
-        Callers should continue without S3 URL when this returns None.
+        Callers should continue without object store URL when this returns None.
     """
-    try:
-        # Create a file path for the CSV
-        # Format: datasets/{dataset_name}_{timestamp}.csv
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_path = Path(f"datasets/{dataset_name}_{timestamp}.csv")
+    # Generate timestamped filename
+    filename = generate_timestamped_filename(dataset_name, extension="csv")
 
-        # Create a mock UploadFile-like object for the storage put method
-        import io
-
-        class CSVFile:
-            def __init__(self, content: bytes):
-                self.file = io.BytesIO(content)
-                self.content_type = "text/csv"
-
-        csv_file = CSVFile(csv_content)
-
-        # Upload to S3
-        destination = storage.put(source=csv_file, file_path=file_path)
-        s3_url = str(destination)
-
-        logger.info(f"Successfully uploaded CSV to S3: {s3_url}")
-        return s3_url
-
-    except CloudStorageError as e:
-        logger.warning(
-            f"Failed to upload CSV to S3 for dataset '{dataset_name}': {e}. "
-            "Continuing without S3 storage."
-        )
-        return None
-    except Exception as e:
-        logger.warning(
-            f"Unexpected error uploading CSV to S3 for dataset '{dataset_name}': {e}. "
-            "Continuing without S3 storage.",
-            exc_info=True,
-        )
-        return None
+    # Use shared utility for upload
+    return shared_upload_csv(
+        storage=storage,
+        csv_content=csv_content,
+        filename=filename,
+        subdirectory="datasets",
+    )
 
 
-def download_csv_from_s3(storage: CloudStorage, s3_url: str) -> bytes:
+# Backward compatibility alias
+upload_csv_to_s3 = upload_csv_to_object_store
+
+
+def download_csv_from_object_store(
+    storage: CloudStorage, object_store_url: str
+) -> bytes:
     """
-    Download CSV file from AWS S3.
+    Download CSV file from object store.
 
     Args:
         storage: CloudStorage instance
-        s3_url: S3 URL of the CSV file
+        object_store_url: Object store URL of the CSV file
 
     Returns:
         CSV content as bytes
 
     Raises:
         CloudStorageError: If download fails
-        ValueError: If s3_url is None or empty
+        ValueError: If object_store_url is None or empty
     """
-    if not s3_url:
-        raise ValueError("s3_url cannot be None or empty")
+    if not object_store_url:
+        raise ValueError("object_store_url cannot be None or empty")
 
     try:
-        logger.info(f"Downloading CSV from S3: {s3_url}")
-        body = storage.stream(s3_url)
+        logger.info(f"Downloading CSV from object store: {object_store_url}")
+        body = storage.stream(object_store_url)
         csv_content = body.read()
-        logger.info(f"Successfully downloaded CSV from S3: {len(csv_content)} bytes")
+        logger.info(
+            f"Successfully downloaded CSV from object store: {len(csv_content)} bytes"
+        )
         return csv_content
     except Exception as e:
-        logger.error(f"Failed to download CSV from S3: {s3_url}: {e}", exc_info=True)
+        logger.error(
+            f"Failed to download CSV from object store: {object_store_url}: {e}",
+            exc_info=True,
+        )
         raise
+
+
+# Backward compatibility alias
+download_csv_from_s3 = download_csv_from_object_store
 
 
 def update_dataset_langfuse_id(
@@ -306,7 +300,7 @@ def delete_dataset(
     """
     Delete an evaluation dataset by ID.
 
-    This performs a hard delete from the database. The CSV file in S3 (if exists)
+    This performs a hard delete from the database. The CSV file in object store (if exists)
     will remain for audit purposes.
 
     Args:

@@ -5,11 +5,10 @@ Revises: e7c68e43ce6f
 Create Date: 2025-10-14 12:42:15.464302
 
 """
-from alembic import op
 import sqlalchemy as sa
 import sqlmodel.sql.sqltypes
+from alembic import op
 from sqlalchemy.dialects import postgresql
-
 
 # revision identifiers, used by Alembic.
 revision = "d5747495bd7c"
@@ -120,7 +119,9 @@ def upgrade():
             nullable=False,
             server_default=sa.text("'{}'::jsonb"),
         ),
-        sa.Column("s3_url", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+        sa.Column(
+            "object_store_url", sqlmodel.sql.sqltypes.AutoString(), nullable=True
+        ),
         sa.Column(
             "langfuse_dataset_id",
             sqlmodel.sql.sqltypes.AutoString(),
@@ -164,7 +165,9 @@ def upgrade():
         ),
         sa.Column("dataset_id", sa.Integer(), nullable=True),
         sa.Column("status", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-        sa.Column("s3_url", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+        sa.Column(
+            "object_store_url", sqlmodel.sql.sqltypes.AutoString(), nullable=True
+        ),
         sa.Column("total_items", sa.Integer(), nullable=False),
         sa.Column("score", sa.JSON(), nullable=True),
         sa.Column("error_message", sa.Text(), nullable=True),

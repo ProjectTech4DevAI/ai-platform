@@ -21,7 +21,10 @@ from sqlmodel import Session, select
 from app.core.batch.openai_provider import OpenAIBatchProvider
 from app.core.util import configure_langfuse, configure_openai, now
 from app.crud.batch_job import get_batch_job
-from app.crud.batch_operations import download_batch_results, upload_batch_results_to_s3
+from app.crud.batch_operations import (
+    download_batch_results,
+    upload_batch_results_to_object_store,
+)
 from app.crud.credentials import get_provider_credential
 from app.crud.evaluation_batch import fetch_dataset_items
 from app.crud.evaluation_embeddings import (
@@ -198,14 +201,14 @@ async def process_completed_evaluation(
         provider = OpenAIBatchProvider(client=openai_client)
         raw_results = download_batch_results(provider=provider, batch_job=batch_job)
 
-        # Step 2a: Upload raw results to S3 for evaluation_run
-        s3_url = None
+        # Step 2a: Upload raw results to object store for evaluation_run
+        object_store_url = None
         try:
-            s3_url = upload_batch_results_to_s3(
-                batch_job=batch_job, results=raw_results
+            object_store_url = upload_batch_results_to_object_store(
+                session=session, batch_job=batch_job, results=raw_results
             )
-        except Exception as s3_error:
-            logger.warning(f"{log_prefix} S3 upload failed: {s3_error}")
+        except Exception as store_error:
+            logger.warning(f"{log_prefix} Object store upload failed: {store_error}")
 
         # Step 3: Fetch dataset items (needed for matching ground truth)
         logger.info(
@@ -231,9 +234,9 @@ async def process_completed_evaluation(
             results=results,
         )
 
-        # Store S3 URL in database
-        if s3_url:
-            eval_run.s3_url = s3_url
+        # Store object store URL in database
+        if object_store_url:
+            eval_run.object_store_url = object_store_url
             session.add(eval_run)
             session.commit()
 

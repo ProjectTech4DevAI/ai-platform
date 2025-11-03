@@ -17,7 +17,7 @@ from app.crud.evaluation_dataset import (
     create_evaluation_dataset,
     get_dataset_by_id,
     list_datasets,
-    upload_csv_to_s3,
+    upload_csv_to_object_store,
 )
 from app.crud.evaluation_dataset import (
     delete_dataset as delete_dataset_crud,
@@ -101,7 +101,7 @@ async def upload_dataset(
     This endpoint:
     1. Sanitizes the dataset name (removes spaces, special characters)
     2. Validates and parses the CSV file
-    3. Uploads CSV to AWS S3 (if credentials configured)
+    3. Uploads CSV to object store (if credentials configured)
     4. Uploads dataset to Langfuse (for immediate use)
     5. Stores metadata in database
 
@@ -125,7 +125,7 @@ async def upload_dataset(
     ```
 
     Returns:
-        DatasetUploadResponse with dataset_id, s3_url, and Langfuse details
+        DatasetUploadResponse with dataset_id, object_store_url, and Langfuse details
         (dataset_name in response will be the sanitized version)
     """
     # Sanitize dataset name for Langfuse compatibility
@@ -189,24 +189,29 @@ async def upload_dataset(
         logger.error(f"Failed to parse CSV: {e}", exc_info=True)
         raise HTTPException(status_code=422, detail=f"Invalid CSV file: {e}")
 
-    # Step 2: Upload to AWS S3 (if credentials configured)
-    s3_url = None
+    # Step 2: Upload to object store (if credentials configured)
+    object_store_url = None
     try:
         storage = get_cloud_storage(
             session=_session, project_id=_current_user.project_id
         )
-        s3_url = upload_csv_to_s3(
+        object_store_url = upload_csv_to_object_store(
             storage=storage, csv_content=csv_content, dataset_name=dataset_name
         )
-        if s3_url:
-            logger.info(f"Successfully uploaded CSV to S3: {s3_url}")
+        if object_store_url:
+            logger.info(
+                f"Successfully uploaded CSV to object store: {object_store_url}"
+            )
         else:
-            logger.info("S3 upload returned None, continuing without S3 storage")
+            logger.info(
+                "Object store upload returned None, continuing without object store storage"
+            )
     except Exception as e:
         logger.warning(
-            f"Failed to upload CSV to S3 (continuing without S3): {e}", exc_info=True
+            f"Failed to upload CSV to object store (continuing without object store): {e}",
+            exc_info=True,
         )
-        s3_url = None
+        object_store_url = None
 
     # Step 3: Upload to Langfuse
     langfuse_dataset_id = None
@@ -261,7 +266,7 @@ async def upload_dataset(
             name=dataset_name,
             description=description,
             dataset_metadata=metadata,
-            s3_url=s3_url,
+            object_store_url=object_store_url,
             langfuse_dataset_id=langfuse_dataset_id,
             organization_id=_current_user.organization_id,
             project_id=_current_user.project_id,
@@ -280,7 +285,7 @@ async def upload_dataset(
             original_items=original_items_count,
             duplication_factor=duplication_factor,
             langfuse_dataset_id=langfuse_dataset_id,
-            s3_url=s3_url,
+            object_store_url=object_store_url,
         )
 
     except IntegrityError as e:
@@ -343,7 +348,7 @@ async def list_datasets_endpoint(
                     "duplication_factor", 1
                 ),
                 langfuse_dataset_id=dataset.langfuse_dataset_id,
-                s3_url=dataset.s3_url,
+                object_store_url=dataset.object_store_url,
             )
         )
 
@@ -390,7 +395,7 @@ async def get_dataset(
         original_items=dataset.dataset_metadata.get("original_items_count", 0),
         duplication_factor=dataset.dataset_metadata.get("duplication_factor", 1),
         langfuse_dataset_id=dataset.langfuse_dataset_id,
-        s3_url=dataset.s3_url,
+        object_store_url=dataset.object_store_url,
     )
 
 
@@ -403,7 +408,7 @@ async def delete_dataset(
     """
     Delete a dataset by ID.
 
-    This will remove the dataset record from the database. The CSV file in S3
+    This will remove the dataset record from the database. The CSV file in object store
     (if exists) will remain for audit purposes, but the dataset will no longer
     be accessible for creating new evaluations.
 
@@ -536,7 +541,7 @@ async def evaluate_threads(
 
     logger.info(
         f"Found dataset: id={dataset.id}, name={dataset.name}, "
-        f"s3_url={'present' if dataset.s3_url else 'None'}, "
+        f"object_store_url={'present' if dataset.object_store_url else 'None'}, "
         f"langfuse_id={dataset.langfuse_dataset_id}"
     )
 
