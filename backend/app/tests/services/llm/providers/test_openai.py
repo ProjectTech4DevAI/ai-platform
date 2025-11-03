@@ -181,9 +181,7 @@ class TestOpenAIProvider:
         self, provider, mock_client, completion_config, query_params
     ):
         """Test handling of unexpected exceptions."""
-        mock_client.responses.create.side_effect = Exception(
-            "Timeout occurred"
-        )
+        mock_client.responses.create.side_effect = Exception("Timeout occurred")
 
         result, error = provider.execute(completion_config, query_params)
 
