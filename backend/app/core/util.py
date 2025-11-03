@@ -1,13 +1,10 @@
 import logging
-import warnings
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
 from requests import Session, RequestException
 from pydantic import BaseModel, HttpUrl
-from langfuse import Langfuse
 
-# from langfuse import langfuse_context
 from openai import OpenAI
 
 logger = logging.getLogger(__name__)
