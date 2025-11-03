@@ -11,29 +11,39 @@ from app.services.llm.providers.openai import OpenAIProvider
 logger = logging.getLogger(__name__)
 
 
-# Registry of provider types to their implementation classes
-PROVIDER_REGISTRY: dict[str, type[BaseProvider]] = {
-    "openai": OpenAIProvider,
-    # Future providers can be added here:
-    # "anthropic": AnthropicProvider,
-    # "google": GoogleProvider,
-}
+class LLMProvider:
+    OPENAI = "openai"
+    # Future constants:
+    # ANTHROPIC = "anthropic"
+    # GOOGLE = "google"
+
+    _registry: dict[str, type[BaseProvider]] = {
+        OPENAI: OpenAIProvider,
+        # ANTHROPIC: AnthropicProvider,
+        # GOOGLE: GoogleProvider,
+    }
+
+    @classmethod
+    def get(cls, name: str) -> type[BaseProvider]:
+        """Return the provider class for a given name."""
+        provider = cls._registry.get(name)
+        if not provider:
+            raise ValueError(
+                f"Provider '{name}' is not supported. "
+                f"Supported providers: {', '.join(cls._registry.keys())}"
+            )
+        return provider
+
+    @classmethod
+    def supported_providers(cls) -> list[str]:
+        """Return a list of supported provider names."""
+        return list(cls._registry.keys())
 
 
 def get_llm_provider(
     session: Session, provider_type: str, project_id: int, organization_id: int
 ) -> BaseProvider:
-    provider_class = PROVIDER_REGISTRY.get(provider_type)
-
-    if provider_class is None:
-        supported = list(PROVIDER_REGISTRY.keys())
-        logger.error(
-            f"[get_llm_provider] Unsupported provider type requested: {provider_type}"
-        )
-        raise ValueError(
-            f"Provider '{provider_type}' is not supported. "
-            f"Supported providers: {', '.join(supported)}"
-        )
+    provider_class = LLMProvider.get(provider_type)
 
     credentials = get_provider_credential(
         session=session,
@@ -47,7 +57,7 @@ def get_llm_provider(
             f"Credentials for provider '{provider_type}' not configured for this project."
         )
 
-    if provider_type == "openai":
+    if provider_type == LLMProvider.OPENAI:
         if "api_key" not in credentials:
             raise ValueError("OpenAI credentials not configured for this project.")
         client = OpenAI(api_key=credentials["api_key"])
@@ -58,12 +68,3 @@ def get_llm_provider(
         raise ValueError(f"Provider '{provider_type}' is not supported.")
 
     return provider_class(client=client)
-
-
-def get_supported_providers() -> list[str]:
-    """Get list of supported provider types.
-
-    Returns:
-        List of supported provider type strings
-    """
-    return list(PROVIDER_REGISTRY.keys())

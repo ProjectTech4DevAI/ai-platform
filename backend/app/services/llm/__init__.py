@@ -4,7 +4,6 @@ from app.services.llm.providers import (
     OpenAIProvider,
 )
 from app.services.llm.providers import (
-    PROVIDER_REGISTRY,
+    LLMProvider,
     get_llm_provider,
-    get_supported_providers,
 )

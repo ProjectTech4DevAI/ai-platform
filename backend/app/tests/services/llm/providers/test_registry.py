@@ -10,9 +10,8 @@ from openai import OpenAI
 from app.services.llm.providers.base import BaseProvider
 from app.services.llm.providers.openai import OpenAIProvider
 from app.services.llm.providers.registry import (
-    PROVIDER_REGISTRY,
+    LLMProvider,
     get_llm_provider,
-    get_supported_providers,
 )
 from app.tests.utils.utils import get_project
 
@@ -22,29 +21,15 @@ class TestProviderRegistry:
 
     def test_registry_contains_openai(self):
         """Test that registry contains OpenAI provider."""
-        assert "openai" in PROVIDER_REGISTRY
-        assert PROVIDER_REGISTRY["openai"] == OpenAIProvider
+        assert "openai" in LLMProvider._registry
+        assert LLMProvider._registry["openai"] == OpenAIProvider
 
     def test_registry_values_are_provider_classes(self):
         """Test that all registry values are BaseProvider subclasses."""
-        for provider_type, provider_class in PROVIDER_REGISTRY.items():
+        for provider_type, provider_class in LLMProvider._registry.items():
             assert issubclass(
                 provider_class, BaseProvider
             ), f"Provider '{provider_type}' class must inherit from BaseProvider"
-
-
-class TestGetSupportedProviders:
-    """Test cases for the get_supported_providers function."""
-
-    def test_get_supported_providers_returns_list(self):
-        """Test that get_supported_providers returns a list."""
-        result = get_supported_providers()
-        assert isinstance(result, list)
-
-    def test_get_supported_providers_matches_registry_keys(self):
-        """Test that supported providers matches registry keys."""
-        result = get_supported_providers()
-        assert set(result) == set(PROVIDER_REGISTRY.keys())
 
 
 class TestGetLLMProvider:

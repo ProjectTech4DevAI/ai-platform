@@ -68,7 +68,7 @@ class OpenAIProvider(BaseProvider):
                     provider_response_id=response.id,
                     conversation_id=conversation_id,
                     model=response.model,
-                    provider="openai",
+                    provider=completion_config.provider,
                     output=LLMOutput(text=response.output_text),
                 ),
                 usage=Usage(
