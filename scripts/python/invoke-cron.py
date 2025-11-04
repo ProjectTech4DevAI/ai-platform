@@ -15,9 +15,9 @@ import httpx
 from dotenv import load_dotenv
 
 # Configuration
-INTERVAL_MINUTES = 3  # How often to invoke the endpoint
+INTERVAL_MINUTES = 1  # How often to invoke the endpoint
 BASE_URL = "http://localhost:8000"  # Base URL of the API
-ENDPOINT = "/api/v1/evaluations/cron"  # Endpoint to invoke
+ENDPOINT = "/api/v1/cron/evaluations"  # Endpoint to invoke
 REQUEST_TIMEOUT = 30  # Timeout for requests in seconds
 
 # Setup logging
@@ -87,12 +87,20 @@ class EndpointInvoker:
 
         headers = {"Authorization": f"Bearer {self.access_token}"}
 
+        # Debug: Log what we're sending
+        logger.debug(f"Request URL: {self.base_url}{self.endpoint}")
+        logger.debug(f"Request headers: {headers}")
+
         try:
             response = await client.get(
                 f"{self.base_url}{self.endpoint}",
                 headers=headers,
                 timeout=REQUEST_TIMEOUT,
             )
+
+            # Debug: Log response headers and first part of body
+            logger.debug(f"Response status: {response.status_code}")
+            logger.debug(f"Response headers: {dict(response.headers)}")
 
             # If unauthorized, re-authenticate and retry once
             if response.status_code == 401:
