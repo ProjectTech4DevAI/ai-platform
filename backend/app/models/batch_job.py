@@ -64,10 +64,11 @@ class BatchJob(SQLModel, table=True):
 
     # Timestamps
     inserted_at: datetime = Field(
-        default_factory=now, description="The timestamp when the document was inserted"
+        default_factory=now, description="The timestamp when the batch job was started"
     )
     updated_at: datetime = Field(
-        default_factory=now, description="The timestamp when the document was inserted"
+        default_factory=now,
+        description="The timestamp when the batch job was last updated",
     )
 
     # Relationships

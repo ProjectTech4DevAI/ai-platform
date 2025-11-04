@@ -2,10 +2,9 @@ import csv
 import io
 import logging
 
-from langfuse import Langfuse
 from sqlmodel import Session, select
 
-from app.core.util import configure_langfuse, configure_openai, now
+from app.core.util import configure_langfuse, now
 from app.crud.credentials import get_provider_credential
 from app.models import EvaluationRun, UserProjectOrg
 from app.models.evaluation import DatasetUploadResponse
@@ -259,5 +258,55 @@ def get_evaluation_run_by_id(
             f"Evaluation run {evaluation_id} not found or not accessible "
             f"for org_id={organization_id}, project_id={project_id}"
         )
+
+    return eval_run
+
+
+def update_evaluation_run(
+    session: Session,
+    eval_run: EvaluationRun,
+    status: str | None = None,
+    error_message: str | None = None,
+    object_store_url: str | None = None,
+    score: dict | None = None,
+    embedding_batch_job_id: int | None = None,
+) -> EvaluationRun:
+    """
+    Update an evaluation run with new values and persist to database.
+
+    This helper function ensures consistency when updating evaluation runs
+    by always updating the timestamp and properly committing changes.
+
+    Args:
+        session: Database session
+        eval_run: EvaluationRun instance to update
+        status: New status value (optional)
+        error_message: New error message (optional)
+        object_store_url: New object store URL (optional)
+        score: New score dict (optional)
+        embedding_batch_job_id: New embedding batch job ID (optional)
+
+    Returns:
+        Updated and refreshed EvaluationRun instance
+    """
+    # Update provided fields
+    if status is not None:
+        eval_run.status = status
+    if error_message is not None:
+        eval_run.error_message = error_message
+    if object_store_url is not None:
+        eval_run.object_store_url = object_store_url
+    if score is not None:
+        eval_run.score = score
+    if embedding_batch_job_id is not None:
+        eval_run.embedding_batch_job_id = embedding_batch_job_id
+
+    # Always update timestamp
+    eval_run.updated_at = now()
+
+    # Persist to database
+    session.add(eval_run)
+    session.commit()
+    session.refresh(eval_run)
 
     return eval_run

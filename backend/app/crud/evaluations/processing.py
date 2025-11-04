@@ -19,7 +19,7 @@ from openai import OpenAI
 from sqlmodel import Session, select
 
 from app.core.batch.openai_provider import OpenAIBatchProvider
-from app.core.util import configure_langfuse, configure_openai, now
+from app.core.util import configure_langfuse, configure_openai
 from app.crud.batch_job import get_batch_job
 from app.crud.batch_operations import (
     download_batch_results,
@@ -27,6 +27,7 @@ from app.crud.batch_operations import (
 )
 from app.crud.credentials import get_provider_credential
 from app.crud.evaluations.batch import fetch_dataset_items
+from app.crud.evaluations.core import update_evaluation_run
 from app.crud.evaluations.embeddings import (
     calculate_average_similarity,
     parse_embedding_results,
@@ -258,12 +259,12 @@ async def process_completed_evaluation(
                 exc_info=True,
             )
             # Don't fail the entire evaluation, just mark as completed without embeddings
-            eval_run.status = "completed"
-            eval_run.error_message = f"Embeddings failed: {str(e)}"
-            eval_run.updated_at = now()
-            session.add(eval_run)
-            session.commit()
-            session.refresh(eval_run)
+            eval_run = update_evaluation_run(
+                session=session,
+                eval_run=eval_run,
+                status="completed",
+                error_message=f"Embeddings failed: {str(e)}",
+            )
 
         logger.info(f"{log_prefix} Processed evaluation: {len(results)} items")
 
@@ -275,13 +276,12 @@ async def process_completed_evaluation(
             exc_info=True,
         )
         # Mark as failed
-        eval_run.status = "failed"
-        eval_run.error_message = f"Processing failed: {str(e)}"
-        eval_run.updated_at = now()
-        session.add(eval_run)
-        session.commit()
-        session.refresh(eval_run)
-        return eval_run
+        return update_evaluation_run(
+            session=session,
+            eval_run=eval_run,
+            status="failed",
+            error_message=f"Processing failed: {str(e)}",
+        )
 
 
 async def process_completed_embedding_batch(
@@ -382,12 +382,11 @@ async def process_completed_embedding_batch(
                 )
 
         # Step 7: Mark evaluation as completed
-        eval_run.status = "completed"
-        eval_run.updated_at = now()
-
-        session.add(eval_run)
-        session.commit()
-        session.refresh(eval_run)
+        eval_run = update_evaluation_run(
+            session=session,
+            eval_run=eval_run,
+            status="completed",
+        )
 
         logger.info(
             f"{log_prefix} Completed evaluation: "
@@ -402,13 +401,12 @@ async def process_completed_embedding_batch(
             exc_info=True,
         )
         # Mark as completed anyway, but with error message
-        eval_run.status = "completed"
-        eval_run.error_message = f"Embedding processing failed: {str(e)}"
-        eval_run.updated_at = now()
-        session.add(eval_run)
-        session.commit()
-        session.refresh(eval_run)
-        return eval_run
+        return update_evaluation_run(
+            session=session,
+            eval_run=eval_run,
+            status="completed",
+            error_message=f"Embedding processing failed: {str(e)}",
+        )
 
 
 async def check_and_process_evaluation(
@@ -491,14 +489,12 @@ async def check_and_process_evaluation(
                         f"{embedding_batch_job.error_message}"
                     )
                     # Mark as completed without embeddings
-                    eval_run.status = "completed"
-                    eval_run.error_message = (
-                        f"Embedding batch failed: {embedding_batch_job.error_message}"
+                    eval_run = update_evaluation_run(
+                        session=session,
+                        eval_run=eval_run,
+                        status="completed",
+                        error_message=f"Embedding batch failed: {embedding_batch_job.error_message}",
                     )
-                    eval_run.updated_at = now()
-                    session.add(eval_run)
-                    session.commit()
-                    session.refresh(eval_run)
 
                     return {
                         "run_id": eval_run.id,
@@ -563,12 +559,12 @@ async def check_and_process_evaluation(
             # Mark evaluation as failed based on provider status
             error_msg = batch_job.error_message or f"Provider batch {provider_status}"
 
-            eval_run.status = "failed"
-            eval_run.error_message = error_msg
-            eval_run.updated_at = now()
-            session.add(eval_run)
-            session.commit()
-            session.refresh(eval_run)
+            eval_run = update_evaluation_run(
+                session=session,
+                eval_run=eval_run,
+                status="failed",
+                error_message=error_msg,
+            )
 
             logger.error(
                 f"{log_prefix} Batch {batch_job.provider_batch_id} failed: {error_msg}"
@@ -599,11 +595,12 @@ async def check_and_process_evaluation(
         logger.error(f"{log_prefix} Error checking evaluation: {e}", exc_info=True)
 
         # Mark as failed
-        eval_run.status = "failed"
-        eval_run.error_message = f"Checking failed: {str(e)}"
-        eval_run.updated_at = now()
-        session.add(eval_run)
-        session.commit()
+        update_evaluation_run(
+            session=session,
+            eval_run=eval_run,
+            status="failed",
+            error_message=f"Checking failed: {str(e)}",
+        )
 
         return {
             "run_id": eval_run.id,
@@ -683,6 +680,14 @@ async def poll_all_pending_evaluations(session: Session, org_id: int) -> dict[st
                 )
                 # Mark all runs in this project as failed due to missing credentials
                 for eval_run in project_runs:
+                    # Persist failure status to database
+                    update_evaluation_run(
+                        session=session,
+                        eval_run=eval_run,
+                        status="failed",
+                        error_message="Missing OpenAI or Langfuse credentials",
+                    )
+
                     all_results.append(
                         {
                             "run_id": eval_run.id,
@@ -704,6 +709,14 @@ async def poll_all_pending_evaluations(session: Session, org_id: int) -> dict[st
                 )
                 # Mark all runs in this project as failed due to client configuration
                 for eval_run in project_runs:
+                    # Persist failure status to database
+                    update_evaluation_run(
+                        session=session,
+                        eval_run=eval_run,
+                        status="failed",
+                        error_message="Failed to configure API clients",
+                    )
+
                     all_results.append(
                         {
                             "run_id": eval_run.id,
@@ -738,6 +751,14 @@ async def poll_all_pending_evaluations(session: Session, org_id: int) -> dict[st
                         f"Failed to check evaluation run {eval_run.id}: {e}",
                         exc_info=True,
                     )
+                    # Persist failure status to database
+                    update_evaluation_run(
+                        session=session,
+                        eval_run=eval_run,
+                        status="failed",
+                        error_message=f"Check failed: {str(e)}",
+                    )
+
                     all_results.append(
                         {
                             "run_id": eval_run.id,
@@ -752,6 +773,14 @@ async def poll_all_pending_evaluations(session: Session, org_id: int) -> dict[st
             logger.error(f"Failed to process project {project_id}: {e}", exc_info=True)
             # Mark all runs in this project as failed
             for eval_run in project_runs:
+                # Persist failure status to database
+                update_evaluation_run(
+                    session=session,
+                    eval_run=eval_run,
+                    status="failed",
+                    error_message=f"Project processing failed: {str(e)}",
+                )
+
                 all_results.append(
                     {
                         "run_id": eval_run.id,

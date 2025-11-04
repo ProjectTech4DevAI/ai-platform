@@ -204,10 +204,12 @@ class EvaluationRun(SQLModel, table=True):
 
     # Timestamps
     inserted_at: datetime = Field(
-        default_factory=now, description="The timestamp when the document was inserted"
+        default_factory=now,
+        description="The timestamp when the evaluation run was started",
     )
     updated_at: datetime = Field(
-        default_factory=now, description="The timestamp when the document was inserted"
+        default_factory=now,
+        description="The timestamp when the evaluation run was last updated",
     )
 
     # Relationships

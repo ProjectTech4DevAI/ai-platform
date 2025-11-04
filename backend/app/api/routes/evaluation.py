@@ -4,10 +4,9 @@ import logging
 import re
 from pathlib import Path
 
-from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
-from sqlmodel import Session
+from fastapi import APIRouter, Body, File, Form, HTTPException, UploadFile
 
-from app.api.deps import get_current_user_org_project, get_db
+from app.api.deps import AuthContextDep, SessionDep
 from app.core.cloud import get_cloud_storage
 from app.core.util import configure_langfuse, configure_openai
 from app.crud.assistants import get_assistant_by_id
@@ -24,7 +23,6 @@ from app.crud.evaluations import (
 )
 from app.crud.evaluations import list_evaluation_runs as list_evaluation_runs_crud
 from app.crud.evaluations.dataset import delete_dataset as delete_dataset_crud
-from app.models import UserProjectOrg
 from app.models.evaluation import (
     DatasetUploadResponse,
     EvaluationRunPublic,
@@ -94,6 +92,8 @@ def sanitize_dataset_name(name: str) -> str:
 
 @router.post("/evaluations/datasets", response_model=DatasetUploadResponse)
 async def upload_dataset(
+    _session: SessionDep,
+    auth_context: AuthContextDep,
     file: UploadFile = File(
         ..., description="CSV file with 'question' and 'answer' columns"
     ),
@@ -105,8 +105,6 @@ async def upload_dataset(
         le=5,
         description="Number of times to duplicate each item (min: 1, max: 5)",
     ),
-    _session: Session = Depends(get_db),
-    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ) -> DatasetUploadResponse:
     """
     Upload a CSV file containing Golden Q&A pairs.
@@ -160,8 +158,8 @@ async def upload_dataset(
 
     logger.info(
         f"Uploading dataset: {dataset_name} with duplication factor: "
-        f"{duplication_factor}, org_id={_current_user.organization_id}, "
-        f"project_id={_current_user.project_id}"
+        f"{duplication_factor}, org_id={auth_context.organization.id}, "
+        f"project_id={auth_context.project.id}"
     )
 
     # Security validation: Check file extension
@@ -243,7 +241,7 @@ async def upload_dataset(
     object_store_url = None
     try:
         storage = get_cloud_storage(
-            session=_session, project_id=_current_user.project_id
+            session=_session, project_id=auth_context.project.id
         )
         object_store_url = upload_csv_to_object_store(
             storage=storage, csv_content=csv_content, dataset_name=dataset_name
@@ -269,8 +267,8 @@ async def upload_dataset(
         # Get Langfuse credentials
         langfuse_credentials = get_provider_credential(
             session=_session,
-            org_id=_current_user.organization_id,
-            project_id=_current_user.project_id,
+            org_id=auth_context.organization.id,
+            project_id=auth_context.project.id,
             provider="langfuse",
         )
         if not langfuse_credentials:
@@ -317,8 +315,8 @@ async def upload_dataset(
         dataset_metadata=metadata,
         object_store_url=object_store_url,
         langfuse_dataset_id=langfuse_dataset_id,
-        organization_id=_current_user.organization_id,
-        project_id=_current_user.project_id,
+        organization_id=auth_context.organization.id,
+        project_id=auth_context.project.id,
     )
 
     logger.info(
@@ -340,10 +338,10 @@ async def upload_dataset(
 
 @router.get("/evaluations/datasets/list", response_model=list[DatasetUploadResponse])
 async def list_datasets_endpoint(
+    _session: SessionDep,
+    auth_context: AuthContextDep,
     limit: int = 50,
     offset: int = 0,
-    _session: Session = Depends(get_db),
-    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ) -> list[DatasetUploadResponse]:
     """
     List all datasets for the current organization and project.
@@ -361,8 +359,8 @@ async def list_datasets_endpoint(
 
     datasets = list_datasets(
         session=_session,
-        organization_id=_current_user.organization_id,
-        project_id=_current_user.project_id,
+        organization_id=auth_context.organization.id,
+        project_id=auth_context.project.id,
         limit=limit,
         offset=offset,
     )
@@ -390,8 +388,8 @@ async def list_datasets_endpoint(
 @router.get("/evaluations/datasets/{dataset_id}", response_model=DatasetUploadResponse)
 async def get_dataset(
     dataset_id: int,
-    _session: Session = Depends(get_db),
-    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
+    _session: SessionDep,
+    auth_context: AuthContextDep,
 ) -> DatasetUploadResponse:
     """
     Get details of a specific dataset by ID.
@@ -404,15 +402,15 @@ async def get_dataset(
     """
     logger.info(
         f"Fetching dataset: id={dataset_id}, "
-        f"org_id={_current_user.organization_id}, "
-        f"project_id={_current_user.project_id}"
+        f"org_id={auth_context.organization.id}, "
+        f"project_id={auth_context.project.id}"
     )
 
     dataset = get_dataset_by_id(
         session=_session,
         dataset_id=dataset_id,
-        organization_id=_current_user.organization_id,
-        project_id=_current_user.project_id,
+        organization_id=auth_context.organization.id,
+        project_id=auth_context.project.id,
     )
 
     if not dataset:
@@ -434,8 +432,8 @@ async def get_dataset(
 @router.delete("/evaluations/datasets/{dataset_id}")
 async def delete_dataset(
     dataset_id: int,
-    _session: Session = Depends(get_db),
-    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
+    _session: SessionDep,
+    auth_context: AuthContextDep,
 ) -> dict:
     """
     Delete a dataset by ID.
@@ -452,15 +450,15 @@ async def delete_dataset(
     """
     logger.info(
         f"Deleting dataset: id={dataset_id}, "
-        f"org_id={_current_user.organization_id}, "
-        f"project_id={_current_user.project_id}"
+        f"org_id={auth_context.organization.id}, "
+        f"project_id={auth_context.project.id}"
     )
 
     success, message = delete_dataset_crud(
         session=_session,
         dataset_id=dataset_id,
-        organization_id=_current_user.organization_id,
-        project_id=_current_user.project_id,
+        organization_id=auth_context.organization.id,
+        project_id=auth_context.project.id,
     )
 
     if not success:
@@ -476,6 +474,8 @@ async def delete_dataset(
 
 @router.post("/evaluations", response_model=EvaluationRunPublic)
 async def evaluate(
+    _session: SessionDep,
+    auth_context: AuthContextDep,
     dataset_id: int = Body(..., description="ID of the evaluation dataset"),
     experiment_name: str = Body(
         ..., description="Name for this evaluation experiment/run"
@@ -485,8 +485,6 @@ async def evaluate(
     | None = Body(
         None, description="Optional assistant ID to fetch configuration from"
     ),
-    _session: Session = Depends(get_db),
-    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
 ) -> EvaluationRunPublic:
     """
     Start an evaluation using OpenAI Batch API.
@@ -551,7 +549,7 @@ async def evaluate(
     logger.info(
         f"Starting evaluation: experiment_name={experiment_name}, "
         f"dataset_id={dataset_id}, "
-        f"org_id={_current_user.organization_id}, "
+        f"org_id={auth_context.organization.id}, "
         f"assistant_id={assistant_id}, "
         f"config_keys={list(config.keys())}"
     )
@@ -560,8 +558,8 @@ async def evaluate(
     dataset = get_dataset_by_id(
         session=_session,
         dataset_id=dataset_id,
-        organization_id=_current_user.organization_id,
-        project_id=_current_user.project_id,
+        organization_id=auth_context.organization.id,
+        project_id=auth_context.project.id,
     )
 
     if not dataset:
@@ -582,14 +580,14 @@ async def evaluate(
     # Get credentials
     openai_credentials = get_provider_credential(
         session=_session,
-        org_id=_current_user.organization_id,
-        project_id=_current_user.project_id,
+        org_id=auth_context.organization.id,
+        project_id=auth_context.project.id,
         provider="openai",
     )
     langfuse_credentials = get_provider_credential(
         session=_session,
-        org_id=_current_user.organization_id,
-        project_id=_current_user.project_id,
+        org_id=auth_context.organization.id,
+        project_id=auth_context.project.id,
         provider="langfuse",
     )
 
@@ -619,7 +617,7 @@ async def evaluate(
         assistant = get_assistant_by_id(
             session=_session,
             assistant_id=assistant_id,
-            project_id=_current_user.project_id,
+            project_id=auth_context.project.id,
         )
 
         if not assistant:
@@ -670,8 +668,8 @@ async def evaluate(
         dataset_name=dataset_name,
         dataset_id=dataset_id,
         config=config,
-        organization_id=_current_user.organization_id,
-        project_id=_current_user.project_id,
+        organization_id=auth_context.organization.id,
+        project_id=auth_context.project.id,
     )
 
     # Start the batch evaluation
@@ -703,8 +701,8 @@ async def evaluate(
 
 @router.get("/evaluations/list", response_model=list[EvaluationRunPublic])
 async def list_evaluation_runs(
-    _session: Session = Depends(get_db),
-    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
+    _session: SessionDep,
+    auth_context: AuthContextDep,
     limit: int = 50,
     offset: int = 0,
 ) -> list[EvaluationRunPublic]:
@@ -719,14 +717,14 @@ async def list_evaluation_runs(
         List of EvaluationRunPublic objects, ordered by most recent first
     """
     logger.info(
-        f"Listing evaluation runs for org_id={_current_user.organization_id}, "
-        f"project_id={_current_user.project_id} (limit={limit}, offset={offset})"
+        f"Listing evaluation runs for org_id={auth_context.organization.id}, "
+        f"project_id={auth_context.project.id} (limit={limit}, offset={offset})"
     )
 
     return list_evaluation_runs_crud(
         session=_session,
-        organization_id=_current_user.organization_id,
-        project_id=_current_user.project_id,
+        organization_id=auth_context.organization.id,
+        project_id=auth_context.project.id,
         limit=limit,
         offset=offset,
     )
@@ -735,8 +733,8 @@ async def list_evaluation_runs(
 @router.get("/evaluations/{evaluation_id}", response_model=EvaluationRunPublic)
 async def get_evaluation_run_status(
     evaluation_id: int,
-    _session: Session = Depends(get_db),
-    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
+    _session: SessionDep,
+    auth_context: AuthContextDep,
 ) -> EvaluationRunPublic:
     """
     Get the current status of a specific evaluation run.
@@ -749,15 +747,15 @@ async def get_evaluation_run_status(
     """
     logger.info(
         f"Fetching status for evaluation run {evaluation_id} "
-        f"(org_id={_current_user.organization_id}, "
-        f"project_id={_current_user.project_id})"
+        f"(org_id={auth_context.organization.id}, "
+        f"project_id={auth_context.project.id})"
     )
 
     eval_run = get_evaluation_run_by_id(
         session=_session,
         evaluation_id=evaluation_id,
-        organization_id=_current_user.organization_id,
-        project_id=_current_user.project_id,
+        organization_id=auth_context.organization.id,
+        project_id=auth_context.project.id,
     )
 
     if not eval_run:
