@@ -15,10 +15,10 @@ router = APIRouter(tags=["cron"])
 @router.get(
     "/cron/evaluations",
     include_in_schema=True,
+    dependencies=[Depends(get_current_active_superuser)],
 )
 def evaluation_cron_job(
     session: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_superuser),
 ) -> dict:
     """
     Cron job endpoint for periodic evaluation tasks.
