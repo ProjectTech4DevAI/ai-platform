@@ -52,8 +52,8 @@ def create_langfuse_dataset_run(
         Exception: If Langfuse operations fail
     """
     logger.info(
-        f"Creating Langfuse dataset run '{run_name}' for dataset '{dataset_name}' "
-        f"with {len(results)} items"
+        f"[create_langfuse_dataset_run] Creating Langfuse dataset run | "
+        f"run_name={run_name} | dataset={dataset_name} | items={len(results)}"
     )
 
     try:
@@ -72,7 +72,10 @@ def create_langfuse_dataset_run(
 
             dataset_item = dataset_items_map.get(item_id)
             if not dataset_item:
-                logger.warning(f"Dataset item '{item_id}' not found, skipping")
+                logger.warning(
+                    f"[create_langfuse_dataset_run] Dataset item not found, skipping | "
+                    f"item_id={item_id}"
+                )
                 continue
 
             try:
@@ -90,21 +93,25 @@ def create_langfuse_dataset_run(
 
             except Exception as e:
                 logger.error(
-                    f"Failed to create trace for item {item_id}: {e}", exc_info=True
+                    f"[create_langfuse_dataset_run] Failed to create trace | "
+                    f"item_id={item_id} | {e}",
+                    exc_info=True,
                 )
                 continue
 
         langfuse.flush()
         logger.info(
-            f"Created Langfuse dataset run '{run_name}' with "
-            f"{len(trace_id_mapping)} traces"
+            f"[create_langfuse_dataset_run] Created Langfuse dataset run | "
+            f"run_name={run_name} | traces={len(trace_id_mapping)}"
         )
 
         return trace_id_mapping
 
     except Exception as e:
         logger.error(
-            f"Failed to create Langfuse dataset run '{run_name}': {e}", exc_info=True
+            f"[create_langfuse_dataset_run] Failed to create Langfuse dataset run | "
+            f"run_name={run_name} | {e}",
+            exc_info=True,
         )
         raise
 
@@ -140,7 +147,9 @@ def update_traces_with_cosine_scores(
         cosine_score = score_item.get("cosine_similarity")
 
         if not trace_id:
-            logger.warning("Score item missing trace_id, skipping")
+            logger.warning(
+                "[update_traces_with_cosine_scores] Score item missing trace_id, skipping"
+            )
             continue
 
         try:
@@ -155,7 +164,8 @@ def update_traces_with_cosine_scores(
             )
         except Exception as e:
             logger.error(
-                f"Failed to add score for trace {trace_id}: {e}",
+                f"[update_traces_with_cosine_scores] Failed to add score | "
+                f"trace_id={trace_id} | {e}",
                 exc_info=True,
             )
 
@@ -191,8 +201,8 @@ def upload_dataset_to_langfuse_from_csv(
     import io
 
     logger.info(
-        f"Uploading dataset '{dataset_name}' to Langfuse from CSV "
-        f"(duplication_factor={duplication_factor})"
+        f"[upload_dataset_to_langfuse_from_csv] Uploading dataset to Langfuse from CSV | "
+        f"dataset={dataset_name} | duplication_factor={duplication_factor}"
     )
 
     try:
@@ -218,7 +228,9 @@ def upload_dataset_to_langfuse_from_csv(
             answer = row.get("answer", "").strip()
 
             if not question or not answer:
-                logger.warning(f"Skipping row with empty question or answer: {row}")
+                logger.warning(
+                    f"[upload_dataset_to_langfuse_from_csv] Skipping row with empty question or answer | {row}"
+                )
                 continue
 
             original_items.append({"question": question, "answer": answer})
@@ -227,9 +239,9 @@ def upload_dataset_to_langfuse_from_csv(
             raise ValueError("No valid items found in CSV file")
 
         logger.info(
-            f"Parsed {len(original_items)} items from CSV. "
-            f"Will duplicate {duplication_factor}x for a total of "
-            f"{len(original_items) * duplication_factor} items."
+            f"[upload_dataset_to_langfuse_from_csv] Parsed items from CSV | "
+            f"original={len(original_items)} | duplication_factor={duplication_factor} | "
+            f"total={len(original_items) * duplication_factor}"
         )
 
         # Create or get dataset in Langfuse
@@ -254,8 +266,8 @@ def upload_dataset_to_langfuse_from_csv(
                     total_uploaded += 1
                 except Exception as e:
                     logger.error(
-                        f"Failed to upload item (duplicate {duplicate_num + 1}): "
-                        f"{item['question'][:50]}... Error: {e}"
+                        f"[upload_dataset_to_langfuse_from_csv] Failed to upload item | "
+                        f"duplicate={duplicate_num + 1} | question={item['question'][:50]}... | {e}"
                     )
 
         # Flush to ensure all items are uploaded
@@ -264,14 +276,16 @@ def upload_dataset_to_langfuse_from_csv(
         langfuse_dataset_id = dataset.id if hasattr(dataset, "id") else None
 
         logger.info(
-            f"Successfully uploaded {total_uploaded} items to Langfuse dataset "
-            f"'{dataset_name}' (id={langfuse_dataset_id})"
+            f"[upload_dataset_to_langfuse_from_csv] Successfully uploaded items to Langfuse dataset | "
+            f"items={total_uploaded} | dataset={dataset_name} | id={langfuse_dataset_id}"
         )
 
         return langfuse_dataset_id, total_uploaded
 
     except Exception as e:
         logger.error(
-            f"Failed to upload dataset '{dataset_name}' to Langfuse: {e}", exc_info=True
+            f"[upload_dataset_to_langfuse_from_csv] Failed to upload dataset to Langfuse | "
+            f"dataset={dataset_name} | {e}",
+            exc_info=True,
         )
         raise

@@ -52,8 +52,8 @@ def start_batch_job(
         Exception: If batch creation fails
     """
     logger.info(
-        f"Starting {provider_name} batch job: job_type={job_type}, "
-        f"org_id={organization_id}, project_id={project_id}, "
+        f"[start_batch_job] Starting batch job | provider={provider_name} | "
+        f"job_type={job_type} | org_id={organization_id} | project_id={project_id} | "
         f"items={len(jsonl_data)}"
     )
 
@@ -71,7 +71,9 @@ def start_batch_job(
 
     try:
         # Step 2: Call provider to create batch
-        logger.info(f"Creating batch with {provider_name} provider...")
+        logger.info(
+            f"[start_batch_job] Creating batch with provider | provider={provider_name}"
+        )
         batch_result = provider.create_batch(jsonl_data=jsonl_data, config=config)
 
         # Step 3: Update batch_job with provider IDs
@@ -87,14 +89,16 @@ def start_batch_job(
         )
 
         logger.info(
-            f"Successfully started batch job: id={batch_job.id}, "
+            f"[start_batch_job] Successfully started batch job | id={batch_job.id} | "
             f"provider_batch_id={batch_job.provider_batch_id}"
         )
 
         return batch_job
 
     except Exception as e:
-        logger.error(f"Failed to start batch job: {e}", exc_info=True)
+        logger.error(
+            f"[start_batch_job] Failed to start batch job | {e}", exc_info=True
+        )
 
         # Store error in batch_job (parent table will handle status)
         batch_job_update = BatchJobUpdate(
@@ -125,7 +129,7 @@ def poll_batch_status(
         Exception: If polling fails
     """
     logger.info(
-        f"Polling batch status: id={batch_job.id}, "
+        f"[poll_batch_status] Polling batch status | id={batch_job.id} | "
         f"provider_batch_id={batch_job.provider_batch_id}"
     )
 
@@ -154,14 +158,16 @@ def poll_batch_status(
             )
 
             logger.info(
-                f"Updated batch_job {batch_job.id} status: "
+                f"[poll_batch_status] Updated batch_job status | id={batch_job.id} | "
                 f"{batch_job.provider_status} -> {provider_status}"
             )
 
         return status_result
 
     except Exception as e:
-        logger.error(f"Failed to poll batch status: {e}", exc_info=True)
+        logger.error(
+            f"[poll_batch_status] Failed to poll batch status | {e}", exc_info=True
+        )
         raise
 
 
@@ -188,19 +194,24 @@ def download_batch_results(
         )
 
     logger.info(
-        f"Downloading batch results: id={batch_job.id}, "
+        f"[download_batch_results] Downloading batch results | id={batch_job.id} | "
         f"output_file_id={batch_job.provider_output_file_id}"
     )
 
     try:
         results = provider.download_batch_results(batch_job.provider_output_file_id)
 
-        logger.info(f"Downloaded {len(results)} results for batch job {batch_job.id}")
+        logger.info(
+            f"[download_batch_results] Downloaded results | batch_job_id={batch_job.id} | results={len(results)}"
+        )
 
         return results
 
     except Exception as e:
-        logger.error(f"Failed to download batch results: {e}", exc_info=True)
+        logger.error(
+            f"[download_batch_results] Failed to download batch results | {e}",
+            exc_info=True,
+        )
         raise
 
 
@@ -227,7 +238,9 @@ def process_completed_batch(
     Raises:
         Exception: If processing fails
     """
-    logger.info(f"Processing completed batch: id={batch_job.id}")
+    logger.info(
+        f"[process_completed_batch] Processing completed batch | id={batch_job.id}"
+    )
 
     try:
         # Download results
@@ -241,12 +254,12 @@ def process_completed_batch(
                     session=session, batch_job=batch_job, results=results
                 )
                 logger.info(
-                    f"Uploaded batch results to object store: {object_store_url}"
+                    f"[process_completed_batch] Uploaded batch results to object store | {object_store_url}"
                 )
             except Exception as store_error:
                 logger.warning(
-                    f"Object store upload failed (credentials may not be configured): {store_error}. "
-                    f"Continuing without object store storage.",
+                    f"[process_completed_batch] Object store upload failed (credentials may not be configured) | "
+                    f"{store_error} | Continuing without object store storage",
                     exc_info=True,
                 )
 
@@ -260,7 +273,10 @@ def process_completed_batch(
         return results, object_store_url
 
     except Exception as e:
-        logger.error(f"Failed to process completed batch: {e}", exc_info=True)
+        logger.error(
+            f"[process_completed_batch] Failed to process completed batch | {e}",
+            exc_info=True,
+        )
         raise
 
 
@@ -283,7 +299,9 @@ def upload_batch_results_to_object_store(
     Raises:
         Exception: If upload fails
     """
-    logger.info(f"Uploading batch results to object store for batch_job {batch_job.id}")
+    logger.info(
+        f"[upload_batch_results_to_object_store] Uploading batch results to object store | batch_job_id={batch_job.id}"
+    )
 
     try:
         # Get cloud storage instance
@@ -306,7 +324,8 @@ def upload_batch_results_to_object_store(
 
     except Exception as e:
         logger.error(
-            f"Failed to upload batch results to object store: {e}", exc_info=True
+            f"[upload_batch_results_to_object_store] Failed to upload batch results to object store | {e}",
+            exc_info=True,
         )
         raise
 

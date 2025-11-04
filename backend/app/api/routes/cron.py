@@ -5,7 +5,6 @@ from sqlmodel import Session
 
 from app.api.deps import get_current_active_superuser, get_db
 from app.crud.evaluations import process_all_pending_evaluations_sync
-from app.models import User
 
 logger = logging.getLogger(__name__)
 

@@ -77,13 +77,17 @@ def parse_evaluation_output(
             # Extract custom_id (which is our dataset item ID)
             item_id = response.get("custom_id")
             if not item_id:
-                logger.warning(f"Line {line_num}: No custom_id found, skipping")
+                logger.warning(
+                    f"[parse_evaluation_output] No custom_id found, skipping | line={line_num}"
+                )
                 continue
 
             # Get original dataset item
             dataset_item = dataset_map.get(item_id)
             if not dataset_item:
-                logger.warning(f"Line {line_num}: No dataset item found for {item_id}")
+                logger.warning(
+                    f"[parse_evaluation_output] No dataset item found | line={line_num} | item_id={item_id}"
+                )
                 continue
 
             # Extract the response body
@@ -92,7 +96,9 @@ def parse_evaluation_output(
             # Handle errors in batch processing
             if response.get("error"):
                 error_msg = response["error"].get("message", "Unknown error")
-                logger.error(f"Item {item_id} had error: {error_msg}")
+                logger.error(
+                    f"[parse_evaluation_output] Item had error | item_id={item_id} | {error_msg}"
+                )
                 generated_output = f"ERROR: {error_msg}"
             else:
                 # Extract text from output (can be string, list, or complex structure)
@@ -128,7 +134,7 @@ def parse_evaluation_output(
                     # output was not a string and not a list
                     generated_output = ""
                     logger.warning(
-                        f"Item {item_id}: Unexpected output type: {type(output)}"
+                        f"[parse_evaluation_output] Unexpected output type | item_id={item_id} | type={type(output)}"
                     )
 
             # Extract question and ground truth from dataset item
@@ -145,11 +151,13 @@ def parse_evaluation_output(
             )
 
         except Exception as e:
-            logger.error(f"Line {line_num}: Unexpected error: {e}")
+            logger.error(
+                f"[parse_evaluation_output] Unexpected error | line={line_num} | {e}"
+            )
             continue
 
     logger.info(
-        f"Parsed {len(results)} evaluation results from {len(raw_results)} output lines"
+        f"[parse_evaluation_output] Parsed evaluation results | results={len(results)} | output_lines={len(raw_results)}"
     )
     return results
 
@@ -182,7 +190,9 @@ async def process_completed_evaluation(
         Exception: If processing fails
     """
     log_prefix = f"[org={eval_run.organization_id}][project={eval_run.project_id}][eval={eval_run.id}]"
-    logger.info(f"{log_prefix} Processing completed evaluation")
+    logger.info(
+        f"[process_completed_evaluation] {log_prefix} Processing completed evaluation"
+    )
 
     try:
         # Step 1: Get batch_job
@@ -197,7 +207,7 @@ async def process_completed_evaluation(
 
         # Step 2: Create provider and download results
         logger.info(
-            f"{log_prefix} Downloading batch results for batch_job {batch_job.id}"
+            f"[process_completed_evaluation] {log_prefix} Downloading batch results | batch_job_id={batch_job.id}"
         )
         provider = OpenAIBatchProvider(client=openai_client)
         raw_results = download_batch_results(provider=provider, batch_job=batch_job)
@@ -209,11 +219,13 @@ async def process_completed_evaluation(
                 session=session, batch_job=batch_job, results=raw_results
             )
         except Exception as store_error:
-            logger.warning(f"{log_prefix} Object store upload failed: {store_error}")
+            logger.warning(
+                f"[process_completed_evaluation] {log_prefix} Object store upload failed | {store_error}"
+            )
 
         # Step 3: Fetch dataset items (needed for matching ground truth)
         logger.info(
-            f"{log_prefix} Fetching dataset items for '{eval_run.dataset_name}'"
+            f"[process_completed_evaluation] {log_prefix} Fetching dataset items | dataset={eval_run.dataset_name}"
         )
         dataset_items = fetch_dataset_items(
             langfuse=langfuse, dataset_name=eval_run.dataset_name
@@ -255,7 +267,7 @@ async def process_completed_evaluation(
 
         except Exception as e:
             logger.error(
-                f"{log_prefix} Failed to start embedding batch: {e}",
+                f"[process_completed_evaluation] {log_prefix} Failed to start embedding batch | {e}",
                 exc_info=True,
             )
             # Don't fail the entire evaluation, just mark as completed without embeddings
@@ -266,13 +278,15 @@ async def process_completed_evaluation(
                 error_message=f"Embeddings failed: {str(e)}",
             )
 
-        logger.info(f"{log_prefix} Processed evaluation: {len(results)} items")
+        logger.info(
+            f"[process_completed_evaluation] {log_prefix} Processed evaluation | items={len(results)}"
+        )
 
         return eval_run
 
     except Exception as e:
         logger.error(
-            f"{log_prefix} Failed to process completed evaluation: {e}",
+            f"[process_completed_evaluation] {log_prefix} Failed to process completed evaluation | {e}",
             exc_info=True,
         )
         # Mark as failed
@@ -315,7 +329,9 @@ async def process_completed_embedding_batch(
         Exception: If processing fails
     """
     log_prefix = f"[org={eval_run.organization_id}][project={eval_run.project_id}][eval={eval_run.id}]"
-    logger.info(f"{log_prefix} Processing completed embedding batch")
+    logger.info(
+        f"[process_completed_embedding_batch] {log_prefix} Processing completed embedding batch"
+    )
 
     try:
         # Step 1: Get embedding_batch_job
@@ -365,7 +381,7 @@ async def process_completed_embedding_batch(
 
         # Step 6: Update Langfuse traces with cosine similarity scores
         logger.info(
-            f"{log_prefix} Updating Langfuse traces with cosine similarity scores"
+            f"[process_completed_embedding_batch] {log_prefix} Updating Langfuse traces with cosine similarity scores"
         )
         per_item_scores = similarity_stats.get("per_item_scores", [])
         if per_item_scores:
@@ -377,7 +393,7 @@ async def process_completed_embedding_batch(
             except Exception as e:
                 # Log error but don't fail the evaluation
                 logger.error(
-                    f"{log_prefix} Failed to update Langfuse traces with scores: {e}",
+                    f"[process_completed_embedding_batch] {log_prefix} Failed to update Langfuse traces with scores | {e}",
                     exc_info=True,
                 )
 
@@ -389,15 +405,14 @@ async def process_completed_embedding_batch(
         )
 
         logger.info(
-            f"{log_prefix} Completed evaluation: "
-            f"avg_similarity={similarity_stats['cosine_similarity_avg']:.3f}"
+            f"[process_completed_embedding_batch] {log_prefix} Completed evaluation | avg_similarity={similarity_stats['cosine_similarity_avg']:.3f}"
         )
 
         return eval_run
 
     except Exception as e:
         logger.error(
-            f"{log_prefix} Failed to process completed embedding batch: {e}",
+            f"[process_completed_embedding_batch] {log_prefix} Failed to process completed embedding batch | {e}",
             exc_info=True,
         )
         # Mark as completed anyway, but with error message
@@ -464,7 +479,7 @@ async def check_and_process_evaluation(
 
                 if embedding_status == "completed":
                     logger.info(
-                        f"{log_prefix} Processing embedding batch {embedding_batch_job.provider_batch_id}"
+                        f"[check_and_process_evaluation] {log_prefix} Processing embedding batch | provider_batch_id={embedding_batch_job.provider_batch_id}"
                     )
 
                     await process_completed_embedding_batch(
@@ -485,8 +500,7 @@ async def check_and_process_evaluation(
 
                 elif embedding_status in ["failed", "expired", "cancelled"]:
                     logger.error(
-                        f"{log_prefix} Embedding batch {embedding_batch_job.provider_batch_id} failed: "
-                        f"{embedding_batch_job.error_message}"
+                        f"[check_and_process_evaluation] {log_prefix} Embedding batch failed | provider_batch_id={embedding_batch_job.provider_batch_id} | {embedding_batch_job.error_message}"
                     )
                     # Mark as completed without embeddings
                     eval_run = update_evaluation_run(
@@ -567,7 +581,7 @@ async def check_and_process_evaluation(
             )
 
             logger.error(
-                f"{log_prefix} Batch {batch_job.provider_batch_id} failed: {error_msg}"
+                f"[check_and_process_evaluation] {log_prefix} Batch failed | provider_batch_id={batch_job.provider_batch_id} | {error_msg}"
             )
 
             return {
@@ -592,7 +606,10 @@ async def check_and_process_evaluation(
             }
 
     except Exception as e:
-        logger.error(f"{log_prefix} Error checking evaluation: {e}", exc_info=True)
+        logger.error(
+            f"[check_and_process_evaluation] {log_prefix} Error checking evaluation | {e}",
+            exc_info=True,
+        )
 
         # Mark as failed
         update_evaluation_run(
@@ -675,8 +692,7 @@ async def poll_all_pending_evaluations(session: Session, org_id: int) -> dict[st
 
             if not openai_credentials or not langfuse_credentials:
                 logger.error(
-                    f"Missing credentials for org_id={org_id}, project_id={project_id}: "
-                    f"openai={bool(openai_credentials)}, langfuse={bool(langfuse_credentials)}"
+                    f"[poll_all_pending_evaluations] Missing credentials | org_id={org_id} | project_id={project_id} | openai={bool(openai_credentials)} | langfuse={bool(langfuse_credentials)}"
                 )
                 # Mark all runs in this project as failed due to missing credentials
                 for eval_run in project_runs:
@@ -705,7 +721,7 @@ async def poll_all_pending_evaluations(session: Session, org_id: int) -> dict[st
 
             if not openai_success or not langfuse_success:
                 logger.error(
-                    f"Failed to configure clients for org_id={org_id}, project_id={project_id}"
+                    f"[poll_all_pending_evaluations] Failed to configure clients | org_id={org_id} | project_id={project_id}"
                 )
                 # Mark all runs in this project as failed due to client configuration
                 for eval_run in project_runs:
@@ -748,7 +764,7 @@ async def poll_all_pending_evaluations(session: Session, org_id: int) -> dict[st
 
                 except Exception as e:
                     logger.error(
-                        f"Failed to check evaluation run {eval_run.id}: {e}",
+                        f"[poll_all_pending_evaluations] Failed to check evaluation run | run_id={eval_run.id} | {e}",
                         exc_info=True,
                     )
                     # Persist failure status to database
@@ -770,7 +786,10 @@ async def poll_all_pending_evaluations(session: Session, org_id: int) -> dict[st
                     total_failed_count += 1
 
         except Exception as e:
-            logger.error(f"Failed to process project {project_id}: {e}", exc_info=True)
+            logger.error(
+                f"[poll_all_pending_evaluations] Failed to process project | project_id={project_id} | {e}",
+                exc_info=True,
+            )
             # Mark all runs in this project as failed
             for eval_run in project_runs:
                 # Persist failure status to database
@@ -800,9 +819,7 @@ async def poll_all_pending_evaluations(session: Session, org_id: int) -> dict[st
     }
 
     logger.info(
-        f"Polling summary for org_id={org_id}: "
-        f"{total_processed_count} processed, {total_failed_count} failed, "
-        f"{total_still_processing_count} still processing"
+        f"[poll_all_pending_evaluations] Polling summary | org_id={org_id} | processed={total_processed_count} | failed={total_failed_count} | still_processing={total_still_processing_count}"
     )
 
     return summary

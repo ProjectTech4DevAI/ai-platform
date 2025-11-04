@@ -154,11 +154,13 @@ async def upload_dataset(
         raise HTTPException(status_code=422, detail=f"Invalid dataset name: {str(e)}")
 
     if original_name != dataset_name:
-        logger.info(f"Dataset name sanitized: '{original_name}' -> '{dataset_name}'")
+        logger.info(
+            f"[upload_dataset] Dataset name sanitized | '{original_name}' -> '{dataset_name}'"
+        )
 
     logger.info(
-        f"Uploading dataset: {dataset_name} with duplication factor: "
-        f"{duplication_factor}, org_id={auth_context.organization.id}, "
+        f"[upload_dataset] Uploading dataset | dataset={dataset_name} | "
+        f"duplication_factor={duplication_factor} | org_id={auth_context.organization.id} | "
         f"project_id={auth_context.project.id}"
     )
 
@@ -229,12 +231,12 @@ async def upload_dataset(
         total_items_count = original_items_count * duplication_factor
 
         logger.info(
-            f"Parsed {original_items_count} items from CSV, "
-            f"will create {total_items_count} total items with duplication"
+            f"[upload_dataset] Parsed items from CSV | original={original_items_count} | "
+            f"total_with_duplication={total_items_count}"
         )
 
     except Exception as e:
-        logger.error(f"Failed to parse CSV: {e}", exc_info=True)
+        logger.error(f"[upload_dataset] Failed to parse CSV | {e}", exc_info=True)
         raise HTTPException(status_code=422, detail=f"Invalid CSV file: {e}")
 
     # Step 2: Upload to object store (if credentials configured)
@@ -248,15 +250,15 @@ async def upload_dataset(
         )
         if object_store_url:
             logger.info(
-                f"Successfully uploaded CSV to object store: {object_store_url}"
+                f"[upload_dataset] Successfully uploaded CSV to object store | {object_store_url}"
             )
         else:
             logger.info(
-                "Object store upload returned None, continuing without object store storage"
+                "[upload_dataset] Object store upload returned None | continuing without object store storage"
             )
     except Exception as e:
         logger.warning(
-            f"Failed to upload CSV to object store (continuing without object store): {e}",
+            f"[upload_dataset] Failed to upload CSV to object store (continuing without object store) | {e}",
             exc_info=True,
         )
         object_store_url = None
@@ -291,12 +293,15 @@ async def upload_dataset(
         )
 
         logger.info(
-            f"Successfully uploaded dataset to Langfuse: {dataset_name} "
-            f"(id={langfuse_dataset_id})"
+            f"[upload_dataset] Successfully uploaded dataset to Langfuse | "
+            f"dataset={dataset_name} | id={langfuse_dataset_id}"
         )
 
     except Exception as e:
-        logger.error(f"Failed to upload dataset to Langfuse: {e}", exc_info=True)
+        logger.error(
+            f"[upload_dataset] Failed to upload dataset to Langfuse | {e}",
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=500, detail=f"Failed to upload dataset to Langfuse: {e}"
         )
@@ -320,8 +325,8 @@ async def upload_dataset(
     )
 
     logger.info(
-        f"Successfully created dataset record in database: id={dataset.id}, "
-        f"name={dataset_name}"
+        f"[upload_dataset] Successfully created dataset record in database | "
+        f"id={dataset.id} | name={dataset_name}"
     )
 
     # Return response
@@ -401,8 +406,8 @@ async def get_dataset(
         DatasetUploadResponse with dataset details
     """
     logger.info(
-        f"Fetching dataset: id={dataset_id}, "
-        f"org_id={auth_context.organization.id}, "
+        f"[get_dataset] Fetching dataset | id={dataset_id} | "
+        f"org_id={auth_context.organization.id} | "
         f"project_id={auth_context.project.id}"
     )
 
@@ -449,8 +454,8 @@ async def delete_dataset(
         Success message with deleted dataset details
     """
     logger.info(
-        f"Deleting dataset: id={dataset_id}, "
-        f"org_id={auth_context.organization.id}, "
+        f"[delete_dataset] Deleting dataset | id={dataset_id} | "
+        f"org_id={auth_context.organization.id} | "
         f"project_id={auth_context.project.id}"
     )
 
@@ -468,7 +473,7 @@ async def delete_dataset(
         else:
             raise HTTPException(status_code=400, detail=message)
 
-    logger.info(f"Successfully deleted dataset: id={dataset_id}")
+    logger.info(f"[delete_dataset] Successfully deleted dataset | id={dataset_id}")
     return {"message": message, "dataset_id": dataset_id}
 
 
@@ -547,10 +552,10 @@ async def evaluate(
         EvaluationRunPublic with batch details and status
     """
     logger.info(
-        f"Starting evaluation: experiment_name={experiment_name}, "
-        f"dataset_id={dataset_id}, "
-        f"org_id={auth_context.organization.id}, "
-        f"assistant_id={assistant_id}, "
+        f"[evaluate] Starting evaluation | experiment_name={experiment_name} | "
+        f"dataset_id={dataset_id} | "
+        f"org_id={auth_context.organization.id} | "
+        f"assistant_id={assistant_id} | "
         f"config_keys={list(config.keys())}"
     )
 
@@ -570,8 +575,8 @@ async def evaluate(
         )
 
     logger.info(
-        f"Found dataset: id={dataset.id}, name={dataset.name}, "
-        f"object_store_url={'present' if dataset.object_store_url else 'None'}, "
+        f"[evaluate] Found dataset | id={dataset.id} | name={dataset.name} | "
+        f"object_store_url={'present' if dataset.object_store_url else 'None'} | "
         f"langfuse_id={dataset.langfuse_dataset_id}"
     )
 
@@ -626,8 +631,8 @@ async def evaluate(
             )
 
         logger.info(
-            f"Found assistant in DB: id={assistant.id}, "
-            f"model={assistant.model}, instructions="
+            f"[evaluate] Found assistant in DB | id={assistant.id} | "
+            f"model={assistant.model} | instructions="
             f"{assistant.instructions[:50] if assistant.instructions else 'None'}..."
         )
 
@@ -651,9 +656,9 @@ async def evaluate(
                 }
             ]
 
-        logger.info("Using config from assistant")
+        logger.info("[evaluate] Using config from assistant")
     else:
-        logger.info("Using provided config directly")
+        logger.info("[evaluate] Using provided config directly")
         # Validate that config has minimum required fields
         if not config.get("model"):
             raise HTTPException(
@@ -683,15 +688,15 @@ async def evaluate(
         )
 
         logger.info(
-            f"Evaluation started successfully: "
-            f"batch_job_id={eval_run.batch_job_id}, total_items={eval_run.total_items}"
+            f"[evaluate] Evaluation started successfully | "
+            f"batch_job_id={eval_run.batch_job_id} | total_items={eval_run.total_items}"
         )
 
         return eval_run
 
     except Exception as e:
         logger.error(
-            f"Failed to start evaluation for run {eval_run.id}: {e}",
+            f"[evaluate] Failed to start evaluation | run_id={eval_run.id} | {e}",
             exc_info=True,
         )
         # Error is already handled in start_evaluation_batch
@@ -717,8 +722,9 @@ async def list_evaluation_runs(
         List of EvaluationRunPublic objects, ordered by most recent first
     """
     logger.info(
-        f"Listing evaluation runs for org_id={auth_context.organization.id}, "
-        f"project_id={auth_context.project.id} (limit={limit}, offset={offset})"
+        f"[list_evaluation_runs] Listing evaluation runs | "
+        f"org_id={auth_context.organization.id} | "
+        f"project_id={auth_context.project.id} | limit={limit} | offset={offset}"
     )
 
     return list_evaluation_runs_crud(
@@ -746,9 +752,10 @@ async def get_evaluation_run_status(
         EvaluationRunPublic with current status and results if completed
     """
     logger.info(
-        f"Fetching status for evaluation run {evaluation_id} "
-        f"(org_id={auth_context.organization.id}, "
-        f"project_id={auth_context.project.id})"
+        f"[get_evaluation_run_status] Fetching status for evaluation run | "
+        f"evaluation_id={evaluation_id} | "
+        f"org_id={auth_context.organization.id} | "
+        f"project_id={auth_context.project.id}"
     )
 
     eval_run = get_evaluation_run_by_id(

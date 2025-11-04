@@ -72,22 +72,6 @@ class BatchProvider(ABC):
         pass
 
     @abstractmethod
-    def cancel_batch(self, batch_id: str) -> bool:
-        """
-        Cancel a running batch job.
-
-        Args:
-            batch_id: Provider's batch job ID
-
-        Returns:
-            True if cancellation was successful or batch was already terminal
-
-        Raises:
-            Exception: If cancellation fails
-        """
-        pass
-
-    @abstractmethod
     def upload_file(self, content: str, purpose: str = "batch") -> str:
         """
         Upload a file to the provider's file storage.

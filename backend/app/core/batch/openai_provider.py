@@ -51,7 +51,7 @@ class OpenAIBatchProvider(BatchProvider):
         completion_window = config.get("completion_window", "24h")
 
         logger.info(
-            f"Creating OpenAI batch with {len(jsonl_data)} items for endpoint {endpoint}"
+            f"[create_batch] Creating OpenAI batch | items={len(jsonl_data)} | endpoint={endpoint}"
         )
 
         try:
@@ -77,13 +77,13 @@ class OpenAIBatchProvider(BatchProvider):
             }
 
             logger.info(
-                f"Created OpenAI batch: {batch.id} (status={batch.status}, {len(jsonl_data)} items)"
+                f"[create_batch] Created OpenAI batch | batch_id={batch.id} | status={batch.status} | items={len(jsonl_data)}"
             )
 
             return result
 
         except Exception as e:
-            logger.error(f"Failed to create OpenAI batch: {e}")
+            logger.error(f"[create_batch] Failed to create OpenAI batch | {e}")
             raise
 
     def get_batch_status(self, batch_id: str) -> dict[str, Any]:
@@ -103,7 +103,9 @@ class OpenAIBatchProvider(BatchProvider):
         Raises:
             Exception: If status check fails
         """
-        logger.info(f"Polling OpenAI batch status: {batch_id}")
+        logger.info(
+            f"[get_batch_status] Polling OpenAI batch status | batch_id={batch_id}"
+        )
 
         try:
             batch = self.client.batches.retrieve(batch_id)
@@ -127,14 +129,15 @@ class OpenAIBatchProvider(BatchProvider):
                 result["error_message"] = error_msg
 
             logger.info(
-                f"OpenAI batch {batch_id} status: {batch.status} "
-                f"({batch.request_counts.completed}/{batch.request_counts.total} completed)"
+                f"[get_batch_status] OpenAI batch status | batch_id={batch_id} | status={batch.status} | completed={batch.request_counts.completed}/{batch.request_counts.total}"
             )
 
             return result
 
         except Exception as e:
-            logger.error(f"Failed to poll OpenAI batch status for {batch_id}: {e}")
+            logger.error(
+                f"[get_batch_status] Failed to poll OpenAI batch status | batch_id={batch_id} | {e}"
+            )
             raise
 
     def download_batch_results(self, output_file_id: str) -> list[dict[str, Any]]:
@@ -153,7 +156,9 @@ class OpenAIBatchProvider(BatchProvider):
         Raises:
             Exception: If download or parsing fails
         """
-        logger.info(f"Downloading OpenAI batch results: {output_file_id}")
+        logger.info(
+            f"[download_batch_results] Downloading OpenAI batch results | output_file_id={output_file_id}"
+        )
 
         try:
             # Download file content
@@ -168,43 +173,21 @@ class OpenAIBatchProvider(BatchProvider):
                     result = json.loads(line)
                     results.append(result)
                 except json.JSONDecodeError as e:
-                    logger.error(f"Line {line_num}: Failed to parse JSON: {e}")
+                    logger.error(
+                        f"[download_batch_results] Failed to parse JSON | line={line_num} | {e}"
+                    )
                     continue
 
             logger.info(
-                f"Downloaded and parsed {len(results)} results from OpenAI batch output"
+                f"[download_batch_results] Downloaded and parsed results from OpenAI batch output | results={len(results)}"
             )
 
             return results
 
         except Exception as e:
-            logger.error(f"Failed to download OpenAI batch results: {e}")
-            raise
-
-    def cancel_batch(self, batch_id: str) -> bool:
-        """
-        Cancel a running OpenAI batch job.
-
-        Args:
-            batch_id: OpenAI batch ID
-
-        Returns:
-            True if cancellation was successful or batch was already terminal
-
-        Raises:
-            Exception: If cancellation fails
-        """
-        logger.info(f"Cancelling OpenAI batch: {batch_id}")
-
-        try:
-            batch = self.client.batches.cancel(batch_id)
-
-            logger.info(f"OpenAI batch {batch_id} cancelled (status={batch.status})")
-
-            return True
-
-        except Exception as e:
-            logger.error(f"Failed to cancel OpenAI batch {batch_id}: {e}")
+            logger.error(
+                f"[download_batch_results] Failed to download OpenAI batch results | {e}"
+            )
             raise
 
     def upload_file(self, content: str, purpose: str = "batch") -> str:
@@ -221,7 +204,7 @@ class OpenAIBatchProvider(BatchProvider):
         Raises:
             Exception: If upload fails
         """
-        logger.info(f"Uploading file to OpenAI ({len(content)} bytes)")
+        logger.info(f"[upload_file] Uploading file to OpenAI | bytes={len(content)}")
 
         try:
             file_response = self.client.files.create(
@@ -229,12 +212,14 @@ class OpenAIBatchProvider(BatchProvider):
                 purpose=purpose,
             )
 
-            logger.info(f"Uploaded file to OpenAI: {file_response.id}")
+            logger.info(
+                f"[upload_file] Uploaded file to OpenAI | file_id={file_response.id}"
+            )
 
             return file_response.id
 
         except Exception as e:
-            logger.error(f"Failed to upload file to OpenAI: {e}")
+            logger.error(f"[upload_file] Failed to upload file to OpenAI | {e}")
             raise
 
     def download_file(self, file_id: str) -> str:
@@ -250,18 +235,20 @@ class OpenAIBatchProvider(BatchProvider):
         Raises:
             Exception: If download fails
         """
-        logger.info(f"Downloading file from OpenAI: {file_id}")
+        logger.info(f"[download_file] Downloading file from OpenAI | file_id={file_id}")
 
         try:
             file_content = self.client.files.content(file_id)
             content = file_content.read().decode("utf-8")
 
             logger.info(
-                f"Downloaded file from OpenAI: {file_id} ({len(content)} bytes)"
+                f"[download_file] Downloaded file from OpenAI | file_id={file_id} | bytes={len(content)}"
             )
 
             return content
 
         except Exception as e:
-            logger.error(f"Failed to download file from OpenAI {file_id}: {e}")
+            logger.error(
+                f"[download_file] Failed to download file from OpenAI | file_id={file_id} | {e}"
+            )
             raise

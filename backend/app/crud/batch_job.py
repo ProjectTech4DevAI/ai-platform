@@ -28,9 +28,10 @@ def create_batch_job(
         Exception: If creation fails
     """
     logger.info(
-        f"Creating batch job: provider={batch_job_create.provider}, "
-        f"job_type={batch_job_create.job_type}, "
-        f"org_id={batch_job_create.organization_id}, "
+        f"[create_batch_job] Creating batch job | "
+        f"provider={batch_job_create.provider} | "
+        f"job_type={batch_job_create.job_type} | "
+        f"org_id={batch_job_create.organization_id} | "
         f"project_id={batch_job_create.project_id}"
     )
 
@@ -43,12 +44,14 @@ def create_batch_job(
         session.commit()
         session.refresh(batch_job)
 
-        logger.info(f"Created batch job: id={batch_job.id}")
+        logger.info(f"[create_batch_job] Created batch job | id={batch_job.id}")
 
         return batch_job
 
     except Exception as e:
-        logger.error(f"Failed to create batch job: {e}", exc_info=True)
+        logger.error(
+            f"[create_batch_job] Failed to create batch job | {e}", exc_info=True
+        )
         session.rollback()
         raise
 
@@ -89,7 +92,7 @@ def update_batch_job(
     Raises:
         Exception: If update fails
     """
-    logger.info(f"Updating batch job: id={batch_job.id}")
+    logger.info(f"[update_batch_job] Updating batch job | id={batch_job.id}")
 
     try:
         # Update fields if provided
@@ -104,12 +107,15 @@ def update_batch_job(
         session.commit()
         session.refresh(batch_job)
 
-        logger.info(f"Updated batch job: id={batch_job.id}")
+        logger.info(f"[update_batch_job] Updated batch job | id={batch_job.id}")
 
         return batch_job
 
     except Exception as e:
-        logger.error(f"Failed to update batch job {batch_job.id}: {e}", exc_info=True)
+        logger.error(
+            f"[update_batch_job] Failed to update batch job | id={batch_job.id} | {e}",
+            exc_info=True,
+        )
         session.rollback()
         raise
 
@@ -136,7 +142,9 @@ def get_batch_jobs_by_ids(
     statement = select(BatchJob).where(BatchJob.id.in_(batch_job_ids))
     results = session.exec(statement).all()
 
-    logger.info(f"Found {len(results)} batch jobs for {len(batch_job_ids)} IDs")
+    logger.info(
+        f"[get_batch_jobs_by_ids] Found batch jobs | found={len(results)} | requested={len(batch_job_ids)}"
+    )
 
     return list(results)
 
@@ -175,9 +183,12 @@ def get_batches_by_type(
     results = session.exec(statement).all()
 
     logger.info(
-        f"Found {len(results)} batch jobs "
-        f"(job_type={job_type}, org_id={organization_id}, "
-        f"project_id={project_id}, provider_status={provider_status})"
+        f"[get_batches_by_type] Found batch jobs | "
+        f"count={len(results)} | "
+        f"job_type={job_type} | "
+        f"org_id={organization_id} | "
+        f"project_id={project_id} | "
+        f"provider_status={provider_status}"
     )
 
     return list(results)
@@ -194,15 +205,18 @@ def delete_batch_job(session: Session, batch_job: BatchJob) -> None:
     Raises:
         Exception: If deletion fails
     """
-    logger.info(f"Deleting batch job: id={batch_job.id}")
+    logger.info(f"[delete_batch_job] Deleting batch job | id={batch_job.id}")
 
     try:
         session.delete(batch_job)
         session.commit()
 
-        logger.info(f"Deleted batch job: id={batch_job.id}")
+        logger.info(f"[delete_batch_job] Deleted batch job | id={batch_job.id}")
 
     except Exception as e:
-        logger.error(f"Failed to delete batch job {batch_job.id}: {e}", exc_info=True)
+        logger.error(
+            f"[delete_batch_job] Failed to delete batch job | id={batch_job.id} | {e}",
+            exc_info=True,
+        )
         session.rollback()
         raise

@@ -76,8 +76,7 @@ def create_evaluation_dataset(
         session.refresh(dataset)
 
         logger.info(
-            f"Created evaluation dataset: id={dataset.id}, name={name}, "
-            f"org_id={organization_id}, project_id={project_id}"
+            f"[create_evaluation_dataset] Created evaluation dataset | id={dataset.id} | name={name} | org_id={organization_id} | project_id={project_id}"
         )
 
         return dataset
@@ -85,7 +84,7 @@ def create_evaluation_dataset(
     except IntegrityError as e:
         session.rollback()
         logger.error(
-            f"Database integrity error creating dataset '{name}': {e}",
+            f"[create_evaluation_dataset] Database integrity error creating dataset | name={name} | {e}",
             exc_info=True,
         )
         raise HTTPException(
@@ -97,7 +96,7 @@ def create_evaluation_dataset(
     except Exception as e:
         session.rollback()
         logger.error(
-            f"Failed to create dataset record in database: {e}",
+            f"[create_evaluation_dataset] Failed to create dataset record in database | {e}",
             exc_info=True,
         )
         raise HTTPException(
@@ -131,13 +130,11 @@ def get_dataset_by_id(
 
     if dataset:
         logger.info(
-            f"Found dataset: id={dataset_id}, name={dataset.name}, "
-            f"org_id={organization_id}, project_id={project_id}"
+            f"[get_dataset_by_id] Found dataset | id={dataset_id} | name={dataset.name} | org_id={organization_id} | project_id={project_id}"
         )
     else:
         logger.warning(
-            f"Dataset not found or not accessible: id={dataset_id}, "
-            f"org_id={organization_id}, project_id={project_id}"
+            f"[get_dataset_by_id] Dataset not found or not accessible | id={dataset_id} | org_id={organization_id} | project_id={project_id}"
         )
 
     return dataset
@@ -169,8 +166,7 @@ def get_dataset_by_name(
 
     if dataset:
         logger.info(
-            f"Found dataset by name: name={name}, id={dataset.id}, "
-            f"org_id={organization_id}, project_id={project_id}"
+            f"[get_dataset_by_name] Found dataset by name | name={name} | id={dataset.id} | org_id={organization_id} | project_id={project_id}"
         )
 
     return dataset
@@ -208,8 +204,7 @@ def list_datasets(
     datasets = session.exec(statement).all()
 
     logger.info(
-        f"Listed {len(datasets)} datasets for org_id={organization_id}, "
-        f"project_id={project_id} (limit={limit}, offset={offset})"
+        f"[list_datasets] Listed datasets | count={len(datasets)} | org_id={organization_id} | project_id={project_id} | limit={limit} | offset={offset}"
     )
 
     return list(datasets)
@@ -275,16 +270,18 @@ def download_csv_from_object_store(
         raise ValueError("object_store_url cannot be None or empty")
 
     try:
-        logger.info(f"Downloading CSV from object store: {object_store_url}")
+        logger.info(
+            f"[download_csv_from_object_store] Downloading CSV from object store | {object_store_url}"
+        )
         body = storage.stream(object_store_url)
         csv_content = body.read()
         logger.info(
-            f"Successfully downloaded CSV from object store: {len(csv_content)} bytes"
+            f"[download_csv_from_object_store] Successfully downloaded CSV from object store | bytes={len(csv_content)}"
         )
         return csv_content
     except Exception as e:
         logger.error(
-            f"Failed to download CSV from object store: {object_store_url}: {e}",
+            f"[download_csv_from_object_store] Failed to download CSV from object store | {object_store_url} | {e}",
             exc_info=True,
         )
         raise
@@ -315,11 +312,12 @@ def update_dataset_langfuse_id(
         session.add(dataset)
         session.commit()
         logger.info(
-            f"Updated langfuse_dataset_id for dataset {dataset_id}: "
-            f"{langfuse_dataset_id}"
+            f"[update_dataset_langfuse_id] Updated langfuse_dataset_id | dataset_id={dataset_id} | langfuse_dataset_id={langfuse_dataset_id}"
         )
     else:
-        logger.warning(f"Dataset {dataset_id} not found for langfuse_id update")
+        logger.warning(
+            f"[update_dataset_langfuse_id] Dataset not found for langfuse_id update | dataset_id={dataset_id}"
+        )
 
 
 def delete_dataset(
@@ -372,8 +370,7 @@ def delete_dataset(
         session.commit()
 
         logger.info(
-            f"Deleted dataset: id={dataset_id}, name={dataset.name}, "
-            f"org_id={organization_id}, project_id={project_id}"
+            f"[delete_dataset] Deleted dataset | id={dataset_id} | name={dataset.name} | org_id={organization_id} | project_id={project_id}"
         )
 
         return (
@@ -383,5 +380,8 @@ def delete_dataset(
 
     except Exception as e:
         session.rollback()
-        logger.error(f"Failed to delete dataset {dataset_id}: {e}", exc_info=True)
+        logger.error(
+            f"[delete_dataset] Failed to delete dataset | dataset_id={dataset_id} | {e}",
+            exc_info=True,
+        )
         return (False, f"Failed to delete dataset: {e}")

@@ -38,7 +38,9 @@ def fetch_dataset_items(langfuse: Langfuse, dataset_name: str) -> list[dict[str,
     try:
         dataset = langfuse.get_dataset(dataset_name)
     except Exception as e:
-        logger.error(f"Failed to fetch dataset '{dataset_name}': {e}")
+        logger.error(
+            f"[fetch_dataset_items] Failed to fetch dataset | dataset={dataset_name} | {e}"
+        )
         raise ValueError(f"Dataset '{dataset_name}' not found: {e}")
 
     if not dataset.items:
@@ -92,7 +94,9 @@ def build_evaluation_jsonl(
         # Extract question from input
         question = item["input"].get("question", "")
         if not question:
-            logger.warning(f"Skipping item {item['id']} - no question found")
+            logger.warning(
+                f"[build_evaluation_jsonl] Skipping item - no question found | item_id={item['id']}"
+            )
             continue
 
         # Build the batch request object for Responses API
@@ -139,7 +143,9 @@ def start_evaluation_batch(
     """
     try:
         # Step 1: Fetch dataset items from Langfuse
-        logger.info(f"Starting evaluation batch for run '{eval_run.run_name}'")
+        logger.info(
+            f"[start_evaluation_batch] Starting evaluation batch | run={eval_run.run_name}"
+        )
         dataset_items = fetch_dataset_items(
             langfuse=langfuse, dataset_name=eval_run.dataset_name
         )
@@ -186,15 +192,19 @@ def start_evaluation_batch(
         session.refresh(eval_run)
 
         logger.info(
-            f"Successfully started evaluation batch: batch_job_id={batch_job.id}, "
-            f"provider_batch_id={batch_job.provider_batch_id} "
-            f"for run '{eval_run.run_name}' with {batch_job.total_items} items"
+            f"[start_evaluation_batch] Successfully started evaluation batch | "
+            f"batch_job_id={batch_job.id} | "
+            f"provider_batch_id={batch_job.provider_batch_id} | "
+            f"run={eval_run.run_name} | items={batch_job.total_items}"
         )
 
         return eval_run
 
     except Exception as e:
-        logger.error(f"Failed to start evaluation batch: {e}", exc_info=True)
+        logger.error(
+            f"[start_evaluation_batch] Failed to start evaluation batch | {e}",
+            exc_info=True,
+        )
         eval_run.status = "failed"
         eval_run.error_message = str(e)
         session.add(eval_run)
