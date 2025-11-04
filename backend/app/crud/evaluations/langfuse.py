@@ -40,7 +40,8 @@ def create_langfuse_dataset_run(
                          "item_id": "item_123",
                          "question": "What is 2+2?",
                          "generated_output": "4",
-                         "ground_truth": "4"
+                         "ground_truth": "4",
+                         "response_id": "resp_0b99aadfead1fb62006908e7f540c48197bd110183a347c1d8"
                      },
                      ...
                  ]
@@ -69,6 +70,7 @@ def create_langfuse_dataset_run(
             question = result["question"]
             generated_output = result["generated_output"]
             ground_truth = result["ground_truth"]
+            response_id = result.get("response_id")
 
             dataset_item = dataset_items_map.get(item_id)
             if not dataset_item:
@@ -80,14 +82,18 @@ def create_langfuse_dataset_run(
 
             try:
                 with dataset_item.observe(run_name=run_name) as trace_id:
+                    metadata = {
+                        "ground_truth": ground_truth,
+                        "item_id": item_id,
+                    }
+                    if response_id:
+                        metadata["response_id"] = response_id
+
                     langfuse.trace(
                         id=trace_id,
                         input={"question": question},
                         output={"answer": generated_output},
-                        metadata={
-                            "ground_truth": ground_truth,
-                            "item_id": item_id,
-                        },
+                        metadata=metadata,
                     )
                     trace_id_mapping[item_id] = trace_id
 

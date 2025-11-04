@@ -62,7 +62,8 @@ def parse_evaluation_output(
                 "item_id": "item_123",
                 "question": "What is 2+2?",
                 "generated_output": "4",
-                "ground_truth": "4"
+                "ground_truth": "4",
+                "response_id": "resp_0b99aadfead1fb62006908e7f540c48197bd110183a347c1d8"
             },
             ...
         ]
@@ -92,6 +93,9 @@ def parse_evaluation_output(
 
             # Extract the response body
             response_body = response.get("response", {}).get("body", {})
+
+            # Extract response ID from response.body.id
+            response_id = response_body.get("id")
 
             # Handle errors in batch processing
             if response.get("error"):
@@ -147,6 +151,7 @@ def parse_evaluation_output(
                     "question": question,
                     "generated_output": generated_output,
                     "ground_truth": ground_truth,
+                    "response_id": response_id,
                 }
             )
 

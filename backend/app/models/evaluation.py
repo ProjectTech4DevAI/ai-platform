@@ -44,7 +44,7 @@ class EvaluationResult(BaseModel):
     input: str = Field(..., description="The input question/prompt used for evaluation")
     output: str = Field(..., description="The actual output from the assistant")
     expected: str = Field(..., description="The expected output from the dataset")
-    thread_id: str | None = Field(None, description="ID of the OpenAI")
+    response_id: str | None = Field(None, description="ID from the batch response body")
 
 
 class Experiment(BaseModel):
