@@ -11,6 +11,8 @@ This module handles database operations for evaluation datasets including:
 import logging
 from typing import Any
 
+from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.core.cloud.storage import CloudStorage
@@ -52,29 +54,55 @@ def create_evaluation_dataset(
 
     Returns:
         Created EvaluationDataset object
+
+    Raises:
+        HTTPException: 409 if dataset with same name exists, 500 for other errors
     """
-    dataset = EvaluationDataset(
-        name=name,
-        description=description,
-        dataset_metadata=dataset_metadata,
-        object_store_url=object_store_url,
-        langfuse_dataset_id=langfuse_dataset_id,
-        organization_id=organization_id,
-        project_id=project_id,
-        inserted_at=now(),
-        updated_at=now(),
-    )
+    try:
+        dataset = EvaluationDataset(
+            name=name,
+            description=description,
+            dataset_metadata=dataset_metadata,
+            object_store_url=object_store_url,
+            langfuse_dataset_id=langfuse_dataset_id,
+            organization_id=organization_id,
+            project_id=project_id,
+            inserted_at=now(),
+            updated_at=now(),
+        )
 
-    session.add(dataset)
-    session.commit()
-    session.refresh(dataset)
+        session.add(dataset)
+        session.commit()
+        session.refresh(dataset)
 
-    logger.info(
-        f"Created evaluation dataset: id={dataset.id}, name={name}, "
-        f"org_id={organization_id}, project_id={project_id}"
-    )
+        logger.info(
+            f"Created evaluation dataset: id={dataset.id}, name={name}, "
+            f"org_id={organization_id}, project_id={project_id}"
+        )
 
-    return dataset
+        return dataset
+
+    except IntegrityError as e:
+        session.rollback()
+        logger.error(
+            f"Database integrity error creating dataset '{name}': {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=409,
+            detail=f"Dataset with name '{name}' already exists in this "
+            "organization and project. Please choose a different name.",
+        )
+
+    except Exception as e:
+        session.rollback()
+        logger.error(
+            f"Failed to create dataset record in database: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Failed to save dataset metadata: {e}"
+        )
 
 
 def get_dataset_by_id(

@@ -5,7 +5,6 @@ import re
 from pathlib import Path
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
-from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
 from app.api.deps import get_current_user_org_project, get_db
@@ -305,56 +304,38 @@ async def upload_dataset(
         )
 
     # Step 4: Store metadata in database
-    try:
-        metadata = {
-            "original_items_count": original_items_count,
-            "total_items_count": total_items_count,
-            "duplication_factor": duplication_factor,
-        }
+    metadata = {
+        "original_items_count": original_items_count,
+        "total_items_count": total_items_count,
+        "duplication_factor": duplication_factor,
+    }
 
-        dataset = create_evaluation_dataset(
-            session=_session,
-            name=dataset_name,
-            description=description,
-            dataset_metadata=metadata,
-            object_store_url=object_store_url,
-            langfuse_dataset_id=langfuse_dataset_id,
-            organization_id=_current_user.organization_id,
-            project_id=_current_user.project_id,
-        )
+    dataset = create_evaluation_dataset(
+        session=_session,
+        name=dataset_name,
+        description=description,
+        dataset_metadata=metadata,
+        object_store_url=object_store_url,
+        langfuse_dataset_id=langfuse_dataset_id,
+        organization_id=_current_user.organization_id,
+        project_id=_current_user.project_id,
+    )
 
-        logger.info(
-            f"Successfully created dataset record in database: id={dataset.id}, "
-            f"name={dataset_name}"
-        )
+    logger.info(
+        f"Successfully created dataset record in database: id={dataset.id}, "
+        f"name={dataset_name}"
+    )
 
-        # Return response
-        return DatasetUploadResponse(
-            dataset_id=dataset.id,
-            dataset_name=dataset_name,
-            total_items=total_items_count,
-            original_items=original_items_count,
-            duplication_factor=duplication_factor,
-            langfuse_dataset_id=langfuse_dataset_id,
-            object_store_url=object_store_url,
-        )
-
-    except IntegrityError as e:
-        logger.error(
-            f"Database integrity error creating dataset '{dataset_name}': {e}",
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=409,
-            detail=f"Dataset with name '{dataset_name}' already exists in this "
-            "organization and project. Please choose a different name.",
-        )
-
-    except Exception as e:
-        logger.error(f"Failed to create dataset record in database: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail=f"Failed to save dataset metadata: {e}"
-        )
+    # Return response
+    return DatasetUploadResponse(
+        dataset_id=dataset.id,
+        dataset_name=dataset_name,
+        total_items=total_items_count,
+        original_items=original_items_count,
+        duplication_factor=duplication_factor,
+        langfuse_dataset_id=langfuse_dataset_id,
+        object_store_url=object_store_url,
+    )
 
 
 @router.get("/evaluations/datasets/list", response_model=list[DatasetUploadResponse])
