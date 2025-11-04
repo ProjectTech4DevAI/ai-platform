@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from pydantic import BaseModel, Field
 from sqlalchemy import JSON, Column, Text, UniqueConstraint
@@ -7,6 +7,11 @@ from sqlmodel import Field as SQLField
 from sqlmodel import Relationship, SQLModel
 
 from app.core.util import now
+
+if TYPE_CHECKING:
+    from .batch_job import BatchJob
+    from .organization import Organization
+    from .project import Project
 
 
 class DatasetItem(BaseModel):
@@ -116,12 +121,8 @@ class EvaluationDataset(SQLModel, table=True):
     updated_at: datetime = SQLField(default_factory=now, nullable=False)
 
     # Relationships
-    project: "Project" = Relationship(
-        back_populates="evaluation_datasets"
-    )  # noqa: F821
-    organization: "Organization" = Relationship(
-        back_populates="evaluation_datasets"
-    )  # noqa: F821
+    project: "Project" = Relationship()
+    organization: "Organization" = Relationship()
     evaluation_runs: list["EvaluationRun"] = Relationship(
         back_populates="evaluation_dataset"
     )
@@ -213,17 +214,15 @@ class EvaluationRun(SQLModel, table=True):
     )
 
     # Relationships
-    project: "Project" = Relationship(back_populates="evaluation_runs")  # noqa: F821
-    organization: "Organization" = Relationship(
-        back_populates="evaluation_runs"
-    )  # noqa: F821
+    project: "Project" = Relationship()
+    organization: "Organization" = Relationship()
     evaluation_dataset: "EvaluationDataset" = Relationship(
         back_populates="evaluation_runs"
     )
-    batch_job: Optional["BatchJob"] = Relationship(  # noqa: F821
+    batch_job: Optional["BatchJob"] = Relationship(
         sa_relationship_kwargs={"foreign_keys": "[EvaluationRun.batch_job_id]"}
     )
-    embedding_batch_job: Optional["BatchJob"] = Relationship(  # noqa: F821
+    embedding_batch_job: Optional["BatchJob"] = Relationship(
         sa_relationship_kwargs={
             "foreign_keys": "[EvaluationRun.embedding_batch_job_id]"
         }

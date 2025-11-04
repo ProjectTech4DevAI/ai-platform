@@ -1,18 +1,16 @@
 from datetime import datetime
-from typing import List, TYPE_CHECKING
+from typing import TYPE_CHECKING
+
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.core.util import now
 
 if TYPE_CHECKING:
-    from .credentials import Credential
-    from .project import Project
-    from .api_key import APIKey
     from .assistants import Assistant
     from .collection import Collection
+    from .credentials import Credential
     from .openai_conversation import OpenAIConversation
-    from .batch_job import BatchJob
-    from .evaluation import EvaluationRun, EvaluationDataset
+    from .project import Project
 
 
 # Shared properties for an Organization
@@ -52,15 +50,6 @@ class Organization(OrganizationBase, table=True):
         back_populates="organization", cascade_delete=True
     )
     openai_conversations: list["OpenAIConversation"] = Relationship(
-        back_populates="organization", cascade_delete=True
-    )
-    evaluation_runs: list["EvaluationRun"] = Relationship(
-        back_populates="organization", cascade_delete=True
-    )
-    evaluation_datasets: list["EvaluationDataset"] = Relationship(
-        back_populates="organization", cascade_delete=True
-    )
-    batch_jobs: list["BatchJob"] = Relationship(
         back_populates="organization", cascade_delete=True
     )
 

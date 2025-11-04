@@ -1,11 +1,15 @@
 from datetime import datetime
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import Column
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.core.util import now
+
+if TYPE_CHECKING:
+    from .organization import Organization
+    from .project import Project
 
 
 class BatchJob(SQLModel, table=True):
@@ -72,12 +76,8 @@ class BatchJob(SQLModel, table=True):
     )
 
     # Relationships
-    organization: Optional["Organization"] = Relationship(  # noqa: F821
-        back_populates="batch_jobs"
-    )
-    project: Optional["Project"] = Relationship(
-        back_populates="batch_jobs"
-    )  # noqa: F821
+    organization: Optional["Organization"] = Relationship()
+    project: Optional["Project"] = Relationship()
 
 
 class BatchJobCreate(SQLModel):

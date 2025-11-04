@@ -1,9 +1,18 @@
-from uuid import UUID, uuid4
 from datetime import datetime
-from typing import Optional, List
+from typing import TYPE_CHECKING, Optional
+from uuid import UUID, uuid4
+
 from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 
 from app.core.util import now
+
+if TYPE_CHECKING:
+    from .assistants import Assistant
+    from .collection import Collection
+    from .credentials import Credential
+    from .fine_tuning import Fine_Tuning
+    from .openai_conversation import OpenAIConversation
+    from .organization import Organization
 
 
 # Shared properties for a Project
@@ -53,15 +62,6 @@ class Project(ProjectBase, table=True):
         back_populates="project", cascade_delete=True
     )
     openai_conversations: list["OpenAIConversation"] = Relationship(
-        back_populates="project", cascade_delete=True
-    )
-    evaluation_runs: list["EvaluationRun"] = Relationship(
-        back_populates="project", cascade_delete=True
-    )
-    evaluation_datasets: list["EvaluationDataset"] = Relationship(
-        back_populates="project", cascade_delete=True
-    )
-    batch_jobs: list["BatchJob"] = Relationship(
         back_populates="project", cascade_delete=True
     )
 
