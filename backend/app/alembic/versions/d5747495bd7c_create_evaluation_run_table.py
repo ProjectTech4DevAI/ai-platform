@@ -106,6 +106,18 @@ def upgrade():
     op.create_index(
         op.f("ix_batch_job_project_id"), "batch_job", ["project_id"], unique=False
     )
+    op.create_index(
+        "idx_batch_job_status_org",
+        "batch_job",
+        ["provider_status", "organization_id"],
+        unique=False,
+    )
+    op.create_index(
+        "idx_batch_job_status_project",
+        "batch_job",
+        ["provider_status", "project_id"],
+        unique=False,
+    )
 
     # Create evaluation_dataset table
     op.create_table(
@@ -202,10 +214,24 @@ def upgrade():
     op.create_index(
         op.f("ix_evaluation_run_run_name"), "evaluation_run", ["run_name"], unique=False
     )
+    op.create_index(
+        "idx_eval_run_status_org",
+        "evaluation_run",
+        ["status", "organization_id"],
+        unique=False,
+    )
+    op.create_index(
+        "idx_eval_run_status_project",
+        "evaluation_run",
+        ["status", "project_id"],
+        unique=False,
+    )
 
 
 def downgrade():
     # Drop evaluation_run table first (has foreign keys to batch_job and evaluation_dataset)
+    op.drop_index("idx_eval_run_status_project", table_name="evaluation_run")
+    op.drop_index("idx_eval_run_status_org", table_name="evaluation_run")
     op.drop_index(op.f("ix_evaluation_run_run_name"), table_name="evaluation_run")
     op.drop_table("evaluation_run")
 
@@ -214,6 +240,8 @@ def downgrade():
     op.drop_table("evaluation_dataset")
 
     # Drop batch_job table
+    op.drop_index("idx_batch_job_status_project", table_name="batch_job")
+    op.drop_index("idx_batch_job_status_org", table_name="batch_job")
     op.drop_index(op.f("ix_batch_job_project_id"), table_name="batch_job")
     op.drop_index(op.f("ix_batch_job_organization_id"), table_name="batch_job")
     op.drop_index(op.f("ix_batch_job_job_type"), table_name="batch_job")
