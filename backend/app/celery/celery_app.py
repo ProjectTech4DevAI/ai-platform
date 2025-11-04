@@ -10,7 +10,6 @@ celery_app = Celery(
     backend=settings.REDIS_URL,
     include=[
         "app.celery.tasks.job_execution",
-        "app.celery.tasks.evaluation_score_sync",
     ],
 )
 
@@ -86,17 +85,6 @@ celery_app.conf.update(
     # Connection settings from environment
     broker_connection_retry_on_startup=True,
     broker_pool_limit=settings.CELERY_BROKER_POOL_LIMIT,
-    # Beat configuration
-    beat_schedule={
-        # Process evaluation batches (polls provider status and processes results)
-        "process-evaluation-batches": {
-            "task": "process_evaluation_batches",
-            "schedule": 60.0,  # Every 60 seconds
-        },
-        # Future: Add similar tasks for other job types
-        # "process-classification-batches": {...}
-        # "process-embedding-batches": {...}
-    },
 )
 
 # Auto-discover tasks
