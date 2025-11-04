@@ -27,6 +27,7 @@ from app.models.evaluation import (
     DatasetUploadResponse,
     EvaluationRunPublic,
 )
+from app.utils import load_description
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +91,11 @@ def sanitize_dataset_name(name: str) -> str:
     return sanitized
 
 
-@router.post("/evaluations/datasets", response_model=DatasetUploadResponse)
+@router.post(
+    "/evaluations/datasets",
+    description=load_description("evaluation/upload_dataset.md"),
+    response_model=DatasetUploadResponse,
+)
 async def upload_dataset(
     _session: SessionDep,
     auth_context: AuthContextDep,
@@ -106,46 +111,6 @@ async def upload_dataset(
         description="Number of times to duplicate each item (min: 1, max: 5)",
     ),
 ) -> DatasetUploadResponse:
-    """
-    Upload a CSV file containing Golden Q&A pairs.
-
-    This endpoint:
-    1. Sanitizes the dataset name (removes spaces, special characters)
-    2. Validates and parses the CSV file
-    3. Uploads CSV to object store (if credentials configured)
-    4. Uploads dataset to Langfuse (for immediate use)
-    5. Stores metadata in database
-
-    Dataset Name:
-    - Will be sanitized for Langfuse compatibility
-    - Spaces replaced with underscores
-    - Special characters removed
-    - Converted to lowercase
-    - Example: "My Dataset 01!" becomes "my_dataset_01"
-
-    CSV Format:
-    - Must contain 'question' and 'answer' columns
-    - Can have additional columns (will be ignored)
-    - Missing values in 'question' or 'answer' rows will be skipped
-
-    Duplication Factor:
-    - Minimum: 1 (no duplication)
-    - Maximum: 5
-    - Default: 5
-    - Each item in the dataset will be duplicated this many times
-    - Used to ensure statistical significance in evaluation results
-
-    Example CSV:
-    ```
-    question,answer
-    "What is the capital of France?","Paris"
-    "What is 2+2?","4"
-    ```
-
-    Returns:
-        DatasetUploadResponse with dataset_id, object_store_url, and Langfuse details
-        (dataset_name in response will be the sanitized version)
-    """
     # Sanitize dataset name for Langfuse compatibility
     original_name = dataset_name
     try:
@@ -341,23 +306,17 @@ async def upload_dataset(
     )
 
 
-@router.get("/evaluations/datasets/list", response_model=list[DatasetUploadResponse])
+@router.get(
+    "/evaluations/datasets/list",
+    description=load_description("evaluation/list_datasets.md"),
+    response_model=list[DatasetUploadResponse],
+)
 async def list_datasets_endpoint(
     _session: SessionDep,
     auth_context: AuthContextDep,
     limit: int = 50,
     offset: int = 0,
 ) -> list[DatasetUploadResponse]:
-    """
-    List all datasets for the current organization and project.
-
-    Args:
-        limit: Maximum number of datasets to return (default 50, max 100)
-        offset: Number of datasets to skip for pagination (default 0)
-
-    Returns:
-        List of DatasetUploadResponse objects, ordered by most recent first
-    """
     # Enforce maximum limit
     if limit > 100:
         limit = 100
@@ -390,21 +349,16 @@ async def list_datasets_endpoint(
     return response
 
 
-@router.get("/evaluations/datasets/{dataset_id}", response_model=DatasetUploadResponse)
+@router.get(
+    "/evaluations/datasets/{dataset_id}",
+    description=load_description("evaluation/get_dataset.md"),
+    response_model=DatasetUploadResponse,
+)
 async def get_dataset(
     dataset_id: int,
     _session: SessionDep,
     auth_context: AuthContextDep,
 ) -> DatasetUploadResponse:
-    """
-    Get details of a specific dataset by ID.
-
-    Args:
-        dataset_id: ID of the dataset to retrieve
-
-    Returns:
-        DatasetUploadResponse with dataset details
-    """
     logger.info(
         f"[get_dataset] Fetching dataset | id={dataset_id} | "
         f"org_id={auth_context.organization.id} | "
@@ -434,25 +388,15 @@ async def get_dataset(
     )
 
 
-@router.delete("/evaluations/datasets/{dataset_id}")
+@router.delete(
+    "/evaluations/datasets/{dataset_id}",
+    description=load_description("evaluation/delete_dataset.md"),
+)
 async def delete_dataset(
     dataset_id: int,
     _session: SessionDep,
     auth_context: AuthContextDep,
 ) -> dict:
-    """
-    Delete a dataset by ID.
-
-    This will remove the dataset record from the database. The CSV file in object store
-    (if exists) will remain for audit purposes, but the dataset will no longer
-    be accessible for creating new evaluations.
-
-    Args:
-        dataset_id: ID of the dataset to delete
-
-    Returns:
-        Success message with deleted dataset details
-    """
     logger.info(
         f"[delete_dataset] Deleting dataset | id={dataset_id} | "
         f"org_id={auth_context.organization.id} | "
@@ -477,7 +421,11 @@ async def delete_dataset(
     return {"message": message, "dataset_id": dataset_id}
 
 
-@router.post("/evaluations", response_model=EvaluationRunPublic)
+@router.post(
+    "/evaluations",
+    description=load_description("evaluation/create_evaluation.md"),
+    response_model=EvaluationRunPublic,
+)
 async def evaluate(
     _session: SessionDep,
     auth_context: AuthContextDep,
@@ -491,66 +439,6 @@ async def evaluate(
         None, description="Optional assistant ID to fetch configuration from"
     ),
 ) -> EvaluationRunPublic:
-    """
-    Start an evaluation using OpenAI Batch API.
-
-    This endpoint:
-    1. Fetches the dataset from database and validates it has Langfuse dataset ID
-    2. Creates an EvaluationRun record in the database
-    3. Fetches dataset items from Langfuse
-    4. Builds JSONL for batch processing (config is used as-is)
-    5. Creates a batch job via the generic batch infrastructure
-    6. Returns the evaluation run details with batch_job_id
-
-    The batch will be processed asynchronously by Celery Beat (every 60s).
-    Use GET /evaluations/{evaluation_id} to check progress.
-
-    Args:
-        dataset_id: ID of the evaluation dataset (from /evaluations/datasets)
-        experiment_name: Name for this evaluation experiment/run
-        config: Configuration dict that will be used as-is in JSONL generation.
-            Can include any OpenAI Responses API parameters like:
-            - model: str (e.g., "gpt-4o", "gpt-5")
-            - instructions: str
-            - tools: list (e.g., [{"type": "file_search", "vector_store_ids": [...]}])
-            - reasoning: dict (e.g., {"effort": "low"})
-            - text: dict (e.g., {"verbosity": "low"})
-            - temperature: float
-            - include: list (e.g., ["file_search_call.results"])
-            Note: "input" will be added automatically from the dataset
-        assistant_id: Optional assistant ID. If provided, configuration will be
-            fetched from the assistant in the database. Config can be passed as
-            empty dict {} when using assistant_id.
-
-    Example with config:
-    {
-        "dataset_id": 123,
-        "experiment_name": "test_run",
-        "config": {
-            "model": "gpt-4.1",
-            "instructions": "You are a helpful FAQ assistant.",
-            "tools": [
-                {
-                    "type": "file_search",
-                    "vector_store_ids": ["vs_12345"],
-                    "max_num_results": 3
-                }
-            ],
-            "include": ["file_search_call.results"]
-        }
-    }
-
-    Example with assistant_id:
-    {
-        "dataset_id": 123,
-        "experiment_name": "test_run",
-        "config": {},
-        "assistant_id": "asst_xyz"
-    }
-
-    Returns:
-        EvaluationRunPublic with batch details and status
-    """
     logger.info(
         f"[evaluate] Starting evaluation | experiment_name={experiment_name} | "
         f"dataset_id={dataset_id} | "
@@ -704,23 +592,17 @@ async def evaluate(
         return eval_run
 
 
-@router.get("/evaluations/list", response_model=list[EvaluationRunPublic])
+@router.get(
+    "/evaluations/list",
+    description=load_description("evaluation/list_evaluations.md"),
+    response_model=list[EvaluationRunPublic],
+)
 async def list_evaluation_runs(
     _session: SessionDep,
     auth_context: AuthContextDep,
     limit: int = 50,
     offset: int = 0,
 ) -> list[EvaluationRunPublic]:
-    """
-    List all evaluation runs for the current organization.
-
-    Args:
-        limit: Maximum number of runs to return (default 50)
-        offset: Number of runs to skip (for pagination)
-
-    Returns:
-        List of EvaluationRunPublic objects, ordered by most recent first
-    """
     logger.info(
         f"[list_evaluation_runs] Listing evaluation runs | "
         f"org_id={auth_context.organization.id} | "
@@ -736,21 +618,16 @@ async def list_evaluation_runs(
     )
 
 
-@router.get("/evaluations/{evaluation_id}", response_model=EvaluationRunPublic)
+@router.get(
+    "/evaluations/{evaluation_id}",
+    description=load_description("evaluation/get_evaluation.md"),
+    response_model=EvaluationRunPublic,
+)
 async def get_evaluation_run_status(
     evaluation_id: int,
     _session: SessionDep,
     auth_context: AuthContextDep,
 ) -> EvaluationRunPublic:
-    """
-    Get the current status of a specific evaluation run.
-
-    Args:
-        evaluation_id: ID of the evaluation run
-
-    Returns:
-        EvaluationRunPublic with current status and results if completed
-    """
     logger.info(
         f"[get_evaluation_run_status] Fetching status for evaluation run | "
         f"evaluation_id={evaluation_id} | "
