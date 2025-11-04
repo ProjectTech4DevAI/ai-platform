@@ -6,6 +6,10 @@ from app.crud.evaluations.core import (
     get_evaluation_run_by_id,
     list_evaluation_runs,
 )
+from app.crud.evaluations.cron import (
+    process_all_pending_evaluations,
+    process_all_pending_evaluations_sync,
+)
 from app.crud.evaluations.dataset import (
     create_evaluation_dataset,
     delete_dataset,
@@ -35,6 +39,9 @@ __all__ = [
     "create_evaluation_run",
     "get_evaluation_run_by_id",
     "list_evaluation_runs",
+    # Cron
+    "process_all_pending_evaluations",
+    "process_all_pending_evaluations_sync",
     # Dataset
     "create_evaluation_dataset",
     "delete_dataset",
