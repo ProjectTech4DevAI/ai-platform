@@ -10,7 +10,6 @@ from app.core.util import now
 
 
 class ConfigVersionBase(SQLModel):
-
     config_json: dict[str, Any] = Field(
         sa_column=sa.Column(JSON, nullable=False),
         description="Provider-specific configuration parameters (temperature, max_tokens, etc.)",
@@ -23,7 +22,6 @@ class ConfigVersionBase(SQLModel):
 
 
 class ConfigVersion(ConfigVersionBase, table=True):
-
     __tablename__ = "config_version"
     __table_args__ = (
         UniqueConstraint(
@@ -32,27 +30,23 @@ class ConfigVersion(ConfigVersionBase, table=True):
         ),
     )
 
-    id: UUID = Field(default=uuid4, primary_key=True)
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
 
-    # Parent config reference
     config_id: UUID = Field(
         foreign_key="config.id",
         index=True,
         nullable=False,
         ondelete="CASCADE",
     )
-
-    # Version number (immutable, auto-increments per config)
     version: int = Field(nullable=False, description="Version number starting at 1")
 
     inserted_at: datetime = Field(default_factory=now, nullable=False)
+    updated_at: datetime = Field(default_factory=now, nullable=False)
 
     deleted_at: datetime | None = Field(default=None, nullable=True)
 
 
-
 class ConfigVersionCreate(SQLModel):
-
     config_json: dict[str, Any]
     commit_message: str | None = Field(
         default=None,
@@ -62,9 +56,8 @@ class ConfigVersionCreate(SQLModel):
 
 
 class ConfigVersionPublic(ConfigVersionBase):
-
-    id: int
-    config_id: int
-    version: int
-    created_by_user_id: int | None
+    id: UUID = Field(description="Unique id for the configuration version")
+    config_id: UUID = Field(description="Id of the parent configuration")
+    version: int = Field(nullable=False, description="Version number starting at 1")
     inserted_at: datetime
+    updated_at: datetime

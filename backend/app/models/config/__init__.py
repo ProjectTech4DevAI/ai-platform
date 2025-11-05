@@ -1,4 +1,11 @@
-from .config import Config, ConfigBase, ConfigCreate, ConfigPublic, ConfigUpdate
+from .config import (
+    Config,
+    ConfigBase,
+    ConfigCreate,
+    ConfigPublic,
+    ConfigUpdate,
+    ConfigWithVersion,
+)
 from .version import (
     ConfigVersion,
     ConfigVersionBase,

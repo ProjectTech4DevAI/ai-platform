@@ -27,6 +27,7 @@ from .config import (
     ConfigCreate,
     ConfigUpdate,
     ConfigPublic,
+    ConfigWithVersion,
     ConfigVersion,
     ConfigVersionBase,
     ConfigVersionCreate,
