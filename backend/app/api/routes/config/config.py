@@ -66,28 +66,6 @@ def list_configs_route(
     )
 
 
-@router.get(
-    "/{config_id}",
-    response_model=APIResponse[ConfigWithVersion],
-    status_code=200,
-    dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
-)
-def get_config_route(
-    config_id: UUID,
-    current_user: AuthContextDep,
-    session: SessionDep,
-):
-    """
-    Get a specific configuration by ID.
-    """
-    # Decide how to handle fetching versions
-    # should we fetch all versions at /{config_id}/versions and donot include here?
-    config_crud = ConfigCrud(session=session, project_id=current_user.project.id)
-    config = config_crud.read_one(config_id=config_id)
-
-    pass
-
-
 @router.delete(
     "/{config_id}",
     response_model=APIResponse[Message],

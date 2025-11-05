@@ -33,10 +33,39 @@ def create_version_route(
     version_crud = ConfigVersionCrud(
         session=session, project_id=current_user.project.id, config_id=config_id
     )
-    version = version_crud.create(config_id=config_id, version_create=version_create)
+    version = version_crud.create(version_create=version_create)
 
     return APIResponse.success_response(
         data=ConfigVersionPublic(**version.model_dump()),
+    )
+
+
+@router.get(
+    "/{config_id}/versions",
+    response_model=APIResponse[list[ConfigVersionPublic]],
+    status_code=200,
+    dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
+)
+def list_versions_route(
+    config_id: UUID,
+    current_user: AuthContextDep,
+    session: SessionDep,
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(100, ge=1, le=100, description="Maximum records to return"),
+):
+    """
+    List all versions for a specific configuration.
+    """
+    version_crud = ConfigVersionCrud(
+        session=session, project_id=current_user.project.id, config_id=config_id
+    )
+    versions = version_crud.read_all(
+        skip=skip,
+        limit=limit,
+    )
+
+    return APIResponse.success_response(
+        data=versions,
     )
 
 
