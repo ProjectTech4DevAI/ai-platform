@@ -1,5 +1,5 @@
 """Batch processing infrastructure for LLM providers."""
 
-from .provider_interface import BatchProvider
+from .base import BatchProvider
 
 __all__ = ["BatchProvider"]

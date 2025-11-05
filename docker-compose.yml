@@ -152,23 +152,6 @@ services:
       RABBITMQ_HOST: rabbitmq
     command: ["uv", "run", "celery", "-A", "app.celery.celery_app", "worker", "--loglevel=info"]
 
-  celery_beat:
-    image: "${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG:-latest}"
-    container_name: celery-beat
-    restart: always
-    build:
-      context: ./backend
-    depends_on:
-      backend:
-        condition: service_healthy
-    env_file:
-      - .env
-    environment:
-      POSTGRES_SERVER: db
-      REDIS_HOST: redis
-      RABBITMQ_HOST: rabbitmq
-    command: ["uv", "run", "celery", "-A", "app.celery.celery_app", "beat", "--loglevel=info"]
-
   celery_flower:
     image: "${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG:-latest}"
     container_name: celery-flower

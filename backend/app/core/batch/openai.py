@@ -6,7 +6,7 @@ from typing import Any
 
 from openai import OpenAI
 
-from .provider_interface import BatchProvider
+from .base import BatchProvider
 
 logger = logging.getLogger(__name__)
 

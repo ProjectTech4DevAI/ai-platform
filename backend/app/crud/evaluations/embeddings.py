@@ -15,7 +15,7 @@ import numpy as np
 from openai import OpenAI
 from sqlmodel import Session
 
-from app.core.batch.openai_provider import OpenAIBatchProvider
+from app.core.batch.openai import OpenAIBatchProvider
 from app.core.util import now
 from app.crud.batch_operations import start_batch_job
 from app.models import EvaluationRun

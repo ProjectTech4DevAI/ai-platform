@@ -19,7 +19,7 @@ from langfuse import Langfuse
 from openai import OpenAI
 from sqlmodel import Session, select
 
-from app.core.batch.openai_provider import OpenAIBatchProvider
+from app.core.batch.openai import OpenAIBatchProvider
 from app.crud.batch_job import get_batch_job
 from app.crud.batch_operations import (
     download_batch_results,
@@ -405,9 +405,7 @@ async def process_completed_embedding_batch(
 
         # Step 7: Mark evaluation as completed
         eval_run = update_evaluation_run(
-            session=session,
-            eval_run=eval_run,
-            status="completed",
+            session=session, eval_run=eval_run, status="completed", score=eval_run.score
         )
 
         logger.info(
@@ -474,6 +472,8 @@ async def check_and_process_evaluation(
             if embedding_batch_job:
                 # Poll embedding batch status
                 provider = OpenAIBatchProvider(client=openai_client)
+
+                # Local import to avoid circular dependency with batch_operations
                 from app.crud.batch_operations import poll_batch_status
 
                 poll_batch_status(
