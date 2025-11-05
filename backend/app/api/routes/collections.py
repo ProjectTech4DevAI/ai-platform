@@ -166,6 +166,7 @@ def delete_collection(
     "/{collection_id}",
     description=load_description("collections/info.md"),
     response_model=APIResponse[CollectionWithDocsPublic],
+    response_model_exclude_none=True,
 )
 def collection_info(
     session: SessionDep,

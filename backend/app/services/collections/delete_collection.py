@@ -182,17 +182,7 @@ def execute_job(
             service = (collection.llm_service_name or "").strip().lower()
             is_vector = service == OPENAI_VECTOR_STORE
 
-            llm_service_id = (
-                (
-                    getattr(collection, "vector_store_id", None)
-                    or getattr(collection, "llm_service_id", None)
-                )
-                if is_vector
-                else (
-                    getattr(collection, "assistant_id", None)
-                    or getattr(collection, "llm_service_id", None)
-                )
-            )
+            llm_service_id = collection.llm_service_id
 
             # Delete the corresponding OpenAI resource (vector store or assistant)
             if is_vector:
