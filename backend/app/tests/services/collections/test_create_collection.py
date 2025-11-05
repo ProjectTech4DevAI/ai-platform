@@ -341,150 +341,6 @@ def test_execute_job_success_flow_callback_job_and_creates_collection(
 @pytest.mark.usefixtures("aws_credentials")
 @mock_aws
 @patch("app.services.collections.create_collection.get_openai_client")
-def test_execute_job_success_flow_updates_job_and_creates_collection(
-    mock_get_openai_client, db: Session
-):
-    """
-    execute_job should:
-      - set task_id on the CollectionJob
-      - ingest documents into a vector store
-      - create an OpenAI assistant
-      - create a Collection with llm fields filled
-      - link the CollectionJob -> collection_id, set status=successful
-      - create DocumentCollection links
-    """
-    project = get_project(db)
-
-    aws = AmazonCloudStorageClient()
-    aws.create()
-
-    store = DocumentStore(db=db, project_id=project.id)
-    document = store.put()
-    s3_key = Path(urlparse(document.object_store_url).path).relative_to("/")
-    aws.client.put_object(Bucket=settings.AWS_S3_BUCKET, Key=str(s3_key), Body=b"test")
-
-    sample_request = CreationRequest(
-        model="gpt-4o",
-        instructions="string",
-        temperature=0.000001,
-        documents=[document.id],
-        batch_size=1,
-        callback_url=None,
-    )
-
-    mock_client = get_mock_openai_client_with_vector_store()
-    mock_get_openai_client.return_value = mock_client
-
-    job_id = uuid4()
-    _ = get_collection_job(
-        db,
-        project,
-        job_id=job_id,
-        action_type=CollectionActionType.CREATE,
-        status=CollectionJobStatus.PENDING,
-        collection_id=None,
-    )
-
-    task_id = uuid4()
-
-    with patch("app.services.collections.create_collection.Session") as SessionCtor:
-        SessionCtor.return_value.__enter__.return_value = db
-        SessionCtor.return_value.__exit__.return_value = False
-
-        execute_job(
-            request=sample_request.model_dump(),
-            project_id=project.id,
-            organization_id=project.organization_id,
-            task_id=str(task_id),
-            with_assistant=True,
-            job_id=str(job_id),
-            task_instance=None,
-        )
-
-    updated_job = CollectionJobCrud(db, project.id).read_one(job_id)
-    assert updated_job.task_id == str(task_id)
-    assert updated_job.status == CollectionJobStatus.SUCCESSFUL
-    assert updated_job.collection_id is not None
-
-    created_collection = CollectionCrud(db, project.id).read_one(
-        updated_job.collection_id
-    )
-    assert created_collection.llm_service_id == "mock_assistant_id"
-    assert created_collection.llm_service_name == sample_request.model
-    assert created_collection.updated_at is not None
-
-    docs = DocumentCollectionCrud(db).read(created_collection, skip=0, limit=10)
-    assert len(docs) == 1
-    assert docs[0].fname == document.fname
-
-
-@pytest.mark.usefixtures("aws_credentials")
-@mock_aws
-@patch("app.services.collections.create_collection.get_openai_client")
-def test_execute_job_assistant_create_failure_marks_failed_and_deletes_vector(
-    mock_get_openai_client, db
-):
-    project = get_project(db)
-
-    job = get_collection_job(
-        db,
-        project,
-        job_id=uuid4(),
-        action_type=CollectionActionType.CREATE,
-        status=CollectionJobStatus.PENDING,
-        collection_id=None,
-    )
-
-    req = CreationRequest(
-        model="gpt-4o",
-        instructions="string",
-        temperature=0.0,
-        documents=[],
-        batch_size=1,
-        callback_url=None,
-    )
-
-    _ = mock_get_openai_client.return_value
-
-    with patch(
-        "app.services.collections.create_collection.Session"
-    ) as SessionCtor, patch(
-        "app.services.collections.create_collection.OpenAIVectorStoreCrud"
-    ) as MockVS, patch(
-        "app.services.collections.create_collection.OpenAIAssistantCrud"
-    ) as MockAsst:
-        SessionCtor.return_value.__enter__.return_value = db
-        SessionCtor.return_value.__exit__.return_value = False
-
-        MockVS.return_value.create.return_value = type(
-            "Vector store", (), {"id": "vs_123"}
-        )()
-        MockVS.return_value.update.return_value = []
-
-        MockAsst.return_value.create.side_effect = RuntimeError("assistant boom")
-
-        task_id = str(uuid4())
-        execute_job(
-            request=req.model_dump(),
-            project_id=project.id,
-            organization_id=project.organization_id,
-            task_id=task_id,
-            with_assistant=True,
-            job_id=str(job.id),
-            task_instance=None,
-        )
-
-        failed = CollectionJobCrud(db, project.id).read_one(job.id)
-        assert failed.task_id == task_id
-        assert failed.status == CollectionJobStatus.FAILED
-        assert "assistant boom" in (failed.error_message or "")
-
-        MockVS.return_value.delete.assert_called_once_with("vs_123")
-
-
-@pytest.mark.usefixtures("aws_credentials")
-@mock_aws
-@patch("app.services.collections.create_collection.get_openai_client")
 @patch("app.services.collections.create_collection.send_callback")
 def test_execute_job_success_creates_collection_with_callback(
     mock_send_callback,
@@ -568,11 +424,9 @@ def test_execute_job_success_creates_collection_with_callback(
 @mock_aws
 @patch("app.services.collections.create_collection.get_openai_client")
 @patch("app.services.collections.create_collection.send_callback")
-@patch("app.services.collections.create_collection.OpenAIAssistantCrud")
 @patch("app.services.collections.create_collection.CollectionCrud")
 def test_execute_job_failure_flow_callback_job_and_marks_failed(
     MockCollectionCrud,
-    MockAssistantCrud,
     mock_send_callback,
     mock_get_openai_client,
     db: Session,

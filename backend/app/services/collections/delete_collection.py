@@ -162,82 +162,70 @@ def execute_job(
     collection_job = None
     client = None
 
-    with Session(engine) as session:
-        client = get_openai_client(session, organization_id, project_id)
-
-        collection_job_crud = CollectionJobCrud(session, project_id)
-        collection_job = collection_job_crud.read_one(job_uuid)
-        collection_job = collection_job_crud.update(
-            job_uuid,
-            CollectionJobUpdate(
-                task_id=task_id,
-                status=CollectionJobStatus.PROCESSING,
-            ),
-        )
-
-        collection = CollectionCrud(session, project_id).read_one(collection_id)
-
-        # Identify which external service (assistant/vector store) this collection belongs to
-        service = (collection.llm_service_name or "").strip().lower()
-        is_vector = service == OPENAI_VECTOR_STORE
-
-        llm_service_id = (
-            (
-                getattr(collection, "vector_store_id", None)
-                or getattr(collection, "llm_service_id", None)
-            )
-            if is_vector
-            else (
-                getattr(collection, "assistant_id", None)
-                or getattr(collection, "llm_service_id", None)
-            )
-        )
-
-    try:
-        # Delete the corresponding OpenAI resource (vector store or assistant)
-        if is_vector:
-            OpenAIVectorStoreCrud(client).delete(llm_service_id)
-        else:
-            OpenAIAssistantCrud(client).delete(llm_service_id)
-
-    except Exception as err:
-        _mark_job_failed_and_callback(
-            project_id=project_id,
-            collection_job=collection_job,
-            collection_id=collection_id,
-            job_id=job_uuid,
-            err=err,
-            callback_url=deletion_request.callback_url,
-        )
-        return
-
     try:
         with Session(engine) as session:
-            CollectionCrud(session, project_id).delete_by_id(collection_id)
+            client = get_openai_client(session, organization_id, project_id)
 
             collection_job_crud = CollectionJobCrud(session, project_id)
-            collection_job_crud.update(
-                collection_job.id,
+            collection_job = collection_job_crud.read_one(job_uuid)
+            collection_job = collection_job_crud.update(
+                job_uuid,
                 CollectionJobUpdate(
-                    status=CollectionJobStatus.SUCCESSFUL,
-                    error_message=None,
+                    task_id=task_id,
+                    status=CollectionJobStatus.PROCESSING,
                 ),
             )
-            collection_job = collection_job_crud.read_one(collection_job.id)
 
-        logger.info(
-            "[delete_collection.execute_job] Collection deleted successfully | "
-            "{'collection_id': '%s', 'job_id': '%s'}",
-            str(collection_id),
-            str(job_uuid),
-        )
+            collection = CollectionCrud(session, project_id).read_one(collection_id)
 
-        if deletion_request.callback_url and collection_job:
-            success_payload = build_success_payload(
-                collection_job=collection_job,
-                collection_id=collection_id,
+            # Identify which external service (assistant/vector store) this collection belongs to
+            service = (collection.llm_service_name or "").strip().lower()
+            is_vector = service == OPENAI_VECTOR_STORE
+
+            llm_service_id = (
+                (
+                    getattr(collection, "vector_store_id", None)
+                    or getattr(collection, "llm_service_id", None)
+                )
+                if is_vector
+                else (
+                    getattr(collection, "assistant_id", None)
+                    or getattr(collection, "llm_service_id", None)
+                )
             )
-            send_callback(deletion_request.callback_url, success_payload)
+
+            # Delete the corresponding OpenAI resource (vector store or assistant)
+            if is_vector:
+                OpenAIVectorStoreCrud(client).delete(llm_service_id)
+            else:
+                OpenAIAssistantCrud(client).delete(llm_service_id)
+
+            with Session(engine) as session:
+                CollectionCrud(session, project_id).delete_by_id(collection_id)
+
+                collection_job_crud = CollectionJobCrud(session, project_id)
+                collection_job_crud.update(
+                    collection_job.id,
+                    CollectionJobUpdate(
+                        status=CollectionJobStatus.SUCCESSFUL,
+                        error_message=None,
+                    ),
+                )
+                collection_job = collection_job_crud.read_one(collection_job.id)
+
+            logger.info(
+                "[delete_collection.execute_job] Collection deleted successfully | "
+                "{'collection_id': '%s', 'job_id': '%s'}",
+                str(collection_id),
+                str(job_uuid),
+            )
+
+            if deletion_request.callback_url and collection_job:
+                success_payload = build_success_payload(
+                    collection_job=collection_job,
+                    collection_id=collection_id,
+                )
+                send_callback(deletion_request.callback_url, success_payload)
 
     except Exception as err:
         _mark_job_failed_and_callback(

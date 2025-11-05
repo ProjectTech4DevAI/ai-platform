@@ -184,7 +184,6 @@ def execute_job(
     vector_store = None
     vector_store_crud = None
     collection_job = None
-    callback = None
 
     try:
         creation_request = CreationRequest(**request)

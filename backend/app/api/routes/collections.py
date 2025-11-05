@@ -2,7 +2,7 @@ import logging
 from uuid import UUID
 from typing import List
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Body
 from fastapi import Path as FastPath
 
 from app.api.deps import SessionDep, CurrentUserOrgProject
@@ -130,7 +130,7 @@ def delete_collection(
     session: SessionDep,
     current_user: CurrentUserOrgProject,
     collection_id: UUID = FastPath(description="Collection to delete"),
-    request: CallbackRequest | None = None,
+    request: CallbackRequest | None = Body(default=None),
 ):
     _ = CollectionCrud(session, current_user.project_id).read_one(collection_id)
 

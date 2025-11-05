@@ -10,7 +10,6 @@ from app.tests.utils.collection import (
 
 
 def test_list_collections_returns_api_response(
-    db: Session,
     client: TestClient,
     user_api_key_header,
 ):
@@ -51,8 +50,6 @@ def test_list_collections_includes_assistant_collection(
         headers=user_api_key_header,
     )
     assert response_before.status_code == 200
-    before_payload = response_before.json()["data"]
-    before_ids = {c["id"] for c in before_payload}
 
     collection = get_collection(db, project)
 
