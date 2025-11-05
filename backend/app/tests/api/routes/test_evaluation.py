@@ -1,5 +1,5 @@
 import io
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 from sqlmodel import select
@@ -57,8 +57,8 @@ class TestDatasetUploadValidation:
                 "app.api.routes.evaluation.upload_csv_to_object_store"
             ) as mock_store_upload,
             patch(
-                "app.api.routes.evaluation.configure_langfuse"
-            ) as mock_configure_langfuse,
+                "app.api.routes.evaluation.get_langfuse_client"
+            ) as mock_get_langfuse_client,
             patch(
                 "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
             ) as mock_langfuse_upload,
@@ -66,8 +66,8 @@ class TestDatasetUploadValidation:
             # Mock object store upload
             mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
 
-            # Mock Langfuse configuration
-            mock_configure_langfuse.return_value = (None, True)
+            # Mock Langfuse client
+            mock_get_langfuse_client.return_value = Mock()
 
             # Mock Langfuse upload
             mock_langfuse_upload.return_value = ("test_dataset_id", 9)
@@ -141,15 +141,15 @@ class TestDatasetUploadValidation:
                 "app.api.routes.evaluation.upload_csv_to_object_store"
             ) as mock_store_upload,
             patch(
-                "app.api.routes.evaluation.configure_langfuse"
-            ) as mock_configure_langfuse,
+                "app.api.routes.evaluation.get_langfuse_client"
+            ) as mock_get_langfuse_client,
             patch(
                 "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
             ) as mock_langfuse_upload,
         ):
             # Mock object store and Langfuse uploads
             mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
-            mock_configure_langfuse.return_value = (None, True)
+            mock_get_langfuse_client.return_value = Mock()
             mock_langfuse_upload.return_value = ("test_dataset_id", 4)
 
             filename, file_obj = create_csv_file(csv_with_empty_rows)
@@ -185,14 +185,14 @@ class TestDatasetUploadDuplication:
                 "app.api.routes.evaluation.upload_csv_to_object_store"
             ) as mock_store_upload,
             patch(
-                "app.api.routes.evaluation.configure_langfuse"
-            ) as mock_configure_langfuse,
+                "app.api.routes.evaluation.get_langfuse_client"
+            ) as mock_get_langfuse_client,
             patch(
                 "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
             ) as mock_langfuse_upload,
         ):
             mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
-            mock_configure_langfuse.return_value = (None, True)
+            mock_get_langfuse_client.return_value = Mock()
             mock_langfuse_upload.return_value = ("test_dataset_id", 15)
 
             filename, file_obj = create_csv_file(valid_csv_content)
@@ -224,14 +224,14 @@ class TestDatasetUploadDuplication:
                 "app.api.routes.evaluation.upload_csv_to_object_store"
             ) as mock_store_upload,
             patch(
-                "app.api.routes.evaluation.configure_langfuse"
-            ) as mock_configure_langfuse,
+                "app.api.routes.evaluation.get_langfuse_client"
+            ) as mock_get_langfuse_client,
             patch(
                 "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
             ) as mock_langfuse_upload,
         ):
             mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
-            mock_configure_langfuse.return_value = (None, True)
+            mock_get_langfuse_client.return_value = Mock()
             mock_langfuse_upload.return_value = ("test_dataset_id", 12)
 
             filename, file_obj = create_csv_file(valid_csv_content)
@@ -263,14 +263,14 @@ class TestDatasetUploadDuplication:
                 "app.api.routes.evaluation.upload_csv_to_object_store"
             ) as mock_store_upload,
             patch(
-                "app.api.routes.evaluation.configure_langfuse"
-            ) as mock_configure_langfuse,
+                "app.api.routes.evaluation.get_langfuse_client"
+            ) as mock_get_langfuse_client,
             patch(
                 "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
             ) as mock_langfuse_upload,
         ):
             mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
-            mock_configure_langfuse.return_value = (None, True)
+            mock_get_langfuse_client.return_value = Mock()
             mock_langfuse_upload.return_value = ("test_dataset_id", 9)
 
             filename, file_obj = create_csv_file(valid_csv_content)
@@ -353,14 +353,14 @@ class TestDatasetUploadDuplication:
                 "app.api.routes.evaluation.upload_csv_to_object_store"
             ) as mock_store_upload,
             patch(
-                "app.api.routes.evaluation.configure_langfuse"
-            ) as mock_configure_langfuse,
+                "app.api.routes.evaluation.get_langfuse_client"
+            ) as mock_get_langfuse_client,
             patch(
                 "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
             ) as mock_langfuse_upload,
         ):
             mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
-            mock_configure_langfuse.return_value = (None, True)
+            mock_get_langfuse_client.return_value = Mock()
             mock_langfuse_upload.return_value = ("test_dataset_id", 3)
 
             filename, file_obj = create_csv_file(valid_csv_content)

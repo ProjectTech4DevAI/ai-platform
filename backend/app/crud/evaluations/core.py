@@ -2,12 +2,14 @@ import csv
 import io
 import logging
 
+from fastapi import HTTPException
 from sqlmodel import Session, select
 
-from app.core.util import configure_langfuse, now
+from app.core.util import now
 from app.crud.credentials import get_provider_credential
 from app.models import EvaluationRun, UserProjectOrg
 from app.models.evaluation import DatasetUploadResponse
+from app.utils import get_langfuse_client
 
 logger = logging.getLogger(__name__)
 
@@ -35,20 +37,15 @@ async def upload_dataset_to_langfuse(
         Tuple of (success, dataset_response, error_message)
     """
     try:
-        # Get Langfuse credentials
-        langfuse_credentials = get_provider_credential(
-            session=_session,
-            org_id=_current_user.organization_id,
-            project_id=_current_user.project_id,
-            provider="langfuse",
-        )
-        if not langfuse_credentials:
-            return False, None, "LANGFUSE keys not configured for this organization."
-
-        # Configure Langfuse
-        langfuse, success = configure_langfuse(langfuse_credentials)
-        if not success:
-            return False, None, "Failed to configure Langfuse client."
+        # Get Langfuse client
+        try:
+            langfuse = get_langfuse_client(
+                session=_session,
+                org_id=_current_user.organization_id,
+                project_id=_current_user.project_id,
+            )
+        except HTTPException as http_exc:
+            return False, None, http_exc.detail
 
         # Parse CSV content
         csv_text = csv_content.decode("utf-8")

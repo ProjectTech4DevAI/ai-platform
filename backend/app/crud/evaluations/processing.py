@@ -14,12 +14,12 @@ import logging
 from collections import defaultdict
 from typing import Any
 
+from fastapi import HTTPException
 from langfuse import Langfuse
 from openai import OpenAI
 from sqlmodel import Session, select
 
 from app.core.batch.openai_provider import OpenAIBatchProvider
-from app.core.util import configure_langfuse, configure_openai
 from app.crud.batch_job import get_batch_job
 from app.crud.batch_operations import (
     download_batch_results,
@@ -38,6 +38,7 @@ from app.crud.evaluations.langfuse import (
     update_traces_with_cosine_scores,
 )
 from app.models import EvaluationRun
+from app.utils import get_langfuse_client, get_openai_client
 
 logger = logging.getLogger(__name__)
 
@@ -681,32 +682,30 @@ async def poll_all_pending_evaluations(session: Session, org_id: int) -> dict[st
 
     for project_id, project_runs in evaluations_by_project.items():
         try:
-            # Get credentials for this project
-            openai_credentials = get_provider_credential(
-                session=session,
-                org_id=org_id,
-                project_id=project_id,
-                provider="openai",
-            )
-            langfuse_credentials = get_provider_credential(
-                session=session,
-                org_id=org_id,
-                project_id=project_id,
-                provider="langfuse",
-            )
-
-            if not openai_credentials or not langfuse_credentials:
-                logger.error(
-                    f"[poll_all_pending_evaluations] Missing credentials | org_id={org_id} | project_id={project_id} | openai={bool(openai_credentials)} | langfuse={bool(langfuse_credentials)}"
+            # Get API clients for this project
+            try:
+                openai_client = get_openai_client(
+                    session=session,
+                    org_id=org_id,
+                    project_id=project_id,
                 )
-                # Mark all runs in this project as failed due to missing credentials
+                langfuse = get_langfuse_client(
+                    session=session,
+                    org_id=org_id,
+                    project_id=project_id,
+                )
+            except HTTPException as http_exc:
+                logger.error(
+                    f"[poll_all_pending_evaluations] Failed to get API clients | org_id={org_id} | project_id={project_id} | error={http_exc.detail}"
+                )
+                # Mark all runs in this project as failed due to client configuration error
                 for eval_run in project_runs:
                     # Persist failure status to database
                     update_evaluation_run(
                         session=session,
                         eval_run=eval_run,
                         status="failed",
-                        error_message="Missing OpenAI or Langfuse credentials",
+                        error_message=http_exc.detail,
                     )
 
                     all_results.append(
@@ -714,36 +713,7 @@ async def poll_all_pending_evaluations(session: Session, org_id: int) -> dict[st
                             "run_id": eval_run.id,
                             "run_name": eval_run.run_name,
                             "action": "failed",
-                            "error": "Missing OpenAI or Langfuse credentials",
-                        }
-                    )
-                    total_failed_count += 1
-                continue
-
-            # Configure clients
-            openai_client, openai_success = configure_openai(openai_credentials)
-            langfuse, langfuse_success = configure_langfuse(langfuse_credentials)
-
-            if not openai_success or not langfuse_success:
-                logger.error(
-                    f"[poll_all_pending_evaluations] Failed to configure clients | org_id={org_id} | project_id={project_id}"
-                )
-                # Mark all runs in this project as failed due to client configuration
-                for eval_run in project_runs:
-                    # Persist failure status to database
-                    update_evaluation_run(
-                        session=session,
-                        eval_run=eval_run,
-                        status="failed",
-                        error_message="Failed to configure API clients",
-                    )
-
-                    all_results.append(
-                        {
-                            "run_id": eval_run.id,
-                            "run_name": eval_run.run_name,
-                            "action": "failed",
-                            "error": "Failed to configure API clients",
+                            "error": http_exc.detail,
                         }
                     )
                     total_failed_count += 1

@@ -8,9 +8,7 @@ from fastapi import APIRouter, Body, File, Form, HTTPException, UploadFile
 
 from app.api.deps import AuthContextDep, SessionDep
 from app.core.cloud import get_cloud_storage
-from app.core.util import configure_langfuse, configure_openai
 from app.crud.assistants import get_assistant_by_id
-from app.crud.credentials import get_provider_credential
 from app.crud.evaluations import (
     create_evaluation_dataset,
     create_evaluation_run,
@@ -27,7 +25,7 @@ from app.models.evaluation import (
     DatasetUploadResponse,
     EvaluationRunPublic,
 )
-from app.utils import load_description
+from app.utils import get_langfuse_client, get_openai_client, load_description
 
 logger = logging.getLogger(__name__)
 
@@ -231,23 +229,12 @@ async def upload_dataset(
     # Step 3: Upload to Langfuse
     langfuse_dataset_id = None
     try:
-        # Get Langfuse credentials
-        langfuse_credentials = get_provider_credential(
+        # Get Langfuse client
+        langfuse = get_langfuse_client(
             session=_session,
             org_id=auth_context.organization.id,
             project_id=auth_context.project.id,
-            provider="langfuse",
         )
-        if not langfuse_credentials:
-            raise HTTPException(
-                status_code=400, detail="Langfuse credentials not configured"
-            )
-
-        langfuse, langfuse_success = configure_langfuse(langfuse_credentials)
-        if not langfuse_success:
-            raise HTTPException(
-                status_code=500, detail="Failed to configure Langfuse client"
-            )
 
         # Upload to Langfuse
         langfuse_dataset_id, _ = upload_dataset_to_langfuse_from_csv(
@@ -470,31 +457,17 @@ def evaluate(
 
     dataset_name = dataset.name
 
-    # Get credentials
-    openai_credentials = get_provider_credential(
+    # Get API clients
+    openai_client = get_openai_client(
         session=_session,
         org_id=auth_context.organization.id,
         project_id=auth_context.project.id,
-        provider="openai",
     )
-    langfuse_credentials = get_provider_credential(
+    langfuse = get_langfuse_client(
         session=_session,
         org_id=auth_context.organization.id,
         project_id=auth_context.project.id,
-        provider="langfuse",
     )
-
-    if not openai_credentials or not langfuse_credentials:
-        raise HTTPException(
-            status_code=400, detail="OpenAI or Langfuse credentials not configured"
-        )
-
-    # Configure clients
-    openai_client, openai_success = configure_openai(openai_credentials)
-    langfuse, langfuse_success = configure_langfuse(langfuse_credentials)
-
-    if not openai_success or not langfuse_success:
-        raise HTTPException(status_code=500, detail="Failed to configure API clients")
 
     # Validate dataset has Langfuse ID (should have been set during dataset creation)
     if not dataset.langfuse_dataset_id:
