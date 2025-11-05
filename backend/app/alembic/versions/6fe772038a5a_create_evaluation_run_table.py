@@ -1,18 +1,18 @@
 """create_evaluation_run_table, batch_job_table, and evaluation_dataset_table
 
-Revision ID: d5747495bd7c
-Revises: e7c68e43ce6f
-Create Date: 2025-10-14 12:42:15.464302
+Revision ID: 6fe772038a5a
+Revises: 219033c644de
+Create Date: 2025-11-05 22:47:18.266070
 
 """
+from alembic import op
 import sqlalchemy as sa
 import sqlmodel.sql.sqltypes
-from alembic import op
-from sqlalchemy.dialects import postgresql
+
 
 # revision identifiers, used by Alembic.
-revision = "d5747495bd7c"
-down_revision = "e7c68e43ce6f"
+revision = "6fe772038a5a"
+down_revision = "219033c644de"
 branch_labels = None
 depends_on = None
 
