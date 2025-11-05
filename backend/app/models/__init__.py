@@ -64,6 +64,11 @@ from .fine_tuning import (
 
 from .job import Job, JobType, JobStatus, JobUpdate
 
+from .llm import (
+    LLMCallRequest,
+    LLMCallResponse,
+)
+
 from .message import Message
 from .model_evaluation import (
     ModelEvaluation,

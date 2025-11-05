@@ -7,6 +7,7 @@ from app.api.routes import (
     documents,
     doc_transformation_job,
     login,
+    llm,
     organization,
     openai_conversation,
     project,
@@ -35,6 +36,7 @@ api_router.include_router(cron.router)
 api_router.include_router(documents.router)
 api_router.include_router(doc_transformation_job.router)
 api_router.include_router(evaluation.router)
+api_router.include_router(llm.router)
 api_router.include_router(login.router)
 api_router.include_router(onboarding.router)
 api_router.include_router(openai_conversation.router)

@@ -7,7 +7,6 @@ from openai import OpenAI
 from pydantic import BaseModel, Field
 from sqlmodel import Session
 from typing import Optional
-from langfuse.decorators import observe, langfuse_context
 
 from app.api.deps import get_current_user_org, get_db, get_current_user_org_project
 from app.core import logging, settings
