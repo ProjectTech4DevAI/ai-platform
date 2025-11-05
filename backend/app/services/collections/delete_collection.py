@@ -164,8 +164,6 @@ def execute_job(
 
     try:
         with Session(engine) as session:
-            client = get_openai_client(session, organization_id, project_id)
-
             collection_job_crud = CollectionJobCrud(session, project_id)
             collection_job = collection_job_crud.read_one(job_uuid)
             collection_job = collection_job_crud.update(
@@ -175,6 +173,8 @@ def execute_job(
                     status=CollectionJobStatus.PROCESSING,
                 ),
             )
+
+            client = get_openai_client(session, organization_id, project_id)
 
             collection = CollectionCrud(session, project_id).read_one(collection_id)
 
