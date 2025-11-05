@@ -17,8 +17,11 @@ from app.crud import (
 from app.crud.rag import OpenAIVectorStoreCrud, OpenAIAssistantCrud
 from app.models import (
     CollectionJobStatus,
+    CollectionJob,
     Collection,
     CollectionJobUpdate,
+    CollectionPublic,
+    CollectionJobPublic,
 )
 from app.models.collection import (
     CreationRequest,
@@ -27,12 +30,12 @@ from app.models.collection import (
 from app.services.collections.helpers import (
     _backout,
     batch_documents,
-    SilentCallback,
-    WebHookCallback,
+    extract_error_message,
     OPENAI_VECTOR_STORE,
 )
 from app.celery.utils import start_low_priority_job
-from app.utils import get_openai_client
+from app.utils import get_openai_client, send_callback, APIResponse
+
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +73,95 @@ def start_job(
     return collection_job_id
 
 
+def build_success_payload(
+    collection_job: CollectionJob, collection: Collection
+) -> dict:
+    """
+    {
+      "success": true,
+      "data": { job fields + full collection },
+      "error": null,
+      "metadata": null
+    }
+    """
+    collection_public = CollectionPublic.model_validate(collection)
+    job_public = CollectionJobPublic.model_validate(
+        collection_job,
+        update={"collection": collection_public},
+    )
+    return APIResponse.success_response(job_public).model_dump(
+        mode="json", by_alias=True, exclude_none=True
+    )
+
+
+def build_failure_payload(collection_job: CollectionJob, error_message: str) -> dict:
+    """
+    {
+      "success": false,
+      "data": { job fields, collection: null },
+      "error": "something went wrong",
+      "metadata": null
+    }
+    """
+    # ensure `collection` is explicitly null in the payload
+    job_public = CollectionJobPublic.model_validate(
+        collection_job,
+        update={"collection": None},
+    )
+    return APIResponse.failure_response(
+        extract_error_message(error_message), job_public
+    ).model_dump(
+        mode="json",
+        by_alias=True,
+        exclude={"data": {"error_message"}},
+    )
+
+
+def _cleanup_remote_resources(
+    assistant,
+    assistant_crud,
+    vector_store,
+    vector_store_crud,
+) -> None:
+    """Best-effort cleanup of partially created remote resources."""
+    try:
+        if assistant is not None and assistant_crud is not None:
+            _backout(assistant_crud, assistant.id)
+        elif vector_store is not None and vector_store_crud is not None:
+            _backout(vector_store_crud, vector_store.id)
+        else:
+            logger.warning(
+                "[create_collection._backout] Skipping: no resource/crud available"
+            )
+    except Exception:
+        logger.warning("[create_collection.execute_job] Backout failed")
+
+
+def _mark_job_failed(
+    project_id: int,
+    job_id: str,
+    err: Exception,
+    collection_job: CollectionJob | None,
+) -> CollectionJob | None:
+    """Update job row to FAILED with error_message; return latest job or None."""
+    try:
+        with Session(engine) as session:
+            collection_job_crud = CollectionJobCrud(session, project_id)
+            if collection_job is None:
+                collection_job = collection_job_crud.read_one(UUID(job_id))
+            collection_job = collection_job_crud.update(
+                collection_job.id,
+                CollectionJobUpdate(
+                    status=CollectionJobStatus.FAILED,
+                    error_message=str(err),
+                ),
+            )
+            return collection_job
+    except Exception:
+        logger.warning("[create_collection.execute_job] Failed to mark job as FAILED")
+        return None
+
+
 def execute_job(
     request: dict,
     project_id: int,
@@ -98,7 +190,6 @@ def execute_job(
         creation_request = CreationRequest(**request)
         job_uuid = UUID(job_id)
 
-        #  Phase 1: DB setup, job -> PROCESSING, clients, batching
         with Session(engine) as session:
             collection_job_crud = CollectionJobCrud(session, project_id)
             collection_job = collection_job_crud.read_one(job_uuid)
@@ -122,16 +213,8 @@ def execute_job(
             )
             flat_docs = [doc for batch in docs_batches for doc in batch]
 
-            callback = (
-                SilentCallback(collection_job)
-                if not creation_request.callback_url
-                else WebHookCallback(creation_request.callback_url, collection_job)
-            )
-
-        #  Phase 2: Create vector store and upload all batches
         vector_store_crud = OpenAIVectorStoreCrud(client)
         vector_store = vector_store_crud.create()
-        # Update returns a generator; iterating ensures uploads are performed
         list(vector_store_crud.update(vector_store.id, storage, docs_batches))
 
         #  if with_assistant is true, create assistant backed by the vector store
@@ -163,13 +246,11 @@ def execute_job(
                 "[execute_job] Skipping assistant creation | with_assistant=False"
             )
 
-        # metrics for logging (file types and sizes)
         file_exts = {doc.fname.split(".")[-1] for doc in flat_docs if "." in doc.fname}
         file_sizes_kb = [
             storage.get_file_size_kb(doc.object_store_url) for doc in flat_docs
         ]
 
-        # Phase 3: Persist collection + link docs + mark job SUCCESS
         with Session(engine) as session:
             collection_crud = CollectionCrud(session, project_id)
 
@@ -189,7 +270,7 @@ def execute_job(
                 DocumentCollectionCrud(session).create(collection, flat_docs)
 
             collection_job_crud = CollectionJobCrud(session, project_id)
-            collection_job_crud.update(
+            collection_job = collection_job_crud.update(
                 collection_job.id,
                 CollectionJobUpdate(
                     status=CollectionJobStatus.SUCCESSFUL,
@@ -197,7 +278,7 @@ def execute_job(
                 ),
             )
 
-            success_payload = collection.model_dump(mode="json")
+            success_payload = build_success_payload(collection_job, collection)
 
         elapsed = time.time() - start_time
         logger.info(
@@ -209,8 +290,8 @@ def execute_job(
             list(file_exts),
         )
 
-        if callback:
-            callback.success(success_payload)
+        if creation_request.callback_url:
+            send_callback(creation_request.callback_url, success_payload)
 
     except Exception as err:
         logger.error(
@@ -220,35 +301,20 @@ def execute_job(
             exc_info=True,
         )
 
-        # Best-effort cleanup of partially created remote resources when the job has failed
-        try:
-            if assistant is not None and assistant_crud is not None:
-                _backout(assistant_crud, assistant.id)
-            elif vector_store is not None and vector_store_crud is not None:
-                _backout(vector_store_crud, vector_store.id)
-            else:
-                logger.warning(
-                    "[create_collection._backout] Skipping: no resource/crud available"
-                )
-        except Exception:
-            logger.warning("[create_collection.execute_job] Backout failed")
+        _cleanup_remote_resources(
+            assistant=assistant,
+            assistant_crud=assistant_crud,
+            vector_store=vector_store,
+            vector_store_crud=vector_store_crud,
+        )
 
-        try:
-            with Session(engine) as session:
-                collection_job_crud = CollectionJobCrud(session, project_id)
-                if collection_job is None:
-                    collection_job = collection_job_crud.read_one(UUID(job_id))
-                collection_job_crud.update(
-                    collection_job.id,
-                    CollectionJobUpdate(
-                        status=CollectionJobStatus.FAILED,
-                        error_message=str(err),
-                    ),
-                )
-        except Exception:
-            logger.warning(
-                "[create_collection.execute_job] Failed to mark job as FAILED"
-            )
+        collection_job = _mark_job_failed(
+            project_id=project_id,
+            job_id=job_id,
+            err=err,
+            collection_job=collection_job,
+        )
 
-        if callback:
-            callback.fail(str(err))
+        if creation_request and creation_request.callback_url and collection_job:
+            failure_payload = build_failure_payload(collection_job, str(err))
+            send_callback(creation_request.callback_url, failure_payload)

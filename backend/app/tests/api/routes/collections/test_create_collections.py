@@ -4,7 +4,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
-from app.models import CollectionJobStatus, CollectionActionType
+from app.models import CollectionJobStatus
 from app.models.collection import CreationRequest
 
 
@@ -29,7 +29,7 @@ def test_collection_creation_with_assistant_calls_start_job_and_returns_job(
     )
 
     resp = client.post(
-        f"{settings.API_V1_STR}/collections/create",
+        f"{settings.API_V1_STR}/collections",
         json=creation_data.model_dump(mode="json"),
         headers=user_api_key_header,
     )
@@ -38,13 +38,9 @@ def test_collection_creation_with_assistant_calls_start_job_and_returns_job(
     body = resp.json()
 
     data = body["data"]
-    print("data body = ", data)
-    assert data["action_type"] == CollectionActionType.CREATE
     assert data["status"] == CollectionJobStatus.PENDING
-    assert data["collection_id"] is None
-    assert data["collection"] is None
-    assert data["inserted_at"]
-    assert data["updated_at"]
+    assert data["job_inserted_at"]
+    assert data["job_updated_at"]
 
     assert _extract_metadata(body) in (None, {})
 
@@ -78,7 +74,7 @@ def test_collection_creation_vector_only_adds_metadata_and_sets_with_assistant_f
     )
 
     resp = client.post(
-        f"{settings.API_V1_STR}/collections/create",
+        f"{settings.API_V1_STR}/collections",
         json=creation_data.model_dump(mode="json"),
         headers=user_api_key_header,
     )
@@ -87,12 +83,10 @@ def test_collection_creation_vector_only_adds_metadata_and_sets_with_assistant_f
     body = resp.json()
 
     data = body["data"]
-    assert data["action_type"] == CollectionActionType.CREATE
     assert data["status"] == CollectionJobStatus.PENDING
 
     meta = _extract_metadata(body)
     assert isinstance(meta, dict)
-    assert meta.get("with_assistant") is False
     assert "vector store only" in meta.get("note", "").lower()
 
     mock_start_job.assert_called_once()
@@ -118,7 +112,7 @@ def test_collection_creation_vector_only_request_validation_error(
     }
 
     resp = client.post(
-        f"{settings.API_V1_STR}/collections/create",
+        f"{settings.API_V1_STR}/collections",
         json=payload,
         headers=user_api_key_header,
     )

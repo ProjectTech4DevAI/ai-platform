@@ -83,57 +83,6 @@ def test_batch_documents_empty_input():
     assert crud.calls == []
 
 
-def test_silent_callback_is_noop():
-    job = SimpleNamespace(id=uuid4())
-    cb = helpers.SilentCallback(job)
-    cb.success({"ok": True})
-    cb.fail("oops")
-
-
-def test_webhook_callback_success_posts(monkeypatch):
-    job = SimpleNamespace(id=uuid4())
-    url = "https://example.com/hook"
-    sent = {}
-
-    def fake_post_callback(u, response):
-        sent["url"] = u
-        sent["response"] = response
-
-    monkeypatch.setattr(helpers, "post_callback", fake_post_callback)
-
-    cb = helpers.WebHookCallback(url=url, collection_job=job)
-    payload = {"collection_id": "abc123", "deleted": True}
-    cb.success(payload)
-
-    assert sent["url"] == url
-    assert isinstance(sent["response"], helpers.APIResponse)
-    assert getattr(sent["response"], "data", None) == payload
-    assert getattr(sent["response"], "success", True) is True
-
-
-def test_webhook_callback_fail_posts_with_job_id(monkeypatch):
-    job_id = uuid4()
-    job = SimpleNamespace(id=job_id)
-    url = "https://example.com/hook"
-    sent = {}
-
-    def fake_post_callback(u, response):
-        sent["url"] = u
-        sent["response"] = response
-
-    monkeypatch.setattr(helpers, "post_callback", fake_post_callback)
-
-    cb = helpers.WebHookCallback(url=url, collection_job=job)
-    cb.fail("boom")
-
-    assert sent["url"] == url
-    assert isinstance(sent["response"], helpers.APIResponse)
-    assert getattr(sent["response"], "success", False) is False
-    meta = getattr(sent["response"], "metadata", {}) or {}
-    assert meta.get("collection_job_id") == str(job_id)
-    assert "boom" in (getattr(sent["response"], "error", "") or "")
-
-
 # _backout
 
 

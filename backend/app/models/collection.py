@@ -6,6 +6,7 @@ from sqlmodel import Field, Relationship, SQLModel
 from pydantic import HttpUrl, model_validator
 
 from app.core.util import now
+from app.models.document import DocumentPublic
 from .organization import Organization
 from .project import Project
 
@@ -36,7 +37,7 @@ class Collection(SQLModel, table=True):
     project: Project = Relationship(back_populates="collections")
 
 
-# pydantic models -
+# Request models
 class DocumentOptions(SQLModel):
     documents: list[UUID] = Field(
         description="List of document IDs",
@@ -132,6 +133,13 @@ class DeletionRequest(CallbackRequest):
     collection_id: UUID = Field(description="Collection to delete")
 
 
+# Response models
+
+
+class CollectionIDPublic(SQLModel):
+    id: UUID
+
+
 class CollectionPublic(SQLModel):
     id: UUID
     llm_service_id: str
@@ -142,3 +150,7 @@ class CollectionPublic(SQLModel):
     inserted_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None
+
+
+class CollectionWithDocsPublic(CollectionPublic):
+    documents: list[DocumentPublic] | None = None
