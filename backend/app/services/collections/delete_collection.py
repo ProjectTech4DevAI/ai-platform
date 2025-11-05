@@ -181,14 +181,13 @@ def execute_job(
             # Identify which external service (assistant/vector store) this collection belongs to
             service = (collection.llm_service_name or "").strip().lower()
             is_vector = service == OPENAI_VECTOR_STORE
-
             llm_service_id = collection.llm_service_id
 
             # Delete the corresponding OpenAI resource (vector store or assistant)
-            if is_vector:
-                OpenAIVectorStoreCrud(client).delete(llm_service_id)
-            else:
-                OpenAIAssistantCrud(client).delete(llm_service_id)
+        if is_vector:
+            OpenAIVectorStoreCrud(client).delete(llm_service_id)
+        else:
+            OpenAIAssistantCrud(client).delete(llm_service_id)
 
             with Session(engine) as session:
                 CollectionCrud(session, project_id).delete_by_id(collection_id)
