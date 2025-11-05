@@ -11,6 +11,7 @@ import emails
 from jinja2 import Template
 from jwt.exceptions import InvalidTokenError
 from fastapi import HTTPException
+from langfuse import Langfuse
 import openai
 from openai import OpenAI
 from pydantic import BaseModel
@@ -203,6 +204,36 @@ def get_openai_client(session: Session, org_id: int, project_id: int) -> OpenAI:
             status_code=500,
             detail=f"Failed to configure OpenAI client: {str(e)}",
         )
+
+
+def get_langfuse_client(
+    session: Session, org_id: int, project_id: int
+) -> Langfuse | None:
+    """
+    Fetch Langfuse credentials for the current org/project and return a configured client.
+    """
+    credentials = get_provider_credential(
+        session=session,
+        org_id=org_id,
+        provider="langfuse",
+        project_id=project_id,
+    )
+
+    has_credentials = (
+        credentials
+        and "public_key" in credentials
+        and "secret_key" in credentials
+        and "host" in credentials
+    )
+
+    if has_credentials:
+        return Langfuse(
+            public_key=credentials["public_key"],
+            secret_key=credentials["secret_key"],
+            host=credentials["host"],
+        )
+
+    return None
 
 
 def handle_openai_error(e: openai.OpenAIError) -> str:
