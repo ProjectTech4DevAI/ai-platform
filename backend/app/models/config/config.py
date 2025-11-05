@@ -67,3 +67,7 @@ class ConfigPublic(ConfigBase):
 
 class ConfigWithVersion(ConfigPublic):
     version: ConfigVersionPublic
+
+
+class ConfigWithVersions(ConfigPublic):
+    versions: list[ConfigVersionPublic]

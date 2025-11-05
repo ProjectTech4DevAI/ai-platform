@@ -75,8 +75,50 @@ class ConfigCrud:
                 exc_info=True,
             )
             raise HTTPException(
-                status_code=500, detail=f"Unexpected error occurred: failed to create config"
+                status_code=500,
+                detail=f"Unexpected error occurred: failed to create config",
             )
+
+    def read_one(self, config_id: UUID) -> Config | None:
+        statement = select(Config).where(
+            and_(
+                Config.id == config_id,
+                Config.project_id == self.project_id,
+                Config.deleted_at.is_(None),
+            )
+        )
+        return self.session.exec(statement).one_or_none()
+
+    def read_all(self, skip: int = 0, limit: int = 100) -> list[Config]:
+        statement = (
+            select(Config)
+            .where(
+                and_(
+                    Config.project_id == self.project_id,
+                    Config.deleted_at.is_(None),
+                )
+            )
+            .offset(skip)
+            .limit(limit)
+        )
+        return self.session.exec(statement).all()
+
+    def delete(self, config_id: UUID) -> None:
+        config = self.read_one(config_id)
+        if config is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"config with id '{config_id}' not found",
+            )
+
+        config.deleted_at = now()
+        self.session.add(config)
+        self.session.commit()
+        self.session.refresh(config)
+
+    def exists(self, config_id: UUID) -> bool:
+        config = self.read_one(config_id)
+        return config is not None
 
     def _get_by_name(self, name: str) -> Config | None:
         statement = select(Config).where(

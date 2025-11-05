@@ -38,7 +38,9 @@ class ConfigVersion(ConfigVersionBase, table=True):
         nullable=False,
         ondelete="CASCADE",
     )
-    version: int = Field(nullable=False, description="Version number starting at 1")
+    version: int = Field(
+        nullable=False, description="Version number starting at 1", ge=1
+    )
 
     inserted_at: datetime = Field(default_factory=now, nullable=False)
     updated_at: datetime = Field(default_factory=now, nullable=False)
@@ -46,7 +48,7 @@ class ConfigVersion(ConfigVersionBase, table=True):
     deleted_at: datetime | None = Field(default=None, nullable=True)
 
 
-class ConfigVersionCreate(SQLModel):
+class ConfigVersionCreate(ConfigVersionBase):
     config_json: dict[str, Any]
     commit_message: str | None = Field(
         default=None,

@@ -41,3 +41,70 @@ def create_config_route(
         data=response,
     )
 
+
+@router.get(
+    "/",
+    response_model=APIResponse[list[ConfigPublic]],
+    status_code=200,
+    dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
+)
+def list_configs_route(
+    current_user: AuthContextDep,
+    session: SessionDep,
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(100, ge=1, le=100, description="Maximum records to return"),
+):
+    """
+    List all configurations for the current project.
+    """
+
+    # Decide how to handle pagination effectively
+    config_crud = ConfigCrud(session=session, project_id=current_user.project.id)
+    configs = config_crud.read_all(skip=skip, limit=limit)
+    return APIResponse.success_response(
+        data=configs,
+    )
+
+
+@router.get(
+    "/{config_id}",
+    response_model=APIResponse[ConfigWithVersion],
+    status_code=200,
+    dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
+)
+def get_config_route(
+    config_id: UUID,
+    current_user: AuthContextDep,
+    session: SessionDep,
+):
+    """
+    Get a specific configuration by ID.
+    """
+    # Decide how to handle fetching versions
+    # should we fetch all versions at /{config_id}/versions and donot include here?
+    config_crud = ConfigCrud(session=session, project_id=current_user.project.id)
+    config = config_crud.read_one(config_id=config_id)
+
+    pass
+
+
+@router.delete(
+    "/{config_id}",
+    response_model=APIResponse[Message],
+    status_code=200,
+    dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
+)
+def delete_config_route(
+    config_id: UUID,
+    current_user: AuthContextDep,
+    session: SessionDep,
+):
+    """
+    Delete a specific configuration.
+    """
+    config_crud = ConfigCrud(session=session, project_id=current_user.project.id)
+    config_crud.delete(config_id=config_id)
+
+    return APIResponse.success_response(
+        data=Message(message="Config deleted successfully"),
+    )
