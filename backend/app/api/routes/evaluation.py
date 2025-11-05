@@ -311,7 +311,7 @@ async def upload_dataset(
     description=load_description("evaluation/list_datasets.md"),
     response_model=list[DatasetUploadResponse],
 )
-async def list_datasets_endpoint(
+def list_datasets_endpoint(
     _session: SessionDep,
     auth_context: AuthContextDep,
     limit: int = 50,
@@ -354,7 +354,7 @@ async def list_datasets_endpoint(
     description=load_description("evaluation/get_dataset.md"),
     response_model=DatasetUploadResponse,
 )
-async def get_dataset(
+def get_dataset(
     dataset_id: int,
     _session: SessionDep,
     auth_context: AuthContextDep,
@@ -392,7 +392,7 @@ async def get_dataset(
     "/evaluations/datasets/{dataset_id}",
     description=load_description("evaluation/delete_dataset.md"),
 )
-async def delete_dataset(
+def delete_dataset(
     dataset_id: int,
     _session: SessionDep,
     auth_context: AuthContextDep,
@@ -426,7 +426,7 @@ async def delete_dataset(
     description=load_description("evaluation/create_evaluation.md"),
     response_model=EvaluationRunPublic,
 )
-async def evaluate(
+def evaluate(
     _session: SessionDep,
     auth_context: AuthContextDep,
     dataset_id: int = Body(..., description="ID of the evaluation dataset"),
@@ -597,7 +597,7 @@ async def evaluate(
     description=load_description("evaluation/list_evaluations.md"),
     response_model=list[EvaluationRunPublic],
 )
-async def list_evaluation_runs(
+def list_evaluation_runs(
     _session: SessionDep,
     auth_context: AuthContextDep,
     limit: int = 50,
@@ -623,7 +623,7 @@ async def list_evaluation_runs(
     description=load_description("evaluation/get_evaluation.md"),
     response_model=EvaluationRunPublic,
 )
-async def get_evaluation_run_status(
+def get_evaluation_run_status(
     evaluation_id: int,
     _session: SessionDep,
     auth_context: AuthContextDep,
