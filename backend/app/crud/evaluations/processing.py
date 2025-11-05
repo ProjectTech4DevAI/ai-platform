@@ -25,7 +25,6 @@ from app.crud.batch_operations import (
     download_batch_results,
     upload_batch_results_to_object_store,
 )
-from app.crud.credentials import get_provider_credential
 from app.crud.evaluations.batch import fetch_dataset_items
 from app.crud.evaluations.core import update_evaluation_run
 from app.crud.evaluations.embeddings import (

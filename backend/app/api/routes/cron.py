@@ -1,10 +1,12 @@
 import logging
 
+from app.api.permissions import Permission, require_permission
 from fastapi import APIRouter, Depends
 from sqlmodel import Session
 
-from app.api.deps import get_current_active_superuser, get_db
+from app.api.deps import SessionDep, AuthContextDep
 from app.crud.evaluations import process_all_pending_evaluations_sync
+from app.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -13,11 +15,11 @@ router = APIRouter(tags=["cron"])
 
 @router.get(
     "/cron/evaluations",
-    include_in_schema=True,
-    dependencies=[Depends(get_current_active_superuser)],
+    include_in_schema=False,
+    dependencies=[Depends(require_permission(Permission.SUPERUSER))],
 )
 def evaluation_cron_job(
-    session: Session = Depends(get_db),
+    session: SessionDep,
 ) -> dict:
     """
     Cron job endpoint for periodic evaluation tasks.

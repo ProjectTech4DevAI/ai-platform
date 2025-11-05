@@ -6,7 +6,6 @@ from fastapi import HTTPException
 from sqlmodel import Session, select
 
 from app.core.util import now
-from app.crud.credentials import get_provider_credential
 from app.models import EvaluationRun, UserProjectOrg
 from app.models.evaluation import DatasetUploadResponse
 from app.utils import get_langfuse_client
