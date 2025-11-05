@@ -2,7 +2,7 @@
 name = "app"
 version = "0.1.0"
 description = ""
-requires-python = ">=3.11,<4.0"
+requires-python = ">=3.12,<4.0"
 dependencies = [
     "fastapi[standard]<1.0.0,>=0.114.2",
     "python-multipart<1.0.0,>=0.0.7",
@@ -23,11 +23,11 @@ dependencies = [
     "pyjwt<3.0.0,>=2.8.0",
     "boto3>=1.37.20",
     "moto[s3]>=5.1.1",
-    "openai>=1.67.0",
+    "openai>=1.100.1",
     "pytest>=7.4.4",
     "pre-commit>=3.8.0",
     "openai_responses",
-    "langfuse>=2.60.3",
+    "langfuse==2.60.3",
     "asgi-correlation-id>=4.3.4",
     "py-zerox>=0.0.7,<1.0.0",
     "pandas>=2.3.2",
@@ -59,7 +59,7 @@ strict = true
 exclude = ["venv", ".venv", "alembic"]
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py312"
 exclude = ["alembic"]
 
 [tool.ruff.lint]

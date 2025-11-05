@@ -58,8 +58,16 @@ def mock_openai_response(
     text: str = "Hello world",
     previous_response_id: str | None = None,
     model: str = "gpt-4",
+    conversation_id: str | None = None,
 ) -> SimpleNamespace:
-    """Return a minimal mock OpenAI-like response object for testing."""
+    """Return a minimal mock OpenAI-like response object for testing.
+
+    Args:
+        text: The response text
+        previous_response_id: Optional previous response ID
+        model: Model name
+        conversation_id: Optional conversation ID. If provided, adds conversation object to response.
+    """
 
     usage = SimpleNamespace(
         input_tokens=10,
@@ -74,6 +82,10 @@ def mock_openai_response(
         content=[{"type": "output_text", "text": text}],
     )
 
+    conversation = None
+    if conversation_id:
+        conversation = SimpleNamespace(id=conversation_id)
+
     response = SimpleNamespace(
         id=generate_openai_id("resp_"),
         created_at=int(time.time()),
@@ -83,6 +95,18 @@ def mock_openai_response(
         output_text=text,
         usage=usage,
         previous_response_id=previous_response_id,
+        conversation=conversation,
+        model_dump=lambda: {
+            "id": response.id,
+            "model": model,
+            "output_text": text,
+            "usage": {
+                "input_tokens": 10,
+                "output_tokens": 20,
+                "total_tokens": 30,
+            },
+            "conversation": {"id": conversation_id} if conversation_id else None,
+        },
     )
     return response
 
