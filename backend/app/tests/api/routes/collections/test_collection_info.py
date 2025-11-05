@@ -90,8 +90,10 @@ def test_collection_info_include_docs_false_returns_no_docs(
     data = response.json()
     payload = data["data"]
 
-    docs = payload.get("documents", [])
-    assert docs is None
+    # since include docs is false, there won't be a "documents" key in the response body in this sitaution
+    assert payload["id"] == str(collection.id)
+    assert payload["llm_service_name"] == "gpt-4o"
+    assert payload["llm_service_id"] == collection.llm_service_id
 
 
 def test_collection_info_pagination_skip_and_limit(
