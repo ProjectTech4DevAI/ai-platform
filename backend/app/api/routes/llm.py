@@ -35,7 +35,7 @@ def llm_callback_notification(body: APIResponse[LLMCallResponse]):
     response_model=APIResponse[Message],
     callbacks=llm_callback_router.routes,
 )
-async def llm_call(
+def llm_call(
     _current_user: AuthContextDep, _session: SessionDep, request: LLMCallRequest
 ):
     """

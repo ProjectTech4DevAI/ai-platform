@@ -42,6 +42,22 @@ from .doc_transformation_job import (
 )
 from .document_collection import DocumentCollection
 
+from .batch_job import (
+    BatchJob,
+    BatchJobCreate,
+    BatchJobPublic,
+    BatchJobUpdate,
+)
+
+from .evaluation import (
+    EvaluationDataset,
+    EvaluationDatasetCreate,
+    EvaluationDatasetPublic,
+    EvaluationRun,
+    EvaluationRunCreate,
+    EvaluationRunPublic,
+)
+
 from .fine_tuning import (
     FineTuningJobBase,
     Fine_Tuning,

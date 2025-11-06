@@ -18,6 +18,8 @@ from app.api.routes import (
     utils,
     onboarding,
     credentials,
+    cron,
+    evaluation,
     fine_tuning,
     model_evaluation,
     collection_job,
@@ -30,8 +32,10 @@ api_router.include_router(assistants.router)
 api_router.include_router(collections.router)
 api_router.include_router(collection_job.router)
 api_router.include_router(credentials.router)
+api_router.include_router(cron.router)
 api_router.include_router(documents.router)
 api_router.include_router(doc_transformation_job.router)
+api_router.include_router(evaluation.router)
 api_router.include_router(llm.router)
 api_router.include_router(login.router)
 api_router.include_router(onboarding.router)

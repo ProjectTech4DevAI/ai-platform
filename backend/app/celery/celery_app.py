@@ -1,5 +1,6 @@
 from celery import Celery
-from kombu import Queue, Exchange
+from kombu import Exchange, Queue
+
 from app.core.config import settings
 
 # Create Celery instance
@@ -7,7 +8,9 @@ celery_app = Celery(
     "ai_platform",
     broker=settings.RABBITMQ_URL,
     backend=settings.REDIS_URL,
-    include=["app.celery.tasks.job_execution"],
+    include=[
+        "app.celery.tasks.job_execution",
+    ],
 )
 
 # Define exchanges and queues with priority
@@ -82,14 +85,6 @@ celery_app.conf.update(
     # Connection settings from environment
     broker_connection_retry_on_startup=True,
     broker_pool_limit=settings.CELERY_BROKER_POOL_LIMIT,
-    # Beat configuration (for future cron jobs)
-    beat_schedule={
-        # Example cron job (commented out)
-        # "example-cron": {
-        #     "task": "app.celery.tasks.example_cron_task",
-        #     "schedule": 60.0,  # Every 60 seconds
-        # },
-    },
 )
 
 # Auto-discover tasks
