@@ -206,9 +206,7 @@ def get_openai_client(session: Session, org_id: int, project_id: int) -> OpenAI:
         )
 
 
-def get_langfuse_client(
-    session: Session, org_id: int, project_id: int
-) -> Langfuse | None:
+def get_langfuse_client(session: Session, org_id: int, project_id: int) -> Langfuse:
     """
     Fetch Langfuse credentials for the current org/project and return a configured client.
     """
@@ -219,21 +217,32 @@ def get_langfuse_client(
         project_id=project_id,
     )
 
-    has_credentials = (
-        credentials
-        and "public_key" in credentials
-        and "secret_key" in credentials
-        and "host" in credentials
-    )
+    if not credentials or not all(
+        key in credentials for key in ["public_key", "secret_key", "host"]
+    ):
+        logger.error(
+            f"[get_langfuse_client] Langfuse credentials not found or incomplete. | project_id: {project_id}"
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="Langfuse credentials not configured for this organization/project.",
+        )
 
-    if has_credentials:
+    try:
         return Langfuse(
             public_key=credentials["public_key"],
             secret_key=credentials["secret_key"],
             host=credentials["host"],
         )
-
-    return None
+    except Exception as e:
+        logger.error(
+            f"[get_langfuse_client] Failed to configure Langfuse client. | project_id: {project_id} | error: {str(e)}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to configure Langfuse client: {str(e)}",
+        )
 
 
 def handle_openai_error(e: openai.OpenAIError) -> str:

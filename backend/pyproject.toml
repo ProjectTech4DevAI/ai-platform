@@ -31,6 +31,7 @@ dependencies = [
     "asgi-correlation-id>=4.3.4",
     "py-zerox>=0.0.7,<1.0.0",
     "pandas>=2.3.2",
+    "numpy>=1.24.0",
     "scikit-learn>=1.7.1",
     "celery>=5.3.0,<6.0.0",
     "redis>=5.0.0,<6.0.0",

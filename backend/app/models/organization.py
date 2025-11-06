@@ -1,16 +1,16 @@
 from datetime import datetime
-from typing import List, TYPE_CHECKING
+from typing import TYPE_CHECKING
+
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.core.util import now
 
 if TYPE_CHECKING:
-    from .credentials import Credential
-    from .project import Project
-    from .api_key import APIKey
     from .assistants import Assistant
     from .collection import Collection
+    from .credentials import Credential
     from .openai_conversation import OpenAIConversation
+    from .project import Project
 
 
 # Shared properties for an Organization
