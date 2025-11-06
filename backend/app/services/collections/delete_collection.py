@@ -99,7 +99,6 @@ def build_failure_payload(
 def _mark_job_failed_and_callback(
     *,
     project_id: int,
-    collection_job: CollectionJob,
     collection_id: UUID,
     job_id: UUID,
     err: Exception,
@@ -115,13 +114,13 @@ def _mark_job_failed_and_callback(
         with Session(engine) as session:
             collection_job_crud = CollectionJobCrud(session, project_id)
             collection_job_crud.update(
-                collection_job.id,
+                job_id,
                 CollectionJobUpdate(
                     status=CollectionJobStatus.FAILED,
                     error_message=str(err),
                 ),
             )
-            collection_job = collection_job_crud.read_one(collection_job.id)
+            collection_job = collection_job_crud.read_one(job_id)
     except Exception:
         logger.warning("[delete_collection.execute_job] Failed to mark job as FAILED")
 
@@ -218,7 +217,6 @@ def execute_job(
     except Exception as err:
         _mark_job_failed_and_callback(
             project_id=project_id,
-            collection_job=collection_job,
             collection_id=collection_id,
             job_id=job_uuid,
             err=err,
