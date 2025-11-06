@@ -1,24 +1,31 @@
 import uuid
+from typing import Optional
 
 from fastapi.testclient import TestClient
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.core.config import settings
 from app.tests.utils.utils import get_project, get_document
 from app.tests.utils.collection import get_collection, get_vector_store_collection
 from app.crud import DocumentCollectionCrud
-from app.models import Collection
+from app.models import Collection, Document
 
 
-def link_document_to_collection(db: Session, collection: Collection):
+def link_document_to_collection(
+    db: Session,
+    collection: Collection,
+    document: Optional[Document] = None,
+):
     """
     Utility used in tests to associate a Document with a Collection so that
     DocumentCollectionCrud.read(...) will return something.
 
-    This uses your `get_document` helper and the real DocumentCollectionCrud.create
-    signature: (collection, documents).
+    If you have not given documents to this function then this uses your `get_document` helper
+    to provide documents to the DocumentCollectionCrud.create.
     """
-    document = get_document(db)
+
+    if document is None:
+        document = get_document(db)
 
     crud = DocumentCollectionCrud(db)
     crud.create(collection, [document])
@@ -90,7 +97,9 @@ def test_collection_info_include_docs_false_returns_no_docs(
     data = response.json()
     payload = data["data"]
 
-    # since include docs is false, there won't be a "documents" key in the response body in this sitaution
+    # since include_docs is false, there won't be a "documents" key in the response body in this sitaution
+    assert "documents" not in payload
+
     assert payload["id"] == str(collection.id)
     assert payload["llm_service_name"] == "gpt-4o"
     assert payload["llm_service_id"] == collection.llm_service_id
@@ -105,10 +114,18 @@ def test_collection_info_pagination_skip_and_limit(
     Verify skip & limit are passed through to DocumentCollectionCrud.read.
     We create multiple document links and then request a paginated slice.
     """
+    # Arrange: get a project and collection
     project = get_project(db, "Dalgo")
     collection = get_collection(db, project)
 
-    _docs = [link_document_to_collection(db, collection) for _ in range(3)]
+    # Arrange: get 3 distinct, non-deleted documents
+    documents = db.exec(
+        select(Document).where(Document.deleted_at.is_(None)).limit(3)
+    ).all()
+
+    assert len(documents) >= 2, "Test requires at least three documents in the DB"
+
+    DocumentCollectionCrud(db).create(collection, documents)
 
     response = client.get(
         f"{settings.API_V1_STR}/collections/{collection.id}",

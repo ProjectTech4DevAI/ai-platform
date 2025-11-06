@@ -189,32 +189,31 @@ def execute_job(
         else:
             OpenAIAssistantCrud(client).delete(llm_service_id)
 
-            with Session(engine) as session:
-                CollectionCrud(session, project_id).delete_by_id(collection_id)
+        with Session(engine) as session:
+            CollectionCrud(session, project_id).delete_by_id(collection_id)
 
-                collection_job_crud = CollectionJobCrud(session, project_id)
-                collection_job_crud.update(
-                    collection_job.id,
-                    CollectionJobUpdate(
-                        status=CollectionJobStatus.SUCCESSFUL,
-                        error_message=None,
-                    ),
-                )
-                collection_job = collection_job_crud.read_one(collection_job.id)
-
-            logger.info(
-                "[delete_collection.execute_job] Collection deleted successfully | "
-                "{'collection_id': '%s', 'job_id': '%s'}",
-                str(collection_id),
-                str(job_uuid),
+            collection_job_crud = CollectionJobCrud(session, project_id)
+            collection_job_crud.update(
+                collection_job.id,
+                CollectionJobUpdate(
+                    status=CollectionJobStatus.SUCCESSFUL,
+                    error_message=None,
+                ),
             )
+            collection_job = collection_job_crud.read_one(collection_job.id)
 
-            if deletion_request.callback_url and collection_job:
-                success_payload = build_success_payload(
-                    collection_job=collection_job,
-                    collection_id=collection_id,
-                )
-                send_callback(deletion_request.callback_url, success_payload)
+        logger.info(
+            "[delete_collection.execute_job] Collection deleted successfully | "
+            "{'collection_id': '%s', 'job_id': '%s'}",
+            str(collection_id),
+            str(job_uuid),
+        )
+        if deletion_request.callback_url and collection_job:
+            success_payload = build_success_payload(
+                collection_job=collection_job,
+                collection_id=collection_id,
+            )
+            send_callback(deletion_request.callback_url, success_payload)
 
     except Exception as err:
         _mark_job_failed_and_callback(
