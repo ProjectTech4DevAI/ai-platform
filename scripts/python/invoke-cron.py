@@ -15,8 +15,6 @@ import httpx
 from dotenv import load_dotenv
 
 # Configuration
-INTERVAL_MINUTES = 1  # How often to invoke the endpoint
-BASE_URL = "http://localhost:8000"  # Base URL of the API
 ENDPOINT = "/api/v1/cron/evaluations"  # Endpoint to invoke
 REQUEST_TIMEOUT = 30  # Timeout for requests in seconds
 
@@ -32,9 +30,14 @@ class EndpointInvoker:
     """Handles periodic endpoint invocation with authentication."""
 
     def __init__(self):
-        self.base_url = BASE_URL.rstrip("/")
+        # Load BASE_URL from environment with default fallback
+        base_url = os.getenv("API_BASE_URL", "http://localhost:8000")
+        self.base_url = base_url.rstrip("/")
         self.endpoint = ENDPOINT
-        self.interval_seconds = INTERVAL_MINUTES * 60
+
+        # Load interval from environment with default of 5 minutes
+        self.interval_minutes = int(os.getenv("CRON_INTERVAL_MINUTES", "5"))
+        self.interval_seconds = self.interval_minutes * 60
         self.access_token = None
         self.token_expiry = None
 
@@ -127,8 +130,9 @@ class EndpointInvoker:
 
     async def run(self):
         """Main loop to invoke endpoint periodically."""
+        logger.info(f"Using API Base URL: {self.base_url}")
         logger.info(
-            f"Starting cron job - invoking {self.endpoint} every {INTERVAL_MINUTES} minutes"
+            f"Starting cron job - invoking {self.endpoint} every {self.interval_minutes} minutes"
         )
 
         # Use async context manager to ensure proper cleanup
