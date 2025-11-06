@@ -110,6 +110,7 @@ def _mark_job_failed_and_callback(
     - log error
     - send failure callback (if configured)
     """
+    collection_job = None
     try:
         with Session(engine) as session:
             collection_job_crud = CollectionJobCrud(session, project_id)
