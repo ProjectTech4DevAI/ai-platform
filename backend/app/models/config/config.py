@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from sqlmodel import Field, SQLModel, UniqueConstraint
+from pydantic import field_validator
 
 from app.core.util import now
 from .version import ConfigVersionPublic
@@ -50,12 +51,18 @@ class ConfigCreate(ConfigBase):
     """Create new configuration"""
 
     # Initial version data
-    config_json: dict[str, Any] = Field(description="Provider-specific parameters")
+    config_blob: dict[str, Any] = Field(description="Provider-specific parameters")
     commit_message: str | None = Field(
         default=None,
         max_length=512,
         description="Optional message describing the changes in this version",
     )
+
+    @field_validator("config_blob")
+    def validate_blob_not_empty(cls, value):
+        if not value:
+            raise ValueError("config_blob cannot be empty")
+        return value
 
 
 class ConfigUpdate(SQLModel):

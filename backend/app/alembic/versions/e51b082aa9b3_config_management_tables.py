@@ -40,7 +40,7 @@ def upgrade():
     op.create_table(
         "config_version",
         sa.Column(
-            "config_json", postgresql.JSON(astext_type=sa.Text()), nullable=False
+            "config_blob", postgresql.JSON(astext_type=sa.Text()), nullable=False
         ),
         sa.Column(
             "commit_message",

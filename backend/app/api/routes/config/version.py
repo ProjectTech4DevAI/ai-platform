@@ -1,5 +1,5 @@
 from uuid import UUID
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Path
 
 from app.api.deps import SessionDep, AuthContextDep
 from app.crud.config import ConfigCrud, ConfigVersionCrud
@@ -7,6 +7,7 @@ from app.models import (
     ConfigVersionCreate,
     ConfigVersionPublic,
     Message,
+    ConfigVersionItems,
 )
 from app.utils import APIResponse
 from app.api.permissions import Permission, require_permission
@@ -42,7 +43,7 @@ def create_version_route(
 
 @router.get(
     "/{config_id}/versions",
-    response_model=APIResponse[list[ConfigVersionPublic]],
+    response_model=APIResponse[list[ConfigVersionItems]],
     status_code=200,
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
@@ -70,16 +71,18 @@ def list_versions_route(
 
 
 @router.get(
-    "/{config_id}/versions/{version_id}",
+    "/{config_id}/versions/{version_number}",
     response_model=APIResponse[ConfigVersionPublic],
     status_code=200,
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
 def get_version_route(
     config_id: UUID,
-    version_id: UUID,
     current_user: AuthContextDep,
     session: SessionDep,
+    version_number: int = Path(
+        ..., ge=1, description="The version number of the config"
+    ),
 ):
     """
     Get a specific version of a config.
@@ -87,11 +90,11 @@ def get_version_route(
     version_crud = ConfigVersionCrud(
         session=session, project_id=current_user.project.id, config_id=config_id
     )
-    version = version_crud.read_one(version_id=version_id)
+    version = version_crud.read_one(version_number=version_number)
     if version is None:
         raise HTTPException(
             status_code=404,
-            detail=f"Config Version with id '{version_id}' not found for config '{config_id}'",
+            detail=f"Config Version with number '{version_number}' not found for config '{config_id}'",
         )
 
     return APIResponse.success_response(
@@ -100,16 +103,18 @@ def get_version_route(
 
 
 @router.delete(
-    "/{config_id}/versions/{version_id}",
+    "/{config_id}/versions/{version_number}",
     response_model=APIResponse[Message],
     status_code=200,
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
 def delete_version_route(
     config_id: UUID,
-    version_id: UUID,
     current_user: AuthContextDep,
     session: SessionDep,
+    version_number: int = Path(
+        ..., ge=1, description="The version number of the config"
+    ),
 ):
     """
     Delete a specific version of a config.
@@ -117,7 +122,7 @@ def delete_version_route(
     version_crud = ConfigVersionCrud(
         session=session, project_id=current_user.project.id, config_id=config_id
     )
-    version_crud.delete(version_id=version_id)
+    version_crud.delete(version_number=version_number)
 
     return APIResponse.success_response(
         data=Message(message="Config Version deleted successfully"),

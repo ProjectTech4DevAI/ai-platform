@@ -32,6 +32,7 @@ from .config import (
     ConfigVersionBase,
     ConfigVersionCreate,
     ConfigVersionPublic,
+    ConfigVersionItems,
 )
 from .credentials import (
     Credential,

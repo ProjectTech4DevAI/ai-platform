@@ -11,6 +11,7 @@ from .version import (
     ConfigVersionBase,
     ConfigVersionCreate,
     ConfigVersionPublic,
+    ConfigVersionItems,
 )
 
 __all__ = [

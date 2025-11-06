@@ -6,7 +6,7 @@ from fastapi import HTTPException
 
 from .config import ConfigCrud
 from app.core.util import now
-from app.models import Config, ConfigVersion, ConfigVersionCreate
+from app.models import Config, ConfigVersion, ConfigVersionCreate, ConfigVersionItems
 
 logger = logging.getLogger(__name__)
 
@@ -30,11 +30,10 @@ class ConfigVersionCrud:
         try:
             next_version = self._get_next_version(self.config_id)
 
-            # Create the new version
             version = ConfigVersion(
                 config_id=self.config_id,
                 version=next_version,
-                config_json=version_create.config_json,
+                config_blob=version_create.config_blob,
                 commit_message=version_create.commit_message,
             )
 
@@ -61,27 +60,27 @@ class ConfigVersionCrud:
                 detail="Unexpected error occurred: failed to create version",
             )
 
-    def read_one(self, version_id: UUID) -> ConfigVersion | None:
+    def read_one(self, version_number: int) -> ConfigVersion | None:
         """
-        Read a specific configuration version by its ID.
+        Read a specific configuration version by its version number.
         """
         self._config_exists(self.config_id)
         statement = select(ConfigVersion).where(
             and_(
-                ConfigVersion.id == version_id,
+                ConfigVersion.version == version_number,
                 ConfigVersion.config_id == self.config_id,
                 ConfigVersion.deleted_at.is_(None),
             )
         )
         return self.session.exec(statement).one_or_none()
 
-    def read_all(self, skip: int = 0, limit: int = 100) -> list[ConfigVersion]:
+    def read_all(self, skip: int = 0, limit: int = 100) -> list[ConfigVersionItems]:
         """
         Read all versions for a specific configuration with pagination.
         """
         self._config_exists(self.config_id)
         statement = (
-            select(ConfigVersion)
+            select(ConfigVersionItems)
             .where(
                 and_(
                     ConfigVersion.config_id == self.config_id,
@@ -93,21 +92,28 @@ class ConfigVersionCrud:
         )
         return self.session.exec(statement).all()
 
-    def delete(self, version_id: UUID) -> None:
+    def delete(self, version_number: int) -> None:
         """
         Soft delete a configuration version by setting its deleted_at timestamp.
         """
-        version = self.read_one(version_id)
-        if version is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Version with id '{version_id}' not found'",
-            )
+        version = self.exists(version_number)
 
         version.deleted_at = now()
         self.session.add(version)
         self.session.commit()
         self.session.refresh(version)
+
+    def exists(self, version_number: int) -> ConfigVersion:
+        """
+        Check if a configuration version exists; raise 404 if not found.
+        """
+        version = self.read_one(version_number=version_number)
+        if version is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Version with number '{version_number}' not found for config '{self.config_id}'",
+            )
+        return version
 
     def _get_next_version(self, config_id: UUID) -> int | None:
         """Get the next version number for a config."""
