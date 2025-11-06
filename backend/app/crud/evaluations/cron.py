@@ -85,7 +85,9 @@ async def process_all_pending_evaluations(session: Session) -> dict[str, Any]:
                 )
 
                 # Poll all pending evaluations for this org
-                summary = await poll_all_pending_evaluations(session=session, org_id=org.id)
+                summary = await poll_all_pending_evaluations(
+                    session=session, org_id=org.id
+                )
 
                 results.append(
                     {
@@ -105,7 +107,9 @@ async def process_all_pending_evaluations(session: Session) -> dict[str, Any]:
                     exc_info=True,
                 )
                 session.rollback()
-                results.append({"org_id": org.id, "org_name": org.name, "error": str(e)})
+                results.append(
+                    {"org_id": org.id, "org_name": org.name, "error": str(e)}
+                )
                 total_failed += 1
 
         logger.info(
