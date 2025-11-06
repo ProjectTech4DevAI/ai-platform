@@ -294,7 +294,7 @@ async def upload_dataset(
 
 
 @router.get(
-    "/evaluations/datasets/list",
+    "/evaluations/datasets",
     description=load_description("evaluation/list_datasets.md"),
     response_model=list[DatasetUploadResponse],
 )
@@ -566,7 +566,7 @@ def evaluate(
 
 
 @router.get(
-    "/evaluations/list",
+    "/evaluations",
     description=load_description("evaluation/list_evaluations.md"),
     response_model=list[EvaluationRunPublic],
 )
