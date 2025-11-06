@@ -69,6 +69,36 @@ def list_versions_route(
     )
 
 
+@router.get(
+    "/{config_id}/versions/{version_id}",
+    response_model=APIResponse[ConfigVersionPublic],
+    status_code=200,
+    dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
+)
+def get_version_route(
+    config_id: UUID,
+    version_id: UUID,
+    current_user: AuthContextDep,
+    session: SessionDep,
+):
+    """
+    Get a specific version of a config.
+    """
+    version_crud = ConfigVersionCrud(
+        session=session, project_id=current_user.project.id, config_id=config_id
+    )
+    version = version_crud.read_one(version_id=version_id)
+    if version is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Config Version with id '{version_id}' not found for config '{config_id}'",
+        )
+
+    return APIResponse.success_response(
+        data=version,
+    )
+
+
 @router.delete(
     "/{config_id}/versions/{version_id}",
     response_model=APIResponse[Message],

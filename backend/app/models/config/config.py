@@ -2,7 +2,7 @@ from uuid import UUID, uuid4
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, SQLModel, UniqueConstraint
 
 from app.core.util import now
 from .version import ConfigVersionPublic
@@ -23,6 +23,13 @@ class Config(ConfigBase, table=True):
     """Database model for LLM configuration storage"""
 
     __tablename__ = "config"
+    __table_args__ = (
+        UniqueConstraint(
+            "project_id",
+            "name",
+            "deleted_at",
+        ),
+    )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
 
@@ -52,7 +59,7 @@ class ConfigCreate(ConfigBase):
 
 
 class ConfigUpdate(SQLModel):
-    name: str | None = Field(default=None, max_length=128)
+    name: str | None = Field(default=None, min_length=1, max_length=128)
     description: str | None = Field(
         default=None, max_length=512, description="Optional description"
     )

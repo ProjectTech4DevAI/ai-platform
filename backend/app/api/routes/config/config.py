@@ -66,6 +66,50 @@ def list_configs_route(
     )
 
 
+@router.get(
+    "/{config_id}",
+    response_model=APIResponse[ConfigPublic],
+    status_code=200,
+    dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
+)
+def get_config_route(
+    config_id: UUID,
+    current_user: AuthContextDep,
+    session: SessionDep,
+):
+    """
+    Get a specific configuration by its ID.
+    """
+    config_crud = ConfigCrud(session=session, project_id=current_user.project.id)
+    config = config_crud.exists(config_id=config_id)
+    return APIResponse.success_response(
+        data=config,
+    )
+
+
+@router.patch(
+    "/{config_id}",
+    response_model=APIResponse[ConfigPublic],
+    status_code=200,
+    dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
+)
+def update_config_route(
+    config_id: UUID,
+    config_update: ConfigUpdate,
+    current_user: AuthContextDep,
+    session: SessionDep,
+):
+    """
+    Update a specific configuration.
+    """
+    config_crud = ConfigCrud(session=session, project_id=current_user.project.id)
+    config = config_crud.update(config_id=config_id, config_update=config_update)
+
+    return APIResponse.success_response(
+        data=config,
+    )
+
+
 @router.delete(
     "/{config_id}",
     response_model=APIResponse[Message],

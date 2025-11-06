@@ -11,7 +11,6 @@ from app.models import (
     ConfigUpdate,
     ConfigVersion,
 )
-from app.crud.project import get_project_by_id
 from app.core.util import now
 
 logger = logging.getLogger(__name__)
@@ -30,12 +29,7 @@ class ConfigCrud:
         """
         Create a new configuration with an initial version.
         """
-        existing = self._get_by_name(config_create.name)
-        if existing:
-            raise HTTPException(
-                status_code=409,
-                detail=f"Configuration with name '{config_create.name}' already exists in this project",
-            )
+        self._check_unique_name(config_create.name)
 
         try:
             config = Config(
@@ -103,7 +97,38 @@ class ConfigCrud:
         )
         return self.session.exec(statement).all()
 
+    def update(self, config_id: UUID, config_update: ConfigUpdate) -> Config:
+        config = self.exists(config_id)
+
+        config_update = config_update.model_dump(exclude_none=True)
+
+        if config_update.get("name"):
+            self._check_unique_name(config_update["name"])
+
+        for key, value in config_update.items():
+            setattr(config, key, value)
+
+        config.updated_at = now()
+
+        self.session.add(config)
+        self.session.commit()
+        self.session.refresh(config)
+
+        logger.info(
+            f"[ConfigCrud.update] Config updated successfully | "
+            f"{{'config_id': '{config.id}', 'project_id': {self.project_id}}}"
+        )
+        return config
+
     def delete(self, config_id: UUID) -> None:
+        config = self.exists(config_id)
+
+        config.deleted_at = now()
+        self.session.add(config)
+        self.session.commit()
+        self.session.refresh(config)
+
+    def exists(self, config_id: UUID) -> Config:
         config = self.read_one(config_id)
         if config is None:
             raise HTTPException(
@@ -111,16 +136,16 @@ class ConfigCrud:
                 detail=f"config with id '{config_id}' not found",
             )
 
-        config.deleted_at = now()
-        self.session.add(config)
-        self.session.commit()
-        self.session.refresh(config)
+        return config
 
-    def exists(self, config_id: UUID) -> bool:
-        config = self.read_one(config_id)
-        return config is not None
+    def _check_unique_name(self, name: str) -> None:
+        if self._read_by_name(name):
+            raise HTTPException(
+                status_code=409,
+                detail=f"Config with name '{name}' already exists in this project",
+            )
 
-    def _get_by_name(self, name: str) -> Config | None:
+    def _read_by_name(self, name: str) -> Config | None:
         statement = select(Config).where(
             and_(
                 Config.name == name,

@@ -121,11 +121,4 @@ class ConfigVersionCrud:
     def _config_exists(self, config_id: UUID) -> Config:
         """Check if a config exists in the project."""
         config_crud = ConfigCrud(session=self.session, project_id=self.project_id)
-        config = config_crud.read_one(config_id)
-
-        if config is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Config with id '{config_id}' not found in this project",
-            )
-        return config
+        config_crud.exists(config_id)
