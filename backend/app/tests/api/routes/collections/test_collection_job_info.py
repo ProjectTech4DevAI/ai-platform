@@ -81,17 +81,16 @@ def test_collection_info_create_failed(
         headers=headers,
     )
     body = resp.json()
-    assert body["success"] is False
+    assert body["success"] is True
 
     data = body["data"]
 
     assert data["job_id"] == str(collection_job.id)
     assert data["status"] == CollectionJobStatus.FAILED
     assert data["action_type"] == CollectionActionType.CREATE
+    assert data["error_message"] == "something went wrong"
 
     assert data["collection"] is None
-
-    assert body["error"] == "something went wrong"
 
 
 def test_collection_info_delete_successful(
@@ -148,13 +147,12 @@ def test_collection_info_delete_failed(
         headers=headers,
     )
     body = resp.json()
-    assert body["success"] is False
+    assert body["success"] is True
 
     data = body["data"]
     assert data["job_id"] == str(collection_job.id)
     assert data["status"] == CollectionJobStatus.FAILED
     assert data["action_type"] == CollectionActionType.DELETE
+    assert data["error_message"] == "something went wrong"
 
     assert data["collection"] is not None
-
-    assert body["error"] == "something went wrong"

@@ -29,7 +29,6 @@ router = APIRouter(prefix="/collections", tags=["collections"])
     "/jobs/{job_id}",
     description=load_description("collections/job_info.md"),
     response_model=APIResponse[CollectionJobPublic],
-    response_model_exclude={"data": {"error_message"}},
 )
 def collection_job_info(
     session: SessionDep,
@@ -56,10 +55,6 @@ def collection_job_info(
     if collection_job.status == CollectionJobStatus.FAILED:
         raw_error = getattr(collection_job, "error_message", None)
         error_message = extract_error_message(raw_error)
-
-        return APIResponse.failure_response(
-            error=error_message,
-            data=job_out,
-        )
+        job_out.error_message = error_message
 
     return APIResponse.success_response(data=job_out)
