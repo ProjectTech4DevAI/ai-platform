@@ -3,6 +3,7 @@ from uuid import UUID
 
 from sqlmodel import Session, select, and_, func
 from fastapi import HTTPException
+from sqlalchemy.orm import defer
 
 from .config import ConfigCrud
 from app.core.util import now
@@ -79,18 +80,24 @@ class ConfigVersionCrud:
         Read all versions for a specific configuration with pagination.
         """
         self._config_exists(self.config_id)
+
         statement = (
-            select(ConfigVersionItems)
+            select(ConfigVersion)
             .where(
                 and_(
                     ConfigVersion.config_id == self.config_id,
                     ConfigVersion.deleted_at.is_(None),
                 )
             )
+            .options(
+                defer(ConfigVersion.config_blob),
+            )
             .offset(skip)
             .limit(limit)
+            .order_by(ConfigVersion.version.desc())
         )
-        return self.session.exec(statement).all()
+        results = self.session.exec(statement).all()
+        return [ConfigVersionItems.model_validate(item) for item in results]
 
     def delete(self, version_number: int) -> None:
         """

@@ -56,6 +56,7 @@ def list_configs_route(
 ):
     """
     List all configurations for the current project.
+    Ordered by updated_at in descending order.
     """
 
     # Decide how to handle pagination effectively

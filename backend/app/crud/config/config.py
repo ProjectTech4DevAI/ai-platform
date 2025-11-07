@@ -94,6 +94,7 @@ class ConfigCrud:
             )
             .offset(skip)
             .limit(limit)
+            .order_by(Config.updated_at.desc())
         )
         return self.session.exec(statement).all()
 

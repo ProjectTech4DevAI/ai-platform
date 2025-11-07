@@ -56,6 +56,7 @@ def list_versions_route(
 ):
     """
     List all versions for a specific configuration.
+    Ordered by version number in descending order.
     """
     version_crud = ConfigVersionCrud(
         session=session, project_id=current_user.project.id, config_id=config_id
@@ -64,7 +65,6 @@ def list_versions_route(
         skip=skip,
         limit=limit,
     )
-
     return APIResponse.success_response(
         data=versions,
     )
