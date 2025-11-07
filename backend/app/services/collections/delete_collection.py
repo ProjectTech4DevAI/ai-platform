@@ -3,20 +3,21 @@ from uuid import UUID
 
 from sqlmodel import Session
 from asgi_correlation_id import correlation_id
-from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.db import engine
 from app.crud import CollectionCrud, CollectionJobCrud
-from app.crud.rag import OpenAIAssistantCrud
-from app.models import CollectionJobStatus, CollectionJobUpdate
-from app.models.collection import Collection, DeletionRequest
-from app.services.collections.helpers import (
-    SilentCallback,
-    WebHookCallback,
-    ResponsePayload,
+from app.crud.rag import OpenAIAssistantCrud, OpenAIVectorStoreCrud
+from app.models import (
+    CollectionJobStatus,
+    CollectionJobUpdate,
+    CollectionJob,
+    CollectionJobPublic,
+    CollectionIDPublic,
 )
+from app.models.collection import DeletionRequest
+from app.services.collections.helpers import extract_error_message, OPENAI_VECTOR_STORE
 from app.celery.utils import start_low_priority_job
-from app.utils import get_openai_client
+from app.utils import get_openai_client, send_callback, APIResponse
 
 
 logger = logging.getLogger(__name__)
@@ -25,10 +26,8 @@ logger = logging.getLogger(__name__)
 def start_job(
     db: Session,
     request: DeletionRequest,
-    collection: Collection,
     project_id: int,
     collection_job_id: UUID,
-    payload: ResponsePayload,
     organization_id: int,
 ) -> str:
     trace_id = correlation_id.get() or "N/A"
@@ -42,23 +41,105 @@ def start_job(
         function_path="app.services.collections.delete_collection.execute_job",
         project_id=project_id,
         job_id=str(collection_job_id),
-        collection_id=str(collection.id),
+        collection_id=str(request.collection_id),
         trace_id=trace_id,
-        request=request.model_dump(),
-        payload=payload.model_dump(),
+        request=request.model_dump(mode="json"),
         organization_id=organization_id,
     )
 
     logger.info(
         "[delete_collection.start_job] Job scheduled to delete collection | "
-        f"Job_id={collection_job_id}, project_id={project_id}, task_id={task_id}, collection_id={collection.id}"
+        f"Job_id={collection_job_id}, project_id={project_id}, task_id={task_id}, collection_id={request.collection_id}"
     )
     return collection_job_id
 
 
+def build_success_payload(collection_job: CollectionJob, collection_id: UUID) -> dict:
+    """
+    success: true
+    data: { job_id, status, collection: { id } }
+    error: null
+    metadata: null
+    """
+    collection_public = CollectionIDPublic(id=collection_id)
+    job_public = CollectionJobPublic.model_validate(
+        collection_job,
+        update={"collection": collection_public},
+    )
+    return APIResponse.success_response(job_public).model_dump(
+        mode="json",
+        exclude_none=True,
+    )
+
+
+def build_failure_payload(
+    collection_job: CollectionJob, collection_id: UUID, error_message: str
+) -> dict:
+    """
+    success: false
+    data: { job_id, status, collection: { id } }
+    error: "something went wrong"
+    metadata: null
+    """
+    collection_public = CollectionIDPublic(id=collection_id)
+    job_public = CollectionJobPublic.model_validate(
+        collection_job,
+        update={"collection": collection_public},
+    )
+    return APIResponse.failure_response(
+        extract_error_message(error_message), job_public
+    ).model_dump(mode="json", exclude={"data": {"error_message"}})
+
+
+def _mark_job_failed_and_callback(
+    *,
+    project_id: int,
+    collection_id: UUID,
+    job_id: UUID,
+    err: Exception,
+    callback_url: str | None,
+) -> None:
+    """
+    Common failure handler:
+    - mark job as FAILED with error_message
+    - log error
+    - send failure callback (if configured)
+    """
+    collection_job = None
+    try:
+        with Session(engine) as session:
+            collection_job_crud = CollectionJobCrud(session, project_id)
+            collection_job_crud.update(
+                job_id,
+                CollectionJobUpdate(
+                    status=CollectionJobStatus.FAILED,
+                    error_message=str(err),
+                ),
+            )
+            collection_job = collection_job_crud.read_one(job_id)
+    except Exception:
+        logger.warning("[delete_collection.execute_job] Failed to mark job as FAILED")
+
+    logger.error(
+        "[delete_collection.execute_job] deletion failed | "
+        "{'collection_id': '%s', 'error': '%s', 'job_id': '%s'}",
+        str(collection_id),
+        str(err),
+        str(job_id),
+        exc_info=True,
+    )
+
+    if callback_url and collection_job:
+        failure_payload = build_failure_payload(
+            collection_job=collection_job,
+            collection_id=collection_id,
+            error_message=str(err),
+        )
+        send_callback(callback_url, failure_payload)
+
+
 def execute_job(
     request: dict,
-    payload: dict,
     project_id: int,
     organization_id: int,
     task_id: str,
@@ -66,90 +147,74 @@ def execute_job(
     collection_id: str,
     task_instance,
 ) -> None:
+    """Celery worker entrypoint for deleting a collection (both remote and local)."""
+
     deletion_request = DeletionRequest(**request)
-    payload = ResponsePayload(**payload)
 
-    callback = (
-        SilentCallback(payload)
-        if deletion_request.callback_url is None
-        else WebHookCallback(deletion_request.callback_url, payload)
-    )
+    collection_id = UUID(collection_id)
+    job_uuid = UUID(job_id)
 
-    if not isinstance(collection_id, UUID):
-        collection_id = UUID(str(collection_id))
-    if not isinstance(job_id, UUID):
-        job_id = UUID(str(job_id))
+    collection_job = None
+    client = None
 
     try:
         with Session(engine) as session:
-            client = get_openai_client(session, organization_id, project_id)
-
             collection_job_crud = CollectionJobCrud(session, project_id)
-            collection_job = collection_job_crud.read_one(job_id)
+            collection_job = collection_job_crud.read_one(job_uuid)
             collection_job = collection_job_crud.update(
-                job_id,
+                job_uuid,
                 CollectionJobUpdate(
-                    task_id=task_id, status=CollectionJobStatus.PROCESSING
+                    task_id=task_id,
+                    status=CollectionJobStatus.PROCESSING,
                 ),
             )
 
-            assistant_crud = OpenAIAssistantCrud(client)
-            collection_crud = CollectionCrud(session, project_id)
+            client = get_openai_client(session, organization_id, project_id)
 
-            collection = collection_crud.read_one(collection_id)
+            collection = CollectionCrud(session, project_id).read_one(collection_id)
 
-            try:
-                result = collection_crud.delete(collection, assistant_crud)
+            # Identify which external service (assistant/vector store) this collection belongs to
+            service = (collection.llm_service_name or "").strip().lower()
+            is_vector = service == OPENAI_VECTOR_STORE
+            llm_service_id = collection.llm_service_id
 
-                collection_job_crud.update(
-                    collection_job.id,
-                    CollectionJobUpdate(
-                        status=CollectionJobStatus.SUCCESSFUL,
-                        error_message=None,
-                    ),
-                )
+            # Delete the corresponding OpenAI resource (vector store or assistant)
+        if is_vector:
+            OpenAIVectorStoreCrud(client).delete(llm_service_id)
+        else:
+            OpenAIAssistantCrud(client).delete(llm_service_id)
 
-                logger.info(
-                    "[delete_collection.execute_job] Collection deleted successfully | {'collection_id': '%s', 'job_id': '%s'}",
-                    str(collection.id),
-                    str(job_id),
-                )
-                callback.success(result.model_dump(mode="json"))
+        with Session(engine) as session:
+            CollectionCrud(session, project_id).delete_by_id(collection_id)
 
-            except (ValueError, PermissionError, SQLAlchemyError) as err:
-                collection_job_crud.update(
-                    collection_job.id,
-                    CollectionJobUpdate(
-                        status=CollectionJobStatus.FAILED,
-                        error_message=str(err),
-                    ),
-                )
+            collection_job_crud = CollectionJobCrud(session, project_id)
+            collection_job_crud.update(
+                collection_job.id,
+                CollectionJobUpdate(
+                    status=CollectionJobStatus.SUCCESSFUL,
+                    error_message=None,
+                ),
+            )
+            collection_job = collection_job_crud.read_one(collection_job.id)
 
-                logger.error(
-                    "[delete_collection.execute_job] Failed to delete collection | {'collection_id': '%s', 'error': '%s', 'job_id': '%s'}",
-                    str(collection.id),
-                    str(err),
-                    str(job_id),
-                    exc_info=True,
-                )
-                callback.fail(str(err))
+        logger.info(
+            "[delete_collection.execute_job] Collection deleted successfully | "
+            "{'collection_id': '%s', 'job_id': '%s'}",
+            str(collection_id),
+            str(job_uuid),
+        )
+        if deletion_request.callback_url and collection_job:
+            success_payload = build_success_payload(
+                collection_job=collection_job,
+                collection_id=collection_id,
+            )
+            send_callback(deletion_request.callback_url, success_payload)
 
     except Exception as err:
-        collection_job_crud.update(
-            collection_job.id,
-            CollectionJobUpdate(
-                status=CollectionJobStatus.FAILED,
-                error_message=str(err),
-            ),
+        _mark_job_failed_and_callback(
+            project_id=project_id,
+            collection_id=collection_id,
+            job_id=job_uuid,
+            err=err,
+            callback_url=deletion_request.callback_url,
         )
-
-        logger.error(
-            "[delete_collection.execute_job] Unexpected error during deletion | "
-            "{'collection_id': '%s', 'error': '%s', 'error_type': '%s', 'job_id': '%s'}",
-            str(collection.id),
-            str(err),
-            type(err).__name__,
-            str(job_id),
-            exc_info=True,
-        )
-        callback.fail(str(err))

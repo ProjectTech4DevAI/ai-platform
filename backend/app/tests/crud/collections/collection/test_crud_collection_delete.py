@@ -1,15 +1,37 @@
 import pytest
+
 import openai_responses
 from openai import OpenAI
 from sqlmodel import Session, select
 
 from app.core.config import settings
 from app.crud import CollectionCrud
-from app.models import APIKey
+from app.models import APIKey, Collection
 from app.crud.rag import OpenAIAssistantCrud
 from app.tests.utils.utils import get_project
 from app.tests.utils.document import DocumentStore
-from app.tests.utils.collection import get_collection, uuid_increment
+
+
+def get_collection_for_delete(
+    db: Session, client=None, project_id: int = None
+) -> Collection:
+    project = get_project(db)
+    if client is None:
+        client = OpenAI(api_key="test_api_key")
+
+    vector_store = client.vector_stores.create()
+    assistant = client.beta.assistants.create(
+        model="gpt-4o",
+        tools=[{"type": "file_search"}],
+        tool_resources={"file_search": {"vector_store_ids": [vector_store.id]}},
+    )
+
+    return Collection(
+        organization_id=project.organization_id,
+        project_id=project_id,
+        llm_service_id=assistant.id,
+        llm_service_name="gpt-4o",
+    )
 
 
 class TestCollectionDelete:
@@ -21,7 +43,7 @@ class TestCollectionDelete:
         client = OpenAI(api_key="sk-test-key")
 
         assistant = OpenAIAssistantCrud(client)
-        collection = get_collection(db, client, project_id=project.id)
+        collection = get_collection_for_delete(db, client, project_id=project.id)
 
         crud = CollectionCrud(db, collection.project_id)
         collection_ = crud.delete(collection, assistant)
@@ -34,25 +56,12 @@ class TestCollectionDelete:
 
         assistant = OpenAIAssistantCrud(client)
         project = get_project(db)
-        collection = get_collection(db, project_id=project.id)
+        collection = get_collection_for_delete(db, project_id=project.id)
 
         crud = CollectionCrud(db, collection.project_id)
         collection_ = crud.delete(collection, assistant)
 
         assert collection_.inserted_at <= collection_.deleted_at
-
-    @openai_responses.mock()
-    def test_cannot_delete_others_collections(self, db: Session):
-        client = OpenAI(api_key="sk-test-key")
-
-        assistant = OpenAIAssistantCrud(client)
-        project = get_project(db)
-        collection = get_collection(db, project_id=project.id)
-        c_id = uuid_increment(collection.id)
-
-        crud = CollectionCrud(db, c_id)
-        with pytest.raises(PermissionError):
-            crud.delete(collection, assistant)
 
     @openai_responses.mock()
     def test_delete_document_deletes_collections(self, db: Session):
@@ -68,7 +77,7 @@ class TestCollectionDelete:
         client = OpenAI(api_key="sk-test-key")
         resources = []
         for _ in range(self._n_collections):
-            coll = get_collection(db, client, project_id=project.id)
+            coll = get_collection_for_delete(db, client, project_id=project.id)
             crud = CollectionCrud(db, project_id=project.id)
             collection = crud.create(coll, documents)
             resources.append((crud, collection))

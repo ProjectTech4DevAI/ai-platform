@@ -6,15 +6,20 @@ from .api_key import APIKey, APIKeyBase, APIKeyPublic, APIKeyCreateResponse
 
 from .assistants import Assistant, AssistantBase, AssistantCreate, AssistantUpdate
 
-from .collection import Collection, CollectionPublic
+from .collection import (
+    Collection,
+    CollectionPublic,
+    CollectionIDPublic,
+    CollectionWithDocsPublic,
+)
 from .collection_job import (
     CollectionActionType,
     CollectionJob,
-    CollectionJobBase,
     CollectionJobStatus,
     CollectionJobUpdate,
     CollectionJobPublic,
     CollectionJobCreate,
+    CollectionJobImmediatePublic,
 )
 from .credentials import (
     Credential,

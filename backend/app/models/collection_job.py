@@ -3,9 +3,10 @@ from uuid import UUID, uuid4
 from datetime import datetime
 
 from sqlmodel import Field, SQLModel, Column, Text
+from pydantic import ConfigDict
 
 from app.core.util import now
-from app.models.collection import CollectionPublic
+from app.models.collection import CollectionPublic, CollectionIDPublic
 
 
 class CollectionJobStatus(str, Enum):
@@ -20,7 +21,17 @@ class CollectionActionType(str, Enum):
     DELETE = "DELETE"
 
 
-class CollectionJobBase(SQLModel):
+class CollectionJob(SQLModel, table=True):
+    """Database model for tracking collection operations."""
+
+    __tablename__ = "collection_jobs"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    status: CollectionJobStatus = Field(
+        default=CollectionJobStatus.PENDING,
+        nullable=False,
+        description="Current job status",
+    )
     action_type: CollectionActionType = Field(
         nullable=False, description="Type of operation"
     )
@@ -30,21 +41,6 @@ class CollectionJobBase(SQLModel):
     project_id: int = Field(
         foreign_key="project.id", nullable=False, ondelete="CASCADE"
     )
-
-
-class CollectionJob(CollectionJobBase, table=True):
-    """Database model for tracking collection operations."""
-
-    __tablename__ = "collection_jobs"
-
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-
-    status: CollectionJobStatus = Field(
-        default=CollectionJobStatus.PENDING,
-        nullable=False,
-        description="Current job status",
-    )
-
     task_id: str = Field(nullable=True)
     trace_id: str | None = Field(
         default=None, description="Tracing ID for correlating logs and traces."
@@ -63,7 +59,20 @@ class CollectionJob(CollectionJobBase, table=True):
         description="Last time the job record was updated",
     )
 
+    @property
+    def job_id(self) -> UUID:
+        return self.id
 
+    @property
+    def job_inserted_at(self) -> datetime:
+        return self.inserted_at
+
+    @property
+    def job_updated_at(self) -> datetime:
+        return self.updated_at
+
+
+# Request models
 class CollectionJobCreate(SQLModel):
     collection_id: UUID | None = None
     status: CollectionJobStatus
@@ -79,13 +88,18 @@ class CollectionJobUpdate(SQLModel):
     trace_id: str | None = None
 
 
-class CollectionJobPublic(SQLModel):
-    id: UUID
-    action_type: CollectionActionType
-    collection_id: UUID | None = None
+##Response models
+class CollectionJobBasePublic(SQLModel):
+    job_id: UUID
     status: CollectionJobStatus
-    error_message: str | None = None
-    inserted_at: datetime
-    updated_at: datetime
 
-    collection: CollectionPublic | None = None
+
+class CollectionJobImmediatePublic(CollectionJobBasePublic):
+    job_inserted_at: datetime
+    job_updated_at: datetime
+
+
+class CollectionJobPublic(CollectionJobBasePublic):
+    action_type: CollectionActionType
+    collection: CollectionPublic | CollectionIDPublic | None = None
+    error_message: str | None = None

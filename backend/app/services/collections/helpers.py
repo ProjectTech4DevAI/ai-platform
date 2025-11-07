@@ -4,19 +4,18 @@ import ast
 import re
 from uuid import UUID
 from typing import List
-from dataclasses import asdict, replace
 
-from pydantic import HttpUrl
+from sqlmodel import select
 from openai import OpenAIError
 
-from app.core.util import post_callback
 from app.crud.document import DocumentCrud
-from app.models.collection import ResponsePayload
-from app.crud.rag import OpenAIAssistantCrud
-from app.utils import APIResponse
+from app.models import DocumentCollection, Collection
 
 
 logger = logging.getLogger(__name__)
+
+# llm service name for when only an openai vector store is being made
+OPENAI_VECTOR_STORE = "openai vector store"
 
 
 def extract_error_message(err: Exception) -> str:
@@ -70,60 +69,36 @@ def batch_documents(
     return docs_batches
 
 
-# functions related to callback handling -
-class CallbackHandler:
-    def __init__(self, payload: ResponsePayload):
-        self.payload = payload
-
-    def fail(self, body):
-        raise NotImplementedError()
-
-    def success(self, body):
-        raise NotImplementedError()
-
-
-class SilentCallback(CallbackHandler):
-    def fail(self, body):
-        logger.info(f"[SilentCallback.fail] Silent callback failure")
-        return
-
-    def success(self, body):
-        logger.info(f"[SilentCallback.success] Silent callback success")
-        return
-
-
-class WebHookCallback(CallbackHandler):
-    def __init__(self, url: HttpUrl, payload: ResponsePayload):
-        super().__init__(payload)
-        self.url = url
-        logger.info(
-            f"[WebHookCallback.init] Initialized webhook callback | {{'url': '{url}'}}"
-        )
-
-    def __call__(self, response: APIResponse, status: str):
-        time = ResponsePayload.now()
-        payload = replace(self.payload, status=status, time=time)
-        response.metadata = asdict(payload)
-        logger.info(
-            f"[WebHookCallback.call] Posting callback | {{'url': '{self.url}', 'status': '{status}'}}"
-        )
-        post_callback(self.url, response)
-
-    def fail(self, body):
-        logger.warning(f"[WebHookCallback.fail] Callback failed | {{'body': '{body}'}}")
-        self(APIResponse.failure_response(body), "incomplete")
-
-    def success(self, body):
-        logger.info(f"[WebHookCallback.success] Callback succeeded")
-        self(APIResponse.success_response(body), "complete")
-
-
-def _backout(crud: OpenAIAssistantCrud, assistant_id: str):
+def _backout(crud, llm_service_id: str):
     """Best-effort cleanup: attempt to delete the assistant by ID"""
     try:
-        crud.delete(assistant_id)
+        crud.delete(llm_service_id)
     except OpenAIError as err:
         logger.error(
-            f"[backout] Failed to delete assistant | {{'assistant_id': '{assistant_id}', 'error': '{str(err)}'}}",
+            f"[backout] Failed to delete resource | {{'llm_service_id': '{llm_service_id}', 'error': '{str(err)}'}}",
             exc_info=True,
         )
+
+
+# Even though this function is used in the documents router, it's kept here for now since the assistant creation logic will
+# eventually be removed from Kaapi. Once that happens, this function can be safely deleted -
+def pick_service_for_documennt(session, doc_id: UUID, a_crud, v_crud):
+    """
+    Return the correct remote (v_crud or a_crud) for this document
+    by inspecting an active linked Collection's llm_service_name.
+    Defaults to a_crud if not vector store.
+    """
+    coll = session.exec(
+        select(Collection)
+        .join(DocumentCollection, DocumentCollection.collection_id == Collection.id)
+        .where(
+            DocumentCollection.document_id == doc_id,
+            Collection.deleted_at.is_(None),
+        )
+        .limit(1)
+    ).first()
+
+    service = (
+        (getattr(coll, "llm_service_name", "") or "").strip().lower() if coll else ""
+    )
+    return v_crud if service == OPENAI_VECTOR_STORE else a_crud

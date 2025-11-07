@@ -6,6 +6,7 @@ import logging
 
 from fastapi import HTTPException
 from sqlmodel import Session, select, and_
+from sqlalchemy.exc import IntegrityError
 
 from app.models import Document, Collection, DocumentCollection
 from app.core.util import now
@@ -20,19 +21,6 @@ class CollectionCrud:
         self.project_id = project_id
 
     def _update(self, collection: Collection):
-        if not collection.project_id:
-            collection.project_id = self.project_id
-        elif collection.project_id != self.project_id:
-            err = (
-                f"Invalid collection ownership: owner_project={self.project_id} "
-                f"attempter={collection.project_id}"
-            )
-            logger.error(
-                "[CollectionCrud._update] Permission error | "
-                f"{{'collection_id': '{collection.id}', 'error': '{err}'}}"
-            )
-            raise PermissionError(err)
-
         self.session.add(collection)
         self.session.commit()
         self.session.refresh(collection)
@@ -53,29 +41,18 @@ class CollectionCrud:
         return present
 
     def create(
-        self,
-        collection: Collection,
-        documents: Optional[list[Document]] = None,
-    ):
+        self, collection: Collection, documents: list[Document] | None = None
+    ) -> Collection:
+        self.session.add(collection)
         try:
-            existing = self.read_one(collection.id)
-        except HTTPException as e:
-            if e.status_code == 404:
-                self.session.add(collection)
-                self.session.commit()
-                self.session.refresh(collection)
-            else:
-                raise
-        else:
-            logger.warning(
-                "[CollectionCrud.create] Collection already present | "
-                f"{{'collection_id': '{collection.id}'}}"
-            )
-            return existing
+            self.session.commit()
+        except IntegrityError:
+            self.session.rollback()
+            return self.read_one(collection.id)
+        self.session.refresh(collection)
 
         if documents:
-            dc_crud = DocumentCollectionCrud(self.session)
-            dc_crud.create(collection, documents)
+            DocumentCollectionCrud(self.session).create(collection, documents)
 
         return collection
 
@@ -116,6 +93,12 @@ class CollectionCrud:
         collections = self.session.exec(statement).all()
         return collections
 
+    def delete_by_id(self, collection_id: UUID) -> Collection:
+        coll = self.read_one(collection_id)
+        coll.deleted_at = now()
+
+        return self._update(coll)
+
     @ft.singledispatchmethod
     def delete(self, model, remote):  # remote should be an OpenAICrud
         try:
@@ -145,7 +128,10 @@ class CollectionCrud:
                 DocumentCollection,
                 DocumentCollection.collection_id == Collection.id,
             )
-            .where(DocumentCollection.document_id == model.id)
+            .where(
+                DocumentCollection.document_id == model.id,
+                Collection.deleted_at.is_(None),
+            )
             .distinct()
         )
 

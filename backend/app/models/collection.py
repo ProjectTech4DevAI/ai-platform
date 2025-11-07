@@ -3,9 +3,10 @@ from datetime import datetime
 from typing import Any, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
-from pydantic import HttpUrl
+from pydantic import HttpUrl, model_validator
 
 from app.core.util import now
+from app.models.document import DocumentPublic
 from .organization import Organization
 from .project import Project
 
@@ -36,22 +37,7 @@ class Collection(SQLModel, table=True):
     project: Project = Relationship(back_populates="collections")
 
 
-class ResponsePayload(SQLModel):
-    """Response metadata for background jobs—gives status, route, a UUID key,
-    and creation time."""
-
-    status: str
-    route: str
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    time: datetime = Field(default_factory=now)
-
-    @classmethod
-    def now(cls):
-        """Returns current UTC time without timezone info"""
-        return now()
-
-
-# pydantic models -
+# Request models
 class DocumentOptions(SQLModel):
     documents: list[UUID] = Field(
         description="List of document IDs",
@@ -73,26 +59,56 @@ class AssistantOptions(SQLModel):
     # Fields to be passed along to OpenAI. They must be a subset of
     # parameters accepted by the OpenAI.clien.beta.assistants.create
     # API.
-    model: str = Field(
+    model: Optional[str] = Field(
+        default=None,
         description=(
+            "**[To Be Deprecated]**  "
             "OpenAI model to attach to this assistant. The model "
             "must be compatable with the assistants API; see the "
             "OpenAI [model documentation](https://platform.openai.com/docs/models/compare) for more."
         ),
     )
-    instructions: str = Field(
+
+    instructions: Optional[str] = Field(
+        default=None,
         description=(
-            "Assistant instruction. Sometimes referred to as the " '"system" prompt.'
+            "**[To Be Deprecated]**  "
+            "Assistant instruction. Sometimes referred to as the "
+            '"system" prompt.'
         ),
     )
     temperature: float = Field(
         default=1e-6,
         description=(
+            "**[To Be Deprecated]**  "
             "Model temperature. The default is slightly "
             "greater-than zero because it is [unknown how OpenAI "
             "handles zero](https://community.openai.com/t/clarifications-on-setting-temperature-0/886447/5)."
         ),
     )
+
+    @model_validator(mode="before")
+    def _assistant_fields_all_or_none(cls, values: dict[str, Any]) -> dict[str, Any]:
+        def norm(x: Any) -> Any:
+            if x is None:
+                return None
+            if isinstance(x, str):
+                s = x.strip()
+                return s if s else None
+            return x  # let Pydantic handle non-strings
+
+        model = norm(values.get("model"))
+        instructions = norm(values.get("instructions"))
+
+        if (model is None) ^ (instructions is None):
+            raise ValueError(
+                "To create an Assistant, provide BOTH 'model' and 'instructions'. "
+                "If you only want a vector store, remove both fields."
+            )
+
+        values["model"] = model
+        values["instructions"] = instructions
+        return values
 
 
 class CallbackRequest(SQLModel):
@@ -108,13 +124,20 @@ class CreationRequest(
     CallbackRequest,
 ):
     def extract_super_type(self, cls: "CreationRequest"):
-        for field_name in cls.__fields__.keys():
+        for field_name in cls.model_fields.keys():
             field_value = getattr(self, field_name)
             yield (field_name, field_value)
 
 
 class DeletionRequest(CallbackRequest):
     collection_id: UUID = Field(description="Collection to delete")
+
+
+# Response models
+
+
+class CollectionIDPublic(SQLModel):
+    id: UUID
 
 
 class CollectionPublic(SQLModel):
@@ -127,3 +150,7 @@ class CollectionPublic(SQLModel):
     inserted_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None
+
+
+class CollectionWithDocsPublic(CollectionPublic):
+    documents: list[DocumentPublic] | None = None
