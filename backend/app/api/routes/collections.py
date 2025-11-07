@@ -75,7 +75,6 @@ def list_collections(
     description=load_description("collections/create.md"),
     response_model=APIResponse[CollectionJobImmediatePublic],
     callbacks=collection_callback_router.routes,
-    response_model_exclude_none=True,
 )
 def create_collection(
     session: SessionDep,
@@ -124,7 +123,6 @@ def create_collection(
     description=load_description("collections/delete.md"),
     response_model=APIResponse[CollectionJobImmediatePublic],
     callbacks=collection_callback_router.routes,
-    response_model_exclude_none=True,
 )
 def delete_collection(
     session: SessionDep,
