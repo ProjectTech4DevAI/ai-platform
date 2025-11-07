@@ -90,7 +90,7 @@ def build_success_payload(
         update={"collection": collection_public},
     )
     return APIResponse.success_response(job_public).model_dump(
-        mode="json", by_alias=True, exclude_none=True
+        mode="json", exclude={"data": {"error_message"}}
     )
 
 
@@ -112,7 +112,6 @@ def build_failure_payload(collection_job: CollectionJob, error_message: str) -> 
         extract_error_message(error_message), job_public
     ).model_dump(
         mode="json",
-        by_alias=True,
         exclude={"data": {"error_message"}},
     )
 

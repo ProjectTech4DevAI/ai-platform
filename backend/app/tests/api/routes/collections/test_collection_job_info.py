@@ -16,7 +16,9 @@ def test_collection_info_processing(
     headers = user_api_key_header
     project = get_project(db, "Dalgo")
 
-    collection_job = get_collection_job(db, project)
+    collection_job = get_collection_job(
+        db, project, status=CollectionJobStatus.PROCESSING
+    )
 
     resp = client.get(
         f"{settings.API_V1_STR}/collections/jobs/{collection_job.id}",
@@ -26,9 +28,7 @@ def test_collection_info_processing(
     data = resp.json()["data"]
 
     assert data["job_id"] == str(collection_job.id)
-    assert data["status"] == CollectionJobStatus.PENDING
-    assert data["job_inserted_at"] is not None
-    assert data["job_updated_at"] is not None
+    assert data["status"] == CollectionJobStatus.PROCESSING
 
     assert data.get("collection") is None
 

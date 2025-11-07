@@ -68,7 +68,6 @@ def build_success_payload(collection_job: CollectionJob, collection_id: UUID) ->
     )
     return APIResponse.success_response(job_public).model_dump(
         mode="json",
-        by_alias=True,
         exclude_none=True,
     )
 
@@ -89,11 +88,7 @@ def build_failure_payload(
     )
     return APIResponse.failure_response(
         extract_error_message(error_message), job_public
-    ).model_dump(
-        mode="json",
-        by_alias=True,
-        exclude_none=True,
-    )
+    ).model_dump(mode="json", exclude={"data": {"error_message"}})
 
 
 def _mark_job_failed_and_callback(

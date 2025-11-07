@@ -92,12 +92,6 @@ class CollectionJobUpdate(SQLModel):
 class CollectionJobBasePublic(SQLModel):
     job_id: UUID
     status: CollectionJobStatus
-    error_message: str | None = None
-
-    model_config = ConfigDict(
-        from_attributes=True,
-        exclude_none=True,
-    )
 
 
 class CollectionJobImmediatePublic(CollectionJobBasePublic):
@@ -108,6 +102,4 @@ class CollectionJobImmediatePublic(CollectionJobBasePublic):
 class CollectionJobPublic(CollectionJobBasePublic):
     action_type: CollectionActionType
     collection: CollectionPublic | CollectionIDPublic | None = None
-
-    job_inserted_at: datetime
-    job_updated_at: datetime
+    error_message: str | None = None

@@ -97,12 +97,10 @@ def test_collection_info_include_docs_false_returns_no_docs(
     data = response.json()
     payload = data["data"]
 
-    # since include_docs is false, there won't be a "documents" key in the response body in this sitaution
-    assert "documents" not in payload
-
     assert payload["id"] == str(collection.id)
     assert payload["llm_service_name"] == "gpt-4o"
     assert payload["llm_service_id"] == collection.llm_service_id
+    assert payload["documents"] is None
 
 
 def test_collection_info_pagination_skip_and_limit(
@@ -114,16 +112,14 @@ def test_collection_info_pagination_skip_and_limit(
     Verify skip & limit are passed through to DocumentCollectionCrud.read.
     We create multiple document links and then request a paginated slice.
     """
-    # Arrange: get a project and collection
     project = get_project(db, "Dalgo")
     collection = get_collection(db, project)
 
-    # Arrange: get 3 distinct, non-deleted documents
     documents = db.exec(
-        select(Document).where(Document.deleted_at.is_(None)).limit(3)
+        select(Document).where(Document.deleted_at.is_(None)).limit(2)
     ).all()
 
-    assert len(documents) >= 2, "Test requires at least three documents in the DB"
+    assert len(documents) >= 2, "Test requires at least two documents in the DB"
 
     DocumentCollectionCrud(db).create(collection, documents)
 
