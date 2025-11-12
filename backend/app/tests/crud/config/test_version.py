@@ -48,19 +48,13 @@ def test_create_version_auto_increment(db: Session) -> None:
 
     # Create multiple versions
     version2 = version_crud.create(
-        ConfigVersionCreate(
-            config_blob={"model": "gpt-4"}, commit_message="Version 2"
-        )
+        ConfigVersionCreate(config_blob={"model": "gpt-4"}, commit_message="Version 2")
     )
     version3 = version_crud.create(
-        ConfigVersionCreate(
-            config_blob={"model": "gpt-4"}, commit_message="Version 3"
-        )
+        ConfigVersionCreate(config_blob={"model": "gpt-4"}, commit_message="Version 3")
     )
     version4 = version_crud.create(
-        ConfigVersionCreate(
-            config_blob={"model": "gpt-4"}, commit_message="Version 4"
-        )
+        ConfigVersionCreate(config_blob={"model": "gpt-4"}, commit_message="Version 4")
     )
 
     assert version2.version == 2
@@ -127,9 +121,7 @@ def test_read_one_version_not_found(db: Session) -> None:
 def test_read_one_version_deleted(db: Session) -> None:
     """Test reading a deleted version returns None."""
     config = create_test_config(db)
-    version = create_test_version(
-        db, config_id=config.id, project_id=config.project_id
-    )
+    version = create_test_version(db, config_id=config.id, project_id=config.project_id)
 
     version_crud = ConfigVersionCrud(
         session=db, project_id=config.project_id, config_id=config.id
@@ -288,9 +280,7 @@ def test_read_all_versions_excludes_deleted(db: Session) -> None:
 def test_delete_version(db: Session) -> None:
     """Test soft deleting a version."""
     config = create_test_config(db)
-    version = create_test_version(
-        db, config_id=config.id, project_id=config.project_id
-    )
+    version = create_test_version(db, config_id=config.id, project_id=config.project_id)
 
     version_crud = ConfigVersionCrud(
         session=db, project_id=config.project_id, config_id=config.id
@@ -322,9 +312,7 @@ def test_delete_version_not_found(db: Session) -> None:
 def test_exists_version(db: Session) -> None:
     """Test that exists returns the version when it exists."""
     config = create_test_config(db)
-    version = create_test_version(
-        db, config_id=config.id, project_id=config.project_id
-    )
+    version = create_test_version(db, config_id=config.id, project_id=config.project_id)
 
     version_crud = ConfigVersionCrud(
         session=db, project_id=config.project_id, config_id=config.id
@@ -355,9 +343,7 @@ def test_exists_version_not_found(db: Session) -> None:
 def test_exists_version_deleted(db: Session) -> None:
     """Test that exists raises HTTPException for deleted versions."""
     config = create_test_config(db)
-    version = create_test_version(
-        db, config_id=config.id, project_id=config.project_id
-    )
+    version = create_test_version(db, config_id=config.id, project_id=config.project_id)
 
     version_crud = ConfigVersionCrud(
         session=db, project_id=config.project_id, config_id=config.id

@@ -42,7 +42,9 @@ def test_create_version_success(
     data = response.json()
     assert data["success"] is True
     assert "data" in data
-    assert data["data"]["version"] == 2  # First version created with config, this is second
+    assert (
+        data["data"]["version"] == 2
+    )  # First version created with config, this is second
     assert data["data"]["config_blob"] == version_data["config_blob"]
     assert data["data"]["commit_message"] == version_data["commit_message"]
     assert data["data"]["config_id"] == str(config.id)

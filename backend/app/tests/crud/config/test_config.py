@@ -198,9 +198,7 @@ def test_read_all_configs_ordered_by_updated_at(db: Session) -> None:
     config3 = create_test_config(db, project_id=project.id, name="config-3")
 
     # Update config1 to make it the most recently updated
-    config_crud.update(
-        config1.id, ConfigUpdate(description="Updated description")
-    )
+    config_crud.update(config1.id, ConfigUpdate(description="Updated description"))
 
     configs = config_crud.read_all()
 
@@ -379,9 +377,7 @@ def test_delete_config_different_project(db: Session) -> None:
     project2 = create_test_project(db)
     config_crud = ConfigCrud(session=db, project_id=project2.id)
 
-    with pytest.raises(
-        HTTPException, match=f"config with id '{config.id}' not found"
-    ):
+    with pytest.raises(HTTPException, match=f"config with id '{config.id}' not found"):
         config_crud.delete(config.id)
 
 
@@ -418,9 +414,7 @@ def test_exists_deleted_config(db: Session) -> None:
     config_crud.delete(config.id)
 
     # exists should raise HTTPException
-    with pytest.raises(
-        HTTPException, match=f"config with id '{config.id}' not found"
-    ):
+    with pytest.raises(HTTPException, match=f"config with id '{config.id}' not found"):
         config_crud.exists(config.id)
 
 
