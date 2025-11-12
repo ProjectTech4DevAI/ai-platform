@@ -16,6 +16,8 @@ from app.models import (
     ModelEvaluationStatus,
     Config,
     ConfigCreate,
+    ConfigVersion,
+    ConfigVersionCreate,
 )
 from app.crud import (
     create_organization,
@@ -25,7 +27,7 @@ from app.crud import (
     create_model_evaluation,
     APIKeyCrud,
 )
-from app.crud.config import ConfigCrud
+from app.crud.config import ConfigCrud, ConfigVersionCrud
 from app.core.providers import Provider
 from app.tests.utils.user import create_random_user
 from app.tests.utils.utils import (
@@ -268,3 +270,35 @@ def create_test_config(
     config, version = config_crud.create(config_create)
 
     return config
+
+
+def create_test_version(
+    db: Session,
+    config_id,
+    project_id: int,
+    config_blob: dict | None = None,
+    commit_message: str | None = None,
+) -> ConfigVersion:
+    """
+    Creates and returns a test version for an existing configuration.
+
+    Persists the version to the database.
+    """
+    if config_blob is None:
+        config_blob = {
+            "model": "gpt-4",
+            "temperature": 0.8,
+            "max_tokens": 1500,
+        }
+
+    version_create = ConfigVersionCreate(
+        config_blob=config_blob,
+        commit_message=commit_message or "Test version commit",
+    )
+
+    version_crud = ConfigVersionCrud(
+        session=db, project_id=project_id, config_id=config_id
+    )
+    version = version_crud.create(version_create=version_create)
+
+    return version
