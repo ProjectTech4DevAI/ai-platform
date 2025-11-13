@@ -89,7 +89,6 @@ def downgrade():
         table_name="config",
         postgresql_where=sa.text("deleted_at IS NULL"),
     )
-    op.drop_index(op.f("ix_config_name"), table_name="config")
     op.drop_index(
         "idx_config_project_id_updated_at_active",
         table_name="config",
