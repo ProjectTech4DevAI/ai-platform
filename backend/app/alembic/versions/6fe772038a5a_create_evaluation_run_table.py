@@ -170,12 +170,7 @@ def upgrade():
         sa.Column("dataset_name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("config", sa.JSON(), nullable=False),
         sa.Column("batch_job_id", sa.Integer(), nullable=True),
-        sa.Column(
-            "embedding_batch_job_id",
-            sa.Integer(),
-            nullable=True,
-            comment="Reference to the batch_job for embedding-based similarity scoring",
-        ),
+        sa.Column("embedding_batch_job_id", sa.Integer(), nullable=True),
         sa.Column("dataset_id", sa.Integer(), nullable=False),
         sa.Column("status", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column(
