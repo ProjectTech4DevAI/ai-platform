@@ -2,7 +2,7 @@ from uuid import UUID, uuid4
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlmodel import Field, SQLModel, UniqueConstraint
+from sqlmodel import Field, SQLModel, UniqueConstraint, Index, text
 from pydantic import field_validator
 
 from app.core.util import now
@@ -12,9 +12,7 @@ from .version import ConfigVersionPublic
 class ConfigBase(SQLModel):
     """Base model for LLM configuration metadata"""
 
-    name: str = Field(
-        index=True, min_length=1, max_length=128, description="Config name"
-    )
+    name: str = Field(min_length=1, max_length=128, description="Config name")
     description: str | None = Field(
         default=None, max_length=512, description="Optional description"
     )
@@ -25,10 +23,18 @@ class Config(ConfigBase, table=True):
 
     __tablename__ = "config"
     __table_args__ = (
-        UniqueConstraint(
+        Index(
+            "uq_config_project_id_name_active",
             "project_id",
             "name",
-            "deleted_at",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "idx_config_project_id_updated_at_active",
+            "project_id",
+            "updated_at",
+            postgresql_where=text("deleted_at IS NULL"),
         ),
     )
 
@@ -36,7 +42,6 @@ class Config(ConfigBase, table=True):
 
     project_id: int = Field(
         foreign_key="project.id",
-        index=True,
         nullable=False,
         ondelete="CASCADE",
     )

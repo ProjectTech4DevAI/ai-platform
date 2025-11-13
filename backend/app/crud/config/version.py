@@ -92,9 +92,9 @@ class ConfigVersionCrud:
             .options(
                 defer(ConfigVersion.config_blob),
             )
+            .order_by(ConfigVersion.version.desc())
             .offset(skip)
             .limit(limit)
-            .order_by(ConfigVersion.version.desc())
         )
         results = self.session.exec(statement).all()
         return [ConfigVersionItems.model_validate(item) for item in results]
@@ -124,12 +124,14 @@ class ConfigVersionCrud:
 
     def _get_next_version(self, config_id: UUID) -> int | None:
         """Get the next version number for a config."""
-        statement = select(func.max(ConfigVersion.version)).where(
-            and_(
-                ConfigVersion.config_id == config_id,
-            )
+        stmt = (
+            select(ConfigVersion.version)
+            .where(ConfigVersion.config_id == config_id)
+            .order_by(ConfigVersion.version.desc())
+            .limit(1)
         )
-        return self.session.exec(statement).one() + 1
+        latest = self.session.exec(stmt).first()
+        return latest + 1
 
     def _config_exists(self, config_id: UUID) -> Config:
         """Check if a config exists in the project."""

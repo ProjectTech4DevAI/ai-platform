@@ -92,9 +92,9 @@ class ConfigCrud:
                     Config.deleted_at.is_(None),
                 )
             )
+            .order_by(Config.updated_at.desc())
             .offset(skip)
             .limit(limit)
-            .order_by(Config.updated_at.desc())
         )
         return self.session.exec(statement).all()
 

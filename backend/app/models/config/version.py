@@ -4,15 +4,15 @@ from typing import Any
 
 from pydantic import field_validator
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import JSON
-from sqlmodel import Field, SQLModel, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlmodel import Field, SQLModel, UniqueConstraint, Index, text
 
 from app.core.util import now
 
 
 class ConfigVersionBase(SQLModel):
     config_blob: dict[str, Any] = Field(
-        sa_column=sa.Column(JSON, nullable=False),
+        sa_column=sa.Column(JSONB, nullable=False),
         description="Provider-specific configuration parameters (temperature, max_tokens, etc.)",
     )
     commit_message: str | None = Field(
@@ -32,8 +32,13 @@ class ConfigVersion(ConfigVersionBase, table=True):
     __tablename__ = "config_version"
     __table_args__ = (
         UniqueConstraint(
+            "config_id", "version", name="uq_config_version_config_id_version"
+        ),
+        Index(
+            "idx_config_version_config_id_version_active",
             "config_id",
             "version",
+            postgresql_where=text("deleted_at IS NULL"),
         ),
     )
 
@@ -41,7 +46,6 @@ class ConfigVersion(ConfigVersionBase, table=True):
 
     config_id: UUID = Field(
         foreign_key="config.id",
-        index=True,
         nullable=False,
         ondelete="CASCADE",
     )
