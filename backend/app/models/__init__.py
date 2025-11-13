@@ -21,6 +21,19 @@ from .collection_job import (
     CollectionJobCreate,
     CollectionJobImmediatePublic,
 )
+from .config import (
+    Config,
+    ConfigBase,
+    ConfigCreate,
+    ConfigUpdate,
+    ConfigPublic,
+    ConfigWithVersion,
+    ConfigVersion,
+    ConfigVersionBase,
+    ConfigVersionCreate,
+    ConfigVersionPublic,
+    ConfigVersionItems,
+)
 from .credentials import (
     Credential,
     CredsBase,
