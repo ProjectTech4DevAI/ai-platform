@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
-import sqlalchemy as sa
 from sqlalchemy import Column, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
@@ -113,20 +112,10 @@ class BatchJob(SQLModel, table=True):
 
     # Foreign keys
     organization_id: int = Field(
-        sa_column=Column(
-            Integer,
-            sa.ForeignKey("organization.id", ondelete="CASCADE"),
-            nullable=False,
-            index=True,
-        )
+        foreign_key="organization.id", nullable=False, ondelete="CASCADE", index=True
     )
     project_id: int = Field(
-        sa_column=Column(
-            Integer,
-            sa.ForeignKey("project.id", ondelete="CASCADE"),
-            nullable=False,
-            index=True,
-        )
+        foreign_key="project.id", nullable=False, ondelete="CASCADE", index=True
     )
 
     # Timestamps

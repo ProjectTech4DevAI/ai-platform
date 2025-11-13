@@ -6,6 +6,8 @@ Create Date: 2025-11-13 11:36:16.484694
 
 """
 from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = "633e69806207"
@@ -15,6 +17,20 @@ depends_on = None
 
 
 def upgrade():
+    op.alter_column(
+        "evaluation_run",
+        "config",
+        existing_type=postgresql.JSON(astext_type=sa.Text()),
+        type_=postgresql.JSONB(astext_type=sa.Text()),
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "evaluation_run",
+        "score",
+        existing_type=postgresql.JSON(astext_type=sa.Text()),
+        type_=postgresql.JSONB(astext_type=sa.Text()),
+        existing_nullable=True,
+    )
     # Remove SET NULL behavior from evaluation_run batch_job foreign keys
     # This ensures evaluation runs fail if their batch job is deleted (maintain referential integrity)
     op.drop_constraint(
@@ -50,6 +66,20 @@ def upgrade():
 
 
 def downgrade():
+    op.alter_column(
+        "evaluation_run",
+        "score",
+        existing_type=postgresql.JSONB(astext_type=sa.Text()),
+        type_=postgresql.JSON(astext_type=sa.Text()),
+        existing_nullable=True,
+    )
+    op.alter_column(
+        "evaluation_run",
+        "config",
+        existing_type=postgresql.JSONB(astext_type=sa.Text()),
+        type_=postgresql.JSON(astext_type=sa.Text()),
+        existing_nullable=False,
+    )
     # Restore SET NULL behavior to evaluation_run batch_job foreign keys
     op.drop_constraint(
         "fk_evaluation_run_embedding_batch_job_id", "evaluation_run", type_="foreignkey"

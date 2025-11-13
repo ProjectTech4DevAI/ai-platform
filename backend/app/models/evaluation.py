@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
 from pydantic import BaseModel, Field
-from sqlalchemy import JSON, Column, ForeignKey, Index, Integer, Text, UniqueConstraint
+from sqlalchemy import Column, Index, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field as SQLField
 from sqlmodel import Relationship, SQLModel
@@ -147,7 +147,7 @@ class EvaluationRun(SQLModel, table=True):
     # Config field - dict requires sa_column
     config: dict[str, Any] = SQLField(
         default_factory=dict,
-        sa_column=Column(JSON, nullable=False),
+        sa_column=Column(JSONB, nullable=False),
         description="Evaluation configuration",
     )
 
@@ -164,17 +164,13 @@ class EvaluationRun(SQLModel, table=True):
         default=None,
         foreign_key="batch_job.id",
         description=(
-            "Reference to the batch_job that processes this evaluation " "(responses)"
+            "Reference to the batch_job that processes this evaluation (responses)"
         ),
     )
     embedding_batch_job_id: int | None = SQLField(
         default=None,
-        sa_column=Column(
-            Integer,
-            ForeignKey("batch_job.id"),
-            nullable=True,
-            comment="Reference to the batch_job for embedding-based similarity scoring",
-        ),
+        foreign_key="batch_job.id",
+        nullable=True,
         description="Reference to the batch_job for embedding-based similarity scoring",
     )
 
@@ -194,7 +190,7 @@ class EvaluationRun(SQLModel, table=True):
     # Score field - dict requires sa_column
     score: dict[str, Any] | None = SQLField(
         default=None,
-        sa_column=Column(JSON, nullable=True),
+        sa_column=Column(JSONB, nullable=True),
         description="Evaluation scores (e.g., correctness, cosine_similarity, etc.)",
     )
 
