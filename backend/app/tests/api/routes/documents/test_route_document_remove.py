@@ -17,7 +17,7 @@ from app.tests.utils.document import (
 
 @pytest.fixture
 def route():
-    return Route("remove")
+    return Route("")
 
 
 class TestDocumentRouteRemove:

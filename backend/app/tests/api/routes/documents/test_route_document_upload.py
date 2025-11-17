@@ -73,7 +73,7 @@ def pdf_scratch():
 
 @pytest.fixture
 def route():
-    return Route("upload")
+    return Route("")
 
 
 @pytest.fixture
@@ -151,7 +151,7 @@ class TestDocumentRouteUpload:
         assert "id" in response.data
         assert "fname" in response.data
 
-    @patch("app.core.doctransform.service.start_job")
+    @patch("app.services.doctransform.job.start_job")
     def test_upload_with_transformation(
         self,
         mock_start_job,
@@ -186,7 +186,7 @@ class TestDocumentRouteUpload:
         )
         assert "message" in transformation_job
 
-    @patch("app.core.doctransform.service.start_job")
+    @patch("app.services.doctransform.job.start_job")
     def test_upload_with_specific_transformer(
         self,
         mock_start_job,
@@ -276,7 +276,7 @@ class TestDocumentRouteUpload:
         finally:
             unsupported_file.unlink()
 
-    @patch("app.core.doctransform.service.start_job")
+    @patch("app.services.doctransform.job.start_job")
     def test_transformation_job_created_in_database(
         self,
         mock_start_job,

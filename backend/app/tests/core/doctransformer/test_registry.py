@@ -1,5 +1,6 @@
 import pytest
-from app.core.doctransform.registry import (
+
+from app.services.doctransform.registry import (
     get_file_format,
     get_supported_transformations,
     is_transformation_supported,

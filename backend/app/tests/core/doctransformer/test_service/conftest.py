@@ -32,9 +32,9 @@ def aws_credentials() -> None:
 @pytest.fixture
 def fast_execute_job() -> Generator[Callable[[int, UUID, str, str], Any], None, None]:
     """Create a version of execute_job without retry delays for faster testing."""
-    from app.core.doctransform import service
+    from app.services.doctransform import job
 
-    original_execute_job = service.execute_job
+    original_execute_job = job.execute_job
 
     @retry(
         stop=stop_after_attempt(2), wait=wait_fixed(0.01)
@@ -47,7 +47,7 @@ def fast_execute_job() -> Generator[Callable[[int, UUID, str, str], Any], None, 
             project_id, job_id, transformer_name, target_format
         )
 
-    with patch.object(service, "execute_job", fast_execute_job_func):
+    with patch.object(job, "execute_job", fast_execute_job_func):
         yield fast_execute_job_func
 
 

@@ -11,8 +11,8 @@ from sqlmodel import Session
 from tenacity import RetryError
 
 from app.crud import DocTransformationJobCrud, DocumentCrud
-from app.core.doctransform.registry import TransformationError
-from app.core.doctransform.service import execute_job
+from app.services.doctransform.registry import TransformationError
+from app.services.doctransform.job import execute_job
 from app.core.exception_handlers import HTTPException
 from app.models import Document, Project, TransformationStatus
 from app.tests.core.doctransformer.test_service.utils import (

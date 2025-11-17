@@ -10,7 +10,7 @@ from moto import mock_aws
 from sqlmodel import Session
 
 from app.crud import DocTransformationJobCrud, DocumentCrud
-from app.core.doctransform.service import execute_job, start_job
+from app.services.doctransform.job import execute_job, start_job
 from app.models import (
     Document,
     DocTransformationJob,

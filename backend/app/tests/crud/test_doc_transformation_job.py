@@ -1,6 +1,7 @@
 import pytest
 from sqlmodel import Session
-from app.crud.doc_transformation_job import DocTransformationJobCrud
+
+from app.crud.document.doc_transformation_job import DocTransformationJobCrud
 from app.models import TransformationStatus
 from app.core.exception_handlers import HTTPException
 from app.tests.utils.document import DocumentStore

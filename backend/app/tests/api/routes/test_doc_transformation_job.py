@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.core.config import settings
-from app.crud.doc_transformation_job import DocTransformationJobCrud
+from app.crud.document.doc_transformation_job import DocTransformationJobCrud
 from app.models import TransformationStatus
 from app.tests.utils.document import DocumentStore
 from app.tests.utils.auth import TestAuthContext

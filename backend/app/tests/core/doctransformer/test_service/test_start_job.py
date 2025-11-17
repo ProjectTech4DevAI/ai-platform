@@ -8,8 +8,8 @@ import pytest
 from fastapi import BackgroundTasks
 from sqlmodel import Session
 
-from app.core.doctransform.service import execute_job, start_job
-from app.core.doctransform.registry import TRANSFORMERS
+from app.services.doctransform.job import execute_job, start_job
+from app.services.doctransform.registry import TRANSFORMERS
 from app.core.exception_handlers import HTTPException
 from app.models import (
     Document,
