@@ -13,12 +13,13 @@ from starlette.datastructures import Headers
 from app.crud.document.doc_transformation_job import DocTransformationJobCrud
 from app.crud.document.document import DocumentCrud
 from app.models.document import Document
-from app.models import ( 
-    DocTransformJobUpdate, 
-    TransformationStatus, 
+from app.models import (
+    DocTransformJobUpdate,
+    TransformationStatus,
     DocTransformationJobPublic,
     TransformedDocumentPublic,
-    DocTransformationJob )
+    DocTransformationJob,
+)
 from app.core.cloud import get_cloud_storage
 from app.api.deps import CurrentUserOrgProject
 from app.celery.utils import start_low_priority_job
@@ -35,26 +36,25 @@ def start_job(
     job_id: UUID,
     transformer_name: str,
     target_format: str,
-    callback_url: str
+    callback_url: str,
 ) -> UUID:
-    
     trace_id = correlation_id.get() or "N/A"
     job_crud = DocTransformationJobCrud(db, project_id=current_user.project_id)
     job_crud.update(job_id, DocTransformJobUpdate(trace_id=trace_id))
-    job=job_crud.read_one(job_id)
+    job = job_crud.read_one(job_id)
 
     project_id = current_user.project_id
 
     task_id = start_low_priority_job(
-              function_path="app.services.doctransform.job.execute_job",
-              project_id=project_id,
-              job_id=str(job.id),
-              source_document_id=str(job.source_document_id),
-              trace_id=trace_id,
-              transformer_name=transformer_name,
-              target_format=target_format,
-              callback_url = callback_url
-        )
+        function_path="app.services.doctransform.job.execute_job",
+        project_id=project_id,
+        job_id=str(job.id),
+        source_document_id=str(job.source_document_id),
+        trace_id=trace_id,
+        transformer_name=transformer_name,
+        target_format=target_format,
+        callback_url=callback_url,
+    )
 
     logger.info(
         f"[start_job] Job scheduled for document transformation | id: {job.id}, project_id: {project_id}, task_id: {task_id}"
@@ -128,7 +128,10 @@ def execute_job(
     try:
         logger.info(
             "[doc_transform.execute_job] started | job_id=%s | transformer=%s | target=%s | project_id=%s",
-            job_uuid, transformer_name, target_format, project_id
+            job_uuid,
+            transformer_name,
+            target_format,
+            project_id,
         )
 
         # --- mark PROCESSING and fetch source + storage ---
@@ -136,7 +139,9 @@ def execute_job(
             job_crud = DocTransformationJobCrud(session=db, project_id=project_id)
             job_for_payload = job_crud.update(
                 job_uuid,
-                DocTransformJobUpdate(status=TransformationStatus.PROCESSING, task_id=task_id),
+                DocTransformJobUpdate(
+                    status=TransformationStatus.PROCESSING, task_id=task_id
+                ),
             )
 
             doc_crud = DocumentCrud(session=db, project_id=project_id)
@@ -199,7 +204,7 @@ def execute_job(
             try:
                 signed_url = getattr(storage, "get_signed_url", None)
                 if callable(signed_url):
-                    created.signed_url = signed_url(created.object_store_url)  
+                    created.signed_url = signed_url(created.object_store_url)
             except Exception:
                 pass
 
@@ -208,7 +213,9 @@ def execute_job(
         elapsed = time.time() - start_time
         logger.info(
             "[doc_transform.execute_job] completed | job_id=%s | transformed_doc_id=%s | time=%.2fs",
-            job_uuid, created.id, elapsed
+            job_uuid,
+            created.id,
+            elapsed,
         )
 
         if callback_url:
@@ -217,7 +224,9 @@ def execute_job(
     except Exception as e:
         logger.error(
             "[doc_transform.execute_job] FAILED | job_id=%s | error=%s",
-            job_uuid, e, exc_info=True
+            job_uuid,
+            e,
+            exc_info=True,
         )
 
         # try to mark the job as FAILED and send failure callback
@@ -226,12 +235,15 @@ def execute_job(
                 job_crud = DocTransformationJobCrud(session=db, project_id=project_id)
                 job_for_payload = job_crud.update(
                     job_uuid,
-                    DocTransformJobUpdate(status=TransformationStatus.FAILED, error_message=str(e)),
+                    DocTransformJobUpdate(
+                        status=TransformationStatus.FAILED, error_message=str(e)
+                    ),
                 )
         except Exception as db_error:
             logger.error(
                 "[doc_transform.execute_job] failed to persist FAILED status | job_id=%s | db_error=%s",
-                job_uuid, db_error
+                job_uuid,
+                db_error,
             )
 
         if callback_url and job_for_payload:
@@ -241,7 +253,8 @@ def execute_job(
             except Exception as cb_error:
                 logger.error(
                     "[doc_transform.execute_job] callback failed | job_id=%s | error=%s",
-                    job_uuid, cb_error
+                    job_uuid,
+                    cb_error,
                 )
 
         # bubble up for caller/infra

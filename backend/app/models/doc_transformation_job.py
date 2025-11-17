@@ -8,7 +8,6 @@ from sqlmodel import SQLModel, Field
 from app.core.util import now
 
 
-
 class TransformationStatus(str, enum.Enum):
     PENDING = "PENDING"
     PROCESSING = "PROCESSING"
@@ -44,6 +43,3 @@ class DocTransformJobUpdate(SQLModel):
     status: TransformationStatus | None = None
     error_message: str | None = None
     trace_id: str | None = None
-
-    
-

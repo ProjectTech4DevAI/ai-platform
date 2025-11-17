@@ -56,11 +56,13 @@ class DocumentPublic(DocumentBase):
         default=None, description="A signed URL for accessing the document"
     )
 
+
 class TransformedDocumentPublic(DocumentPublic):
     source_document_id: UUID | None = Field(
         default=None,
         description="The ID of the source document if this document is a transformation",
     )
+
 
 class TransformationJobInfo(SQLModel):
     message: str
@@ -78,8 +80,8 @@ class DocumentUploadResponse(DocumentPublic):
 
 
 class DocTransformationJobPublic(SQLModel):
-    id: UUID 
-    source_document_id: UUID 
+    id: UUID
+    source_document_id: UUID
     status: TransformationStatus
     transformed_document: TransformedDocumentPublic | None = None
     error_message: str | None = None

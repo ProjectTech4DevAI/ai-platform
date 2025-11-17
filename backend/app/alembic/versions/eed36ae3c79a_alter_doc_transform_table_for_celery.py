@@ -11,20 +11,29 @@ import sqlmodel.sql.sqltypes
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = 'eed36ae3c79a'
-down_revision = '6fe772038a5a'
+revision = "eed36ae3c79a"
+down_revision = "6fe772038a5a"
 branch_labels = None
 depends_on = None
 
 
 def upgrade():
-    op.add_column('doc_transformation_job', sa.Column('task_id', sqlmodel.sql.sqltypes.AutoString(), nullable=True))
-    op.add_column('doc_transformation_job', sa.Column('trace_id', sqlmodel.sql.sqltypes.AutoString(), nullable=True))
-    op.alter_column("doc_transformation_job", "created_at", new_column_name="inserted_at")
+    op.add_column(
+        "doc_transformation_job",
+        sa.Column("task_id", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+    )
+    op.add_column(
+        "doc_transformation_job",
+        sa.Column("trace_id", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+    )
+    op.alter_column(
+        "doc_transformation_job", "created_at", new_column_name="inserted_at"
+    )
 
 
 def downgrade():
-    op.alter_column("doc_transformation_job", "inserted_at", new_column_name="created_at")
-    op.drop_column('doc_transformation_job', 'trace_id')
-    op.drop_column('doc_transformation_job', 'task_id')
-    
+    op.alter_column(
+        "doc_transformation_job", "inserted_at", new_column_name="created_at"
+    )
+    op.drop_column("doc_transformation_job", "trace_id")
+    op.drop_column("doc_transformation_job", "task_id")

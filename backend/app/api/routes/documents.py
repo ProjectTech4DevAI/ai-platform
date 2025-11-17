@@ -76,8 +76,7 @@ async def upload_doc(
     | None = Form(
         None, description="Name of the transformer to apply when converting. "
     ),
-    callback_url: str
-    | None = Form("URL to call to report endpoint status")
+    callback_url: str | None = Form("URL to call to report endpoint status"),
 ):
     # Determine source file format
     try:
@@ -125,15 +124,17 @@ async def upload_doc(
     job_info: TransformationJobInfo | None = None
     if target_format and actual_transformer:
         job_crud = DocTransformationJobCrud(session, current_user.project_id)
-        job = job_crud.create(DocTransformJobCreate(source_document_id=source_document.id))
-        
+        job = job_crud.create(
+            DocTransformJobCreate(source_document_id=source_document.id)
+        )
+
         transformation_job.start_job(
             db=session,
             job_id=job.id,
             current_user=current_user,
             transformer_name=actual_transformer,
             target_format=target_format,
-            callback_url = callback_url
+            callback_url=callback_url,
         )
         job_info = TransformationJobInfo(
             message=f"Document accepted for transformation from {source_format} to {target_format}.",
@@ -237,10 +238,12 @@ def doc_info(
     document = crud.read_one(doc_id)
 
     if document.source_document_id is None:
-       doc_schema = DocumentPublic.model_validate(document, from_attributes=True)     
+        doc_schema = DocumentPublic.model_validate(document, from_attributes=True)
 
     else:
-        doc_schema = TransformedDocumentPublic.model_validate(document, from_attributes=True)
+        doc_schema = TransformedDocumentPublic.model_validate(
+            document, from_attributes=True
+        )
 
     if include_url:
         storage = get_cloud_storage(session=session, project_id=current_user.project_id)

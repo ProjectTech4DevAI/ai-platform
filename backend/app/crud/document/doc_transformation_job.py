@@ -6,10 +6,10 @@ from sqlmodel import Session, select, and_
 
 from app.crud import DocumentCrud
 from app.models import (
-    DocTransformationJob, 
-    TransformationStatus, 
-    DocTransformJobCreate, 
-    DocTransformJobUpdate
+    DocTransformationJob,
+    TransformationStatus,
+    DocTransformJobCreate,
+    DocTransformJobUpdate,
 )
 from app.models.document import Document
 from app.core.util import now
@@ -24,7 +24,6 @@ class DocTransformationJobCrud:
         self.project_id = project_id
 
     def create(self, payload: DocTransformJobCreate) -> DocTransformationJob:
-
         job = DocTransformationJob(**payload.model_dump())
         self.session.add(job)
         self.session.commit()
@@ -74,7 +73,7 @@ class DocTransformationJobCrud:
     def update(
         self,
         job_id: UUID,
-        patch: DocTransformJobUpdate,  
+        patch: DocTransformJobUpdate,
     ) -> DocTransformationJob:
         """Update an existing doc transformation job and return the updated row."""
         job = self.read_one(job_id)
