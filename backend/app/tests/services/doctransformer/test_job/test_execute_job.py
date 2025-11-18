@@ -92,7 +92,9 @@ class TestExecuteJob(DocTransformTestBase):
         self,
         db: Session,
         test_document: Tuple[Document, Project],
-        fast_execute_job: Callable[[int, UUID, str, str], Any],
+        fast_execute_job: Callable[
+            [int, str, str, str, str, str, str | None, Any], Any
+        ],
     ) -> None:
         """Test job execution with non-existent job ID."""
         _, project = test_document
@@ -127,7 +129,9 @@ class TestExecuteJob(DocTransformTestBase):
         self,
         db: Session,
         test_document: Tuple[Document, Project],
-        fast_execute_job: Callable[[int, UUID, str, str], Any],
+        fast_execute_job: Callable[
+            [int, str, str, str, str, str, str | None, Any], Any
+        ],
     ) -> None:
         """Test job execution when source document is missing from S3."""
         document, project = test_document
@@ -169,7 +173,9 @@ class TestExecuteJob(DocTransformTestBase):
         self,
         db: Session,
         test_document: Tuple[Document, Project],
-        fast_execute_job: Callable[[int, UUID, str, str], Any],
+        fast_execute_job: Callable[
+            [int, str, str, str, str, str, str | None, Any], Any
+        ],
     ) -> None:
         """Test job execution when transformer raises an error."""
         document, project = test_document

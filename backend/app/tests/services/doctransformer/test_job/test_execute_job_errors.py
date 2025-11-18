@@ -31,7 +31,9 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
         self,
         db: Session,
         test_document: Tuple[Document, Project],
-        fast_execute_job: Callable[[int, Any, str, str], Any],
+        fast_execute_job: Callable[
+            [int, str, str, str, str, str, str | None, Any], Any
+        ],
     ) -> None:
         """Test job execution when S3 upload fails."""
         document, project = test_document
@@ -81,7 +83,9 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
         self,
         db: Session,
         test_document: Tuple[Document, Project],
-        fast_execute_job: Callable[[int, Any, str, str], Any],
+        fast_execute_job: Callable[
+            [int, str, str, str, str, str, str | None, Any], Any
+        ],
     ) -> None:
         """Test that retry mechanism works for transient failures."""
         document, project = test_document
@@ -126,7 +130,9 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
         self,
         db: Session,
         test_document: Tuple[Document, Project],
-        fast_execute_job: Callable[[int, Any, str, str], Any],
+        fast_execute_job: Callable[
+            [int, str, str, str, str, str, str | None, Any], Any
+        ],
     ) -> None:
         """Test behavior when all retry attempts are exhausted."""
         document, project = test_document
@@ -175,7 +181,9 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
         self,
         db: Session,
         test_document: Tuple[Document, Project],
-        fast_execute_job: Callable[[int, Any, str, str], Any],
+        fast_execute_job: Callable[
+            [int, str, str, str, str, str, str | None, Any], Any
+        ],
     ) -> None:
         """Test handling of database errors when updating job completion."""
         document, project = test_document
