@@ -40,7 +40,6 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
 
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
         job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
-        db.commit()
 
         # Mock storage.put to raise an error
         with patch(
@@ -91,7 +90,6 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
 
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
         job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
-        db.commit()
 
         # Create a side effect that fails once then succeeds (fast retry will only try 2 times)
         failing_convert_document = create_failing_convert_document(fail_count=1)
@@ -137,7 +135,6 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
 
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
         job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
-        db.commit()
 
         # Mock convert_document to always fail
         persistent_failing_convert_document = (
@@ -187,7 +184,6 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
 
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
         job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
-        db.commit()
 
         with patch(
             "app.services.doctransform.job.Session"

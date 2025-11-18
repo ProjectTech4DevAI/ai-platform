@@ -103,7 +103,6 @@ class TestExecuteJobIntegration(DocTransformTestBase):
         for i in range(3):
             job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
             jobs.append(job)
-        db.commit()
 
         for job in jobs:
             with patch(
@@ -148,7 +147,6 @@ class TestExecuteJobIntegration(DocTransformTestBase):
         for target_format in formats:
             job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
             jobs.append((job, target_format))
-        db.commit()
 
         for job, target_format in jobs:
             with patch(

@@ -31,7 +31,6 @@ class TestStartJob(DocTransformTestBase):
     def _create_job(self, db: Session, project_id: int, source_document_id):
         job = DocTransformJobCreate(source_document_id=source_document_id)
         job = DocTransformationJobCrud(db, project_id=project_id).create(job)
-        db.commit()
         return job
 
     def test_start_job_success(

@@ -178,7 +178,6 @@ class TestExecuteJob(DocTransformTestBase):
 
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
         job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
-        db.commit()
 
         # Mock convert_document to raise TransformationError
         with patch(
