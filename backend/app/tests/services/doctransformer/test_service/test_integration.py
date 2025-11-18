@@ -48,7 +48,7 @@ class TestExecuteJobIntegration(DocTransformTestBase):
         )
 
         with patch(
-            "app.services.collections.create_collection.start_low_priority_job",
+            "app.services.doctransform.job.start_low_priority_job",
             return_value="fake-task-id",
         ), patch("app.services.doctransform.job.Session") as mock_session_class, patch(
             "app.services.doctransform.registry.TRANSFORMERS",
