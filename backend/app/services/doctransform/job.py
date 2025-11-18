@@ -12,13 +12,14 @@ from starlette.datastructures import Headers
 
 from app.crud.document.doc_transformation_job import DocTransformationJobCrud
 from app.crud.document.document import DocumentCrud
-from app.models.document import Document
 from app.models import (
+    Document,
     DocTransformJobUpdate,
     TransformationStatus,
     DocTransformationJobPublic,
     TransformedDocumentPublic,
     DocTransformationJob,
+    TransformedDocumentPublic,
 )
 from app.core.cloud import get_cloud_storage
 from app.api.deps import CurrentUserOrgProject
@@ -36,8 +37,8 @@ def start_job(
     job_id: UUID,
     transformer_name: str,
     target_format: str,
-    callback_url: str,
-) -> UUID:
+    callback_url: str | None,
+) -> str:
     trace_id = correlation_id.get() or "N/A"
     job_crud = DocTransformationJobCrud(db, project_id=current_user.project_id)
     job_crud.update(job_id, DocTransformJobUpdate(trace_id=trace_id))
@@ -64,7 +65,7 @@ def start_job(
 
 def build_success_payload(
     job: DocTransformationJob,
-    transformed_doc: Document,
+    transformed_doc: TransformedDocumentPublic,
 ) -> dict:
     """
     {
@@ -120,12 +121,13 @@ def execute_job(
 
     start_time = time.time()
     tmp_dir: Path | None = None
-    job_uuid = UUID(job_id)
-    source_uuid = UUID(source_document_id)
 
     job_for_payload = None  # keep latest job snapshot for payloads
 
     try:
+        job_uuid = UUID(job_id)
+        source_uuid = UUID(source_document_id)
+
         logger.info(
             "[doc_transform.execute_job] started | job_id=%s | transformer=%s | target=%s | project_id=%s",
             job_uuid,
@@ -134,7 +136,6 @@ def execute_job(
             project_id,
         )
 
-        # --- mark PROCESSING and fetch source + storage ---
         with Session(engine) as db:
             job_crud = DocTransformationJobCrud(session=db, project_id=project_id)
             job_for_payload = job_crud.update(
@@ -180,7 +181,6 @@ def execute_job(
             )
             dest = storage.put(file_upload, Path(str(transformed_doc_id)))
 
-        # --- create Document row, mark job COMPLETE, build + send callback ---
         with Session(engine) as db:
             new_doc = Document(
                 id=transformed_doc_id,
@@ -189,7 +189,6 @@ def execute_job(
                 object_store_url=str(dest),
                 source_document_id=source_doc_id,
             )
-            # NOTE: your code used update(); keep it if your CRUD's update() upserts, else use create()
             created = DocumentCrud(db, project_id).update(new_doc)
 
             job_crud = DocTransformationJobCrud(session=db, project_id=project_id)
@@ -201,14 +200,24 @@ def execute_job(
                 ),
             )
 
+            signed_url = None
             try:
-                signed_url = getattr(storage, "get_signed_url", None)
-                if callable(signed_url):
-                    created.signed_url = signed_url(created.object_store_url)
-            except Exception:
-                pass
+                get_signed_url = getattr(storage, "get_signed_url", None)
+                if callable(get_signed_url):
+                    signed_url = get_signed_url(created.object_store_url)
+            except Exception as e:
+                logger.warning(
+                    "[doc_transform] failed to generate signed URL for doc %s: %s",
+                    created.id,
+                    e,
+                )
 
-            success_payload = build_success_payload(job_for_payload, created)
+            transformed_public = TransformedDocumentPublic.model_validate(
+                created,
+                update={"signed_url": signed_url} if signed_url else None,
+            )
+
+            success_payload = build_success_payload(job_for_payload, transformed_public)
 
         elapsed = time.time() - start_time
         logger.info(
@@ -229,7 +238,6 @@ def execute_job(
             exc_info=True,
         )
 
-        # try to mark the job as FAILED and send failure callback
         try:
             with Session(engine) as db:
                 job_crud = DocTransformationJobCrud(session=db, project_id=project_id)

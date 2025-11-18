@@ -177,8 +177,6 @@ class TestDocumentRouteUpload:
 
         transformation_job = response.data["transformation_job"]
         assert transformation_job["job_id"] == mock_job_id
-        assert transformation_job["source_format"] == "pdf"
-        assert transformation_job["target_format"] == "markdown"
         assert transformation_job["transformer"] == "zerox"  # Default transformer
         assert (
             transformation_job["status_check_url"]
@@ -321,7 +319,6 @@ class TestDocumentRouteUpload:
             "fname",
             "inserted_at",
             "updated_at",
-            "source_document_id",
         ]
         for field in required_fields:
             assert field in response.data

@@ -20,7 +20,7 @@ def patched_transformations(monkeypatch):
         ("pdf", "markdown"): {"default": "zerox", "zerox": "zerox"},
     }
     monkeypatch.setattr(
-        "app.core.doctransform.registry.SUPPORTED_TRANSFORMATIONS", mapping
+        "app.services.doctransform.registry.SUPPORTED_TRANSFORMATIONS", mapping
     )
     return mapping
 
@@ -47,7 +47,7 @@ def test_get_supported_transformations(patched_transformations):
 
 def test_is_transformation_supported(monkeypatch):
     monkeypatch.setattr(
-        "app.core.doctransform.registry.SUPPORTED_TRANSFORMATIONS",
+        "app.services.doctransform.registry.SUPPORTED_TRANSFORMATIONS",
         {("docx", "pdf"): {"default": "pandoc"}},
     )
     assert is_transformation_supported("docx", "pdf")

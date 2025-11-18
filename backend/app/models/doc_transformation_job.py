@@ -32,6 +32,18 @@ class DocTransformationJob(SQLModel, table=True):
     inserted_at: datetime = Field(default_factory=now)
     updated_at: datetime = Field(default_factory=now)
 
+    @property
+    def job_id(self) -> UUID:
+        return self.id
+
+    @property
+    def job_inserted_at(self) -> datetime:
+        return self.inserted_at
+
+    @property
+    def job_updated_at(self) -> datetime:
+        return self.updated_at
+
 
 class DocTransformJobCreate(SQLModel):
     source_document_id: UUID

@@ -32,6 +32,7 @@ from app.models import (
     DocumentUploadResponse,
     DocTransformJobCreate,
     Message,
+    TransformationStatus,
     TransformationJobInfo,
 )
 from app.services.collections.helpers import pick_service_for_documennt
@@ -128,7 +129,7 @@ async def upload_doc(
             DocTransformJobCreate(source_document_id=source_document.id)
         )
 
-        transformation_job.start_job(
+        transformation_job_id = transformation_job.start_job(
             db=session,
             job_id=job.id,
             current_user=current_user,
@@ -138,9 +139,10 @@ async def upload_doc(
         )
         job_info = TransformationJobInfo(
             message=f"Document accepted for transformation from {source_format} to {target_format}.",
-            job_id=str(job.id),
+            job_id=str(transformation_job_id),
+            status=TransformationStatus.PENDING,
             transformer=actual_transformer,
-            status_check_url=f"/documents/transformations/{job.id}",
+            status_check_url=f"/documents/transformations/{transformation_job_id}",
         )
 
     document_schema = DocumentPublic.model_validate(

@@ -80,7 +80,7 @@ class DocumentUploadResponse(DocumentPublic):
 
 
 class DocTransformationJobPublic(SQLModel):
-    id: UUID
+    job_id: UUID
     source_document_id: UUID
     status: TransformationStatus
     transformed_document: TransformedDocumentPublic | None = None
