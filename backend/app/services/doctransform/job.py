@@ -1,5 +1,6 @@
 import tempfile
 import shutil
+import time
 import logging
 from pathlib import Path
 from uuid import uuid4, UUID
@@ -117,8 +118,6 @@ def execute_job(
     callback_url: str | None,
     task_instance,
 ):
-    import time
-
     start_time = time.time()
     tmp_dir: Path | None = None
 

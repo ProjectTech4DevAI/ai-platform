@@ -88,6 +88,7 @@ class TestExecuteJobIntegration(DocTransformTestBase):
         document_crud = DocumentCrud(session=db, project_id=project.id)
         transformed_doc = document_crud.read_one(job.transformed_document_id)
         assert transformed_doc.source_document_id == document.id
+        print("Transformed fname:", transformed_doc.fname)
         assert "<transformed>" in transformed_doc.fname
 
     @mock_aws
