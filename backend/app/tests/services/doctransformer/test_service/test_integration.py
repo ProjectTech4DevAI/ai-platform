@@ -40,7 +40,6 @@ class TestExecuteJobIntegration(DocTransformTestBase):
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
         job = job_crud.create(DocTransformationJob(source_document_id=document.id))
 
-        # Start job using the service
         current_user = UserProjectOrg(
             id=1,
             email="test@example.com",
@@ -48,25 +47,25 @@ class TestExecuteJobIntegration(DocTransformTestBase):
             organization_id=project.organization_id,
         )
 
-        returned_job_id = start_job(
-            db=db,
-            current_user=current_user,
-            job_id=job.id,
-            transformer_name="test",
-            target_format="markdown",
-            callback_url=None,
-        )
-        assert job.id == returned_job_id
-
-        # Execute the job manually (simulating background execution)
         with patch(
-            "app.services.doctransform.job.Session"
-        ) as mock_session_class, patch(
+            "app.services.collections.create_collection.start_low_priority_job",
+            return_value="fake-task-id",
+        ), patch("app.services.doctransform.job.Session") as mock_session_class, patch(
             "app.services.doctransform.registry.TRANSFORMERS",
             {"test": MockTestTransformer},
         ):
             mock_session_class.return_value.__enter__.return_value = db
             mock_session_class.return_value.__exit__.return_value = None
+
+            returned_job_id = start_job(
+                db=db,
+                current_user=current_user,
+                job_id=job.id,
+                transformer_name="test",
+                target_format="markdown",
+                callback_url=None,
+            )
+            assert job.id == returned_job_id
 
             execute_job(
                 project_id=project.id,
@@ -79,16 +78,13 @@ class TestExecuteJobIntegration(DocTransformTestBase):
                 task_instance=None,
             )
 
-        # Verify complete workflow
         db.refresh(job)
         assert job.status == TransformationStatus.COMPLETED
         assert job.transformed_document_id is not None
 
-        # Verify transformed document exists and is valid
         document_crud = DocumentCrud(session=db, project_id=project.id)
         transformed_doc = document_crud.read_one(job.transformed_document_id)
         assert transformed_doc.source_document_id == document.id
-        print("Transformed fname:", transformed_doc.fname)
         assert "<transformed>" in transformed_doc.fname
 
     @mock_aws
@@ -109,7 +105,6 @@ class TestExecuteJobIntegration(DocTransformTestBase):
             jobs.append(job)
         db.commit()
 
-        # Execute all jobs
         for job in jobs:
             with patch(
                 "app.services.doctransform.job.Session"
@@ -131,7 +126,6 @@ class TestExecuteJobIntegration(DocTransformTestBase):
                     task_instance=None,
                 )
 
-        # Verify all jobs completed successfully
         for job in jobs:
             db.refresh(job)
             assert job.status == TransformationStatus.COMPLETED
@@ -150,14 +144,12 @@ class TestExecuteJobIntegration(DocTransformTestBase):
         formats = ["markdown", "text", "html"]
         jobs = []
 
-        # Create jobs for different formats
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
         for target_format in formats:
             job = job_crud.create(DocTransformationJob(source_document_id=document.id))
             jobs.append((job, target_format))
         db.commit()
 
-        # Execute all jobs
         for job, target_format in jobs:
             with patch(
                 "app.services.doctransform.job.Session"
@@ -179,7 +171,6 @@ class TestExecuteJobIntegration(DocTransformTestBase):
                     task_instance=None,
                 )
 
-        # Verify all jobs completed successfully with correct formats
         document_crud = DocumentCrud(session=db, project_id=project.id)
         for i, (job, target_format) in enumerate(jobs):
             db.refresh(job)
@@ -188,7 +179,6 @@ class TestExecuteJobIntegration(DocTransformTestBase):
 
             transformed_doc = document_crud.read_one(job.transformed_document_id)
             assert transformed_doc is not None
-            # Verify correct file extension based on format
             if target_format == "markdown":
                 assert transformed_doc.fname.endswith(".md")
             elif target_format == "text":
