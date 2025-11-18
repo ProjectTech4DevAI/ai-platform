@@ -13,12 +13,12 @@ from app.crud import DocTransformationJobCrud, DocumentCrud
 from app.services.doctransform.job import execute_job, start_job
 from app.models import (
     Document,
-    DocTransformationJob,
     Project,
     TransformationStatus,
     UserProjectOrg,
+    DocTransformJobCreate,
 )
-from app.tests.services.doctransformer.test_service.utils import (
+from app.tests.services.doctransformer.test_job.utils import (
     DocTransformTestBase,
     MockTestTransformer,
 )
@@ -38,7 +38,7 @@ class TestExecuteJobIntegration(DocTransformTestBase):
         self.create_s3_document_content(aws, document)
 
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
-        job = job_crud.create(DocTransformationJob(source_document_id=document.id))
+        job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
 
         current_user = UserProjectOrg(
             id=1,
@@ -101,7 +101,7 @@ class TestExecuteJobIntegration(DocTransformTestBase):
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
         jobs = []
         for i in range(3):
-            job = job_crud.create(DocTransformationJob(source_document_id=document.id))
+            job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
             jobs.append(job)
         db.commit()
 
@@ -146,7 +146,7 @@ class TestExecuteJobIntegration(DocTransformTestBase):
 
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
         for target_format in formats:
-            job = job_crud.create(DocTransformationJob(source_document_id=document.id))
+            job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
             jobs.append((job, target_format))
         db.commit()
 

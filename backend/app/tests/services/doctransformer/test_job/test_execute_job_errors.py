@@ -11,12 +11,12 @@ from moto import mock_aws
 from sqlmodel import Session
 
 from app.crud import DocTransformationJobCrud
-from app.models import Document, Project, TransformationStatus, DocTransformationJob
-from app.tests.services.doctransformer.test_service.utils import (
+from app.models import Document, Project, TransformationStatus, DocTransformJobCreate
+from app.tests.services.doctransformer.test_job.utils import (
     DocTransformTestBase,
     MockTestTransformer,
 )
-from app.tests.services.doctransformer.test_service.utils import (
+from app.tests.services.doctransformer.test_job.utils import (
     create_failing_convert_document,
     create_persistent_failing_convert_document,
 )
@@ -39,7 +39,7 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
         self.create_s3_document_content(aws, document)
 
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
-        job = job_crud.create(DocTransformationJob(source_document_id=document.id))
+        job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
         db.commit()
 
         # Mock storage.put to raise an error
@@ -90,7 +90,7 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
         self.create_s3_document_content(aws, document)
 
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
-        job = job_crud.create(DocTransformationJob(source_document_id=document.id))
+        job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
         db.commit()
 
         # Create a side effect that fails once then succeeds (fast retry will only try 2 times)
@@ -136,7 +136,7 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
         self.create_s3_document_content(aws, document)
 
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
-        job = job_crud.create(DocTransformationJob(source_document_id=document.id))
+        job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
         db.commit()
 
         # Mock convert_document to always fail
@@ -186,7 +186,7 @@ class TestExecuteJobRetryAndErrors(DocTransformTestBase):
         self.create_s3_document_content(aws, document)
 
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
-        job = job_crud.create(DocTransformationJob(source_document_id=document.id))
+        job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
         db.commit()
 
         with patch(

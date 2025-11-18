@@ -20,7 +20,6 @@ from app.models import (
     DocTransformationJobPublic,
     TransformedDocumentPublic,
     DocTransformationJob,
-    TransformedDocumentPublic,
 )
 from app.core.cloud import get_cloud_storage
 from app.api.deps import CurrentUserOrgProject
@@ -39,7 +38,7 @@ def start_job(
     transformer_name: str,
     target_format: str,
     callback_url: str | None,
-) -> str:
+) -> UUID:
     trace_id = correlation_id.get() or "N/A"
     job_crud = DocTransformationJobCrud(db, project_id=current_user.project_id)
     job_crud.update(job_id, DocTransformJobUpdate(trace_id=trace_id))

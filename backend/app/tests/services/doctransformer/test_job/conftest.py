@@ -4,7 +4,6 @@ Pytest fixtures for document transformation service tests.
 import os
 from typing import Any, Callable, Generator, Tuple
 from unittest.mock import patch
-from uuid import UUID
 
 import pytest
 from fastapi import BackgroundTasks
@@ -12,7 +11,7 @@ from sqlmodel import Session
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from app.crud import get_project_by_id
-from app.models import User
+from app.services.doctransform import job
 from app.core.config import settings
 from app.models import Document, Project, UserProjectOrg
 from app.tests.utils.document import DocumentStore
@@ -30,9 +29,12 @@ def aws_credentials() -> None:
 
 
 @pytest.fixture
-def fast_execute_job() -> Generator[Callable[[int, UUID, str, str], Any], None, None]:
+def fast_execute_job() -> (
+    Generator[
+        Callable[[int, str, str, str, str, str, str | None, Any], Any], None, None
+    ]
+):
     """Create a version of execute_job without retry delays for faster testing."""
-    from app.services.doctransform import job
 
     original_execute_job = job.execute_job
 

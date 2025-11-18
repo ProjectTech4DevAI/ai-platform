@@ -3,13 +3,11 @@ Tests for the start_job function in document transformation service.
 """
 import pytest
 from unittest.mock import patch
-from typing import Tuple
 from uuid import uuid4
 
-from fastapi import BackgroundTasks
 from sqlmodel import Session
 
-from app.services.doctransform.job import execute_job, start_job
+from app.services.doctransform.job import start_job
 from app.services.doctransform.registry import TRANSFORMERS
 from app.core.exception_handlers import HTTPException
 from app.crud import DocTransformationJobCrud
@@ -19,8 +17,9 @@ from app.models import (
     Project,
     TransformationStatus,
     UserProjectOrg,
+    DocTransformJobCreate,
 )
-from app.tests.services.doctransformer.test_service.utils import (
+from app.tests.services.doctransformer.test_job.utils import (
     DocTransformTestBase,
     MockTestTransformer,
 )
@@ -30,7 +29,7 @@ class TestStartJob(DocTransformTestBase):
     """Test cases for the start_job function."""
 
     def _create_job(self, db: Session, project_id: int, source_document_id):
-        job = DocTransformationJob(source_document_id=source_document_id)
+        job = DocTransformJobCreate(source_document_id=source_document_id)
         job = DocTransformationJobCrud(db, project_id=project_id).create(job)
         db.commit()
         return job

@@ -24,7 +24,7 @@ class DocTransformationJob(SQLModel, table=True):
         default=None, foreign_key="document.id"
     )
     status: TransformationStatus = Field(default=TransformationStatus.PENDING)
-    task_id: str = Field(nullable=True)
+    task_id: str | None = Field(default=None, nullable=True)
     trace_id: str | None = Field(
         default=None, description="Tracing ID for correlating logs and traces."
     )

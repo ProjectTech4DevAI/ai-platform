@@ -14,8 +14,8 @@ from app.crud import DocTransformationJobCrud, DocumentCrud
 from app.services.doctransform.registry import TransformationError
 from app.services.doctransform.job import execute_job
 from app.core.exception_handlers import HTTPException
-from app.models import Document, Project, TransformationStatus, DocTransformationJob
-from app.tests.services.doctransformer.test_service.utils import (
+from app.models import Document, Project, TransformationStatus, DocTransformJobCreate
+from app.tests.services.doctransformer.test_job.utils import (
     DocTransformTestBase,
     MockTestTransformer,
 )
@@ -48,11 +48,9 @@ class TestExecuteJob(DocTransformTestBase):
         source_content = b"This is a test document for transformation."
         self.create_s3_document_content(aws, document, source_content)
 
-        # Create transformation job
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
-        job = job_crud.create(DocTransformationJob(source_document_id=document.id))
+        job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
 
-        # Mock the Session to use our existing database session
         with patch(
             "app.services.doctransform.job.Session"
         ) as mock_session_class, patch(
@@ -73,13 +71,11 @@ class TestExecuteJob(DocTransformTestBase):
                 task_instance=None,
             )
 
-        # Verify job completion
         db.refresh(job)
         assert job.status == TransformationStatus.COMPLETED
         assert job.transformed_document_id is not None
         assert job.error_message is None
 
-        # Verify transformed document
         document_crud = DocumentCrud(session=db, project_id=project.id)
         transformed_doc = document_crud.read_one(job.transformed_document_id)
         assert transformed_doc is not None
@@ -88,7 +84,6 @@ class TestExecuteJob(DocTransformTestBase):
         assert transformed_doc.source_document_id == document.id
         assert transformed_doc.object_store_url is not None
 
-        # Verify transformed content in S3
         self.verify_s3_content(aws, transformed_doc)
 
     @mock_aws
@@ -140,7 +135,7 @@ class TestExecuteJob(DocTransformTestBase):
 
         # Create job but don't upload document to S3
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
-        job = job_crud.create(DocTransformationJob(source_document_id=document.id))
+        job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
 
         with patch(
             "app.services.doctransform.job.Session"
@@ -162,7 +157,7 @@ class TestExecuteJob(DocTransformTestBase):
                     callback_url=None,
                     task_instance=None,
                 )
-        # Verify job was marked as failed
+
         db.refresh(job)
         assert job.status == TransformationStatus.FAILED
         assert job.error_message is not None
@@ -182,7 +177,7 @@ class TestExecuteJob(DocTransformTestBase):
         self.create_s3_document_content(aws, document)
 
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
-        job = job_crud.create(DocTransformationJob(source_document_id=document.id))
+        job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
         db.commit()
 
         # Mock convert_document to raise TransformationError
@@ -227,7 +222,7 @@ class TestExecuteJob(DocTransformTestBase):
         self.create_s3_document_content(aws, document)
 
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
-        job = job_crud.create(DocTransformationJob(source_document_id=document.id))
+        job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
         initial_status = job.status
 
         with patch(
@@ -278,7 +273,7 @@ class TestExecuteJob(DocTransformTestBase):
             expected_extension,
         ) in format_extensions:
             job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
-            job = job_crud.create(DocTransformationJob(source_document_id=document.id))
+            job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
 
             with patch(
                 "app.services.doctransform.job.Session"
