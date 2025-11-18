@@ -40,11 +40,25 @@ def fast_execute_job() -> Generator[Callable[[int, UUID, str, str], Any], None, 
         stop=stop_after_attempt(2), wait=wait_fixed(0.01)
     )  # Very fast retry for tests
     def fast_execute_job_func(
-        project_id: int, job_id: UUID, transformer_name: str, target_format: str
+        project_id: int,
+        job_id: str,
+        source_document_id: str,
+        transformer_name: str,
+        target_format: str,
+        task_id: str,
+        callback_url: str | None,
+        task_instance,
     ) -> Any:
         # Call the original function's implementation without the decorator
         return original_execute_job.__wrapped__(
-            project_id, job_id, transformer_name, target_format
+            project_id,
+            job_id,
+            source_document_id,
+            transformer_name,
+            target_format,
+            task_id,
+            callback_url,
+            task_instance,
         )
 
     with patch.object(job, "execute_job", fast_execute_job_func):
