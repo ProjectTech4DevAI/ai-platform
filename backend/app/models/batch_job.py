@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
-from sqlalchemy import Column, Index, Integer, String, Text
+from sqlalchemy import Column, Index, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -25,22 +25,10 @@ class BatchJob(SQLModel, table=True):
 
     # Provider and job type
     provider: str = Field(
-        sa_column=Column(
-            String,
-            nullable=False,
-            comment="LLM provider name (e.g., 'openai', 'anthropic')",
-        ),
         description="LLM provider name (e.g., 'openai', 'anthropic')",
     )
     job_type: str = Field(
-        sa_column=Column(
-            String,
-            nullable=False,
-            index=True,
-            comment=(
-                "Type of batch job (e.g., 'evaluation', 'classification', 'embedding')"
-            ),
-        ),
+        index=True,
         description=(
             "Type of batch job (e.g., 'evaluation', 'classification', 'embedding')"
         ),
@@ -49,11 +37,7 @@ class BatchJob(SQLModel, table=True):
     # Batch configuration - stores all provider-specific config
     config: dict[str, Any] = Field(
         default_factory=dict,
-        sa_column=Column(
-            JSONB(),
-            nullable=False,
-            comment="Complete batch configuration",
-        ),
+        sa_column=Column(JSONB, nullable=False),
         description=(
             "Complete batch configuration including model, temperature, "
             "instructions, tools, etc."
@@ -63,35 +47,20 @@ class BatchJob(SQLModel, table=True):
     # Provider-specific batch tracking
     provider_batch_id: str | None = Field(
         default=None,
-        sa_column=Column(
-            String,
-            nullable=True,
-            comment="Provider's batch job ID",
-        ),
         description="Provider's batch job ID (e.g., OpenAI batch_id)",
     )
     provider_file_id: str | None = Field(
         default=None,
-        sa_column=Column(String, nullable=True, comment="Provider's input file ID"),
         description="Provider's input file ID",
     )
     provider_output_file_id: str | None = Field(
         default=None,
-        sa_column=Column(String, nullable=True, comment="Provider's output file ID"),
         description="Provider's output file ID",
     )
 
     # Provider status tracking
     provider_status: str | None = Field(
         default=None,
-        sa_column=Column(
-            String,
-            nullable=True,
-            comment=(
-                "Provider-specific status (e.g., OpenAI: validating, "
-                "in_progress, completed, failed)"
-            ),
-        ),
         description=(
             "Provider-specific status (e.g., OpenAI: validating, in_progress, "
             "finalizing, completed, failed, expired, cancelling, cancelled)"
@@ -101,25 +70,17 @@ class BatchJob(SQLModel, table=True):
     # Raw results (before parent-specific processing)
     raw_output_url: str | None = Field(
         default=None,
-        sa_column=Column(
-            String, nullable=True, comment="S3 URL of raw batch output file"
-        ),
         description="S3 URL of raw batch output file",
     )
     total_items: int = Field(
         default=0,
-        sa_column=Column(
-            Integer,
-            nullable=False,
-            comment="Total number of items in the batch",
-        ),
         description="Total number of items in the batch",
     )
 
     # Error handling
     error_message: str | None = Field(
         default=None,
-        sa_column=Column(Text, nullable=True, comment="Error message if batch failed"),
+        sa_column=Column(Text, nullable=True),
         description="Error message if batch failed",
     )
 
