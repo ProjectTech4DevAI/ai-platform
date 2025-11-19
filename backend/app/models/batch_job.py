@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
-from sqlalchemy import Column
+from sqlalchemy import Column, Index, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -16,55 +16,81 @@ class BatchJob(SQLModel, table=True):
     """Batch job table for tracking async LLM batch operations."""
 
     __tablename__ = "batch_job"
+    __table_args__ = (
+        Index("idx_batch_job_status_org", "provider_status", "organization_id"),
+        Index("idx_batch_job_status_project", "provider_status", "project_id"),
+    )
 
     id: int | None = Field(default=None, primary_key=True)
 
     # Provider and job type
-    provider: str = Field(description="LLM provider name (e.g., 'openai', 'anthropic')")
+    provider: str = Field(
+        description="LLM provider name (e.g., 'openai', 'anthropic')",
+    )
     job_type: str = Field(
-        description="Type of batch job (e.g., 'evaluation', 'classification', 'embedding')"
+        index=True,
+        description=(
+            "Type of batch job (e.g., 'evaluation', 'classification', 'embedding')"
+        ),
     )
 
     # Batch configuration - stores all provider-specific config
     config: dict[str, Any] = Field(
         default_factory=dict,
-        sa_column=Column(JSONB()),
-        description="Complete batch configuration including model, temperature, instructions, tools, etc.",
+        sa_column=Column(JSONB, nullable=False),
+        description=(
+            "Complete batch configuration including model, temperature, "
+            "instructions, tools, etc."
+        ),
     )
 
     # Provider-specific batch tracking
     provider_batch_id: str | None = Field(
-        default=None, description="Provider's batch job ID (e.g., OpenAI batch_id)"
+        default=None,
+        description="Provider's batch job ID (e.g., OpenAI batch_id)",
     )
     provider_file_id: str | None = Field(
-        default=None, description="Provider's input file ID"
+        default=None,
+        description="Provider's input file ID",
     )
     provider_output_file_id: str | None = Field(
-        default=None, description="Provider's output file ID"
+        default=None,
+        description="Provider's output file ID",
     )
 
     # Provider status tracking
     provider_status: str | None = Field(
         default=None,
-        description="Provider-specific status (e.g., OpenAI: validating, in_progress, finalizing, completed, failed, expired, cancelling, cancelled)",
+        description=(
+            "Provider-specific status (e.g., OpenAI: validating, in_progress, "
+            "finalizing, completed, failed, expired, cancelling, cancelled)"
+        ),
     )
 
     # Raw results (before parent-specific processing)
     raw_output_url: str | None = Field(
-        default=None, description="S3 URL of raw batch output file"
+        default=None,
+        description="S3 URL of raw batch output file",
     )
     total_items: int = Field(
-        default=0, description="Total number of items in the batch"
+        default=0,
+        description="Total number of items in the batch",
     )
 
     # Error handling
     error_message: str | None = Field(
-        default=None, description="Error message if batch failed"
+        default=None,
+        sa_column=Column(Text, nullable=True),
+        description="Error message if batch failed",
     )
 
     # Foreign keys
-    organization_id: int = Field(foreign_key="organization.id")
-    project_id: int = Field(foreign_key="project.id")
+    organization_id: int = Field(
+        foreign_key="organization.id", nullable=False, ondelete="CASCADE", index=True
+    )
+    project_id: int = Field(
+        foreign_key="project.id", nullable=False, ondelete="CASCADE", index=True
+    )
 
     # Timestamps
     inserted_at: datetime = Field(
