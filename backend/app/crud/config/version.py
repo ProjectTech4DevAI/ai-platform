@@ -131,6 +131,9 @@ class ConfigVersionCrud:
             .limit(1)
         )
         latest = self.session.exec(stmt).first()
+        if latest is None:
+            return 1
+
         return latest + 1
 
     def _config_exists(self, config_id: UUID) -> Config:

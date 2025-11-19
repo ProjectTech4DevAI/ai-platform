@@ -24,7 +24,7 @@ router = APIRouter()
     status_code=201,
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
-def create_config_route(
+def create_config(
     config_create: ConfigCreate,
     current_user: AuthContextDep,
     session: SessionDep,
@@ -48,7 +48,7 @@ def create_config_route(
     status_code=200,
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
-def list_configs_route(
+def list_configs(
     current_user: AuthContextDep,
     session: SessionDep,
     skip: int = Query(0, ge=0, description="Number of records to skip"),
@@ -58,8 +58,6 @@ def list_configs_route(
     List all configurations for the current project.
     Ordered by updated_at in descending order.
     """
-
-    # Decide how to handle pagination effectively
     config_crud = ConfigCrud(session=session, project_id=current_user.project.id)
     configs = config_crud.read_all(skip=skip, limit=limit)
     return APIResponse.success_response(
@@ -73,7 +71,7 @@ def list_configs_route(
     status_code=200,
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
-def get_config_route(
+def get_config(
     config_id: UUID,
     current_user: AuthContextDep,
     session: SessionDep,
@@ -94,7 +92,7 @@ def get_config_route(
     status_code=200,
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
-def update_config_route(
+def update_config(
     config_id: UUID,
     config_update: ConfigUpdate,
     current_user: AuthContextDep,
@@ -117,7 +115,7 @@ def update_config_route(
     status_code=200,
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
-def delete_config_route(
+def delete_config(
     config_id: UUID,
     current_user: AuthContextDep,
     session: SessionDep,

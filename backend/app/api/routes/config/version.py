@@ -21,7 +21,7 @@ router = APIRouter()
     status_code=201,
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
-def create_version_route(
+def create_version(
     config_id: UUID,
     version_create: ConfigVersionCreate,
     current_user: AuthContextDep,
@@ -47,7 +47,7 @@ def create_version_route(
     status_code=200,
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
-def list_versions_route(
+def list_versions(
     config_id: UUID,
     current_user: AuthContextDep,
     session: SessionDep,
@@ -76,7 +76,7 @@ def list_versions_route(
     status_code=200,
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
-def get_version_route(
+def get_version(
     config_id: UUID,
     current_user: AuthContextDep,
     session: SessionDep,
@@ -90,13 +90,7 @@ def get_version_route(
     version_crud = ConfigVersionCrud(
         session=session, project_id=current_user.project.id, config_id=config_id
     )
-    version = version_crud.read_one(version_number=version_number)
-    if version is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Config Version with number '{version_number}' not found for config '{config_id}'",
-        )
-
+    version = version_crud.exists(version_number=version_number)
     return APIResponse.success_response(
         data=version,
     )
@@ -108,7 +102,7 @@ def get_version_route(
     status_code=200,
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
-def delete_version_route(
+def delete_version(
     config_id: UUID,
     current_user: AuthContextDep,
     session: SessionDep,

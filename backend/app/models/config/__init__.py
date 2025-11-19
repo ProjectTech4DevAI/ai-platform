@@ -23,5 +23,7 @@ __all__ = [
     "ConfigVersion",
     "ConfigVersionBase",
     "ConfigVersionCreate",
+    "ConfigVersionItems",
     "ConfigVersionPublic",
+    "ConfigWithVersion",
 ]
