@@ -163,6 +163,7 @@ class EvaluationRun(SQLModel, table=True):
     batch_job_id: int | None = SQLField(
         default=None,
         foreign_key="batch_job.id",
+        ondelete="SET NULL",
         description=(
             "Reference to the batch_job that processes this evaluation (responses)"
         ),
@@ -171,6 +172,7 @@ class EvaluationRun(SQLModel, table=True):
         default=None,
         foreign_key="batch_job.id",
         nullable=True,
+        ondelete="SET NULL",
         description="Reference to the batch_job for embedding-based similarity scoring",
     )
 
