@@ -56,6 +56,7 @@ def upgrade():
         "batch_job",
         ["batch_job_id"],
         ["id"],
+        ondelete="SET NULL",
     )
     op.create_foreign_key(
         "fk_evaluation_run_embedding_batch_job_id",
@@ -63,6 +64,7 @@ def upgrade():
         "batch_job",
         ["embedding_batch_job_id"],
         ["id"],
+        ondelete="SET NULL",
     )
 
 
