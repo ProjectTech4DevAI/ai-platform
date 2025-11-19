@@ -37,9 +37,13 @@ class BatchJob(SQLModel, table=True):
             String,
             nullable=False,
             index=True,
-            comment="Type of batch job (e.g., 'evaluation', 'classification', 'embedding')",
+            comment=(
+                "Type of batch job (e.g., 'evaluation', 'classification', 'embedding')"
+            ),
         ),
-        description="Type of batch job (e.g., 'evaluation', 'classification', 'embedding')",
+        description=(
+            "Type of batch job (e.g., 'evaluation', 'classification', 'embedding')"
+        ),
     )
 
     # Batch configuration - stores all provider-specific config
@@ -50,7 +54,10 @@ class BatchJob(SQLModel, table=True):
             nullable=False,
             comment="Complete batch configuration",
         ),
-        description="Complete batch configuration including model, temperature, instructions, tools, etc.",
+        description=(
+            "Complete batch configuration including model, temperature, "
+            "instructions, tools, etc."
+        ),
     )
 
     # Provider-specific batch tracking
@@ -80,9 +87,15 @@ class BatchJob(SQLModel, table=True):
         sa_column=Column(
             String,
             nullable=True,
-            comment="Provider-specific status (e.g., OpenAI: validating, in_progress, completed, failed)",
+            comment=(
+                "Provider-specific status (e.g., OpenAI: validating, "
+                "in_progress, completed, failed)"
+            ),
         ),
-        description="Provider-specific status (e.g., OpenAI: validating, in_progress, finalizing, completed, failed, expired, cancelling, cancelled)",
+        description=(
+            "Provider-specific status (e.g., OpenAI: validating, in_progress, "
+            "finalizing, completed, failed, expired, cancelling, cancelled)"
+        ),
     )
 
     # Raw results (before parent-specific processing)
