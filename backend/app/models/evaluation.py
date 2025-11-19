@@ -2,7 +2,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
 from pydantic import BaseModel, Field
-from sqlalchemy import JSON, Column, Text, UniqueConstraint
+from sqlalchemy import Column, Index, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field as SQLField
 from sqlmodel import Relationship, SQLModel
 
@@ -90,10 +91,10 @@ class EvaluationDataset(SQLModel, table=True):
         default=None, description="Optional description of the dataset"
     )
 
-    # Dataset metadata stored as JSON
+    # Dataset metadata stored as JSONB
     dataset_metadata: dict[str, Any] = SQLField(
         default_factory=dict,
-        sa_column=Column(JSON),
+        sa_column=Column(JSONB, nullable=False),
         description=(
             "Dataset metadata (original_items_count, total_items_count, "
             "duplication_factor)"
@@ -132,6 +133,10 @@ class EvaluationRun(SQLModel, table=True):
     """Database table for evaluation runs."""
 
     __tablename__ = "evaluation_run"
+    __table_args__ = (
+        Index("idx_eval_run_status_org", "status", "organization_id"),
+        Index("idx_eval_run_status_project", "status", "project_id"),
+    )
 
     id: int = SQLField(default=None, primary_key=True)
 
@@ -142,7 +147,7 @@ class EvaluationRun(SQLModel, table=True):
     # Config field - dict requires sa_column
     config: dict[str, Any] = SQLField(
         default_factory=dict,
-        sa_column=Column(JSON),
+        sa_column=Column(JSONB, nullable=False),
         description="Evaluation configuration",
     )
 
@@ -158,13 +163,16 @@ class EvaluationRun(SQLModel, table=True):
     batch_job_id: int | None = SQLField(
         default=None,
         foreign_key="batch_job.id",
+        ondelete="SET NULL",
         description=(
-            "Reference to the batch_job that processes this evaluation " "(responses)"
+            "Reference to the batch_job that processes this evaluation (responses)"
         ),
     )
     embedding_batch_job_id: int | None = SQLField(
         default=None,
         foreign_key="batch_job.id",
+        nullable=True,
+        ondelete="SET NULL",
         description="Reference to the batch_job for embedding-based similarity scoring",
     )
 
@@ -184,7 +192,7 @@ class EvaluationRun(SQLModel, table=True):
     # Score field - dict requires sa_column
     score: dict[str, Any] | None = SQLField(
         default=None,
-        sa_column=Column(JSON, nullable=True),
+        sa_column=Column(JSONB, nullable=True),
         description="Evaluation scores (e.g., correctness, cosine_similarity, etc.)",
     )
 
