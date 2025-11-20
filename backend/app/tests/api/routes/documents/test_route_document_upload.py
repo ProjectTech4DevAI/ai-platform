@@ -180,7 +180,7 @@ class TestDocumentRouteUpload:
         assert transformation_job["transformer"] == "zerox"  # Default transformer
         assert (
             transformation_job["status_check_url"]
-            == f"/documents/transformations/{mock_job_id}"
+            == f"/documents/transformation/{mock_job_id}"
         )
         assert "message" in transformation_job
 
