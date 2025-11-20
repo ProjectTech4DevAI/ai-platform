@@ -4,7 +4,6 @@ Pytest fixtures for document transformation service tests.
 import os
 from typing import Any, Callable, Generator, Tuple
 from unittest.mock import patch
-from uuid import UUID
 
 import pytest
 from fastapi import BackgroundTasks
@@ -12,7 +11,7 @@ from sqlmodel import Session
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from app.crud import get_project_by_id
-from app.models import User
+from app.services.doctransform import job
 from app.core.config import settings
 from app.models import Document, Project, UserProjectOrg
 from app.tests.utils.document import DocumentStore
@@ -30,24 +29,41 @@ def aws_credentials() -> None:
 
 
 @pytest.fixture
-def fast_execute_job() -> Generator[Callable[[int, UUID, str, str], Any], None, None]:
+def fast_execute_job() -> (
+    Generator[
+        Callable[[int, str, str, str, str, str, str | None, Any], Any], None, None
+    ]
+):
     """Create a version of execute_job without retry delays for faster testing."""
-    from app.core.doctransform import service
 
-    original_execute_job = service.execute_job
+    original_execute_job = job.execute_job
 
     @retry(
         stop=stop_after_attempt(2), wait=wait_fixed(0.01)
     )  # Very fast retry for tests
     def fast_execute_job_func(
-        project_id: int, job_id: UUID, transformer_name: str, target_format: str
+        project_id: int,
+        job_id: str,
+        source_document_id: str,
+        transformer_name: str,
+        target_format: str,
+        task_id: str,
+        callback_url: str | None,
+        task_instance,
     ) -> Any:
         # Call the original function's implementation without the decorator
         return original_execute_job.__wrapped__(
-            project_id, job_id, transformer_name, target_format
+            project_id,
+            job_id,
+            source_document_id,
+            transformer_name,
+            target_format,
+            task_id,
+            callback_url,
+            task_instance,
         )
 
-    with patch.object(service, "execute_job", fast_execute_job_func):
+    with patch.object(job, "execute_job", fast_execute_job_func):
         yield fast_execute_job_func
 
 

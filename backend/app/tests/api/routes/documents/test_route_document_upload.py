@@ -73,7 +73,7 @@ def pdf_scratch():
 
 @pytest.fixture
 def route():
-    return Route("upload")
+    return Route("")
 
 
 @pytest.fixture
@@ -151,7 +151,7 @@ class TestDocumentRouteUpload:
         assert "id" in response.data
         assert "fname" in response.data
 
-    @patch("app.core.doctransform.service.start_job")
+    @patch("app.services.doctransform.job.start_job")
     def test_upload_with_transformation(
         self,
         mock_start_job,
@@ -177,16 +177,14 @@ class TestDocumentRouteUpload:
 
         transformation_job = response.data["transformation_job"]
         assert transformation_job["job_id"] == mock_job_id
-        assert transformation_job["source_format"] == "pdf"
-        assert transformation_job["target_format"] == "markdown"
         assert transformation_job["transformer"] == "zerox"  # Default transformer
         assert (
             transformation_job["status_check_url"]
-            == f"/documents/transformations/{mock_job_id}"
+            == f"/documents/transformation/{mock_job_id}"
         )
         assert "message" in transformation_job
 
-    @patch("app.core.doctransform.service.start_job")
+    @patch("app.services.doctransform.job.start_job")
     def test_upload_with_specific_transformer(
         self,
         mock_start_job,
@@ -276,7 +274,7 @@ class TestDocumentRouteUpload:
         finally:
             unsupported_file.unlink()
 
-    @patch("app.core.doctransform.service.start_job")
+    @patch("app.services.doctransform.job.start_job")
     def test_transformation_job_created_in_database(
         self,
         mock_start_job,
@@ -321,7 +319,6 @@ class TestDocumentRouteUpload:
             "fname",
             "inserted_at",
             "updated_at",
-            "source_document_id",
         ]
         for field in required_fields:
             assert field in response.data

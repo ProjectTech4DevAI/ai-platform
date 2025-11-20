@@ -4,7 +4,7 @@ from asyncio import Runner, wait_for
 from pathlib import Path
 from pyzerox import zerox
 
-from app.core.doctransform.transformer import Transformer
+from app.services.doctransform.transformer import Transformer
 
 logger = logging.getLogger(__name__)
 

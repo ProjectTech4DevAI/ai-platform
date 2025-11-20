@@ -21,7 +21,7 @@ class QueryRoute(Route):
 
 @pytest.fixture
 def route():
-    return QueryRoute("list")
+    return QueryRoute("")
 
 
 class TestDocumentRouteList:

@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from app.core.doctransform.transformer import Transformer
-from app.core.doctransform.zerox_transformer import ZeroxTransformer
+from app.services.doctransform.transformer import Transformer
+from app.services.doctransform.zerox_transformer import ZeroxTransformer
 
 
 class TransformationError(Exception):

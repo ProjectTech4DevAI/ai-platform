@@ -1,9 +1,16 @@
 import logging
 from uuid import UUID
 from typing import List, Optional
-from sqlmodel import Session, select, and_, join
+
+from sqlmodel import Session, select, and_
+
 from app.crud import DocumentCrud
-from app.models import DocTransformationJob, TransformationStatus
+from app.models import (
+    DocTransformationJob,
+    TransformationStatus,
+    DocTransformJobCreate,
+    DocTransformJobUpdate,
+)
 from app.models.document import Document
 from app.core.util import now
 from app.core.exception_handlers import HTTPException
@@ -16,16 +23,13 @@ class DocTransformationJobCrud:
         self.session = session
         self.project_id = project_id
 
-    def create(self, source_document_id: UUID) -> DocTransformationJob:
-        # Ensure the source document exists and is not deleted
-        DocumentCrud(self.session, self.project_id).read_one(source_document_id)
-
-        job = DocTransformationJob(source_document_id=source_document_id)
+    def create(self, payload: DocTransformJobCreate) -> DocTransformationJob:
+        job = DocTransformationJob(**payload.model_dump())
         self.session.add(job)
         self.session.commit()
         self.session.refresh(job)
         logger.info(
-            f"[DocTransformationJobCrud.create] Created new transformation job | id: {job.id}, source_document_id: {source_document_id}"
+            f"[DocTransformationJobCrud.create] Created new transformation job | id: {job.id}, source_document_id: {job.source_document_id}"
         )
         return job
 
@@ -66,26 +70,26 @@ class DocTransformationJobCrud:
         jobs = self.session.exec(statement).all()
         return jobs
 
-    def update_status(
+    def update(
         self,
         job_id: UUID,
-        status: TransformationStatus,
-        *,
-        error_message: Optional[str] = None,
-        transformed_document_id: Optional[UUID] = None,
+        patch: DocTransformJobUpdate,
     ) -> DocTransformationJob:
+        """Update an existing doc transformation job and return the updated row."""
         job = self.read_one(job_id)
-        job.status = status
+
+        # Only apply fields that were explicitly set and not None
+        changes = patch.model_dump(exclude_unset=True, exclude_none=True)
+        for field, value in changes.items():
+            setattr(job, field, value)
+
         job.updated_at = now()
-        if error_message is not None:
-            job.error_message = error_message
-        if transformed_document_id is not None:
-            job.transformed_document_id = transformed_document_id
 
         self.session.add(job)
         self.session.commit()
         self.session.refresh(job)
+
         logger.info(
-            f"[DocTransformationJobCrud.update_status] Updated job status | id: {job.id}, status: {status}"
+            f"[DocTransformationJobCrud.update_status] Updated job status | id: {job.id}"
         )
         return job

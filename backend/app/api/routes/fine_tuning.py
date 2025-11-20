@@ -18,7 +18,7 @@ from app.models import (
     ModelEvaluationStatus,
 )
 from app.core.cloud import get_cloud_storage
-from app.crud.document import DocumentCrud
+from app.crud.document.document import DocumentCrud
 from app.utils import (
     get_openai_client,
     handle_openai_error,

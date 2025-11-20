@@ -8,7 +8,7 @@ from typing import List
 from sqlmodel import select
 from openai import OpenAIError
 
-from app.crud.document import DocumentCrud
+from app.crud.document.document import DocumentCrud
 from app.models import DocumentCollection, Collection
 
 

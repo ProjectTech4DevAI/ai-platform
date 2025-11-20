@@ -1,6 +1,5 @@
 import logging
 from uuid import UUID
-from typing import Optional, List
 
 from sqlmodel import Session, select, and_
 

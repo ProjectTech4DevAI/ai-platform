@@ -22,7 +22,7 @@ def execute_high_priority_task(
     Use this for urgent operations that need immediate processing.
 
     Args:
-        function_path: Import path to the execute_job function (e.g., "app.core.doctransform.service.execute_job")
+        function_path: Import path to the execute_job function (e.g., "app.services.doctransform.service.execute_job")
         project_id: ID of the project executing the job
         job_id: ID of the job (should already exist in database)
         trace_id: Trace/correlation ID to preserve context across Celery tasks
@@ -47,7 +47,7 @@ def execute_low_priority_task(
     Use this for background operations that can wait.
 
     Args:
-        function_path: Import path to the execute_job function (e.g., "app.core.doctransform.service.execute_job")
+        function_path: Import path to the execute_job function (e.g., "app.services.doctransform.service.execute_job")
         project_id: ID of the project executing the job
         job_id: ID of the job (should already exist in database)
         trace_id: Trace/correlation ID to preserve context across Celery tasks

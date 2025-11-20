@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 from app.core.cloud import AmazonCloudStorageClient
 from app.core.config import settings
-from app.core.doctransform.transformer import Transformer
+from app.services.doctransform.transformer import Transformer
 from app.models import Document
 
 
