@@ -69,7 +69,7 @@ def pre_transform_validation(
 def schedule_transformation(
     *,
     session,
-    project_id: UUID,
+    project_id: int,
     current_user,
     source_format: str,
     target_format: str | None,
@@ -103,7 +103,7 @@ def schedule_transformation(
         job_id=str(transformation_job_id),
         status=TransformationStatus.PENDING,
         transformer=actual_transformer,
-        status_check_url=f"/documents/transformations/{transformation_job_id}",
+        status_check_url=f"/documents/transformation/{transformation_job_id}",
     )
 
 
@@ -154,7 +154,7 @@ def build_job_schema(
     transformed_doc_schema: TransformedDocumentPublic | None = None
     object_url: str | None = None
 
-    if job.transformed_document_id is not None:
+    if job.transformed_document_id:
         doc = doc_crud.read_one(job.transformed_document_id)
         transformed_doc_schema = TransformedDocumentPublic.model_validate(
             doc, from_attributes=True
