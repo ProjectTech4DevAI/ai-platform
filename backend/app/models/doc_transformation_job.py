@@ -1,9 +1,9 @@
 import enum
 from uuid import UUID, uuid4
-from typing import Optional
 from datetime import datetime
 
 from sqlmodel import SQLModel, Field
+from pydantic import ConfigDict
 
 from app.core.util import now
 
@@ -47,6 +47,8 @@ class DocTransformationJob(SQLModel, table=True):
 
 class DocTransformJobCreate(SQLModel):
     source_document_id: UUID
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class DocTransformJobUpdate(SQLModel):

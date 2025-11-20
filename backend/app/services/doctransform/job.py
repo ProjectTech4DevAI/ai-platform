@@ -38,7 +38,7 @@ def start_job(
     transformer_name: str,
     target_format: str,
     callback_url: str | None,
-) -> UUID:
+) -> str:
     trace_id = correlation_id.get() or "N/A"
     job_crud = DocTransformationJobCrud(db, project_id=current_user.project_id)
     job_crud.update(job_id, DocTransformJobUpdate(trace_id=trace_id))
@@ -66,7 +66,7 @@ def start_job(
 def build_success_payload(
     job: DocTransformationJob,
     transformed_doc: TransformedDocumentPublic,
-) -> dict:
+):
     """
     {
       "success": true,
@@ -86,7 +86,7 @@ def build_success_payload(
     )
 
 
-def build_failure_payload(job: DocTransformationJob, error_message: str) -> dict:
+def build_failure_payload(job: DocTransformationJob, error_message: str):
     """
     {
       "success": false,
