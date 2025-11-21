@@ -31,7 +31,7 @@ def test_create_config(db: Session) -> None:
         commit_message="Initial version",
     )
 
-    config, version = config_crud.create(config_create)
+    config, version = config_crud.create_or_raise(config_create)
 
     assert config.id is not None
     assert config.name == config_name
@@ -61,13 +61,13 @@ def test_create_config_duplicate_name(db: Session) -> None:
     )
 
     # Create first config
-    config_crud.create(config_create)
+    config_crud.create_or_raise(config_create)
 
     # Attempt to create second config with same name
     with pytest.raises(
         HTTPException, match=f"Config with name '{config_name}' already exists"
     ):
-        config_crud.create(config_create)
+        config_crud.create_or_raise(config_create)
 
 
 def test_create_config_different_projects_same_name(db: Session) -> None:
@@ -86,11 +86,11 @@ def test_create_config_different_projects_same_name(db: Session) -> None:
         config_blob=config_blob,
         commit_message="Initial version",
     )
-    config1, _ = config_crud1.create(config_create)
+    config1, _ = config_crud1.create_or_raise(config_create)
 
     # Create config with same name in project2
     config_crud2 = ConfigCrud(session=db, project_id=project2.id)
-    config2, _ = config_crud2.create(config_create)
+    config2, _ = config_crud2.create_or_raise(config_create)
 
     assert config1.id != config2.id
     assert config1.name == config2.name == config_name
@@ -142,7 +142,7 @@ def test_read_one_deleted_config(db: Session) -> None:
     config_crud = ConfigCrud(session=db, project_id=config.project_id)
 
     # Delete the config
-    config_crud.delete(config.id)
+    config_crud.delete_or_raise(config.id)
 
     # Try to read deleted config
     fetched_config = config_crud.read_one(config.id)
@@ -198,7 +198,9 @@ def test_read_all_configs_ordered_by_updated_at(db: Session) -> None:
     config3 = create_test_config(db, project_id=project.id, name="config-3")
 
     # Update config1 to make it the most recently updated
-    config_crud.update(config1.id, ConfigUpdate(description="Updated description"))
+    config_crud.update_or_raise(
+        config1.id, ConfigUpdate(description="Updated description")
+    )
 
     configs = config_crud.read_all()
 
@@ -216,7 +218,7 @@ def test_read_all_configs_excludes_deleted(db: Session) -> None:
     config_crud = ConfigCrud(session=db, project_id=project.id)
 
     # Delete config1
-    config_crud.delete(config1.id)
+    config_crud.delete_or_raise(config1.id)
 
     configs = config_crud.read_all()
 
@@ -249,7 +251,7 @@ def test_update_config_name(db: Session) -> None:
     new_name = f"updated-config-{random_lower_string()}"
     config_update = ConfigUpdate(name=new_name)
 
-    updated_config = config_crud.update(config.id, config_update)
+    updated_config = config_crud.update_or_raise(config.id, config_update)
 
     assert updated_config.name == new_name
     assert updated_config.id == config.id
@@ -263,7 +265,7 @@ def test_update_config_description(db: Session) -> None:
     new_description = "Updated description"
     config_update = ConfigUpdate(description=new_description)
 
-    updated_config = config_crud.update(config.id, config_update)
+    updated_config = config_crud.update_or_raise(config.id, config_update)
 
     assert updated_config.description == new_description
     assert updated_config.id == config.id
@@ -278,7 +280,7 @@ def test_update_config_multiple_fields(db: Session) -> None:
     new_description = "Updated description"
     config_update = ConfigUpdate(name=new_name, description=new_description)
 
-    updated_config = config_crud.update(config.id, config_update)
+    updated_config = config_crud.update_or_raise(config.id, config_update)
 
     assert updated_config.name == new_name
     assert updated_config.description == new_description
@@ -299,7 +301,7 @@ def test_update_config_duplicate_name(db: Session) -> None:
     with pytest.raises(
         HTTPException, match=f"Config with name '{config1.name}' already exists"
     ):
-        config_crud.update(config2.id, config_update)
+        config_crud.update_or_raise(config2.id, config_update)
 
 
 def test_update_config_same_name(db: Session) -> None:
@@ -310,7 +312,7 @@ def test_update_config_same_name(db: Session) -> None:
     # Update to same name should succeed
     config_update = ConfigUpdate(name=config.name, description="Updated")
 
-    updated_config = config_crud.update(config.id, config_update)
+    updated_config = config_crud.update_or_raise(config.id, config_update)
 
     assert updated_config.name == config.name
     assert updated_config.description == "Updated"
@@ -327,7 +329,7 @@ def test_update_config_not_found(db: Session) -> None:
     with pytest.raises(
         HTTPException, match=f"config with id '{non_existent_id}' not found"
     ):
-        config_crud.update(non_existent_id, config_update)
+        config_crud.update_or_raise(non_existent_id, config_update)
 
 
 def test_update_config_updates_timestamp(db: Session) -> None:
@@ -338,7 +340,7 @@ def test_update_config_updates_timestamp(db: Session) -> None:
     original_updated_at = config.updated_at
 
     config_update = ConfigUpdate(description="Updated description")
-    updated_config = config_crud.update(config.id, config_update)
+    updated_config = config_crud.update_or_raise(config.id, config_update)
 
     assert updated_config.updated_at > original_updated_at
 
@@ -348,7 +350,7 @@ def test_delete_config(db: Session) -> None:
     config = create_test_config(db)
     config_crud = ConfigCrud(session=db, project_id=config.project_id)
 
-    config_crud.delete(config.id)
+    config_crud.delete_or_raise(config.id)
 
     # Verify soft delete (deleted_at is set)
     db.refresh(config)
@@ -365,7 +367,7 @@ def test_delete_config_not_found(db: Session) -> None:
     with pytest.raises(
         HTTPException, match=f"config with id '{non_existent_id}' not found"
     ):
-        config_crud.delete(non_existent_id)
+        config_crud.delete_or_raise(non_existent_id)
 
 
 def test_delete_config_different_project(db: Session) -> None:
@@ -378,7 +380,7 @@ def test_delete_config_different_project(db: Session) -> None:
     config_crud = ConfigCrud(session=db, project_id=project2.id)
 
     with pytest.raises(HTTPException, match=f"config with id '{config.id}' not found"):
-        config_crud.delete(config.id)
+        config_crud.delete_or_raise(config.id)
 
 
 def test_exists_config(db: Session) -> None:
@@ -386,7 +388,7 @@ def test_exists_config(db: Session) -> None:
     config = create_test_config(db)
     config_crud = ConfigCrud(session=db, project_id=config.project_id)
 
-    existing_config = config_crud.exists(config.id)
+    existing_config = config_crud.exists_or_raise(config.id)
 
     assert existing_config.id == config.id
     assert existing_config.name == config.name
@@ -402,7 +404,7 @@ def test_exists_config_not_found(db: Session) -> None:
     with pytest.raises(
         HTTPException, match=f"config with id '{non_existent_id}' not found"
     ):
-        config_crud.exists(non_existent_id)
+        config_crud.exists_or_raise(non_existent_id)
 
 
 def test_exists_deleted_config(db: Session) -> None:
@@ -411,11 +413,11 @@ def test_exists_deleted_config(db: Session) -> None:
     config_crud = ConfigCrud(session=db, project_id=config.project_id)
 
     # Delete the config
-    config_crud.delete(config.id)
+    config_crud.delete_or_raise(config.id)
 
     # exists should raise HTTPException
     with pytest.raises(HTTPException, match=f"config with id '{config.id}' not found"):
-        config_crud.exists(config.id)
+        config_crud.exists_or_raise(config.id)
 
 
 def test_check_unique_name_with_existing_name(db: Session) -> None:
@@ -468,7 +470,7 @@ def test_read_by_name_deleted_config(db: Session) -> None:
     config_crud = ConfigCrud(session=db, project_id=config.project_id)
 
     # Delete the config
-    config_crud.delete(config.id)
+    config_crud.delete_or_raise(config.id)
 
     # Should return None
     fetched_config = config_crud._read_by_name(config.name)

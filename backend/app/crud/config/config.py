@@ -25,11 +25,13 @@ class ConfigCrud:
         self.session = session
         self.project_id = project_id
 
-    def create(self, config_create: ConfigCreate) -> Tuple[Config, ConfigVersion]:
+    def create_or_raise(
+        self, config_create: ConfigCreate
+    ) -> Tuple[Config, ConfigVersion]:
         """
         Create a new configuration with an initial version.
         """
-        self._check_unique_name(config_create.name)
+        self._check_unique_name_or_raise(config_create.name)
 
         try:
             config = Config(
@@ -98,8 +100,8 @@ class ConfigCrud:
         )
         return self.session.exec(statement).all()
 
-    def update(self, config_id: UUID, config_update: ConfigUpdate) -> Config:
-        config = self.exists(config_id)
+    def update_or_raise(self, config_id: UUID, config_update: ConfigUpdate) -> Config:
+        config = self.exists_or_raise(config_id)
 
         config_update = config_update.model_dump(exclude_none=True)
 
@@ -121,15 +123,15 @@ class ConfigCrud:
         )
         return config
 
-    def delete(self, config_id: UUID) -> None:
-        config = self.exists(config_id)
+    def delete_or_raise(self, config_id: UUID) -> None:
+        config = self.exists_or_raise(config_id)
 
         config.deleted_at = now()
         self.session.add(config)
         self.session.commit()
         self.session.refresh(config)
 
-    def exists(self, config_id: UUID) -> Config:
+    def exists_or_raise(self, config_id: UUID) -> Config:
         config = self.read_one(config_id)
         if config is None:
             raise HTTPException(
@@ -139,7 +141,7 @@ class ConfigCrud:
 
         return config
 
-    def _check_unique_name(self, name: str) -> None:
+    def _check_unique_name_or_raise(self, name: str) -> None:
         if self._read_by_name(name):
             raise HTTPException(
                 status_code=409,

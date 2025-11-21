@@ -34,7 +34,7 @@ def create_version(
     version_crud = ConfigVersionCrud(
         session=session, project_id=current_user.project.id, config_id=config_id
     )
-    version = version_crud.create(version_create=version_create)
+    version = version_crud.create_or_raise(version_create=version_create)
 
     return APIResponse.success_response(
         data=ConfigVersionPublic(**version.model_dump()),
@@ -90,7 +90,7 @@ def get_version(
     version_crud = ConfigVersionCrud(
         session=session, project_id=current_user.project.id, config_id=config_id
     )
-    version = version_crud.exists(version_number=version_number)
+    version = version_crud.exists_or_raise(version_number=version_number)
     return APIResponse.success_response(
         data=version,
     )
@@ -116,7 +116,7 @@ def delete_version(
     version_crud = ConfigVersionCrud(
         session=session, project_id=current_user.project.id, config_id=config_id
     )
-    version_crud.delete(version_number=version_number)
+    version_crud.delete_or_raise(version_number=version_number)
 
     return APIResponse.success_response(
         data=Message(message="Config Version deleted successfully"),

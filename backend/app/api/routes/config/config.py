@@ -33,7 +33,7 @@ def create_config(
     create new config along with initial version
     """
     config_crud = ConfigCrud(session=session, project_id=current_user.project.id)
-    config, version = config_crud.create(config_create)
+    config, version = config_crud.create_or_raise(config_create)
 
     response = ConfigWithVersion(**config.model_dump(), version=version)
 
@@ -80,7 +80,7 @@ def get_config(
     Get a specific configuration by its ID.
     """
     config_crud = ConfigCrud(session=session, project_id=current_user.project.id)
-    config = config_crud.exists(config_id=config_id)
+    config = config_crud.exists_or_raise(config_id=config_id)
     return APIResponse.success_response(
         data=config,
     )
@@ -102,7 +102,9 @@ def update_config(
     Update a specific configuration.
     """
     config_crud = ConfigCrud(session=session, project_id=current_user.project.id)
-    config = config_crud.update(config_id=config_id, config_update=config_update)
+    config = config_crud.update_or_raise(
+        config_id=config_id, config_update=config_update
+    )
 
     return APIResponse.success_response(
         data=config,
@@ -124,7 +126,7 @@ def delete_config(
     Delete a specific configuration.
     """
     config_crud = ConfigCrud(session=session, project_id=current_user.project.id)
-    config_crud.delete(config_id=config_id)
+    config_crud.delete_or_raise(config_id=config_id)
 
     return APIResponse.success_response(
         data=Message(message="Config deleted successfully"),

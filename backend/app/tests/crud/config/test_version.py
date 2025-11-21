@@ -29,7 +29,7 @@ def test_create_version(db: Session) -> None:
         commit_message="Updated model and parameters",
     )
 
-    version = version_crud.create(version_create)
+    version = version_crud.create_or_raise(version_create)
 
     assert version.id is not None
     assert version.config_id == config.id
@@ -47,13 +47,13 @@ def test_create_version_auto_increment(db: Session) -> None:
     )
 
     # Create multiple versions
-    version2 = version_crud.create(
+    version2 = version_crud.create_or_raise(
         ConfigVersionCreate(config_blob={"model": "gpt-4"}, commit_message="Version 2")
     )
-    version3 = version_crud.create(
+    version3 = version_crud.create_or_raise(
         ConfigVersionCreate(config_blob={"model": "gpt-4"}, commit_message="Version 3")
     )
-    version4 = version_crud.create(
+    version4 = version_crud.create_or_raise(
         ConfigVersionCreate(config_blob={"model": "gpt-4"}, commit_message="Version 4")
     )
 
@@ -78,7 +78,7 @@ def test_create_version_config_not_found(db: Session) -> None:
     with pytest.raises(
         HTTPException, match=f"config with id '{non_existent_config_id}' not found"
     ):
-        version_crud.create(version_create)
+        version_crud.create_or_raise(version_create)
 
 
 def test_read_one_version(db: Session) -> None:
@@ -128,7 +128,7 @@ def test_read_one_version_deleted(db: Session) -> None:
     )
 
     # Delete the version
-    version_crud.delete(version.version)
+    version_crud.delete_or_raise(version.version)
 
     # Try to read deleted version
     fetched_version = version_crud.read_one(version.version)
@@ -267,7 +267,7 @@ def test_read_all_versions_excludes_deleted(db: Session) -> None:
     )
 
     # Delete version 2
-    version_crud.delete(version2.version)
+    version_crud.delete_or_raise(version2.version)
 
     versions = version_crud.read_all()
 
@@ -286,7 +286,7 @@ def test_delete_version(db: Session) -> None:
         session=db, project_id=config.project_id, config_id=config.id
     )
 
-    version_crud.delete(version.version)
+    version_crud.delete_or_raise(version.version)
 
     # Verify soft delete (deleted_at is set)
     db.refresh(version)
@@ -306,7 +306,7 @@ def test_delete_version_not_found(db: Session) -> None:
         HTTPException,
         match=f"Version with number '{non_existent_version}' not found for config '{config.id}'",
     ):
-        version_crud.delete(non_existent_version)
+        version_crud.delete_or_raise(non_existent_version)
 
 
 def test_exists_version(db: Session) -> None:
@@ -318,7 +318,7 @@ def test_exists_version(db: Session) -> None:
         session=db, project_id=config.project_id, config_id=config.id
     )
 
-    existing_version = version_crud.exists(version.version)
+    existing_version = version_crud.exists_or_raise(version.version)
 
     assert existing_version.id == version.id
     assert existing_version.version == version.version
@@ -337,7 +337,7 @@ def test_exists_version_not_found(db: Session) -> None:
         HTTPException,
         match=f"Version with number '{non_existent_version}' not found for config '{config.id}'",
     ):
-        version_crud.exists(non_existent_version)
+        version_crud.exists_or_raise(non_existent_version)
 
 
 def test_exists_version_deleted(db: Session) -> None:
@@ -350,14 +350,14 @@ def test_exists_version_deleted(db: Session) -> None:
     )
 
     # Delete the version
-    version_crud.delete(version.version)
+    version_crud.delete_or_raise(version.version)
 
     # exists should raise HTTPException
     with pytest.raises(
         HTTPException,
         match=f"Version with number '{version.version}' not found for config '{config.id}'",
     ):
-        version_crud.exists(version.version)
+        version_crud.exists_or_raise(version.version)
 
 
 def test_create_version_different_configs(db: Session) -> None:
@@ -372,7 +372,7 @@ def test_create_version_different_configs(db: Session) -> None:
     version_crud1 = ConfigVersionCrud(
         session=db, project_id=project.id, config_id=config1.id
     )
-    version2_config1 = version_crud1.create(
+    version2_config1 = version_crud1.create_or_raise(
         ConfigVersionCreate(config_blob={"model": "gpt-4"}, commit_message="V2")
     )
 
@@ -380,7 +380,7 @@ def test_create_version_different_configs(db: Session) -> None:
     version_crud2 = ConfigVersionCrud(
         session=db, project_id=project.id, config_id=config2.id
     )
-    version2_config2 = version_crud2.create(
+    version2_config2 = version_crud2.create_or_raise(
         ConfigVersionCreate(config_blob={"model": "gpt-4"}, commit_message="V2")
     )
 

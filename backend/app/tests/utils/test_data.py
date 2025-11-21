@@ -267,7 +267,7 @@ def create_test_config(
     )
 
     config_crud = ConfigCrud(session=db, project_id=project_id)
-    config, version = config_crud.create(config_create)
+    config, version = config_crud.create_or_raise(config_create)
 
     return config
 
@@ -299,6 +299,6 @@ def create_test_version(
     version_crud = ConfigVersionCrud(
         session=db, project_id=project_id, config_id=config_id
     )
-    version = version_crud.create(version_create=version_create)
+    version = version_crud.create_or_raise(version_create=version_create)
 
     return version

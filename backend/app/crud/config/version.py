@@ -22,12 +22,12 @@ class ConfigVersionCrud:
         self.project_id = project_id
         self.config_id = config_id
 
-    def create(self, version_create: ConfigVersionCreate) -> ConfigVersion:
+    def create_or_raise(self, version_create: ConfigVersionCreate) -> ConfigVersion:
         """
         Create a new version for an existing configuration.
         Automatically increments the version number.
         """
-        self._config_exists(self.config_id)
+        self._config_exists_or_raise(self.config_id)
         try:
             next_version = self._get_next_version(self.config_id)
 
@@ -65,7 +65,7 @@ class ConfigVersionCrud:
         """
         Read a specific configuration version by its version number.
         """
-        self._config_exists(self.config_id)
+        self._config_exists_or_raise(self.config_id)
         statement = select(ConfigVersion).where(
             and_(
                 ConfigVersion.version == version_number,
@@ -79,7 +79,7 @@ class ConfigVersionCrud:
         """
         Read all versions for a specific configuration with pagination.
         """
-        self._config_exists(self.config_id)
+        self._config_exists_or_raise(self.config_id)
 
         statement = (
             select(ConfigVersion)
@@ -99,18 +99,18 @@ class ConfigVersionCrud:
         results = self.session.exec(statement).all()
         return [ConfigVersionItems.model_validate(item) for item in results]
 
-    def delete(self, version_number: int) -> None:
+    def delete_or_raise(self, version_number: int) -> None:
         """
         Soft delete a configuration version by setting its deleted_at timestamp.
         """
-        version = self.exists(version_number)
+        version = self.exists_or_raise(version_number)
 
         version.deleted_at = now()
         self.session.add(version)
         self.session.commit()
         self.session.refresh(version)
 
-    def exists(self, version_number: int) -> ConfigVersion:
+    def exists_or_raise(self, version_number: int) -> ConfigVersion:
         """
         Check if a configuration version exists; raise 404 if not found.
         """
@@ -136,7 +136,7 @@ class ConfigVersionCrud:
 
         return latest + 1
 
-    def _config_exists(self, config_id: UUID) -> Config:
+    def _config_exists_or_raise(self, config_id: UUID) -> Config:
         """Check if a config exists in the project."""
         config_crud = ConfigCrud(session=self.session, project_id=self.project_id)
-        config_crud.exists(config_id)
+        config_crud.exists_or_raise(config_id)
