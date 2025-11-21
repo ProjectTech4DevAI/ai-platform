@@ -106,7 +106,7 @@ class ConfigCrud:
         config_update = config_update.model_dump(exclude_none=True)
 
         if config_update.get("name") and config_update["name"] != config.name:
-            self._check_unique_name(config_update["name"])
+            self._check_unique_name_or_raise(config_update["name"])
 
         for key, value in config_update.items():
             setattr(config, key, value)

@@ -428,7 +428,7 @@ def test_check_unique_name_with_existing_name(db: Session) -> None:
     with pytest.raises(
         HTTPException, match=f"Config with name '{config.name}' already exists"
     ):
-        config_crud._check_unique_name(config.name)
+        config_crud._check_unique_name_or_raise(config.name)
 
 
 def test_check_unique_name_with_new_name(db: Session) -> None:
@@ -438,7 +438,7 @@ def test_check_unique_name_with_new_name(db: Session) -> None:
 
     # Should not raise exception
     unique_name = f"unique-name-{random_lower_string()}"
-    config_crud._check_unique_name(unique_name)
+    config_crud._check_unique_name_or_raise(unique_name)
 
 
 def test_read_by_name(db: Session) -> None:
