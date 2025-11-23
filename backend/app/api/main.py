@@ -4,6 +4,7 @@ from app.api.routes import (
     api_keys,
     assistants,
     collections,
+    config,
     doc_transformation_job,
     documents,
     login,
@@ -31,6 +32,7 @@ api_router.include_router(api_keys.router)
 api_router.include_router(assistants.router)
 api_router.include_router(collections.router)
 api_router.include_router(collection_job.router)
+api_router.include_router(config.router)
 api_router.include_router(credentials.router)
 api_router.include_router(cron.router)
 api_router.include_router(documents.router)
