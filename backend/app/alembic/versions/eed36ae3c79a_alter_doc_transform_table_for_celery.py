@@ -1,7 +1,7 @@
 """alter doc transform table for celery
 
 Revision ID: eed36ae3c79a
-Revises: 633e69806207
+Revises: ecda6b144627
 Create Date: 2025-11-12 20:08:39.774862
 
 """
@@ -12,7 +12,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = "eed36ae3c79a"
-down_revision = "633e69806207"
+down_revision = "ecda6b144627"
 branch_labels = None
 depends_on = None
 
