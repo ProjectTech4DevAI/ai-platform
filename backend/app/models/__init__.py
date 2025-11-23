@@ -45,13 +45,17 @@ from .credentials import (
 from .document import (
     Document,
     DocumentPublic,
+    DocTransformationJobPublic,
+    DocTransformationJobsPublic,
+    TransformedDocumentPublic,
     DocumentUploadResponse,
     TransformationJobInfo,
 )
 from .doc_transformation_job import (
     DocTransformationJob,
-    DocTransformationJobs,
     TransformationStatus,
+    DocTransformJobCreate,
+    DocTransformJobUpdate,
 )
 from .document_collection import DocumentCollection
 

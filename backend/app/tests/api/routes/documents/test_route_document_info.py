@@ -14,7 +14,7 @@ from app.tests.utils.document import (
 
 @pytest.fixture
 def route():
-    return Route("info")
+    return Route("")
 
 
 class TestDocumentRouteInfo:
