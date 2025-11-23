@@ -34,19 +34,31 @@ class TestCreateLangfuseDatasetRun:
         mock_dataset.items = [mock_item1, mock_item2]
         mock_langfuse.get_dataset.return_value = mock_dataset
 
-        # Test data
+        # Test data with usage and response_id
         results = [
             {
                 "item_id": "item_1",
                 "question": "What is 2+2?",
                 "generated_output": "4",
                 "ground_truth": "4",
+                "response_id": "resp_123",
+                "usage": {
+                    "input_tokens": 10,
+                    "output_tokens": 5,
+                    "total_tokens": 15,
+                },
             },
             {
                 "item_id": "item_2",
                 "question": "What is the capital of France?",
                 "generated_output": "Paris",
                 "ground_truth": "Paris",
+                "response_id": "resp_456",
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
             },
         ]
 
@@ -88,12 +100,24 @@ class TestCreateLangfuseDatasetRun:
                 "question": "What is 2+2?",
                 "generated_output": "4",
                 "ground_truth": "4",
+                "response_id": "resp_123",
+                "usage": {
+                    "input_tokens": 10,
+                    "output_tokens": 5,
+                    "total_tokens": 15,
+                },
             },
             {
                 "item_id": "item_nonexistent",
                 "question": "Invalid question",
                 "generated_output": "Invalid",
                 "ground_truth": "Invalid",
+                "response_id": "resp_456",
+                "usage": {
+                    "input_tokens": 8,
+                    "output_tokens": 2,
+                    "total_tokens": 10,
+                },
             },
         ]
 
@@ -133,12 +157,24 @@ class TestCreateLangfuseDatasetRun:
                 "question": "What is 2+2?",
                 "generated_output": "4",
                 "ground_truth": "4",
+                "response_id": "resp_123",
+                "usage": {
+                    "input_tokens": 10,
+                    "output_tokens": 5,
+                    "total_tokens": 15,
+                },
             },
             {
                 "item_id": "item_2",
                 "question": "What is the capital?",
                 "generated_output": "Paris",
                 "ground_truth": "Paris",
+                "response_id": "resp_456",
+                "usage": {
+                    "input_tokens": 8,
+                    "output_tokens": 2,
+                    "total_tokens": 10,
+                },
             },
         ]
 
@@ -170,6 +206,97 @@ class TestCreateLangfuseDatasetRun:
 
         assert len(trace_id_mapping) == 0
         mock_langfuse.flush.assert_called_once()
+
+    def test_create_langfuse_dataset_run_with_cost_tracking(self):
+        """Test that generation() is called with usage when model and usage are provided."""
+        # Mock Langfuse client
+        mock_langfuse = MagicMock()
+        mock_dataset = MagicMock()
+        mock_generation = MagicMock()
+
+        # Mock dataset items
+        mock_item1 = MagicMock()
+        mock_item1.id = "item_1"
+        mock_item1.observe.return_value.__enter__.return_value = "trace_id_1"
+
+        mock_item2 = MagicMock()
+        mock_item2.id = "item_2"
+        mock_item2.observe.return_value.__enter__.return_value = "trace_id_2"
+
+        mock_dataset.items = [mock_item1, mock_item2]
+        mock_langfuse.get_dataset.return_value = mock_dataset
+        mock_langfuse.generation.return_value = mock_generation
+
+        # Test data with usage and model
+        results = [
+            {
+                "item_id": "item_1",
+                "question": "What is 2+2?",
+                "generated_output": "The answer is 4",
+                "ground_truth": "4",
+                "response_id": "resp_123",
+                "usage": {
+                    "input_tokens": 69,
+                    "output_tokens": 258,
+                    "total_tokens": 327,
+                },
+            },
+            {
+                "item_id": "item_2",
+                "question": "What is the capital of France?",
+                "generated_output": "Paris is the capital",
+                "ground_truth": "Paris",
+                "response_id": "resp_456",
+                "usage": {
+                    "input_tokens": 50,
+                    "output_tokens": 100,
+                    "total_tokens": 150,
+                },
+            },
+        ]
+
+        # Call function with model parameter
+        trace_id_mapping = create_langfuse_dataset_run(
+            langfuse=mock_langfuse,
+            dataset_name="test_dataset",
+            run_name="test_run",
+            results=results,
+            model="gpt-4o",
+        )
+
+        # Verify results
+        assert len(trace_id_mapping) == 2
+        assert trace_id_mapping["item_1"] == "trace_id_1"
+        assert trace_id_mapping["item_2"] == "trace_id_2"
+
+        # Verify generation() was called for cost tracking
+        assert mock_langfuse.generation.call_count == 2
+
+        # Verify the first generation call
+        first_call = mock_langfuse.generation.call_args_list[0]
+        assert first_call.kwargs["name"] == "evaluation-response"
+        assert first_call.kwargs["trace_id"] == "trace_id_1"
+        assert first_call.kwargs["input"] == {"question": "What is 2+2?"}
+        assert first_call.kwargs["metadata"]["ground_truth"] == "4"
+        assert first_call.kwargs["metadata"]["response_id"] == "resp_123"
+
+        # Verify generation.end() was called with usage
+        assert mock_generation.end.call_count == 2
+
+        first_end_call = mock_generation.end.call_args_list[0]
+        assert first_end_call.kwargs["output"] == {"answer": "The answer is 4"}
+        assert first_end_call.kwargs["model"] == "gpt-4o"
+        assert first_end_call.kwargs["usage"] == {
+            "input": 69,
+            "output": 258,
+            "total": 327,
+            "unit": "TOKENS",
+        }
+
+        # Verify Langfuse calls
+        mock_langfuse.get_dataset.assert_called_once_with("test_dataset")
+        mock_langfuse.flush.assert_called_once()
+        assert mock_langfuse.trace.call_count == 2
 
 
 class TestUpdateTracesWithCosineScores:

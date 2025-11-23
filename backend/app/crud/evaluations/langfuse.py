@@ -20,6 +20,7 @@ def create_langfuse_dataset_run(
     dataset_name: str,
     run_name: str,
     results: list[dict[str, Any]],
+    model: str | None = None,
 ) -> dict[str, str]:
     """
     Create a dataset run in Langfuse with traces for each evaluation item.
@@ -27,8 +28,12 @@ def create_langfuse_dataset_run(
     This function:
     1. Gets the dataset from Langfuse (which already exists)
     2. For each result, creates a trace linked to the dataset item
-    3. Logs input (question), output (generated_output), and expected (ground_truth)
-    4. Returns a mapping of item_id -> trace_id for later score updates
+    3. Creates a generation within the trace with usage/model for cost tracking
+    4. Logs input (question), output (generated_output), and expected (ground_truth)
+    5. Returns a mapping of item_id -> trace_id for later score updates
+
+    Note: Cost tracking in Langfuse happens at the generation level, not trace level.
+    We create a generation within each trace to enable automatic cost calculation.
 
     Args:
         langfuse: Configured Langfuse client
@@ -41,10 +46,16 @@ def create_langfuse_dataset_run(
                          "question": "What is 2+2?",
                          "generated_output": "4",
                          "ground_truth": "4",
-                         "response_id": "resp_0b99aadfead1fb62006908e7f540c48197bd110183a347c1d8"
+                         "response_id": "resp_0b99aadfead1fb62006908e7f540c48197bd110183a347c1d8",
+                         "usage": {
+                             "input_tokens": 69,
+                             "output_tokens": 258,
+                             "total_tokens": 327
+                         }
                      },
                      ...
                  ]
+        model: Model name used for evaluation (for cost calculation by Langfuse)
 
     Returns:
         dict[str, str]: Mapping of item_id to Langfuse trace_id
@@ -71,6 +82,7 @@ def create_langfuse_dataset_run(
             generated_output = result["generated_output"]
             ground_truth = result["ground_truth"]
             response_id = result.get("response_id")
+            usage_raw = result.get("usage")
 
             dataset_item = dataset_items_map.get(item_id)
             if not dataset_item:
@@ -89,12 +101,39 @@ def create_langfuse_dataset_run(
                     if response_id:
                         metadata["response_id"] = response_id
 
+                    # Create trace with basic info
                     langfuse.trace(
                         id=trace_id,
                         input={"question": question},
                         output={"answer": generated_output},
                         metadata=metadata,
                     )
+
+                    # Convert usage to Langfuse format
+                    usage = None
+                    if usage_raw:
+                        usage = {
+                            "input": usage_raw.get("input_tokens", 0),
+                            "output": usage_raw.get("output_tokens", 0),
+                            "total": usage_raw.get("total_tokens", 0),
+                            "unit": "TOKENS",
+                        }
+
+                    # Create a generation within the trace for cost tracking
+                    # Cost tracking happens at generation level, not trace level
+                    if usage and model:
+                        generation = langfuse.generation(
+                            name="evaluation-response",
+                            trace_id=trace_id,
+                            input={"question": question},
+                            metadata=metadata,
+                        )
+                        generation.end(
+                            output={"answer": generated_output},
+                            model=model,
+                            usage=usage,
+                        )
+
                     trace_id_mapping[item_id] = trace_id
 
             except Exception as e:
