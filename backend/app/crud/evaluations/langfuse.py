@@ -315,7 +315,11 @@ def upload_dataset_to_langfuse_from_csv(
                         f"duplicate={duplicate_num + 1} | question={item['question'][:50]}... | {e}"
                     )
 
-        # Flush to ensure all items are uploaded
+            # Flush after each original item's duplicates to prevent race conditions
+            # in Langfuse SDK's internal batching that could mix up Q&A pairs
+            langfuse.flush()
+
+        # Final flush to ensure all items are uploaded
         langfuse.flush()
 
         langfuse_dataset_id = dataset.id if hasattr(dataset, "id") else None

@@ -13,7 +13,7 @@ from app.utils import get_langfuse_client
 logger = logging.getLogger(__name__)
 
 
-async def upload_dataset_to_langfuse(
+def upload_dataset_to_langfuse(
     csv_content: bytes,
     dataset_name: str,
     dataset_id: int,
@@ -35,6 +35,26 @@ async def upload_dataset_to_langfuse(
     Returns:
         Tuple of (success, dataset_response, error_message)
     """
+    # Validate duplication_factor
+    if duplication_factor <= 0:
+        return False, None, "duplication_factor must be greater than 0"
+    if duplication_factor > 100:
+        return (
+            False,
+            None,
+            f"duplication_factor too large ({duplication_factor}). Maximum allowed is 100",
+        )
+
+    # Validate CSV file size (max 1MB)
+    max_size_bytes = 1_048_576  # 1MB
+    if len(csv_content) > max_size_bytes:
+        size_mb = len(csv_content) / 1_048_576
+        return (
+            False,
+            None,
+            f"CSV file too large ({size_mb:.2f}MB). Maximum allowed is 1MB",
+        )
+
     try:
         # Get Langfuse client
         try:
@@ -50,23 +70,32 @@ async def upload_dataset_to_langfuse(
         csv_text = csv_content.decode("utf-8")
         csv_reader = csv.DictReader(io.StringIO(csv_text))
 
-        # Validate CSV headers
-        if (
-            "question" not in csv_reader.fieldnames
-            or "answer" not in csv_reader.fieldnames
-        ):
+        # Normalize headers: strip whitespace and lowercase for flexible matching
+        if csv_reader.fieldnames:
+            clean_headers = {
+                field.strip().lower(): field for field in csv_reader.fieldnames
+            }
+        else:
+            return False, None, "CSV file has no headers"
+
+        # Validate CSV headers using normalized names
+        if "question" not in clean_headers or "answer" not in clean_headers:
             return (
                 False,
                 None,
-                "CSV must contain 'question' and 'answer' columns. "
+                "CSV must contain 'question' and 'answer' columns (case-insensitive). "
                 f"Found columns: {csv_reader.fieldnames}",
             )
+
+        # Get original field names for question and answer
+        golden_question = clean_headers["question"]
+        golden_answer = clean_headers["answer"]
 
         # Read all rows from CSV
         original_items = []
         for row in csv_reader:
-            question = row.get("question", "").strip()
-            answer = row.get("answer", "").strip()
+            question = row.get(golden_question, "").strip()
+            answer = row.get(golden_answer, "").strip()
 
             if not question or not answer:
                 logger.warning(f"Skipping row with empty question or answer: {row}")
@@ -107,7 +136,11 @@ async def upload_dataset_to_langfuse(
                         f"Failed to upload item (duplicate {duplicate_num + 1}): {item['question'][:50]}... Error: {e}"
                     )
 
-        # Flush to ensure all items are uploaded
+            # Flush after each original item's duplicates to prevent race conditions
+            # in Langfuse SDK's internal batching that could mix up Q&A pairs
+            langfuse.flush()
+
+        # Final flush to ensure all items are uploaded
         langfuse.flush()
 
         logger.info(
@@ -170,8 +203,13 @@ def create_evaluation_run(
     )
 
     session.add(eval_run)
-    session.commit()
-    session.refresh(eval_run)
+    try:
+        session.commit()
+        session.refresh(eval_run)
+    except Exception as e:
+        session.rollback()
+        logger.error(f"Failed to create EvaluationRun: {e}", exc_info=True)
+        raise
 
     logger.info(f"Created EvaluationRun record: id={eval_run.id}, run_name={run_name}")
 
@@ -214,7 +252,7 @@ def list_evaluation_runs(
         f"project_id={project_id}"
     )
 
-    return list(runs)
+    return runs
 
 
 def get_evaluation_run_by_id(
@@ -302,7 +340,12 @@ def update_evaluation_run(
 
     # Persist to database
     session.add(eval_run)
-    session.commit()
-    session.refresh(eval_run)
+    try:
+        session.commit()
+        session.refresh(eval_run)
+    except Exception as e:
+        session.rollback()
+        logger.error(f"Failed to update EvaluationRun: {e}", exc_info=True)
+        raise
 
     return eval_run

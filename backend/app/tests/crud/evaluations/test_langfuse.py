@@ -416,7 +416,8 @@ class TestUploadDatasetToLangfuseFromCsv:
         # Verify dataset items were created (3 original * 5 duplicates = 15)
         assert mock_langfuse.create_dataset_item.call_count == 15
 
-        mock_langfuse.flush.assert_called_once()
+        # Verify flush was called (once per original item + final flush = 4 times for 3 items)
+        assert mock_langfuse.flush.call_count == 4  # 3 items + 1 final
 
     def test_upload_dataset_to_langfuse_from_csv_duplication_metadata(
         self, valid_csv_content
@@ -488,6 +489,8 @@ class TestUploadDatasetToLangfuseFromCsv:
         # Should only process 2 valid items (first and last)
         assert total_items == 4  # 2 valid items * 2 duplication
         assert mock_langfuse.create_dataset_item.call_count == 4
+        # 2 valid items + 1 final flush
+        assert mock_langfuse.flush.call_count == 3
 
     def test_upload_dataset_to_langfuse_from_csv_empty_dataset(self):
         """Test with CSV that has no valid items."""
@@ -539,3 +542,5 @@ class TestUploadDatasetToLangfuseFromCsv:
 
         assert total_items == 3  # 3 items * 1 duplication
         assert mock_langfuse.create_dataset_item.call_count == 3
+        # 3 items + 1 final flush
+        assert mock_langfuse.flush.call_count == 4
