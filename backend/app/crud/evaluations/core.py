@@ -56,27 +56,47 @@ def upload_dataset_to_langfuse(
         )
 
     try:
-        # Get Langfuse client
-        try:
-            langfuse = get_langfuse_client(
-                session=_session,
-                org_id=_current_user.organization_id,
-                project_id=_current_user.project_id,
-            )
-        except HTTPException as http_exc:
-            return False, None, http_exc.detail
-
-        # Parse CSV content
+        # Parse CSV content first (fail fast on invalid CSV)
         csv_text = csv_content.decode("utf-8")
         csv_reader = csv.DictReader(io.StringIO(csv_text))
 
-        # Normalize headers: strip whitespace and lowercase for flexible matching
-        if csv_reader.fieldnames:
-            clean_headers = {
-                field.strip().lower(): field for field in csv_reader.fieldnames
-            }
-        else:
+        # Validate that CSV has headers
+        if not csv_reader.fieldnames:
             return False, None, "CSV file has no headers"
+
+        # Normalize headers and detect duplicates in a single pass
+        # Build mapping of normalized name -> list of original headers
+        normalized_to_originals = {}
+        for field in csv_reader.fieldnames:
+            normalized = field.strip().lower()
+            if normalized not in normalized_to_originals:
+                normalized_to_originals[normalized] = []
+            normalized_to_originals[normalized].append(field)
+
+        # Check for duplicate normalized headers
+        duplicates = {
+            norm: originals
+            for norm, originals in normalized_to_originals.items()
+            if len(originals) > 1
+        }
+
+        if duplicates:
+            # Build clear error message showing which headers conflict
+            duplicate_groups = [
+                f"{originals} (all normalize to '{norm}')"
+                for norm, originals in duplicates.items()
+            ]
+            return (
+                False,
+                None,
+                f"CSV contains duplicate columns after normalization: {'; '.join(duplicate_groups)}. "
+                "Please ensure all column names are unique (case-insensitive).",
+            )
+
+        # Use the normalized headers for validation
+        clean_headers = {
+            norm: originals[0] for norm, originals in normalized_to_originals.items()
+        }
 
         # Validate CSV headers using normalized names
         if "question" not in clean_headers or "answer" not in clean_headers:
@@ -86,6 +106,16 @@ def upload_dataset_to_langfuse(
                 "CSV must contain 'question' and 'answer' columns (case-insensitive). "
                 f"Found columns: {csv_reader.fieldnames}",
             )
+
+        # Get Langfuse client (after CSV validation to fail fast)
+        try:
+            langfuse = get_langfuse_client(
+                session=_session,
+                org_id=_current_user.organization_id,
+                project_id=_current_user.project_id,
+            )
+        except HTTPException as http_exc:
+            return False, None, http_exc.detail
 
         # Get original field names for question and answer
         golden_question = clean_headers["question"]
