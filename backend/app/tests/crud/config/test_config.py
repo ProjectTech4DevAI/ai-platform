@@ -58,7 +58,9 @@ def test_create_config(db: Session, example_config_blob: ConfigBlob) -> None:
     assert version.commit_message == "Initial version"
 
 
-def test_create_config_duplicate_name(db: Session, example_config_blob: ConfigBlob) -> None:
+def test_create_config_duplicate_name(
+    db: Session, example_config_blob: ConfigBlob
+) -> None:
     """Test creating a configuration with a duplicate name raises HTTPException."""
     project = create_test_project(db)
     config_crud = ConfigCrud(session=db, project_id=project.id)
@@ -81,7 +83,9 @@ def test_create_config_duplicate_name(db: Session, example_config_blob: ConfigBl
         config_crud.create_or_raise(config_create)
 
 
-def test_create_config_different_projects_same_name(db: Session, example_config_blob: ConfigBlob) -> None:
+def test_create_config_different_projects_same_name(
+    db: Session, example_config_blob: ConfigBlob
+) -> None:
     """Test creating configs with same name in different projects succeeds."""
     project1 = create_test_project(db)
     project2 = create_test_project(db)

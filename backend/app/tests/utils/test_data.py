@@ -20,7 +20,7 @@ from app.models import (
     ConfigCreate,
     ConfigVersion,
     ConfigVersionCreate,
-    ConfigBase
+    ConfigBase,
 )
 from app.crud import (
     create_organization,

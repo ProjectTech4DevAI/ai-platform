@@ -11,6 +11,7 @@ from app.tests.utils.test_data import (
     create_test_version,
 )
 
+
 @pytest.fixture
 def example_config_blob():
     return ConfigBlob(
@@ -23,6 +24,7 @@ def example_config_blob():
             },
         )
     )
+
 
 def test_create_version(db: Session, example_config_blob: ConfigBlob) -> None:
     """Test creating a new version for an existing configuration."""
@@ -47,7 +49,9 @@ def test_create_version(db: Session, example_config_blob: ConfigBlob) -> None:
     assert version.deleted_at is None
 
 
-def test_create_version_auto_increment(db: Session, example_config_blob: ConfigBlob) -> None:
+def test_create_version_auto_increment(
+    db: Session, example_config_blob: ConfigBlob
+) -> None:
     """Test that version numbers auto-increment correctly."""
     config = create_test_config(db)
     version_crud = ConfigVersionCrud(
@@ -70,7 +74,9 @@ def test_create_version_auto_increment(db: Session, example_config_blob: ConfigB
     assert version4.version == 4
 
 
-def test_create_version_config_not_found(db: Session, example_config_blob: ConfigBlob) -> None:
+def test_create_version_config_not_found(
+    db: Session, example_config_blob: ConfigBlob
+) -> None:
     """Test creating a version for a non-existent config raises HTTPException."""
     project = create_test_project(db)
     non_existent_config_id = uuid4()
@@ -367,7 +373,9 @@ def test_exists_version_deleted(db: Session) -> None:
         version_crud.exists_or_raise(version.version)
 
 
-def test_create_version_different_configs(db: Session, example_config_blob: ConfigBlob) -> None:
+def test_create_version_different_configs(
+    db: Session, example_config_blob: ConfigBlob
+) -> None:
     """Test that version numbers are independent across different configs."""
     project = create_test_project(db)
 
