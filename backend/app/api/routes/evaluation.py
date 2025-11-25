@@ -170,7 +170,7 @@ async def upload_dataset(
 
         # Normalize headers for case-insensitive matching
         clean_headers = {
-            field.strip().lower(): field.strip() for field in csv_reader.fieldnames
+            field.strip().lower(): field for field in csv_reader.fieldnames
         }
 
         # Validate required headers (case-insensitive)
@@ -178,7 +178,7 @@ async def upload_dataset(
             raise HTTPException(
                 status_code=422,
                 detail=f"CSV must contain 'question' and 'answer' columns "
-                f"(case-insensitive). Found columns: {csv_reader.fieldnames}",
+                f"Found columns: {csv_reader.fieldnames}",
             )
 
         # Get the actual column names from the CSV

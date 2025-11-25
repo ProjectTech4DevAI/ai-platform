@@ -254,23 +254,30 @@ def upload_dataset_to_langfuse_from_csv(
         # Parse CSV content
         csv_text = csv_content.decode("utf-8")
         csv_reader = csv.DictReader(io.StringIO(csv_text))
-        csv_reader.fieldnames = [name.strip() for name in csv_reader.fieldnames]
 
-        # Validate CSV headers
-        if (
-            "question" not in csv_reader.fieldnames
-            or "answer" not in csv_reader.fieldnames
-        ):
+        # Normalize headers for case-insensitive matching
+        # Note: We keep the original field name as value because
+        # csv.DictReader uses original fieldnames as keys in row dictionaries
+        clean_headers = {
+            field.strip().lower(): field for field in csv_reader.fieldnames
+        }
+
+        # Validate CSV headers (case-insensitive)
+        if "question" not in clean_headers or "answer" not in clean_headers:
             raise ValueError(
-                f"CSV must contain 'question' and 'answer' columns. "
+                f"CSV must contain 'question' and 'answer' columns (case-insensitive). "
                 f"Found columns: {csv_reader.fieldnames}"
             )
+
+        # Get the actual column names from the CSV
+        question_col = clean_headers["question"]
+        answer_col = clean_headers["answer"]
 
         # Read all rows from CSV
         original_items = []
         for row in csv_reader:
-            question = row.get("question", "").strip()
-            answer = row.get("answer", "").strip()
+            question = row.get(question_col, "").strip()
+            answer = row.get(answer_col, "").strip()
 
             if not question or not answer:
                 logger.warning(
