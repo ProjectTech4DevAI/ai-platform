@@ -158,7 +158,6 @@ def upload_dataset_to_langfuse(
                     )
 
             # Flush after each original item's duplicates to prevent race conditions
-            # in Langfuse SDK's internal batching that could mix up Q&A pairs
             langfuse.flush()
 
         # Final flush to ensure all items are uploaded
