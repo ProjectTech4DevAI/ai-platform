@@ -1,7 +1,12 @@
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 from app.models import LLMCallRequest
-from app.models.llm.request import QueryParams, LLMCallConfig, CompletionConfig
+from app.models.llm.request import (
+    QueryParams,
+    LLMCallConfig,
+    CompletionConfig,
+    ConfigBlob,
+)
 
 
 def test_llm_call_success(client: TestClient, user_api_key_header: dict[str, str]):
@@ -12,12 +17,14 @@ def test_llm_call_success(client: TestClient, user_api_key_header: dict[str, str
         payload = LLMCallRequest(
             query=QueryParams(input="What is the capital of France?"),
             config=LLMCallConfig(
-                completion=CompletionConfig(
-                    provider="openai",
-                    params={
-                        "model": "gpt-4",
-                        "temperature": 0.7,
-                    },
+                blob=ConfigBlob(
+                    completion=CompletionConfig(
+                        provider="openai",
+                        params={
+                            "model": "gpt-4",
+                            "temperature": 0.7,
+                        },
+                    )
                 )
             ),
             callback_url="https://example.com/callback",
