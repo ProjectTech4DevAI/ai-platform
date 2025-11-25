@@ -10,6 +10,7 @@ from app.tests.utils.test_data import (
     create_test_project,
     create_test_version,
 )
+from app.models import ConfigBlob, CompletionConfig
 
 
 def test_create_version_success(
@@ -296,9 +297,6 @@ def test_get_version_by_number(
         project_id=user_api_key.project_id,
         name="test-config",
     )
-
-    # Create additional version
-    from app.models.llm.request import ConfigBlob, CompletionConfig
 
     version = create_test_version(
         db=db,
