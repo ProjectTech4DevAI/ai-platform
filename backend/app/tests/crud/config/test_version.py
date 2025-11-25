@@ -3,7 +3,7 @@ from uuid import uuid4
 from sqlmodel import Session
 from fastapi import HTTPException
 
-from app.models import ConfigVersionCreate
+from app.models import ConfigVersionCreate, ConfigBlob, CompletionConfig
 from app.crud.config import ConfigVersionCrud
 from app.tests.utils.test_data import (
     create_test_project,
@@ -11,19 +11,27 @@ from app.tests.utils.test_data import (
     create_test_version,
 )
 
+@pytest.fixture
+def example_config_blob():
+    return ConfigBlob(
+        completion=CompletionConfig(
+            provider="openai",
+            params={
+                "model": "gpt-4",
+                "temperature": 0.8,
+                "max_tokens": 1500,
+            },
+        )
+    )
 
-def test_create_version(db: Session) -> None:
+def test_create_version(db: Session, example_config_blob: ConfigBlob) -> None:
     """Test creating a new version for an existing configuration."""
     config = create_test_config(db)
     version_crud = ConfigVersionCrud(
         session=db, project_id=config.project_id, config_id=config.id
     )
 
-    config_blob = {
-        "model": "gpt-4-turbo",
-        "temperature": 0.8,
-        "max_tokens": 2000,
-    }
+    config_blob = example_config_blob.model_dump()
     version_create = ConfigVersionCreate(
         config_blob=config_blob,
         commit_message="Updated model and parameters",
@@ -39,7 +47,7 @@ def test_create_version(db: Session) -> None:
     assert version.deleted_at is None
 
 
-def test_create_version_auto_increment(db: Session) -> None:
+def test_create_version_auto_increment(db: Session, example_config_blob: ConfigBlob) -> None:
     """Test that version numbers auto-increment correctly."""
     config = create_test_config(db)
     version_crud = ConfigVersionCrud(
@@ -48,13 +56,13 @@ def test_create_version_auto_increment(db: Session) -> None:
 
     # Create multiple versions
     version2 = version_crud.create_or_raise(
-        ConfigVersionCreate(config_blob={"model": "gpt-4"}, commit_message="Version 2")
+        ConfigVersionCreate(config_blob=example_config_blob, commit_message="Version 2")
     )
     version3 = version_crud.create_or_raise(
-        ConfigVersionCreate(config_blob={"model": "gpt-4"}, commit_message="Version 3")
+        ConfigVersionCreate(config_blob=example_config_blob, commit_message="Version 3")
     )
     version4 = version_crud.create_or_raise(
-        ConfigVersionCreate(config_blob={"model": "gpt-4"}, commit_message="Version 4")
+        ConfigVersionCreate(config_blob=example_config_blob, commit_message="Version 4")
     )
 
     assert version2.version == 2
@@ -62,7 +70,7 @@ def test_create_version_auto_increment(db: Session) -> None:
     assert version4.version == 4
 
 
-def test_create_version_config_not_found(db: Session) -> None:
+def test_create_version_config_not_found(db: Session, example_config_blob: ConfigBlob) -> None:
     """Test creating a version for a non-existent config raises HTTPException."""
     project = create_test_project(db)
     non_existent_config_id = uuid4()
@@ -72,7 +80,7 @@ def test_create_version_config_not_found(db: Session) -> None:
     )
 
     version_create = ConfigVersionCreate(
-        config_blob={"model": "gpt-4"}, commit_message="Test"
+        config_blob=example_config_blob, commit_message="Test"
     )
 
     with pytest.raises(
@@ -81,14 +89,14 @@ def test_create_version_config_not_found(db: Session) -> None:
         version_crud.create_or_raise(version_create)
 
 
-def test_read_one_version(db: Session) -> None:
+def test_read_one_version(db: Session, example_config_blob: ConfigBlob) -> None:
     """Test reading a specific version by its version number."""
     config = create_test_config(db)
     version = create_test_version(
         db,
         config_id=config.id,
         project_id=config.project_id,
-        config_blob={"model": "gpt-4-turbo"},
+        config_blob=example_config_blob,
         commit_message="Test version",
     )
 
@@ -102,7 +110,7 @@ def test_read_one_version(db: Session) -> None:
     assert fetched_version.id == version.id
     assert fetched_version.version == version.version
     assert fetched_version.config_id == config.id
-    assert fetched_version.config_blob == {"model": "gpt-4-turbo"}
+    assert fetched_version.config_blob == example_config_blob.model_dump()
 
 
 def test_read_one_version_not_found(db: Session) -> None:
@@ -228,7 +236,6 @@ def test_read_all_versions_excludes_blob(db: Session) -> None:
         db,
         config_id=config.id,
         project_id=config.project_id,
-        config_blob={"model": "gpt-4-turbo"},
     )
 
     version_crud = ConfigVersionCrud(
@@ -360,7 +367,7 @@ def test_exists_version_deleted(db: Session) -> None:
         version_crud.exists_or_raise(version.version)
 
 
-def test_create_version_different_configs(db: Session) -> None:
+def test_create_version_different_configs(db: Session, example_config_blob: ConfigBlob) -> None:
     """Test that version numbers are independent across different configs."""
     project = create_test_project(db)
 
@@ -373,7 +380,7 @@ def test_create_version_different_configs(db: Session) -> None:
         session=db, project_id=project.id, config_id=config1.id
     )
     version2_config1 = version_crud1.create_or_raise(
-        ConfigVersionCreate(config_blob={"model": "gpt-4"}, commit_message="V2")
+        ConfigVersionCreate(config_blob=example_config_blob, commit_message="V2")
     )
 
     # Create versions for config2
@@ -381,7 +388,7 @@ def test_create_version_different_configs(db: Session) -> None:
         session=db, project_id=project.id, config_id=config2.id
     )
     version2_config2 = version_crud2.create_or_raise(
-        ConfigVersionCreate(config_blob={"model": "gpt-4"}, commit_message="V2")
+        ConfigVersionCreate(config_blob=example_config_blob, commit_message="V2")
     )
 
     # Both should have version 2 (independent numbering)

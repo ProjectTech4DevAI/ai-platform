@@ -8,6 +8,8 @@ from app.models import (
     Credential,
     OrganizationCreate,
     ProjectCreate,
+    ConfigBlob,
+    CompletionConfig,
     CredsCreate,
     FineTuningJobCreate,
     Fine_Tuning,
@@ -18,6 +20,7 @@ from app.models import (
     ConfigCreate,
     ConfigVersion,
     ConfigVersionCreate,
+    ConfigBase
 )
 from app.crud import (
     create_organization,
@@ -238,7 +241,7 @@ def create_test_config(
     project_id: int | None = None,
     name: str | None = None,
     description: str | None = None,
-    config_blob: dict | None = None,
+    config_blob: ConfigBlob | None = None,
 ) -> Config:
     """
     Creates and returns a test configuration with an initial version.
@@ -253,11 +256,16 @@ def create_test_config(
         name = f"test-config-{random_lower_string()}"
 
     if config_blob is None:
-        config_blob = {
-            "model": "gpt-4",
-            "temperature": 0.7,
-            "max_tokens": 1000,
-        }
+        config_blob = ConfigBlob(
+            completion=CompletionConfig(
+                provider="openai",
+                params={
+                    "model": "gpt-4",
+                    "temperature": 0.7,
+                    "max_tokens": 1000,
+                },
+            )
+        )
 
     config_create = ConfigCreate(
         name=name,
@@ -276,7 +284,7 @@ def create_test_version(
     db: Session,
     config_id,
     project_id: int,
-    config_blob: dict | None = None,
+    config_blob: ConfigBlob | None = None,
     commit_message: str | None = None,
 ) -> ConfigVersion:
     """
@@ -285,11 +293,16 @@ def create_test_version(
     Persists the version to the database.
     """
     if config_blob is None:
-        config_blob = {
-            "model": "gpt-4",
-            "temperature": 0.8,
-            "max_tokens": 1500,
-        }
+        config_blob = ConfigBlob(
+            completion=CompletionConfig(
+                provider="openai",
+                params={
+                    "model": "gpt-4",
+                    "temperature": 0.8,
+                    "max_tokens": 1500,
+                },
+            )
+        )
 
     version_create = ConfigVersionCreate(
         config_blob=config_blob,
