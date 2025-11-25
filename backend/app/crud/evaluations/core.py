@@ -56,16 +56,12 @@ def upload_dataset_to_langfuse(
         )
 
     try:
-        # Parse CSV content first (fail fast on invalid CSV)
         csv_text = csv_content.decode("utf-8")
         csv_reader = csv.DictReader(io.StringIO(csv_text))
 
-        # Validate that CSV has headers
         if not csv_reader.fieldnames:
             return False, None, "CSV file has no headers"
 
-        # Normalize headers and detect duplicates in a single pass
-        # Build mapping of normalized name -> list of original headers
         normalized_to_originals = {}
         for field in csv_reader.fieldnames:
             normalized = field.strip().lower()
@@ -81,7 +77,6 @@ def upload_dataset_to_langfuse(
         }
 
         if duplicates:
-            # Build clear error message showing which headers conflict
             duplicate_groups = [
                 f"{originals} (all normalize to '{norm}')"
                 for norm, originals in duplicates.items()
@@ -93,7 +88,6 @@ def upload_dataset_to_langfuse(
                 "Please ensure all column names are unique (case-insensitive).",
             )
 
-        # Use the normalized headers for validation
         clean_headers = {
             norm: originals[0] for norm, originals in normalized_to_originals.items()
         }
@@ -107,7 +101,6 @@ def upload_dataset_to_langfuse(
                 f"Found columns: {csv_reader.fieldnames}",
             )
 
-        # Get Langfuse client (after CSV validation to fail fast)
         try:
             langfuse = get_langfuse_client(
                 session=_session,
@@ -117,11 +110,9 @@ def upload_dataset_to_langfuse(
         except HTTPException as http_exc:
             return False, None, http_exc.detail
 
-        # Get original field names for question and answer
         golden_question = clean_headers["question"]
         golden_answer = clean_headers["answer"]
 
-        # Read all rows from CSV
         original_items = []
         for row in csv_reader:
             question = row.get(golden_question, "").strip()
