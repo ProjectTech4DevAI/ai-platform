@@ -151,7 +151,7 @@ async def upload_dataset(
     if file_size > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=413,
-            detail=f"File too large. Maximum size: {MAX_FILE_SIZE / (1024*1024):.0f}MB",
+            detail=f"File too large. Maximum size: {MAX_FILE_SIZE / (1024 * 1024):.0f}MB",
         )
 
     if file_size == 0:
@@ -164,24 +164,32 @@ async def upload_dataset(
     try:
         csv_text = csv_content.decode("utf-8")
         csv_reader = csv.DictReader(io.StringIO(csv_text))
-        csv_reader.fieldnames = [name.strip() for name in csv_reader.fieldnames]
 
-        # Validate headers
-        if (
-            "question" not in csv_reader.fieldnames
-            or "answer" not in csv_reader.fieldnames
-        ):
+        if not csv_reader.fieldnames:
+            raise HTTPException(status_code=422, detail="CSV file has no headers")
+
+        # Normalize headers for case-insensitive matching
+        clean_headers = {
+            field.strip().lower(): field.strip() for field in csv_reader.fieldnames
+        }
+
+        # Validate required headers (case-insensitive)
+        if "question" not in clean_headers or "answer" not in clean_headers:
             raise HTTPException(
                 status_code=422,
-                detail=f"CSV must contain 'question' and 'answer' columns. "
-                f"Found columns: {csv_reader.fieldnames}",
+                detail=f"CSV must contain 'question' and 'answer' columns "
+                f"(case-insensitive). Found columns: {csv_reader.fieldnames}",
             )
+
+        # Get the actual column names from the CSV
+        question_col = clean_headers["question"]
+        answer_col = clean_headers["answer"]
 
         # Count original items
         original_items = []
         for row in csv_reader:
-            question = row.get("question", "").strip()
-            answer = row.get("answer", "").strip()
+            question = row.get(question_col, "").strip()
+            answer = row.get(answer_col, "").strip()
             if question and answer:
                 original_items.append({"question": question, "answer": answer})
 
