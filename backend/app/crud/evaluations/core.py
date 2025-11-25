@@ -48,7 +48,7 @@ def upload_dataset_to_langfuse(
     # Validate CSV file size (max 1MB)
     max_size_bytes = 1_048_576  # 1MB
     if len(csv_content) > max_size_bytes:
-        size_mb = len(csv_content) / 1_048_576
+        size_mb = len(csv_content) / max_size_bytes
         return (
             False,
             None,
