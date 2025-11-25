@@ -89,7 +89,7 @@ def resolve_config_blob(
         - error_message: human-safe error string if an error occurs, else None
     """
     try:
-        config_version = config_crud.read_one(version_number=config.version)
+        config_version = config_crud.exists_or_raise(version_number=config.version)
     except HTTPException as e:
         return None, f"Failed to retrieve stored configuration: {e.detail}"
     except Exception:
@@ -99,11 +99,6 @@ def resolve_config_blob(
             exc_info=True,
         )
         return None, "Unexpected error occurred while retrieving stored configuration"
-
-    if not config_version:
-        return None, (
-            f"Configuration version {config.version} not found for config ID {config.id}"
-        )
 
     try:
         return ConfigBlob(**config_version.config_blob), None
