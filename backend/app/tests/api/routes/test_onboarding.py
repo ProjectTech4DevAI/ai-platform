@@ -17,6 +17,9 @@ def test_onboard_project_new_organization_project_user(
     password = random_lower_string()
     user_name = "Test User Onboard"
     openai_key = f"sk-{random_lower_string()}"
+    langfuse_secret_key = f"sk-lf-{random_lower_string()}"
+    langfuse_public_key = f"pk-lf-{random_lower_string()}"
+    langfuse_host = "https://cloud.langfuse.com"
 
     onboard_data = {
         "organization_name": org_name,
@@ -24,7 +27,16 @@ def test_onboard_project_new_organization_project_user(
         "email": email,
         "password": password,
         "user_name": user_name,
-        "openai_api_key": openai_key,
+        "credential": [
+            {"openai": {"api_key": openai_key}},
+            {
+                "langfuse": {
+                    "secret_key": langfuse_secret_key,
+                    "public_key": langfuse_public_key,
+                    "host": langfuse_host,
+                }
+            },
+        ],
     }
 
     response = client.post(

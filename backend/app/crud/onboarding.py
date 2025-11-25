@@ -2,13 +2,14 @@ import logging
 from fastapi import HTTPException
 from sqlmodel import Session
 
-from app.core.security import encrypt_api_key, encrypt_credentials, get_password_hash
+from app.core.security import encrypt_credentials, get_password_hash
 from app.crud import (
     api_key_manager,
     get_organization_by_name,
     get_project_by_name,
     get_user_by_email,
 )
+from app.core.providers import validate_provider, validate_provider_credentials
 from app.models import (
     APIKey,
     Credential,
@@ -102,28 +103,30 @@ def onboard_project(
 
     session.add(api_key)
 
-    credential = None
-    if onboard_in.openai_api_key:
-        creds = {"api_key": onboard_in.openai_api_key}
-        encrypted_credentials = encrypt_credentials(creds)
-        credential = Credential(
-            organization_id=organization.id,
-            project_id=project.id,
-            is_active=True,
-            provider="openai",
-            credential=encrypted_credentials,
-        )
-        session.add(credential)
+    created_credentials: list[Credential] = []
 
+    if onboard_in.credential:
+        for item in onboard_in.credential:
+            provider_str, values = next(iter(item.items()))
+
+            encrypted_credentials = encrypt_credentials(values)
+
+            cred_row = Credential(
+                organization_id=organization.id,
+                project_id=project.id,
+                is_active=True,
+                provider=provider_str,
+                credential=encrypted_credentials,
+            )
+            session.add(cred_row)
+
+            created_credentials.append(cred_row)
     session.commit()
-
-    openai_creds_id = credential.id if credential else None
-
     logger.info(
         "[onboard_project] Onboarding completed successfully. "
-        f"org_id={organization.id}, project_id={project.id}, user_id={user.id}, "
-        f"openai_creds_id={openai_creds_id}"
+        f"org_id={organization.id}, project_id={project.id}, user_id={user.id}"
     )
+
     return OnboardingResponse(
         organization_id=organization.id,
         organization_name=organization.name,

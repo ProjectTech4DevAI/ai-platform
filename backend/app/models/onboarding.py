@@ -1,7 +1,11 @@
 import re
 import secrets
+from typing import Any
+
 from sqlmodel import SQLModel, Field
-from pydantic import EmailStr, model_validator
+from pydantic import EmailStr, model_validator, field_validator
+
+from app.core.providers import validate_provider, validate_provider_credentials
 
 
 class OnboardingRequest(SQLModel):
@@ -48,11 +52,9 @@ class OnboardingRequest(SQLModel):
         min_length=3,
         max_length=50,
     )
-    openai_api_key: str | None = Field(
+    credential: list[dict[str, Any]] | None = Field(
         default=None,
-        description="Optional OpenAI API key to link with this project",
-        min_length=20,
-        max_length=256,
+        description="Optional credential(s) to link with the project",
     )
 
     @staticmethod
@@ -79,6 +81,50 @@ class OnboardingRequest(SQLModel):
         if self.password is None:
             self.password = secrets.token_urlsafe(12)
         return self
+
+    @field_validator("credential")
+    @classmethod
+    def _validate_credential_list(cls, v: list[dict[str, dict[str, str]]] | None):
+        if v is None:
+            return v
+
+        if not isinstance(v, list):
+            raise TypeError(
+                "credential must be a list of single-key dicts (e.g., {'openai': {...}})."
+            )
+
+        errors: list[str] = []
+
+        for idx, item in enumerate(v):
+            if not isinstance(item, dict) or len(item) != 1:
+                errors.append(
+                    f"[{idx}] must be a single-key dict like {{'openai': {{...}}}}."
+                )
+                continue
+
+            provider_key, values = next(iter(item.items()))
+
+            try:
+                validate_provider(provider_key)
+            except ValueError as e:
+                errors.append(f"[{idx}] {e}")
+                continue
+
+            if not isinstance(values, dict):
+                errors.append(
+                    f"[{idx}] value for provider '{provider_key}' must be an object/dict."
+                )
+                continue
+
+            try:
+                validate_provider_credentials(provider_key, values)
+            except ValueError as e:
+                errors.append(f"[{idx}] {e}")
+
+        if errors:
+            raise ValueError("credential validation failed:\n" + "\n".join(errors))
+
+        return v
 
 
 class OnboardingResponse(SQLModel):

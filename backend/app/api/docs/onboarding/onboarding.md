@@ -18,9 +18,10 @@
 
 ---
 
-## 🔑 OpenAI API Key (Optional)
-- If provided, the API key will be **encrypted** and stored as project credentials.
-- If omitted, the project will be created **without OpenAI credentials**.
+## 🔑 Credentials (Optional)
+- If provided, the given credentials will be **encrypted** and stored as project credentials.
+- The `credential` parameter accepts a list of one or more credentials (e.g., an OpenAI key, Langfuse credentials, etc.).
+- If omitted, the project will be created **without credentials**.
 
 ---
 
