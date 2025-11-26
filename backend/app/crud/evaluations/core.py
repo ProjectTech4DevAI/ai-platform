@@ -1,11 +1,14 @@
 import csv
 import io
 import logging
+from typing import Any
 
 from fastapi import HTTPException
+from langfuse import Langfuse
 from sqlmodel import Session, select
 
 from app.core.util import now
+from app.crud.evaluations.langfuse import fetch_trace_scores_from_langfuse
 from app.models import EvaluationRun, UserProjectOrg
 from app.models.evaluation import DatasetUploadResponse
 from app.utils import get_langfuse_client
@@ -306,3 +309,66 @@ def update_evaluation_run(
     session.refresh(eval_run)
 
     return eval_run
+
+
+def get_or_fetch_score(
+    session: Session,
+    eval_run: EvaluationRun,
+    langfuse: Langfuse,
+    force_refetch: bool = False,
+) -> dict[str, Any]:
+    """
+    Get cached score with trace info or fetch from Langfuse and update.
+
+    This function implements a cache-on-first-request pattern:
+    - If score already has 'traces' key (enriched format), return it
+    - Otherwise, fetch from Langfuse, update score column, and return
+    - If force_refetch is True, always fetch fresh data from Langfuse
+
+    Args:
+        session: Database session
+        eval_run: EvaluationRun instance
+        langfuse: Configured Langfuse client
+        force_refetch: If True, skip cache and fetch fresh from Langfuse
+
+    Returns:
+        Score data with per-trace scores and Q&A context
+
+    Raises:
+        ValueError: If the run is not found in Langfuse
+        Exception: If Langfuse API calls fail
+    """
+    # Check if score already has enriched format (has 'traces' key) and not forcing refetch
+    if not force_refetch and eval_run.score is not None and "traces" in eval_run.score:
+        logger.info(
+            f"[get_or_fetch_score] Returning cached score | "
+            f"evaluation_id={eval_run.id}"
+        )
+        return eval_run.score
+
+    logger.info(
+        f"[get_or_fetch_score] Fetching score from Langfuse | "
+        f"evaluation_id={eval_run.id} | dataset={eval_run.dataset_name} | "
+        f"run={eval_run.run_name} | force_refetch={force_refetch}"
+    )
+
+    # Fetch from Langfuse
+    score = fetch_trace_scores_from_langfuse(
+        langfuse=langfuse,
+        dataset_name=eval_run.dataset_name,
+        run_name=eval_run.run_name,
+    )
+
+    # Update score column
+    eval_run.score = score
+    eval_run.updated_at = now()
+    session.add(eval_run)
+    session.commit()
+    session.refresh(eval_run)
+
+    logger.info(
+        f"[get_or_fetch_score] Updated score | "
+        f"evaluation_id={eval_run.id} | total_traces={score.get('total_pairs', 0)}"
+    )
+
+    return score

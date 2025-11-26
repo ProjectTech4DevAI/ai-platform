@@ -5,11 +5,13 @@ This module handles:
 1. Creating dataset runs in Langfuse
 2. Creating traces for each evaluation item
 3. Uploading results to Langfuse for visualization
+4. Fetching trace scores from Langfuse for enriched results
 """
 
 import logging
 from typing import Any
 
+import numpy as np
 from langfuse import Langfuse
 
 logger = logging.getLogger(__name__)
@@ -331,6 +333,170 @@ def upload_dataset_to_langfuse_from_csv(
         logger.error(
             f"[upload_dataset_to_langfuse_from_csv] Failed to upload dataset to Langfuse | "
             f"dataset={dataset_name} | {e}",
+            exc_info=True,
+        )
+        raise
+
+
+def fetch_trace_scores_from_langfuse(
+    langfuse: Langfuse,
+    dataset_name: str,
+    run_name: str,
+) -> dict[str, Any]:
+    """
+    Fetch trace scores from Langfuse for an evaluation run.
+
+    This function retrieves all traces and their scores from a Langfuse dataset run,
+    including the original Q&A context for each trace.
+
+    Args:
+        langfuse: Configured Langfuse client
+        dataset_name: Name of the dataset in Langfuse
+        run_name: Name of the evaluation run
+
+    Returns:
+        Enriched score data with per-trace scores and Q&A context:
+        {
+            "cosine_similarity": {"avg": 0.87, "std": 0.12},
+            "total_pairs": 50,
+            "traces": [
+                {
+                    "trace_id": "trace-uuid-123",
+                    "question": "What is 2+2?",
+                    "llm_answer": "4",
+                    "ground_truth_answer": "4",
+                    "cosine_similarity": {"score": 0.95, "comment": "..."}
+                },
+                ...
+            ]
+        }
+
+    Raises:
+        ValueError: If the run is not found in Langfuse
+        Exception: If Langfuse API calls fail
+    """
+    logger.info(
+        f"[fetch_trace_scores_from_langfuse] Fetching trace scores | "
+        f"dataset={dataset_name} | run={run_name}"
+    )
+
+    try:
+        # 1. Get dataset run with its items directly using get_run
+        # This returns DatasetRunWithItems which includes dataset_run_items
+        try:
+            dataset_run = langfuse.api.datasets.get_run(dataset_name, run_name)
+        except Exception as e:
+            logger.error(
+                f"[fetch_trace_scores_from_langfuse] Failed to get run | "
+                f"dataset={dataset_name} | run={run_name} | error={e}"
+            )
+            raise ValueError(
+                f"Run '{run_name}' not found in Langfuse dataset '{dataset_name}'"
+            )
+
+        logger.info(
+            f"[fetch_trace_scores_from_langfuse] Found run | "
+            f"run_name={run_name} | items_count={len(dataset_run.dataset_run_items)}"
+        )
+
+        # 2. Extract trace IDs from dataset run items
+        trace_ids = [item.trace_id for item in dataset_run.dataset_run_items]
+
+        logger.info(
+            f"[fetch_trace_scores_from_langfuse] Found traces | count={len(trace_ids)}"
+        )
+
+        # 3. Fetch trace details with scores for each trace
+        traces = []
+        score_aggregations: dict[str, list[float]] = {}
+
+        for trace_id in trace_ids:
+            try:
+                trace = langfuse.api.trace.get(trace_id)
+
+                # Extract Q&A data from trace
+                trace_data: dict[str, Any] = {
+                    "trace_id": trace_id,
+                    "question": "",
+                    "llm_answer": "",
+                    "ground_truth_answer": "",
+                }
+
+                # Get question from input
+                if trace.input:
+                    if isinstance(trace.input, dict):
+                        trace_data["question"] = trace.input.get("question", "")
+                    elif isinstance(trace.input, str):
+                        trace_data["question"] = trace.input
+
+                # Get answer from output
+                if trace.output:
+                    if isinstance(trace.output, dict):
+                        trace_data["llm_answer"] = trace.output.get("answer", "")
+                    elif isinstance(trace.output, str):
+                        trace_data["llm_answer"] = trace.output
+
+                # Get ground truth from metadata
+                if trace.metadata and isinstance(trace.metadata, dict):
+                    trace_data["ground_truth_answer"] = trace.metadata.get(
+                        "ground_truth", ""
+                    )
+
+                # Add scores from this trace
+                if trace.scores:
+                    for score in trace.scores:
+                        score_name = score.name
+                        score_value = score.value
+                        score_comment = score.comment or ""
+
+                        # Add to trace data
+                        trace_data[score_name] = {
+                            "score": score_value,
+                            "comment": score_comment,
+                        }
+
+                        # Aggregate for avg/std calculation
+                        if score_value is not None:
+                            if score_name not in score_aggregations:
+                                score_aggregations[score_name] = []
+                            score_aggregations[score_name].append(float(score_value))
+
+                traces.append(trace_data)
+
+            except Exception as e:
+                logger.warning(
+                    f"[fetch_trace_scores_from_langfuse] Failed to fetch trace | "
+                    f"trace_id={trace_id} | error={e}"
+                )
+                continue
+
+        # 4. Calculate aggregated stats
+        enriched_score: dict[str, Any] = {
+            "total_pairs": len(traces),
+            "traces": traces,
+        }
+
+        for score_name, values in score_aggregations.items():
+            if values:
+                enriched_score[score_name] = {
+                    "avg": float(np.mean(values)),
+                    "std": float(np.std(values)),
+                }
+
+        logger.info(
+            f"[fetch_trace_scores_from_langfuse] Successfully fetched enriched scores | "
+            f"total_traces={len(traces)} | score_types={list(score_aggregations.keys())}"
+        )
+
+        return enriched_score
+
+    except ValueError:
+        # Re-raise ValueError for "run not found" case
+        raise
+    except Exception as e:
+        logger.error(
+            f"[fetch_trace_scores_from_langfuse] Failed to fetch trace scores | "
+            f"dataset={dataset_name} | run={run_name} | {e}",
             exc_info=True,
         )
         raise

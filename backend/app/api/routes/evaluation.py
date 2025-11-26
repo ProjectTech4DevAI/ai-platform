@@ -4,7 +4,7 @@ import logging
 import re
 from pathlib import Path
 
-from fastapi import APIRouter, Body, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Body, File, Form, HTTPException, Query, UploadFile
 
 from app.api.deps import AuthContextDep, SessionDep
 from app.core.cloud import get_cloud_storage
@@ -20,6 +20,7 @@ from app.crud.evaluations import (
     upload_dataset_to_langfuse_from_csv,
 )
 from app.crud.evaluations import list_evaluation_runs as list_evaluation_runs_crud
+from app.crud.evaluations.core import get_or_fetch_score
 from app.crud.evaluations.dataset import delete_dataset as delete_dataset_crud
 from app.models.evaluation import (
     DatasetUploadResponse,
@@ -151,7 +152,7 @@ async def upload_dataset(
     if file_size > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=413,
-            detail=f"File too large. Maximum size: {MAX_FILE_SIZE / (1024*1024):.0f}MB",
+            detail=f"File too large. Maximum size: {MAX_FILE_SIZE / (1024 * 1024):.0f}MB",
         )
 
     if file_size == 0:
@@ -600,12 +601,30 @@ def get_evaluation_run_status(
     evaluation_id: int,
     _session: SessionDep,
     auth_context: AuthContextDep,
+    get_trace_info: bool = Query(
+        False,
+        description=(
+            "If true, fetch and include Langfuse trace scores with Q&A context. "
+            "On first request, data is fetched from Langfuse and cached. "
+            "Subsequent requests return cached data."
+        ),
+    ),
+    resync_score: bool = Query(
+        False,
+        description=(
+            "If true, clear cached scores and re-fetch from Langfuse. "
+            "Useful when new evaluators have been added or scores have been updated. "
+            "Requires get_trace_info=true."
+        ),
+    ),
 ) -> EvaluationRunPublic:
     logger.info(
         f"[get_evaluation_run_status] Fetching status for evaluation run | "
         f"evaluation_id={evaluation_id} | "
         f"org_id={auth_context.organization.id} | "
-        f"project_id={auth_context.project.id}"
+        f"project_id={auth_context.project.id} | "
+        f"get_trace_info={get_trace_info} | "
+        f"resync_score={resync_score}"
     )
 
     eval_run = get_evaluation_run_by_id(
@@ -623,5 +642,50 @@ def get_evaluation_run_status(
                 "to this organization"
             ),
         )
+
+    if get_trace_info:
+        # Only fetch trace info for completed evaluations
+        if eval_run.status != "completed":
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Trace info is only available for completed evaluations. "
+                    f"Current status: {eval_run.status}"
+                ),
+            )
+
+        # Get Langfuse client
+        langfuse = get_langfuse_client(
+            session=_session,
+            org_id=auth_context.organization.id,
+            project_id=auth_context.project.id,
+        )
+
+        try:
+            # Fetch or get cached score
+            # If resync_score=True, force re-fetch from Langfuse
+            get_or_fetch_score(
+                session=_session,
+                eval_run=eval_run,
+                langfuse=langfuse,
+                force_refetch=resync_score,
+            )
+
+        except ValueError as e:
+            # Run not found in Langfuse
+            raise HTTPException(
+                status_code=404,
+                detail=str(e),
+            )
+        except Exception as e:
+            logger.error(
+                f"[get_evaluation_run_status] Failed to fetch trace info | "
+                f"evaluation_id={evaluation_id} | error={e}",
+                exc_info=True,
+            )
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to fetch trace info from Langfuse: {str(e)}",
+            )
 
     return eval_run
