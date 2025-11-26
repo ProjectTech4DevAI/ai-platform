@@ -5,7 +5,7 @@ This module handles:
 1. Creating dataset runs in Langfuse
 2. Creating traces for each evaluation item
 3. Uploading results to Langfuse for visualization
-4. Fetching trace scores from Langfuse for enriched results
+4. Fetching trace scores from Langfuse for results
 """
 
 import logging
@@ -471,24 +471,24 @@ def fetch_trace_scores_from_langfuse(
                 continue
 
         # 4. Calculate aggregated stats
-        enriched_score: dict[str, Any] = {
+        score: dict[str, Any] = {
             "total_pairs": len(traces),
             "traces": traces,
         }
 
         for score_name, values in score_aggregations.items():
             if values:
-                enriched_score[score_name] = {
+                score[score_name] = {
                     "avg": float(np.mean(values)),
                     "std": float(np.std(values)),
                 }
 
         logger.info(
-            f"[fetch_trace_scores_from_langfuse] Successfully fetched enriched scores | "
+            f"[fetch_trace_scores_from_langfuse] Successfully fetched scores | "
             f"total_traces={len(traces)} | score_types={list(score_aggregations.keys())}"
         )
 
-        return enriched_score
+        return score
 
     except ValueError:
         # Re-raise ValueError for "run not found" case
