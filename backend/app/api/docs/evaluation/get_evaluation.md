@@ -6,6 +6,12 @@ Retrieves comprehensive information about an evaluation run including its curren
 
 - **evaluation_id**: ID of the evaluation run
 
+## Query Parameters
+
+- **get_trace_info** (optional, default: false): If true, fetch and include Langfuse trace scores with Q&A context. On first request, data is fetched from Langfuse and cached in the score column. Subsequent requests return cached data.
+
+- **resync_score** (optional, default: false): If true, clear cached scores and re-fetch from Langfuse. Useful when new evaluators have been added or scores have been updated. Requires get_trace_info=true.
+
 ## Returns
 
 EvaluationRunPublic with current status and results:

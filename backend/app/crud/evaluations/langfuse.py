@@ -355,7 +355,7 @@ def fetch_trace_scores_from_langfuse(
         run_name: Name of the evaluation run
 
     Returns:
-        Enriched score data with per-trace scores and Q&A context:
+        Score data with per-trace scores and Q&A context:
         {
             "cosine_similarity": {"avg": 0.87, "std": 0.12},
             "total_pairs": 50,
@@ -413,8 +413,6 @@ def fetch_trace_scores_from_langfuse(
         for trace_id in trace_ids:
             try:
                 trace = langfuse.api.trace.get(trace_id)
-
-                # Extract Q&A data from trace
                 trace_data: dict[str, Any] = {
                     "trace_id": trace_id,
                     "question": "",
@@ -491,7 +489,6 @@ def fetch_trace_scores_from_langfuse(
         return score
 
     except ValueError:
-        # Re-raise ValueError for "run not found" case
         raise
     except Exception as e:
         logger.error(
