@@ -9,7 +9,6 @@ from app.crud import (
     get_project_by_name,
     get_user_by_email,
 )
-from app.core.providers import validate_provider, validate_provider_credentials
 from app.models import (
     APIKey,
     Credential,

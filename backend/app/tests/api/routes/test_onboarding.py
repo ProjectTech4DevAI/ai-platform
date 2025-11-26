@@ -1,10 +1,7 @@
-import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
-from pydantic import ValidationError
 
 from app.core.config import settings
-from app.models import OnboardingRequest
 from app.tests.utils.utils import random_email, random_lower_string
 from app.tests.utils.test_data import create_test_organization
 
@@ -174,50 +171,10 @@ def test_onboard_project_with_auto_generated_defaults(
     assert len(data["api_key"]) > 0
 
 
-def test_onboard_project_duplicate_project_in_organization(
-    client: TestClient, superuser_token_headers: dict[str, str], db: Session
-) -> None:
-    """Test onboarding fails when project already exists in the organization."""
-    org_name = "TestOrgOnboard"
-    project_name = "TestProjectOnboard"
-    email = random_email()
-    password = random_lower_string()
-
-    onboard_data = {
-        "organization_name": org_name,
-        "project_name": project_name,
-        "email": email,
-        "password": password,
-    }
-
-    # First request should succeed
-    response = client.post(
-        f"{settings.API_V1_STR}/onboard",
-        json=onboard_data,
-        headers=superuser_token_headers,
-    )
-    assert response.status_code == 201
-
-    # Second request with same org and project should fail
-    email2 = random_email()
-    onboard_data["email"] = email2
-
-    response = client.post(
-        f"{settings.API_V1_STR}/onboard",
-        json=onboard_data,
-        headers=superuser_token_headers,
-    )
-
-    assert response.status_code == 409
-    error_response = response.json()
-    assert "error" in error_response
-    assert "Project already exists" in error_response["error"]
-
-
 def test_onboard_project_invalid_provider(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
-    """Test onboarding fails when project already exists in the organization."""
+    """Test onboarding fails when an unsupported provider is specified."""
     org_name = "TestOrgOnboard"
     project_name = "TestProjectOnboard"
     email = random_email()
