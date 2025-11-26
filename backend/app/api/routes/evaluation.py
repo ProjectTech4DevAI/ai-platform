@@ -17,7 +17,7 @@ from app.crud.evaluations import (
     list_datasets,
     start_evaluation_batch,
     upload_csv_to_object_store,
-    upload_dataset_to_langfuse_from_csv,
+    upload_dataset_to_langfuse,
 )
 from app.crud.evaluations import list_evaluation_runs as list_evaluation_runs_crud
 from app.crud.evaluations.dataset import delete_dataset as delete_dataset_crud
@@ -39,6 +39,19 @@ ALLOWED_MIME_TYPES = {
 }
 
 router = APIRouter(tags=["evaluation"])
+
+
+def _dataset_to_response(dataset) -> DatasetUploadResponse:
+    """Convert a dataset model to a DatasetUploadResponse."""
+    return DatasetUploadResponse(
+        dataset_id=dataset.id,
+        dataset_name=dataset.name,
+        total_items=dataset.dataset_metadata.get("total_items_count", 0),
+        original_items=dataset.dataset_metadata.get("original_items_count", 0),
+        duplication_factor=dataset.dataset_metadata.get("duplication_factor", 1),
+        langfuse_dataset_id=dataset.langfuse_dataset_id,
+        object_store_url=dataset.object_store_url,
+    )
 
 
 def sanitize_dataset_name(name: str) -> str:
@@ -151,7 +164,7 @@ async def upload_dataset(
     if file_size > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=413,
-            detail=f"File too large. Maximum size: {MAX_FILE_SIZE / (1024 * 1024):.0f}MB",
+            detail=f"File too large. Maximum size: {MAX_FILE_SIZE / (1024*1024):.0f}MB",
         )
 
     if file_size == 0:
@@ -245,9 +258,9 @@ async def upload_dataset(
         )
 
         # Upload to Langfuse
-        langfuse_dataset_id, _ = upload_dataset_to_langfuse_from_csv(
+        langfuse_dataset_id, _ = upload_dataset_to_langfuse(
             langfuse=langfuse,
-            csv_content=csv_content,
+            items=original_items,
             dataset_name=dataset_name,
             duplication_factor=duplication_factor,
         )
@@ -324,24 +337,7 @@ def list_datasets_endpoint(
         offset=offset,
     )
 
-    # Convert to response format
-    response = []
-    for dataset in datasets:
-        response.append(
-            DatasetUploadResponse(
-                dataset_id=dataset.id,
-                dataset_name=dataset.name,
-                total_items=dataset.dataset_metadata.get("total_items_count", 0),
-                original_items=dataset.dataset_metadata.get("original_items_count", 0),
-                duplication_factor=dataset.dataset_metadata.get(
-                    "duplication_factor", 1
-                ),
-                langfuse_dataset_id=dataset.langfuse_dataset_id,
-                object_store_url=dataset.object_store_url,
-            )
-        )
-
-    return response
+    return [_dataset_to_response(dataset) for dataset in datasets]
 
 
 @router.get(
@@ -372,15 +368,7 @@ def get_dataset(
             status_code=404, detail=f"Dataset {dataset_id} not found or not accessible"
         )
 
-    return DatasetUploadResponse(
-        dataset_id=dataset.id,
-        dataset_name=dataset.name,
-        total_items=dataset.dataset_metadata.get("total_items_count", 0),
-        original_items=dataset.dataset_metadata.get("original_items_count", 0),
-        duplication_factor=dataset.dataset_metadata.get("duplication_factor", 1),
-        langfuse_dataset_id=dataset.langfuse_dataset_id,
-        object_store_url=dataset.object_store_url,
-    )
+    return _dataset_to_response(dataset)
 
 
 @router.delete(
