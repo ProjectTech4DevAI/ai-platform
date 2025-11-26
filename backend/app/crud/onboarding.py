@@ -121,10 +121,14 @@ def onboard_project(
             session.add(cred_row)
 
             created_credentials.append(cred_row)
+
     session.commit()
+    cred_ids = [c.id for c in created_credentials]
+
     logger.info(
         "[onboard_project] Onboarding completed successfully. "
-        f"org_id={organization.id}, project_id={project.id}, user_id={user.id}"
+        f"org_id={organization.id}, project_id={project.id}, user_id={user.id}, "
+        f"cred_ids={cred_ids}"
     )
 
     return OnboardingResponse(

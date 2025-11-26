@@ -1,8 +1,10 @@
+import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
+from pydantic import ValidationError
 
-from app.utils import mask_string
 from app.core.config import settings
+from app.models import OnboardingRequest
 from app.tests.utils.utils import random_email, random_lower_string
 from app.tests.utils.test_data import create_test_organization
 
@@ -170,3 +172,203 @@ def test_onboard_project_with_auto_generated_defaults(
     assert "@kaapi.org" in data["user_email"]
     assert "api_key" in data
     assert len(data["api_key"]) > 0
+
+
+def test_onboard_project_duplicate_project_in_organization(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """Test onboarding fails when project already exists in the organization."""
+    org_name = "TestOrgOnboard"
+    project_name = "TestProjectOnboard"
+    email = random_email()
+    password = random_lower_string()
+
+    onboard_data = {
+        "organization_name": org_name,
+        "project_name": project_name,
+        "email": email,
+        "password": password,
+    }
+
+    # First request should succeed
+    response = client.post(
+        f"{settings.API_V1_STR}/onboard",
+        json=onboard_data,
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 201
+
+    # Second request with same org and project should fail
+    email2 = random_email()
+    onboard_data["email"] = email2
+
+    response = client.post(
+        f"{settings.API_V1_STR}/onboard",
+        json=onboard_data,
+        headers=superuser_token_headers,
+    )
+
+    assert response.status_code == 409
+    error_response = response.json()
+    assert "error" in error_response
+    assert "Project already exists" in error_response["error"]
+
+
+def test_onboard_project_invalid_provider(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """Test onboarding fails when project already exists in the organization."""
+    org_name = "TestOrgOnboard"
+    project_name = "TestProjectOnboard"
+    email = random_email()
+    password = random_lower_string()
+
+    onboard_data = {
+        "organization_name": org_name,
+        "project_name": project_name,
+        "email": email,
+        "password": password,
+        "user_name": "User",
+        "credential": [{"totally_not_a_provider": {"foo": "bar"}}],
+    }
+
+    response = client.post(
+        f"{settings.API_V1_STR}/onboard",
+        json=onboard_data,
+        headers=superuser_token_headers,
+    )
+
+    assert response.status_code == 422
+    error_response = response.json()
+    assert "error" in error_response
+    assert "credential validation failed" in error_response["error"]
+
+
+def test_onboard_project_non_dict_values_in_credential(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """Test onboarding fails when credential value for a provider is not an object/dict."""
+    org_name = "TestOrgOnboard"
+    project_name = "TestProjectOnboard"
+    email = random_email()
+    password = random_lower_string()
+
+    onboard_data = {
+        "organization_name": org_name,
+        "project_name": project_name,
+        "email": email,
+        "password": password,
+        "user_name": "User",
+        "credential": [{"openai": "sk-should-be-inside-object"}],
+    }
+
+    response = client.post(
+        f"{settings.API_V1_STR}/onboard",
+        json=onboard_data,
+        headers=superuser_token_headers,
+    )
+
+    assert response.status_code == 422
+    error_response = response.json()
+    assert "error" in error_response
+    assert "credential validation failed" in error_response["error"]
+    assert "must be an object/dict" in error_response["error"]
+
+
+def test_onboard_project_missing_required_fields_for_openai(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """Test onboarding fails when OpenAI credential is missing required fields."""
+    org_name = "TestOrgOnboard"
+    project_name = "TestProjectOnboard"
+    email = random_email()
+    password = random_lower_string()
+
+    onboard_data = {
+        "organization_name": org_name,
+        "project_name": project_name,
+        "email": email,
+        "password": password,
+        "user_name": "User",
+        "credential": [{"openai": {}}],  # missing api_key
+    }
+
+    response = client.post(
+        f"{settings.API_V1_STR}/onboard",
+        json=onboard_data,
+        headers=superuser_token_headers,
+    )
+
+    assert response.status_code == 422
+    error_response = response.json()
+    assert "error" in error_response
+    assert "credential validation failed" in error_response["error"]
+    assert "openai" in error_response["error"]
+
+
+def test_onboard_project_missing_required_fields_for_langfuse(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """Test onboarding fails when Langfuse credential is missing required fields."""
+    org_name = "TestOrgOnboard"
+    project_name = "TestProjectOnboard"
+    email = random_email()
+    password = random_lower_string()
+
+    onboard_data = {
+        "organization_name": org_name,
+        "project_name": project_name,
+        "email": email,
+        "password": password,
+        "user_name": "User",
+        "credential": [
+            {"langfuse": {"secret_key": "sk-only"}}
+        ],  # missing public_key/host
+    }
+
+    response = client.post(
+        f"{settings.API_V1_STR}/onboard",
+        json=onboard_data,
+        headers=superuser_token_headers,
+    )
+
+    assert response.status_code == 422
+    error_response = response.json()
+    assert "error" in error_response
+    assert "credential validation failed" in error_response["error"]
+    assert "langfuse" in error_response["error"]
+
+
+def test_onboard_project_aggregates_multiple_credential_errors(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    """Test onboarding aggregates multiple credential validation errors with index markers."""
+    org_name = "TestOrgOnboard"
+    project_name = "TestProjectOnboard"
+    email = random_email()
+    password = random_lower_string()
+
+    onboard_data = {
+        "organization_name": org_name,
+        "project_name": project_name,
+        "email": email,
+        "password": password,
+        "user_name": "User",
+        "credential": [
+            {"notreal": {"x": "y"}},
+            {"openai": "should-be-dict"},
+        ],
+    }
+
+    response = client.post(
+        f"{settings.API_V1_STR}/onboard",
+        json=onboard_data,
+        headers=superuser_token_headers,
+    )
+
+    assert response.status_code == 422
+    error_response = response.json()
+    assert "error" in error_response
+    assert "credential validation failed" in error_response["error"]
+    assert "[0]" in error_response["error"]
+    assert "[1]" in error_response["error"]
