@@ -222,7 +222,7 @@ def execute_job(
             metadata=request.request_metadata,
         )
         logger.error(
-            f"[execute_job] {callback_response.error} {str(e)} | job_id={job_id}, task_id={task_id}",
+            f"[execute_job] Unknown error occurred: {str(e)} | job_id={job_id}, task_id={task_id}",
             exc_info=True,
         )
         return handle_job_error(job_id, request.callback_url, callback_response)
