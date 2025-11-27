@@ -132,7 +132,9 @@ def observe_llm_execution(
         @wraps(func)
         def wrapper(completion_config: CompletionConfig, query: QueryParams, **kwargs):
             # Skip observability if no credentials provided
-            if not credentials:
+            if not credentials or not all(
+                key in credentials for key in ["public_key", "secret_key", "host"]
+            ):
                 logger.info("[Langfuse] No credentials - skipping observability")
                 return func(completion_config, query, **kwargs)
 
