@@ -48,10 +48,10 @@ def doctransformation_callback_notification(
     body: APIResponse[DocTransformationJobPublic],
 ):
     """
-    Callback endpoint specification for collection creation/deletion.
+    Callback endpoint specification for document transformation.
 
     The callback will receive:
-    - On success: APIResponse with success=True and data containing CollectionJobPublic
+    - On success: APIResponse with success=True and data containing DocTransformationJobPublic
     - On failure: APIResponse with success=False and error message
     - metadata field will always be included if provided in the request
     """
