@@ -646,13 +646,7 @@ def get_evaluation_run_status(
     if get_trace_info:
         # Only fetch trace info for completed evaluations
         if eval_run.status != "completed":
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "Trace info is only available for completed evaluations. "
-                    f"Current status: {eval_run.status}"
-                ),
-            )
+            return eval_run
 
         # Get Langfuse client
         langfuse = get_langfuse_client(
