@@ -7,11 +7,13 @@ from sqlmodel import Session
 
 from app.core.db import engine
 from app.crud.config import ConfigVersionCrud
+from app.crud.credentials import get_provider_credential
 from app.crud.jobs import JobCrud
 from app.models import JobStatus, JobType, JobUpdate, LLMCallRequest
 from app.models.llm.request import ConfigBlob, LLMCallConfig
 from app.utils import APIResponse, send_callback
 from app.celery.utils import start_high_priority_job
+from app.core.langfuse.langfuse import observe_llm_execution
 from app.services.llm.providers.registry import get_llm_provider
 
 
@@ -182,7 +184,25 @@ def execute_job(
                 )
                 return handle_job_error(job_id, request.callback_url, callback_response)
 
-        response, error = provider_instance.execute(
+            langfuse_credentials = get_provider_credential(
+                session=session,
+                org_id=organization_id,
+                project_id=project_id,
+                provider="langfuse",
+            )
+
+        # Extract conversation_id for langfuse session grouping
+        conversation_id = None
+        if request.query.conversation and request.query.conversation.id:
+            conversation_id = request.query.conversation.id
+
+        # Apply Langfuse observability decorator to provider execute method
+        decorated_execute = observe_llm_execution(
+            credentials=langfuse_credentials,
+            session_id=conversation_id,
+        )(provider_instance.execute)
+
+        response, error = decorated_execute(
             completion_config=config_blob.completion,
             query=request.query,
             include_provider_raw_response=request.include_provider_raw_response,
