@@ -5,6 +5,8 @@ from fastapi import HTTPException
 
 from app.models import (
     Config,
+    ConfigBlob,
+    CompletionConfig,
     ConfigCreate,
     ConfigUpdate,
 )
@@ -13,21 +15,30 @@ from app.tests.utils.test_data import create_test_project, create_test_config
 from app.tests.utils.utils import random_lower_string
 
 
-def test_create_config(db: Session) -> None:
+@pytest.fixture
+def example_config_blob():
+    return ConfigBlob(
+        completion=CompletionConfig(
+            provider="openai",
+            params={
+                "model": "gpt-4",
+                "temperature": 0.8,
+                "max_tokens": 1500,
+            },
+        )
+    )
+
+
+def test_create_config(db: Session, example_config_blob: ConfigBlob) -> None:
     """Test creating a new configuration with initial version."""
     project = create_test_project(db)
     config_crud = ConfigCrud(session=db, project_id=project.id)
 
     config_name = f"test-config-{random_lower_string()}"
-    config_blob = {
-        "model": "gpt-4",
-        "temperature": 0.7,
-        "max_tokens": 1000,
-    }
     config_create = ConfigCreate(
         name=config_name,
         description="Test configuration",
-        config_blob=config_blob,
+        config_blob=example_config_blob,
         commit_message="Initial version",
     )
 
@@ -43,11 +54,13 @@ def test_create_config(db: Session) -> None:
     assert version.id is not None
     assert version.config_id == config.id
     assert version.version == 1
-    assert version.config_blob == config_blob
+    assert version.config_blob == example_config_blob.model_dump()
     assert version.commit_message == "Initial version"
 
 
-def test_create_config_duplicate_name(db: Session) -> None:
+def test_create_config_duplicate_name(
+    db: Session, example_config_blob: ConfigBlob
+) -> None:
     """Test creating a configuration with a duplicate name raises HTTPException."""
     project = create_test_project(db)
     config_crud = ConfigCrud(session=db, project_id=project.id)
@@ -56,7 +69,7 @@ def test_create_config_duplicate_name(db: Session) -> None:
     config_create = ConfigCreate(
         name=config_name,
         description="Test configuration",
-        config_blob={"model": "gpt-4"},
+        config_blob=example_config_blob,
         commit_message="Initial version",
     )
 
@@ -70,13 +83,15 @@ def test_create_config_duplicate_name(db: Session) -> None:
         config_crud.create_or_raise(config_create)
 
 
-def test_create_config_different_projects_same_name(db: Session) -> None:
+def test_create_config_different_projects_same_name(
+    db: Session, example_config_blob: ConfigBlob
+) -> None:
     """Test creating configs with same name in different projects succeeds."""
     project1 = create_test_project(db)
     project2 = create_test_project(db)
 
     config_name = f"test-config-{random_lower_string()}"
-    config_blob = {"model": "gpt-4"}
+    config_blob = example_config_blob
 
     # Create config in project1
     config_crud1 = ConfigCrud(session=db, project_id=project1.id)

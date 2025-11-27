@@ -34,7 +34,7 @@ class ConfigVersionCrud:
             version = ConfigVersion(
                 config_id=self.config_id,
                 version=next_version,
-                config_blob=version_create.config_blob,
+                config_blob=version_create.config_blob.model_dump(),
                 commit_message=version_create.commit_message,
             )
 
