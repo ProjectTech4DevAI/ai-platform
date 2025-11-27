@@ -452,6 +452,12 @@ def fetch_trace_scores_from_langfuse(
                         data_type = getattr(score, "data_type", None) or "NUMERIC"
 
                         # Build score entry for trace
+                        # Round numeric values to 2 decimal places
+                        if data_type != "CATEGORICAL" and isinstance(
+                            score_value, (int, float)
+                        ):
+                            score_value = round(float(score_value), 2)
+
                         score_entry: dict[str, Any] = {
                             "name": score_name,
                             "value": score_value,
@@ -480,14 +486,30 @@ def fetch_trace_scores_from_langfuse(
                 )
                 continue
 
-        # 4. Calculate summary scores
+        # 4. Identify complete scores (all traces must have the score)
+        total_traces = len(traces)
+        complete_score_names = {
+            name
+            for name, data in score_aggregations.items()
+            if len(data["values"]) == total_traces
+        }
+
+        # 5. Filter trace scores to only include complete scores
+        for trace in traces:
+            trace["scores"] = [
+                score
+                for score in trace["scores"]
+                if score["name"] in complete_score_names
+            ]
+
+        # 6. Calculate summary scores (only for complete scores)
         summary_scores = []
         for score_name, agg_data in score_aggregations.items():
+            if score_name not in complete_score_names:
+                continue
+
             data_type = agg_data["data_type"]
             values = agg_data["values"]
-
-            if not values:
-                continue
 
             if data_type == "CATEGORICAL":
                 # For categorical scores, compute distribution
@@ -505,13 +527,13 @@ def fetch_trace_scores_from_langfuse(
                     }
                 )
             else:
-                # For numeric scores, compute avg and std
+                # For numeric scores, compute avg and std (rounded to 2 decimal places)
                 numeric_values = [float(v) for v in values]
                 summary_scores.append(
                     {
                         "name": score_name,
-                        "avg": float(np.mean(numeric_values)),
-                        "std": float(np.std(numeric_values)),
+                        "avg": round(float(np.mean(numeric_values)), 2),
+                        "std": round(float(np.std(numeric_values)), 2),
                         "total_pairs": len(numeric_values),
                         "data_type": data_type,
                     }
@@ -526,7 +548,7 @@ def fetch_trace_scores_from_langfuse(
 
         logger.info(
             f"[fetch_trace_scores_from_langfuse] Successfully fetched scores | "
-            f"total_traces={len(traces)} | score_types={list(score_aggregations.keys())}"
+            f"total_traces={len(traces)} | complete_scores={list(complete_score_names)}"
         )
 
         return result
