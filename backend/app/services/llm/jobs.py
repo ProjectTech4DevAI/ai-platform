@@ -132,7 +132,7 @@ def execute_job(
 
     # one of (id, version) or blob is guaranteed to be present due to prior validation
     config = request.config
-    callback = None
+    callback_response = None
     config_blob: ConfigBlob | None = None
 
     logger.info(
@@ -157,7 +157,7 @@ def execute_job(
                 config_blob, error = resolve_config_blob(config_crud, config)
 
                 if error:
-                    callback = APIResponse.failure_response(
+                    callback_response = APIResponse.failure_response(
                         error=error,
                         metadata=request.request_metadata,
                     )
@@ -165,7 +165,7 @@ def execute_job(
             else:
                 config_blob = config.blob
 
-            if callback is None:
+            if callback_response is None:
                 try:
                     provider_instance = get_llm_provider(
                         session=session,
@@ -174,13 +174,13 @@ def execute_job(
                         organization_id=organization_id,
                     )
                 except ValueError as ve:
-                    callback = APIResponse.failure_response(
+                    callback_response = APIResponse.failure_response(
                         error=str(ve),
                         metadata=request.request_metadata,
                     )
 
-        if callback:
-            return handle_job_error(job_id, request.callback_url, callback)
+        if callback_response:
+            return handle_job_error(job_id, request.callback_url, callback_response)
 
         response, error = provider_instance.execute(
             completion_config=config_blob.completion,
@@ -189,13 +189,13 @@ def execute_job(
         )
 
         if response:
-            callback = APIResponse.success_response(
+            callback_response = APIResponse.success_response(
                 data=response, metadata=request.request_metadata
             )
             if request.callback_url:
                 send_callback(
                     callback_url=request.callback_url,
-                    data=callback.model_dump(),
+                    data=callback_response.model_dump(),
                 )
 
             with Session(engine) as session:
@@ -208,21 +208,21 @@ def execute_job(
                     f"[execute_job] Successfully completed LLM job | job_id={job_id}, "
                     f"provider_response_id={response.response.provider_response_id}, tokens={response.usage.total_tokens}"
                 )
-                return callback.model_dump()
+                return callback_response.model_dump()
 
-        callback = APIResponse.failure_response(
+        callback_response = APIResponse.failure_response(
             error=error or "Unknown error occurred",
             metadata=request.request_metadata,
         )
-        return handle_job_error(job_id, request.callback_url, callback)
+        return handle_job_error(job_id, request.callback_url, callback_response)
 
     except Exception as e:
-        callback = APIResponse.failure_response(
+        callback_response = APIResponse.failure_response(
             error=f"Unexpected error occurred",
             metadata=request.request_metadata,
         )
         logger.error(
-            f"[execute_job] {callback.error} {str(e)} | job_id={job_id}, task_id={task_id}",
+            f"[execute_job] {callback_response.error} {str(e)} | job_id={job_id}, task_id={task_id}",
             exc_info=True,
         )
-        return handle_job_error(job_id, request.callback_url, callback)
+        return handle_job_error(job_id, request.callback_url, callback_response)
