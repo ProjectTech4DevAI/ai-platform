@@ -2,10 +2,11 @@ from uuid import UUID, uuid4
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlmodel import Field, SQLModel, UniqueConstraint, Index, text
+from sqlmodel import Field, SQLModel, Index, text
 from pydantic import field_validator
 
 from app.core.util import now
+from app.models.llm.request import ConfigBlob
 from .version import ConfigVersionPublic
 
 
@@ -56,7 +57,7 @@ class ConfigCreate(ConfigBase):
     """Create new configuration"""
 
     # Initial version data
-    config_blob: dict[str, Any] = Field(description="Provider-specific parameters")
+    config_blob: ConfigBlob = Field(description="Provider-specific parameters")
     commit_message: str | None = Field(
         default=None,
         max_length=512,

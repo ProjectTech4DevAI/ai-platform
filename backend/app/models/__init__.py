@@ -87,6 +87,8 @@ from .fine_tuning import (
 from .job import Job, JobType, JobStatus, JobUpdate
 
 from .llm import (
+    ConfigBlob,
+    CompletionConfig,
     LLMCallRequest,
     LLMCallResponse,
 )

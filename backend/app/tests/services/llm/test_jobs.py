@@ -5,11 +5,12 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 from fastapi import HTTPException
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.crud import JobCrud
+from app.crud.config import ConfigVersionCrud
 from app.utils import APIResponse
-from app.models import JobStatus, JobType
+from app.models import ConfigVersion, JobStatus, JobType
 from app.models.llm import (
     LLMCallRequest,
     CompletionConfig,
@@ -19,9 +20,15 @@ from app.models.llm import (
     LLMOutput,
     Usage,
 )
-from app.models.llm.request import LLMCallConfig
-from app.services.llm.jobs import start_job, handle_job_error, execute_job
+from app.models.llm.request import ConfigBlob, LLMCallConfig
+from app.services.llm.jobs import (
+    start_job,
+    handle_job_error,
+    execute_job,
+    resolve_config_blob,
+)
 from app.tests.utils.utils import get_project
+from app.tests.utils.test_data import create_test_config
 
 
 class TestStartJob:
@@ -32,9 +39,11 @@ class TestStartJob:
         return LLMCallRequest(
             query=QueryParams(input="Test query"),
             config=LLMCallConfig(
-                completion=CompletionConfig(
-                    provider="openai",
-                    params={"model": "gpt-4"},
+                blob=ConfigBlob(
+                    completion=CompletionConfig(
+                        provider="openai",
+                        params={"model": "gpt-4"},
+                    )
                 )
             ),
         )
@@ -215,7 +224,9 @@ class TestExecuteJob:
         return {
             "query": {"input": "Test query"},
             "config": {
-                "completion": {"provider": "openai", "params": {"model": "gpt-4"}}
+                "blob": {
+                    "completion": {"provider": "openai", "params": {"model": "gpt-4"}}
+                }
             },
             "include_provider_raw_response": False,
             "callback_url": None,
@@ -378,3 +389,282 @@ class TestExecuteJob:
         env["send_callback"].assert_called_once()
         callback_data = env["send_callback"].call_args[1]["data"]
         assert callback_data["metadata"] == {"tracking_id": "track-456"}
+
+    def test_stored_config_success(self, db, job_for_execution, mock_llm_response):
+        """Test successful execution with stored config (id + version)."""
+        project = get_project(db)
+
+        # Create a real config in the database
+        config_blob = ConfigBlob(
+            completion=CompletionConfig(
+                provider="openai",
+                params={"model": "gpt-4", "temperature": 0.7},
+            )
+        )
+        config = create_test_config(db, project_id=project.id, config_blob=config_blob)
+        db.commit()
+
+        # Build request data with stored config
+        stored_request_data = {
+            "query": {"input": "Test query"},
+            "config": {
+                "id": str(config.id),
+                "version": 1,
+            },
+            "include_provider_raw_response": False,
+            "callback_url": None,
+        }
+
+        with (
+            patch("app.services.llm.jobs.Session") as mock_session_class,
+            patch("app.services.llm.jobs.get_llm_provider") as mock_get_provider,
+        ):
+            mock_session_class.return_value.__enter__.return_value = db
+            mock_session_class.return_value.__exit__.return_value = None
+
+            # Mock LLM provider
+            mock_provider = MagicMock()
+            mock_provider.execute.return_value = (mock_llm_response, None)
+            mock_get_provider.return_value = mock_provider
+
+            result = self._execute_job(job_for_execution, db, stored_request_data)
+
+            # Verify provider was called
+            mock_get_provider.assert_called_once()
+            mock_provider.execute.assert_called_once()
+
+            # Verify success
+            assert result["success"]
+            db.refresh(job_for_execution)
+            assert job_for_execution.status == JobStatus.SUCCESS
+
+    def test_stored_config_with_callback(
+        self, db, job_for_execution, mock_llm_response
+    ):
+        """Test stored config with callback URL."""
+        project = get_project(db)
+
+        config_blob = ConfigBlob(
+            completion=CompletionConfig(
+                provider="openai",
+                params={"model": "gpt-3.5-turbo", "temperature": 0.5},
+            )
+        )
+        config = create_test_config(db, project_id=project.id, config_blob=config_blob)
+        db.commit()
+
+        stored_request_data = {
+            "query": {"input": "Test query with callback"},
+            "config": {
+                "id": str(config.id),
+                "version": 1,
+            },
+            "include_provider_raw_response": False,
+            "callback_url": "https://example.com/callback",
+        }
+
+        with (
+            patch("app.services.llm.jobs.Session") as mock_session_class,
+            patch("app.services.llm.jobs.get_llm_provider") as mock_get_provider,
+            patch("app.services.llm.jobs.send_callback") as mock_send_callback,
+        ):
+            mock_session_class.return_value.__enter__.return_value = db
+            mock_session_class.return_value.__exit__.return_value = None
+
+            # Mock LLM provider
+            mock_provider = MagicMock()
+            mock_provider.execute.return_value = (mock_llm_response, None)
+            mock_get_provider.return_value = mock_provider
+
+            result = self._execute_job(job_for_execution, db, stored_request_data)
+
+            # Verify callback was sent
+            mock_send_callback.assert_called_once()
+            callback_data = mock_send_callback.call_args[1]["data"]
+            assert callback_data["success"]
+
+            # Verify success
+            assert result["success"]
+            db.refresh(job_for_execution)
+            assert job_for_execution.status == JobStatus.SUCCESS
+
+    def test_stored_config_version_not_found(self, db, job_for_execution):
+        """Test stored config when version doesn't exist."""
+        project = get_project(db)
+
+        config_blob = ConfigBlob(
+            completion=CompletionConfig(
+                provider="openai",
+                params={"model": "gpt-4"},
+            )
+        )
+        config = create_test_config(db, project_id=project.id, config_blob=config_blob)
+        db.commit()
+
+        stored_request_data = {
+            "query": {"input": "Test query"},
+            "config": {
+                "id": str(config.id),
+                "version": 999,
+            },
+            "include_provider_raw_response": False,
+            "callback_url": None,
+        }
+
+        with patch("app.services.llm.jobs.Session") as mock_session_class:
+            mock_session_class.return_value.__enter__.return_value = db
+            mock_session_class.return_value.__exit__.return_value = None
+
+            result = self._execute_job(job_for_execution, db, stored_request_data)
+
+            # Verify failure
+            assert not result["success"]
+            assert "Failed to retrieve stored configuration" in result["error"]
+            db.refresh(job_for_execution)
+            assert job_for_execution.status == JobStatus.FAILED
+
+
+class TestResolveConfigBlob:
+    """Test suite for resolve_config_blob function."""
+
+    def test_resolve_config_blob_success(self, db: Session):
+        """Test successful resolution of stored config blob."""
+        project = get_project(db)
+
+        config_blob = ConfigBlob(
+            completion=CompletionConfig(
+                provider="openai",
+                params={"model": "gpt-4", "temperature": 0.8},
+            )
+        )
+        config = create_test_config(db, project_id=project.id, config_blob=config_blob)
+        db.commit()
+
+        config_crud = ConfigVersionCrud(
+            session=db, project_id=project.id, config_id=config.id
+        )
+        llm_call_config = LLMCallConfig(id=str(config.id), version=1)
+
+        resolved_blob, error = resolve_config_blob(config_crud, llm_call_config)
+
+        assert error is None
+        assert resolved_blob is not None
+        assert resolved_blob.completion.provider == "openai"
+        assert resolved_blob.completion.params["model"] == "gpt-4"
+        assert resolved_blob.completion.params["temperature"] == 0.8
+
+    def test_resolve_config_blob_version_not_found(self, db: Session):
+        """Test resolve_config_blob when version doesn't exist."""
+        project = get_project(db)
+
+        config_blob = ConfigBlob(
+            completion=CompletionConfig(
+                provider="openai",
+                params={"model": "gpt-4"},
+            )
+        )
+        config = create_test_config(db, project_id=project.id, config_blob=config_blob)
+        db.commit()
+
+        config_crud = ConfigVersionCrud(
+            session=db, project_id=project.id, config_id=config.id
+        )
+        llm_call_config = LLMCallConfig(id=str(config.id), version=999)
+
+        resolved_blob, error = resolve_config_blob(config_crud, llm_call_config)
+
+        assert resolved_blob is None
+        assert error is not None
+        assert "Failed to retrieve stored configuration" in error
+
+    def test_resolve_config_blob_invalid_blob_data(self, db: Session):
+        """Test resolve_config_blob when config blob is malformed."""
+
+        project = get_project(db)
+
+        config_blob = ConfigBlob(
+            completion=CompletionConfig(
+                provider="openai",
+                params={"model": "gpt-4"},
+            )
+        )
+        config = create_test_config(db, project_id=project.id, config_blob=config_blob)
+        db.commit()
+
+        # Query the config version directly from the database
+        statement = select(ConfigVersion).where(ConfigVersion.config_id == config.id)
+        config_version = db.exec(statement).first()
+
+        # Manually corrupt the config_blob in the database
+        # Set invalid data that can't be parsed as ConfigBlob
+        config_version.config_blob = {"invalid": "structure", "missing": "completion"}
+        db.add(config_version)
+        db.commit()
+
+        config_crud = ConfigVersionCrud(
+            session=db, project_id=project.id, config_id=config.id
+        )
+        llm_call_config = LLMCallConfig(id=str(config.id), version=1)
+
+        resolved_blob, error = resolve_config_blob(config_crud, llm_call_config)
+
+        assert resolved_blob is None
+        assert error is not None
+        assert "Stored configuration blob is invalid" in error
+
+    def test_resolve_config_blob_with_multiple_versions(self, db: Session):
+        """Test resolving specific version when multiple versions exist."""
+        from app.models.config import ConfigVersionCreate
+
+        project = get_project(db)
+
+        # Create a config with version 1
+        config_blob_v1 = ConfigBlob(
+            completion=CompletionConfig(
+                provider="openai",
+                params={"model": "gpt-3.5-turbo", "temperature": 0.5},
+            )
+        )
+        config = create_test_config(
+            db, project_id=project.id, config_blob=config_blob_v1
+        )
+        db.commit()
+
+        # Create version 2 using ConfigVersionCrud
+        config_version_crud = ConfigVersionCrud(
+            session=db, project_id=project.id, config_id=config.id
+        )
+        config_blob_v2 = ConfigBlob(
+            completion=CompletionConfig(
+                provider="openai",
+                params={"model": "gpt-4", "temperature": 0.9},
+            )
+        )
+        version_create = ConfigVersionCreate(
+            config_blob=config_blob_v2,
+            commit_message="Updated to gpt-4",
+        )
+        config_version_crud.create_or_raise(version_create)
+        db.commit()
+
+        # Test resolving version 1
+        llm_call_config_v1 = LLMCallConfig(id=str(config.id), version=1)
+        resolved_blob_v1, error_v1 = resolve_config_blob(
+            config_version_crud, llm_call_config_v1
+        )
+
+        assert error_v1 is None
+        assert resolved_blob_v1 is not None
+        assert resolved_blob_v1.completion.params["model"] == "gpt-3.5-turbo"
+        assert resolved_blob_v1.completion.params["temperature"] == 0.5
+
+        # Test resolving version 2
+        llm_call_config_v2 = LLMCallConfig(id=str(config.id), version=2)
+        resolved_blob_v2, error_v2 = resolve_config_blob(
+            config_version_crud, llm_call_config_v2
+        )
+
+        assert error_v2 is None
+        assert resolved_blob_v2 is not None
+        assert resolved_blob_v2.completion.params["model"] == "gpt-4"
+        assert resolved_blob_v2.completion.params["temperature"] == 0.9

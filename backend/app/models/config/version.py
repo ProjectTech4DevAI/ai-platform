@@ -8,6 +8,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel, UniqueConstraint, Index, text
 
 from app.core.util import now
+from app.models.llm.request import ConfigBlob
 
 
 class ConfigVersionBase(SQLModel):
@@ -60,7 +61,12 @@ class ConfigVersion(ConfigVersionBase, table=True):
 
 
 class ConfigVersionCreate(ConfigVersionBase):
-    pass
+    # Store config_blob as JSON in the DB. Validation uses ConfigBlob only at creation
+    # time, since schema may evolve. When fetching, it is returned as a raw dict and
+    # re-validated against the latest schema before use.
+    config_blob: ConfigBlob = Field(
+        description="Provider-specific configuration parameters (temperature, max_tokens, etc.)",
+    )
 
 
 class ConfigVersionPublic(ConfigVersionBase):
