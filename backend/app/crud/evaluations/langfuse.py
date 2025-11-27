@@ -355,20 +355,43 @@ def fetch_trace_scores_from_langfuse(
         run_name: Name of the evaluation run
 
     Returns:
-        Score data with per-trace scores and Q&A context:
+        Score data with per-trace scores and summary statistics:
         {
-            "cosine_similarity": {"avg": 0.87, "std": 0.12},
-            "total_pairs": 50,
-            "traces": [
-                {
-                    "trace_id": "trace-uuid-123",
-                    "question": "What is 2+2?",
-                    "llm_answer": "4",
-                    "ground_truth_answer": "4",
-                    "cosine_similarity": {"score": 0.95, "comment": "..."}
-                },
-                ...
-            ]
+            "scores": {
+                "summary_scores": [
+                    {
+                        "name": "cosine_similarity",
+                        "avg": 0.87,
+                        "std": 0.12,
+                        "total_pairs": 50,
+                        "data_type": "NUMERIC"
+                    },
+                    {
+                        "name": "response_category",
+                        "distribution": {"CORRECT": 10, "PARTIAL": 5},
+                        "total_pairs": 15,
+                        "data_type": "CATEGORICAL"
+                    }
+                ],
+                "traces": [
+                    {
+                        "trace_id": "trace-uuid-123",
+                        "scores": [
+                            {
+                                "name": "cosine_similarity",
+                                "value": 0.95,
+                                "data_type": "NUMERIC"
+                            },
+                            {
+                                "name": "correctness",
+                                "value": 1,
+                                "data_type": "NUMERIC",
+                                "comment": "Response is correct"
+                            }
+                        ]
+                    }
+                ]
+            }
         }
 
     Raises:
@@ -408,56 +431,45 @@ def fetch_trace_scores_from_langfuse(
 
         # 3. Fetch trace details with scores for each trace
         traces = []
-        score_aggregations: dict[str, list[float]] = {}
+        # Track score aggregations by name: {name: {"data_type": str, "values": list}}
+        score_aggregations: dict[str, dict[str, Any]] = {}
 
         for trace_id in trace_ids:
             try:
                 trace = langfuse.api.trace.get(trace_id)
                 trace_data: dict[str, Any] = {
                     "trace_id": trace_id,
-                    "question": "",
-                    "llm_answer": "",
-                    "ground_truth_answer": "",
+                    "scores": [],
                 }
-
-                # Get question from input
-                if trace.input:
-                    if isinstance(trace.input, dict):
-                        trace_data["question"] = trace.input.get("question", "")
-                    elif isinstance(trace.input, str):
-                        trace_data["question"] = trace.input
-
-                # Get answer from output
-                if trace.output:
-                    if isinstance(trace.output, dict):
-                        trace_data["llm_answer"] = trace.output.get("answer", "")
-                    elif isinstance(trace.output, str):
-                        trace_data["llm_answer"] = trace.output
-
-                # Get ground truth from metadata
-                if trace.metadata and isinstance(trace.metadata, dict):
-                    trace_data["ground_truth_answer"] = trace.metadata.get(
-                        "ground_truth", ""
-                    )
 
                 # Add scores from this trace
                 if trace.scores:
                     for score in trace.scores:
                         score_name = score.name
                         score_value = score.value
-                        score_comment = score.comment or ""
+                        score_comment = score.comment
+                        # Get data_type from Langfuse score, default to NUMERIC
+                        data_type = getattr(score, "data_type", None) or "NUMERIC"
 
-                        # Add to trace data
-                        trace_data[score_name] = {
-                            "score": score_value,
-                            "comment": score_comment,
+                        # Build score entry for trace
+                        score_entry: dict[str, Any] = {
+                            "name": score_name,
+                            "value": score_value,
+                            "data_type": data_type,
                         }
+                        if score_comment:
+                            score_entry["comment"] = score_comment
 
-                        # Aggregate for avg/std calculation
+                        trace_data["scores"].append(score_entry)
+
+                        # Aggregate for summary calculation
                         if score_value is not None:
                             if score_name not in score_aggregations:
-                                score_aggregations[score_name] = []
-                            score_aggregations[score_name].append(float(score_value))
+                                score_aggregations[score_name] = {
+                                    "data_type": data_type,
+                                    "values": [],
+                                }
+                            score_aggregations[score_name]["values"].append(score_value)
 
                 traces.append(trace_data)
 
@@ -468,25 +480,56 @@ def fetch_trace_scores_from_langfuse(
                 )
                 continue
 
-        # 4. Calculate aggregated stats
-        score: dict[str, Any] = {
-            "total_pairs": len(traces),
-            "traces": traces,
-        }
+        # 4. Calculate summary scores
+        summary_scores = []
+        for score_name, agg_data in score_aggregations.items():
+            data_type = agg_data["data_type"]
+            values = agg_data["values"]
 
-        for score_name, values in score_aggregations.items():
-            if values:
-                score[score_name] = {
-                    "avg": float(np.mean(values)),
-                    "std": float(np.std(values)),
-                }
+            if not values:
+                continue
+
+            if data_type == "CATEGORICAL":
+                # For categorical scores, compute distribution
+                distribution: dict[str, int] = {}
+                for val in values:
+                    str_val = str(val)
+                    distribution[str_val] = distribution.get(str_val, 0) + 1
+
+                summary_scores.append(
+                    {
+                        "name": score_name,
+                        "distribution": distribution,
+                        "total_pairs": len(values),
+                        "data_type": data_type,
+                    }
+                )
+            else:
+                # For numeric scores, compute avg and std
+                numeric_values = [float(v) for v in values]
+                summary_scores.append(
+                    {
+                        "name": score_name,
+                        "avg": float(np.mean(numeric_values)),
+                        "std": float(np.std(numeric_values)),
+                        "total_pairs": len(numeric_values),
+                        "data_type": data_type,
+                    }
+                )
+
+        result: dict[str, Any] = {
+            "scores": {
+                "summary_scores": summary_scores,
+                "traces": traces,
+            }
+        }
 
         logger.info(
             f"[fetch_trace_scores_from_langfuse] Successfully fetched scores | "
             f"total_traces={len(traces)} | score_types={list(score_aggregations.keys())}"
         )
 
-        return score
+        return result
 
     except ValueError:
         raise

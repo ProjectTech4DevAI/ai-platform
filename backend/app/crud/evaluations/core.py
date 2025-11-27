@@ -321,7 +321,7 @@ def get_or_fetch_score(
     Get cached score with trace info or fetch from Langfuse and update.
 
     This function implements a cache-on-first-request pattern:
-    - If score already has 'traces' key, return it
+    - If score already has 'scores.traces' key, return it
     - Otherwise, fetch from Langfuse, update score column, and return
     - If force_refetch is True, always fetch fresh data from Langfuse
 
@@ -332,15 +332,21 @@ def get_or_fetch_score(
         force_refetch: If True, skip cache and fetch fresh from Langfuse
 
     Returns:
-        Score data with per-trace scores and Q&A context
+        Score data with per-trace scores and summary statistics
 
     Raises:
         ValueError: If the run is not found in Langfuse
         Exception: If Langfuse API calls fail
     """
-    if not force_refetch and eval_run.score is not None and "traces" in eval_run.score:
+    # Check if score already exists with traces
+    has_score = (
+        eval_run.score is not None
+        and "scores" in eval_run.score
+        and "traces" in eval_run.score.get("scores", {})
+    )
+    if not force_refetch and has_score:
         logger.info(
-            f"[get_or_fetch_score] Returning cached score | evaluation_id={eval_run.id}"
+            f"[get_or_fetch_score] Returning existing score | evaluation_id={eval_run.id}"
         )
         return eval_run.score
 
@@ -360,9 +366,11 @@ def get_or_fetch_score(
     # Update score column using existing helper
     update_evaluation_run(session=session, eval_run=eval_run, score=score)
 
+    # Get trace count from new format
+    total_traces = len(score.get("scores", {}).get("traces", []))
     logger.info(
         f"[get_or_fetch_score] Updated score | "
-        f"evaluation_id={eval_run.id} | total_traces={score.get('total_pairs', 0)}"
+        f"evaluation_id={eval_run.id} | total_traces={total_traces}"
     )
 
     return score
