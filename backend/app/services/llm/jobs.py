@@ -161,26 +161,26 @@ def execute_job(
                         error=error,
                         metadata=request.request_metadata,
                     )
+                    return handle_job_error(
+                        job_id, request.callback_url, callback_response
+                    )
 
             else:
                 config_blob = config.blob
 
-            if callback_response is None:
-                try:
-                    provider_instance = get_llm_provider(
-                        session=session,
-                        provider_type=config_blob.completion.provider,
-                        project_id=project_id,
-                        organization_id=organization_id,
-                    )
-                except ValueError as ve:
-                    callback_response = APIResponse.failure_response(
-                        error=str(ve),
-                        metadata=request.request_metadata,
-                    )
-
-        if callback_response:
-            return handle_job_error(job_id, request.callback_url, callback_response)
+            try:
+                provider_instance = get_llm_provider(
+                    session=session,
+                    provider_type=config_blob.completion.provider,
+                    project_id=project_id,
+                    organization_id=organization_id,
+                )
+            except ValueError as ve:
+                callback_response = APIResponse.failure_response(
+                    error=str(ve),
+                    metadata=request.request_metadata,
+                )
+                return handle_job_error(job_id, request.callback_url, callback_response)
 
         response, error = provider_instance.execute(
             completion_config=config_blob.completion,

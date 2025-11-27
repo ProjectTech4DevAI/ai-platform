@@ -127,7 +127,15 @@ class LLMCallConfig(SQLModel):
 
 
 class LLMCallRequest(SQLModel):
-    """User-facing API request for LLM completion."""
+    """
+    API request for an LLM completion.
+
+    The `config` field accepts either:
+    - **Stored config (id + version)** — recommended for all production use.
+    - **Inline config blob** — for testing or validating new configs.
+
+    Prefer stored configs in production; use blobs only for development/testing/validations.
+    """
 
     query: QueryParams = Field(..., description="Query-specific parameters")
     config: LLMCallConfig = Field(
