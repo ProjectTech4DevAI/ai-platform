@@ -52,7 +52,7 @@ class OnboardingRequest(SQLModel):
         min_length=3,
         max_length=50,
     )
-    credential: list[dict[str, Any]] | None = Field(
+    credentials: list[dict[str, Any]] | None = Field(
         default=None,
         description="Optional credential(s) to link with the project",
     )
@@ -82,7 +82,7 @@ class OnboardingRequest(SQLModel):
             self.password = secrets.token_urlsafe(12)
         return self
 
-    @field_validator("credential")
+    @field_validator("credentials")
     @classmethod
     def _validate_credential_list(cls, v: list[dict[str, dict[str, str]]] | None):
         if v is None:
@@ -96,29 +96,29 @@ class OnboardingRequest(SQLModel):
         errors: list[str] = []
 
         for idx, item in enumerate(v):
-            if not isinstance(item, dict) or len(item) != 1:
-                errors.append(
-                    f"[{idx}] must be a single-key dict like {{'openai': {{...}}}}."
-                )
-                continue
-
-            provider_key, values = next(iter(item.items()))
-
             try:
+                if not isinstance(item, dict):
+                    raise TypeError(
+                        "must be a dict with a single provider key like {'openai': {...}}."
+                    )
+                if len(item) != 1:
+                    raise ValueError(
+                        "must have exactly one provider key like {'openai': {...}}."
+                    )
+
+                (provider_key,) = item.keys()
+                values = item[provider_key]
+
                 validate_provider(provider_key)
-            except ValueError as e:
-                errors.append(f"[{idx}] {e}")
-                continue
 
-            if not isinstance(values, dict):
-                errors.append(
-                    f"[{idx}] value for provider '{provider_key}' must be an object/dict."
-                )
-                continue
+                if not isinstance(values, dict):
+                    raise TypeError(
+                        f"value for provider '{provider_key}' must be an object/dict."
+                    )
 
-            try:
                 validate_provider_credentials(provider_key, values)
-            except ValueError as e:
+
+            except (TypeError, ValueError) as e:
                 errors.append(f"[{idx}] {e}")
 
         if errors:

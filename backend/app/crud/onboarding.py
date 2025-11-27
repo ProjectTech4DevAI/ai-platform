@@ -104,9 +104,10 @@ def onboard_project(
 
     created_credentials: list[Credential] = []
 
-    if onboard_in.credential:
-        for item in onboard_in.credential:
-            provider_str, values = next(iter(item.items()))
+    if onboard_in.credentials:
+        for item in onboard_in.credentials:
+            (provider_str,) = item.keys()
+            values = item[provider_str]
 
             encrypted_credentials = encrypt_credentials(values)
 

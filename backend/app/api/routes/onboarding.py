@@ -25,7 +25,7 @@ def onboard_project_route(
     response = onboard_project(session=session, onboard_in=onboard_in)
 
     metadata = None
-    if onboard_in.credential:
+    if onboard_in.credentials:
         metadata = {"note": ("Given credential(s) have been saved for this project.")}
 
     return APIResponse.success_response(data=response, metadata=metadata)

@@ -26,7 +26,7 @@ def test_onboard_project_new_organization_project_user(
         "email": email,
         "password": password,
         "user_name": user_name,
-        "credential": [
+        "credentials": [
             {"openai": {"api_key": openai_key}},
             {
                 "langfuse": {
@@ -186,7 +186,7 @@ def test_onboard_project_invalid_provider(
         "email": email,
         "password": password,
         "user_name": "User",
-        "credential": [{"totally_not_a_provider": {"foo": "bar"}}],
+        "credentials": [{"totally_not_a_provider": {"foo": "bar"}}],
     }
 
     response = client.post(
@@ -216,7 +216,7 @@ def test_onboard_project_non_dict_values_in_credential(
         "email": email,
         "password": password,
         "user_name": "User",
-        "credential": [{"openai": "sk-should-be-inside-object"}],
+        "credentials": [{"openai": "sk-should-be-inside-object"}],
     }
 
     response = client.post(
@@ -247,7 +247,7 @@ def test_onboard_project_missing_required_fields_for_openai(
         "email": email,
         "password": password,
         "user_name": "User",
-        "credential": [{"openai": {}}],  # missing api_key
+        "credentials": [{"openai": {}}],  # missing api_key
     }
 
     response = client.post(
@@ -278,7 +278,7 @@ def test_onboard_project_missing_required_fields_for_langfuse(
         "email": email,
         "password": password,
         "user_name": "User",
-        "credential": [
+        "credentials": [
             {"langfuse": {"secret_key": "sk-only"}}
         ],  # missing public_key/host
     }
@@ -311,7 +311,7 @@ def test_onboard_project_aggregates_multiple_credential_errors(
         "email": email,
         "password": password,
         "user_name": "User",
-        "credential": [
+        "credentials": [
             {"notreal": {"x": "y"}},
             {"openai": "should-be-dict"},
         ],
