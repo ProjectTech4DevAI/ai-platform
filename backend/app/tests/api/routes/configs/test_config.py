@@ -18,9 +18,14 @@ def test_create_config_success(
         "name": "test-llm-config",
         "description": "A test LLM configuration",
         "config_blob": {
-            "model": "gpt-4",
-            "temperature": 0.8,
-            "max_tokens": 2000,
+            "completion": {
+                "provider": "openai",
+                "params": {
+                    "model": "gpt-4",
+                    "temperature": 0.8,
+                    "max_tokens": 2000,
+                },
+            }
         },
         "commit_message": "Initial configuration",
     }
@@ -81,7 +86,12 @@ def test_create_config_duplicate_name_fails(
     config_data = {
         "name": "duplicate-config",
         "description": "Should fail",
-        "config_blob": {"model": "gpt-4"},
+        "config_blob": {
+            "completion": {
+                "provider": "openai",
+                "params": {"model": "gpt-4"},
+            }
+        },
         "commit_message": "Initial",
     }
 
@@ -406,7 +416,12 @@ def test_create_config_requires_authentication(
     config_data = {
         "name": "test-config",
         "description": "Test",
-        "config_blob": {"model": "gpt-4"},
+        "config_blob": {
+            "completion": {
+                "provider": "openai",
+                "params": {"model": "gpt-4"},
+            }
+        },
         "commit_message": "Initial",
     }
 
