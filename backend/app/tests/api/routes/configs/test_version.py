@@ -10,6 +10,7 @@ from app.tests.utils.test_data import (
     create_test_project,
     create_test_version,
 )
+from app.models import ConfigBlob, CompletionConfig
 
 
 def test_create_version_success(
@@ -26,9 +27,14 @@ def test_create_version_success(
 
     version_data = {
         "config_blob": {
-            "model": "gpt-4-turbo",
-            "temperature": 0.9,
-            "max_tokens": 3000,
+            "completion": {
+                "provider": "openai",
+                "params": {
+                    "model": "gpt-4-turbo",
+                    "temperature": 0.9,
+                    "max_tokens": 3000,
+                },
+            }
         },
         "commit_message": "Updated model to gpt-4-turbo",
     }
@@ -83,7 +89,12 @@ def test_create_version_nonexistent_config(
     """Test creating a version for a non-existent config returns 404."""
     fake_uuid = uuid4()
     version_data = {
-        "config_blob": {"model": "gpt-4"},
+        "config_blob": {
+            "completion": {
+                "provider": "openai",
+                "params": {"model": "gpt-4"},
+            }
+        },
         "commit_message": "Test",
     }
 
@@ -109,7 +120,12 @@ def test_create_version_different_project_fails(
     )
 
     version_data = {
-        "config_blob": {"model": "gpt-4"},
+        "config_blob": {
+            "completion": {
+                "provider": "openai",
+                "params": {"model": "gpt-4"},
+            }
+        },
         "commit_message": "Should fail",
     }
 
@@ -136,7 +152,12 @@ def test_create_version_auto_increments(
     # Create multiple versions and verify they increment
     for i in range(2, 5):
         version_data = {
-            "config_blob": {"model": f"gpt-4-version-{i}"},
+            "config_blob": {
+                "completion": {
+                    "provider": "openai",
+                    "params": {"model": f"gpt-4-version-{i}"},
+                }
+            },
             "commit_message": f"Version {i}",
         }
 
@@ -277,12 +298,16 @@ def test_get_version_by_number(
         name="test-config",
     )
 
-    # Create additional version
     version = create_test_version(
         db=db,
         config_id=config.id,
         project_id=user_api_key.project_id,
-        config_blob={"model": "gpt-4-turbo", "temperature": 0.5},
+        config_blob=ConfigBlob(
+            completion=CompletionConfig(
+                provider="openai",
+                params={"model": "gpt-4-turbo", "temperature": 0.5},
+            )
+        ),
         commit_message="Updated config",
     )
 
@@ -421,7 +446,12 @@ def test_create_version_requires_authentication(
 ) -> None:
     """Test that creating a version without authentication fails."""
     version_data = {
-        "config_blob": {"model": "gpt-4"},
+        "config_blob": {
+            "completion": {
+                "provider": "openai",
+                "params": {"model": "gpt-4"},
+            }
+        },
         "commit_message": "Test",
     }
 
