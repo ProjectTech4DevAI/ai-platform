@@ -23,6 +23,7 @@ from app.models import (
     DocumentUploadResponse,
     Message,
     TransformationJobInfo,
+    DocTransformationJobPublic,
 )
 from app.services.collections.helpers import pick_service_for_documennt
 from app.services.documents.helpers import (
@@ -36,6 +37,25 @@ from app.utils import APIResponse, get_openai_client, load_description
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/documents", tags=["documents"])
+doctransformation_callback_router = APIRouter()
+
+
+@doctransformation_callback_router.post(
+    "{$callback_url}",
+    name="doctransformation_callback",
+)
+def doctransformation_callback_notification(
+    body: APIResponse[DocTransformationJobPublic],
+):
+    """
+    Callback endpoint specification for collection creation/deletion.
+
+    The callback will receive:
+    - On success: APIResponse with success=True and data containing CollectionJobPublic
+    - On failure: APIResponse with success=False and error message
+    - metadata field will always be included if provided in the request
+    """
+    ...
 
 
 @router.get(
@@ -73,6 +93,7 @@ def list_docs(
     "/",
     description=load_description("documents/upload.md"),
     response_model=APIResponse[DocumentUploadResponse],
+    callbacks=doctransformation_callback_router.routes,
 )
 async def upload_doc(
     session: SessionDep,
