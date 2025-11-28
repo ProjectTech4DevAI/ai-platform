@@ -20,8 +20,9 @@ from app.crud.evaluations import (
     upload_dataset_to_langfuse,
 )
 from app.crud.evaluations import list_evaluation_runs as list_evaluation_runs_crud
-from app.crud.evaluations.core import get_or_fetch_score
+from app.crud.evaluations.core import save_score
 from app.crud.evaluations.dataset import delete_dataset as delete_dataset_crud
+from app.crud.evaluations.langfuse import fetch_trace_scores_from_langfuse
 from app.models.evaluation import (
     DatasetUploadResponse,
     EvaluationRunPublic,
@@ -623,6 +624,12 @@ def get_evaluation_run_status(
         f"resync_score={resync_score}"
     )
 
+    if resync_score and not get_trace_info:
+        raise HTTPException(
+            status_code=400,
+            detail="resync_score=true requires get_trace_info=true",
+        )
+
     eval_run = get_evaluation_run_by_id(
         session=_session,
         evaluation_id=evaluation_id,
@@ -644,23 +651,33 @@ def get_evaluation_run_status(
         if eval_run.status != "completed":
             return eval_run
 
-        # Get Langfuse client
+        # Check if we already have cached scores (before any slow operations)
+        has_cached_score = eval_run.score is not None and "traces" in eval_run.score
+        if not resync_score and has_cached_score:
+            return eval_run
+
+        # Get Langfuse client (needs session for credentials lookup)
         langfuse = get_langfuse_client(
             session=_session,
             org_id=auth_context.organization.id,
             project_id=auth_context.project.id,
         )
 
-        try:
-            # Fetch or get cached score
-            # If resync_score=True, force re-fetch from Langfuse
-            get_or_fetch_score(
-                session=_session,
-                eval_run=eval_run,
-                langfuse=langfuse,
-                force_refetch=resync_score,
-            )
+        # Capture data needed for Langfuse fetch and DB update
+        dataset_name = eval_run.dataset_name
+        run_name = eval_run.run_name
+        eval_run_id = eval_run.id
+        org_id = auth_context.organization.id
+        project_id = auth_context.project.id
 
+        # Session is no longer needed - slow Langfuse API calls happen here
+        # without holding the DB connection
+        try:
+            score = fetch_trace_scores_from_langfuse(
+                langfuse=langfuse,
+                dataset_name=dataset_name,
+                run_name=run_name,
+            )
         except ValueError as e:
             # Run not found in Langfuse
             raise HTTPException(
@@ -676,6 +693,20 @@ def get_evaluation_run_status(
             raise HTTPException(
                 status_code=500,
                 detail=f"Failed to fetch trace info from Langfuse: {str(e)}",
+            )
+
+        # Open new session just for the score commit
+        eval_run = save_score(
+            eval_run_id=eval_run_id,
+            organization_id=org_id,
+            project_id=project_id,
+            score=score,
+        )
+
+        if not eval_run:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Evaluation run {evaluation_id} not found after score update",
             )
 
     return eval_run

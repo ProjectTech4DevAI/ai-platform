@@ -1,15 +1,12 @@
 import logging
 from typing import Any
 
-from fastapi import HTTPException
 from langfuse import Langfuse
 from sqlmodel import Session, select
 
 from app.core.util import now
 from app.crud.evaluations.langfuse import fetch_trace_scores_from_langfuse
-from app.models import EvaluationRun, UserProjectOrg
-from app.models.evaluation import DatasetUploadResponse
-from app.utils import get_langfuse_client
+from app.models import EvaluationRun
 
 logger = logging.getLogger(__name__)
 
@@ -257,3 +254,42 @@ def get_or_fetch_score(
     )
 
     return score
+
+
+def save_score(
+    eval_run_id: int,
+    organization_id: int,
+    project_id: int,
+    score: dict[str, Any],
+) -> EvaluationRun | None:
+    """
+    Save score to evaluation run with its own session.
+
+    This function creates its own database session to persist the score,
+    allowing it to be called after releasing the request's main session.
+
+    Args:
+        eval_run_id: ID of the evaluation run to update
+        organization_id: Organization ID for access control
+        project_id: Project ID for access control
+        score: Score data to save
+
+    Returns:
+        Updated EvaluationRun instance, or None if not found
+    """
+    from app.core.db import engine
+
+    with Session(engine) as session:
+        eval_run = get_evaluation_run_by_id(
+            session=session,
+            evaluation_id=eval_run_id,
+            organization_id=organization_id,
+            project_id=project_id,
+        )
+        if eval_run:
+            update_evaluation_run(session=session, eval_run=eval_run, score=score)
+            logger.info(
+                f"[save_score] Saved score | evaluation_id={eval_run_id} | "
+                f"traces={len(score.get('traces', []))}"
+            )
+        return eval_run
