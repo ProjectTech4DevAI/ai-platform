@@ -663,7 +663,11 @@ def get_evaluation_run_status(
     if get_trace_info:
         # Only fetch trace info for completed evaluations
         if eval_run.status != "completed":
-            return APIResponse.success_response(data=eval_run)
+            return APIResponse.failure_response(
+                error=f"Trace info is only available for completed evaluations. "
+                f"Current status: {eval_run.status}",
+                data=eval_run,
+            )
 
         # Check if we already have cached scores (before any slow operations)
         has_cached_score = eval_run.score is not None and "traces" in eval_run.score
