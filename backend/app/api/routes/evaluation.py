@@ -17,7 +17,7 @@ from app.crud.evaluations import (
     list_datasets,
     start_evaluation_batch,
     upload_csv_to_object_store,
-    upload_dataset_to_langfuse_from_csv,
+    upload_dataset_to_langfuse,
 )
 from app.crud.evaluations import list_evaluation_runs as list_evaluation_runs_crud
 from app.crud.evaluations.dataset import delete_dataset as delete_dataset_crud
@@ -39,6 +39,19 @@ ALLOWED_MIME_TYPES = {
 }
 
 router = APIRouter(tags=["evaluation"])
+
+
+def _dataset_to_response(dataset) -> DatasetUploadResponse:
+    """Convert a dataset model to a DatasetUploadResponse."""
+    return DatasetUploadResponse(
+        dataset_id=dataset.id,
+        dataset_name=dataset.name,
+        total_items=dataset.dataset_metadata.get("total_items_count", 0),
+        original_items=dataset.dataset_metadata.get("original_items_count", 0),
+        duplication_factor=dataset.dataset_metadata.get("duplication_factor", 1),
+        langfuse_dataset_id=dataset.langfuse_dataset_id,
+        object_store_url=dataset.object_store_url,
+    )
 
 
 def sanitize_dataset_name(name: str) -> str:
@@ -164,24 +177,32 @@ async def upload_dataset(
     try:
         csv_text = csv_content.decode("utf-8")
         csv_reader = csv.DictReader(io.StringIO(csv_text))
-        csv_reader.fieldnames = [name.strip() for name in csv_reader.fieldnames]
 
-        # Validate headers
-        if (
-            "question" not in csv_reader.fieldnames
-            or "answer" not in csv_reader.fieldnames
-        ):
+        if not csv_reader.fieldnames:
+            raise HTTPException(status_code=422, detail="CSV file has no headers")
+
+        # Normalize headers for case-insensitive matching
+        clean_headers = {
+            field.strip().lower(): field for field in csv_reader.fieldnames
+        }
+
+        # Validate required headers (case-insensitive)
+        if "question" not in clean_headers or "answer" not in clean_headers:
             raise HTTPException(
                 status_code=422,
-                detail=f"CSV must contain 'question' and 'answer' columns. "
+                detail=f"CSV must contain 'question' and 'answer' columns "
                 f"Found columns: {csv_reader.fieldnames}",
             )
+
+        # Get the actual column names from the CSV
+        question_col = clean_headers["question"]
+        answer_col = clean_headers["answer"]
 
         # Count original items
         original_items = []
         for row in csv_reader:
-            question = row.get("question", "").strip()
-            answer = row.get("answer", "").strip()
+            question = row.get(question_col, "").strip()
+            answer = row.get(answer_col, "").strip()
             if question and answer:
                 original_items.append({"question": question, "answer": answer})
 
@@ -237,9 +258,9 @@ async def upload_dataset(
         )
 
         # Upload to Langfuse
-        langfuse_dataset_id, _ = upload_dataset_to_langfuse_from_csv(
+        langfuse_dataset_id, _ = upload_dataset_to_langfuse(
             langfuse=langfuse,
-            csv_content=csv_content,
+            items=original_items,
             dataset_name=dataset_name,
             duplication_factor=duplication_factor,
         )
@@ -316,24 +337,7 @@ def list_datasets_endpoint(
         offset=offset,
     )
 
-    # Convert to response format
-    response = []
-    for dataset in datasets:
-        response.append(
-            DatasetUploadResponse(
-                dataset_id=dataset.id,
-                dataset_name=dataset.name,
-                total_items=dataset.dataset_metadata.get("total_items_count", 0),
-                original_items=dataset.dataset_metadata.get("original_items_count", 0),
-                duplication_factor=dataset.dataset_metadata.get(
-                    "duplication_factor", 1
-                ),
-                langfuse_dataset_id=dataset.langfuse_dataset_id,
-                object_store_url=dataset.object_store_url,
-            )
-        )
-
-    return response
+    return [_dataset_to_response(dataset) for dataset in datasets]
 
 
 @router.get(
@@ -364,15 +368,7 @@ def get_dataset(
             status_code=404, detail=f"Dataset {dataset_id} not found or not accessible"
         )
 
-    return DatasetUploadResponse(
-        dataset_id=dataset.id,
-        dataset_name=dataset.name,
-        total_items=dataset.dataset_metadata.get("total_items_count", 0),
-        original_items=dataset.dataset_metadata.get("original_items_count", 0),
-        duplication_factor=dataset.dataset_metadata.get("duplication_factor", 1),
-        langfuse_dataset_id=dataset.langfuse_dataset_id,
-        object_store_url=dataset.object_store_url,
-    )
+    return _dataset_to_response(dataset)
 
 
 @router.delete(
