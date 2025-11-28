@@ -1,9 +1,9 @@
 from pydantic import BaseModel, Field
 from typing import Callable, ClassVar, List, Literal, Optional, Union
 from guardrails import OnFailAction
-from ..utils.languagedetector import LanguageDetector
-from ..validators.piiremover import PIIRemover
-from ..validators.lexicalslur import LexicalSlur
+from ..utils.language_detector import LanguageDetector
+from ..validators.pii_remover import PIIRemover
+from ..validators.lexical_slur import LexicalSlur
 
 # ----------------------------------------
 # Validator-specific config models

@@ -13,7 +13,7 @@ from presidio_anonymizer import AnonymizerEngine
 from typing import Callable, Optional
 
 from ..utils.exception import LLMGuardValidationError
-from ..utils.languagedetector import LanguageDetector
+from ..utils.language_detector import LanguageDetector
 
 ALL_SUPPORTED_LANGUAGES = ["en", "hi"]
 

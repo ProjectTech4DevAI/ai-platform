@@ -17,6 +17,8 @@ import re
 import string
 import unicodedata
 
+from ..utils.constants import SLUR_LIST_FILENAME
+
 class SlurSeverity(Enum):
     Low = "low"
     Medium = "medium"
@@ -90,7 +92,7 @@ class LexicalSlur(Validator):
 
     def load_slur_list(self):
         BASE_DIR = Path(__file__).resolve().parent.parent  # goes up from validators/ to src/
-        file_path = BASE_DIR / "Curated_Slurlist_Hindi_English.csv"
+        file_path = BASE_DIR / SLUR_LIST_FILENAME
 
         df = pandas.read_csv(file_path)
         df['label'] = df['label'].str.lower()
