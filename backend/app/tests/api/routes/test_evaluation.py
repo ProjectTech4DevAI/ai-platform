@@ -86,7 +86,9 @@ class TestDatasetUploadValidation:
             )
 
             assert response.status_code == 200, response.text
-            data = response.json()
+            response_data = response.json()
+            assert response_data["success"] is True
+            data = response_data["data"]
 
             assert data["dataset_name"] == "test_dataset"
             assert data["original_items"] == 3
@@ -165,7 +167,9 @@ class TestDatasetUploadValidation:
             )
 
             assert response.status_code == 200, response.text
-            data = response.json()
+            response_data = response.json()
+            assert response_data["success"] is True
+            data = response_data["data"]
 
             # Should only have 2 valid items (first and last rows)
             assert data["original_items"] == 2
@@ -178,7 +182,7 @@ class TestDatasetUploadDuplication:
     def test_upload_with_default_duplication(
         self, client, user_api_key_header, valid_csv_content
     ):
-        """Test uploading with default duplication factor (5)."""
+        """Test uploading with default duplication factor (1)."""
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
             patch(
@@ -193,7 +197,7 @@ class TestDatasetUploadDuplication:
         ):
             mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
             mock_get_langfuse_client.return_value = Mock()
-            mock_langfuse_upload.return_value = ("test_dataset_id", 15)
+            mock_langfuse_upload.return_value = ("test_dataset_id", 3)
 
             filename, file_obj = create_csv_file(valid_csv_content)
 
@@ -202,17 +206,19 @@ class TestDatasetUploadDuplication:
                 files={"file": (filename, file_obj, "text/csv")},
                 data={
                     "dataset_name": "test_dataset",
-                    # duplication_factor not provided, should default to 5
+                    # duplication_factor not provided, should default to 1
                 },
                 headers=user_api_key_header,
             )
 
             assert response.status_code == 200, response.text
-            data = response.json()
+            response_data = response.json()
+            assert response_data["success"] is True
+            data = response_data["data"]
 
-            assert data["duplication_factor"] == 5
+            assert data["duplication_factor"] == 1
             assert data["original_items"] == 3
-            assert data["total_items"] == 15  # 3 items * 5 duplication
+            assert data["total_items"] == 3  # 3 items * 1 duplication
 
     def test_upload_with_custom_duplication(
         self, client, user_api_key_header, valid_csv_content
@@ -247,7 +253,9 @@ class TestDatasetUploadDuplication:
             )
 
             assert response.status_code == 200, response.text
-            data = response.json()
+            response_data = response.json()
+            assert response_data["success"] is True
+            data = response_data["data"]
 
             assert data["duplication_factor"] == 4
             assert data["original_items"] == 3
@@ -287,7 +295,9 @@ class TestDatasetUploadDuplication:
             )
 
             assert response.status_code == 200, response.text
-            data = response.json()
+            response_data = response.json()
+            assert response_data["success"] is True
+            data = response_data["data"]
 
             # Verify the description is stored
             dataset = db.exec(
@@ -376,7 +386,9 @@ class TestDatasetUploadDuplication:
             )
 
             assert response.status_code == 200, response.text
-            data = response.json()
+            response_data = response.json()
+            assert response_data["success"] is True
+            data = response_data["data"]
 
             assert data["duplication_factor"] == 1
             assert data["original_items"] == 3

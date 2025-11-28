@@ -27,7 +27,12 @@ from app.models.evaluation import (
     DatasetUploadResponse,
     EvaluationRunPublic,
 )
-from app.utils import get_langfuse_client, get_openai_client, load_description
+from app.utils import (
+    APIResponse,
+    get_langfuse_client,
+    get_openai_client,
+    load_description,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +112,7 @@ def sanitize_dataset_name(name: str) -> str:
 @router.post(
     "/evaluations/datasets",
     description=load_description("evaluation/upload_dataset.md"),
-    response_model=DatasetUploadResponse,
+    response_model=APIResponse[DatasetUploadResponse],
 )
 async def upload_dataset(
     _session: SessionDep,
@@ -118,12 +123,12 @@ async def upload_dataset(
     dataset_name: str = Form(..., description="Name for the dataset"),
     description: str | None = Form(None, description="Optional dataset description"),
     duplication_factor: int = Form(
-        default=5,
+        default=1,
         ge=1,
         le=5,
         description="Number of times to duplicate each item (min: 1, max: 5)",
     ),
-) -> DatasetUploadResponse:
+) -> APIResponse[DatasetUploadResponse]:
     # Sanitize dataset name for Langfuse compatibility
     original_name = dataset_name
     try:
@@ -305,28 +310,30 @@ async def upload_dataset(
     )
 
     # Return response
-    return DatasetUploadResponse(
-        dataset_id=dataset.id,
-        dataset_name=dataset_name,
-        total_items=total_items_count,
-        original_items=original_items_count,
-        duplication_factor=duplication_factor,
-        langfuse_dataset_id=langfuse_dataset_id,
-        object_store_url=object_store_url,
+    return APIResponse.success_response(
+        data=DatasetUploadResponse(
+            dataset_id=dataset.id,
+            dataset_name=dataset_name,
+            total_items=total_items_count,
+            original_items=original_items_count,
+            duplication_factor=duplication_factor,
+            langfuse_dataset_id=langfuse_dataset_id,
+            object_store_url=object_store_url,
+        )
     )
 
 
 @router.get(
     "/evaluations/datasets",
     description=load_description("evaluation/list_datasets.md"),
-    response_model=list[DatasetUploadResponse],
+    response_model=APIResponse[list[DatasetUploadResponse]],
 )
 def list_datasets_endpoint(
     _session: SessionDep,
     auth_context: AuthContextDep,
     limit: int = 50,
     offset: int = 0,
-) -> list[DatasetUploadResponse]:
+) -> APIResponse[list[DatasetUploadResponse]]:
     # Enforce maximum limit
     if limit > 100:
         limit = 100
@@ -339,19 +346,21 @@ def list_datasets_endpoint(
         offset=offset,
     )
 
-    return [_dataset_to_response(dataset) for dataset in datasets]
+    return APIResponse.success_response(
+        data=[_dataset_to_response(dataset) for dataset in datasets]
+    )
 
 
 @router.get(
     "/evaluations/datasets/{dataset_id}",
     description=load_description("evaluation/get_dataset.md"),
-    response_model=DatasetUploadResponse,
+    response_model=APIResponse[DatasetUploadResponse],
 )
 def get_dataset(
     dataset_id: int,
     _session: SessionDep,
     auth_context: AuthContextDep,
-) -> DatasetUploadResponse:
+) -> APIResponse[DatasetUploadResponse]:
     logger.info(
         f"[get_dataset] Fetching dataset | id={dataset_id} | "
         f"org_id={auth_context.organization.id} | "
@@ -370,18 +379,19 @@ def get_dataset(
             status_code=404, detail=f"Dataset {dataset_id} not found or not accessible"
         )
 
-    return _dataset_to_response(dataset)
+    return APIResponse.success_response(data=_dataset_to_response(dataset))
 
 
 @router.delete(
     "/evaluations/datasets/{dataset_id}",
     description=load_description("evaluation/delete_dataset.md"),
+    response_model=APIResponse[dict],
 )
 def delete_dataset(
     dataset_id: int,
     _session: SessionDep,
     auth_context: AuthContextDep,
-) -> dict:
+) -> APIResponse[dict]:
     logger.info(
         f"[delete_dataset] Deleting dataset | id={dataset_id} | "
         f"org_id={auth_context.organization.id} | "
@@ -403,13 +413,15 @@ def delete_dataset(
             raise HTTPException(status_code=400, detail=message)
 
     logger.info(f"[delete_dataset] Successfully deleted dataset | id={dataset_id}")
-    return {"message": message, "dataset_id": dataset_id}
+    return APIResponse.success_response(
+        data={"message": message, "dataset_id": dataset_id}
+    )
 
 
 @router.post(
     "/evaluations",
     description=load_description("evaluation/create_evaluation.md"),
-    response_model=EvaluationRunPublic,
+    response_model=APIResponse[EvaluationRunPublic],
 )
 def evaluate(
     _session: SessionDep,
@@ -423,7 +435,7 @@ def evaluate(
     | None = Body(
         None, description="Optional assistant ID to fetch configuration from"
     ),
-) -> EvaluationRunPublic:
+) -> APIResponse[EvaluationRunPublic]:
     logger.info(
         f"[evaluate] Starting evaluation | experiment_name={experiment_name} | "
         f"dataset_id={dataset_id} | "
@@ -551,7 +563,7 @@ def evaluate(
             f"batch_job_id={eval_run.batch_job_id} | total_items={eval_run.total_items}"
         )
 
-        return eval_run
+        return APIResponse.success_response(data=eval_run)
 
     except Exception as e:
         logger.error(
@@ -560,39 +572,41 @@ def evaluate(
         )
         # Error is already handled in start_evaluation_batch
         _session.refresh(eval_run)
-        return eval_run
+        return APIResponse.success_response(data=eval_run)
 
 
 @router.get(
     "/evaluations",
     description=load_description("evaluation/list_evaluations.md"),
-    response_model=list[EvaluationRunPublic],
+    response_model=APIResponse[list[EvaluationRunPublic]],
 )
 def list_evaluation_runs(
     _session: SessionDep,
     auth_context: AuthContextDep,
     limit: int = 50,
     offset: int = 0,
-) -> list[EvaluationRunPublic]:
+) -> APIResponse[list[EvaluationRunPublic]]:
     logger.info(
         f"[list_evaluation_runs] Listing evaluation runs | "
         f"org_id={auth_context.organization.id} | "
         f"project_id={auth_context.project.id} | limit={limit} | offset={offset}"
     )
 
-    return list_evaluation_runs_crud(
-        session=_session,
-        organization_id=auth_context.organization.id,
-        project_id=auth_context.project.id,
-        limit=limit,
-        offset=offset,
+    return APIResponse.success_response(
+        data=list_evaluation_runs_crud(
+            session=_session,
+            organization_id=auth_context.organization.id,
+            project_id=auth_context.project.id,
+            limit=limit,
+            offset=offset,
+        )
     )
 
 
 @router.get(
     "/evaluations/{evaluation_id}",
     description=load_description("evaluation/get_evaluation.md"),
-    response_model=EvaluationRunPublic,
+    response_model=APIResponse[EvaluationRunPublic],
 )
 def get_evaluation_run_status(
     evaluation_id: int,
@@ -614,7 +628,7 @@ def get_evaluation_run_status(
             "Requires get_trace_info=true."
         ),
     ),
-) -> EvaluationRunPublic:
+) -> APIResponse[EvaluationRunPublic]:
     logger.info(
         f"[get_evaluation_run_status] Fetching status for evaluation run | "
         f"evaluation_id={evaluation_id} | "
@@ -649,12 +663,12 @@ def get_evaluation_run_status(
     if get_trace_info:
         # Only fetch trace info for completed evaluations
         if eval_run.status != "completed":
-            return eval_run
+            return APIResponse.success_response(data=eval_run)
 
         # Check if we already have cached scores (before any slow operations)
         has_cached_score = eval_run.score is not None and "traces" in eval_run.score
         if not resync_score and has_cached_score:
-            return eval_run
+            return APIResponse.success_response(data=eval_run)
 
         # Get Langfuse client (needs session for credentials lookup)
         langfuse = get_langfuse_client(
@@ -679,20 +693,21 @@ def get_evaluation_run_status(
                 run_name=run_name,
             )
         except ValueError as e:
-            # Run not found in Langfuse
-            raise HTTPException(
-                status_code=404,
-                detail=str(e),
+            # Run not found in Langfuse - return eval_run with error
+            logger.warning(
+                f"[get_evaluation_run_status] Run not found in Langfuse | "
+                f"evaluation_id={evaluation_id} | error={e}"
             )
+            return APIResponse.failure_response(error=str(e), data=eval_run)
         except Exception as e:
             logger.error(
                 f"[get_evaluation_run_status] Failed to fetch trace info | "
                 f"evaluation_id={evaluation_id} | error={e}",
                 exc_info=True,
             )
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to fetch trace info from Langfuse: {str(e)}",
+            return APIResponse.failure_response(
+                error=f"Failed to fetch trace info from Langfuse: {str(e)}",
+                data=eval_run,
             )
 
         # Open new session just for the score commit
@@ -709,4 +724,4 @@ def get_evaluation_run_status(
                 detail=f"Evaluation run {evaluation_id} not found after score update",
             )
 
-    return eval_run
+    return APIResponse.success_response(data=eval_run)
