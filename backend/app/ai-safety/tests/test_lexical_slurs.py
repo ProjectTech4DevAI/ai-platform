@@ -1,9 +1,14 @@
+'''
+To execute, run this command from the ai-safety directory:
+PYTHONPATH=$(pwd) pytest -vv -s
+'''
+
 import pandas as pd
 import pytest
 from pathlib import Path
 
-from src.validators.lexicalslur import LexicalSlur, SlurSeverity
-from src.utils.util import ValidatorItem
+from src.validators.lexical_slur import LexicalSlur, SlurSeverity
+from src.utils.constants import SLUR_LIST_FILENAME
 
 # ---------------------------------------
 # Helper: Create temporary slur CSV
@@ -15,7 +20,7 @@ def slur_csv(tmp_path):
         "severity": ["L", "M", "H"],
         "language": ["en", "en", "hi"],
     })
-    file_path = tmp_path / "Curated_Slurlist_Hindi_English.csv"
+    file_path = tmp_path / SLUR_LIST_FILENAME
     df.to_csv(file_path, index=False)
     return file_path
 
@@ -36,16 +41,17 @@ def patch_slur_load(monkeypatch, slur_csv):
 # ---------------------------------------
 # Base ValidatorItem builder
 # ---------------------------------------
-def make_config(severity="all", languages=None):
-    return ValidatorItem(
-        type="lexical-slur",
-        params={"severity": severity, "languages": languages or ["en", "hi"]}
-    )
+def build_validator(severity="all", languages=None):
+    sev = {
+        "low": SlurSeverity.Low,
+        "medium": SlurSeverity.Medium,
+        "high": SlurSeverity.High,
+        "all": SlurSeverity.All
+    }[severity]
 
-def build_validator(cfg):
     return LexicalSlur(
-        severity=cfg.params["severity"],
-        languages=cfg.params["languages"],
+        severity=sev,
+        languages=languages or ["en", "hi"]
     )
 
 # ---------------------------------------
@@ -53,35 +59,33 @@ def build_validator(cfg):
 # ---------------------------------------
 
 def test_passes_when_no_slur(patch_slur_load):
-    validator = build_validator(make_config())
+    validator = build_validator()
     result = validator._validate("hello world, everything is fine.")
-    print(result)
     assert result.outcome is "pass"
 
 
 def test_fails_when_slur_detected(patch_slur_load):
-    validator = build_validator(make_config())
+    validator = build_validator()
     result = validator._validate("You are a badword!")
     assert result.outcome is "fail"
     assert "badword" in result.error_message
 
 
 def test_emoji_are_removed_before_validation(patch_slur_load):
-    validator = build_validator(make_config())
+    validator = build_validator()
     result = validator._validate("You 🤮 badword 🤮 person")
-    print(result)
     assert result.outcome is "fail"
     assert "badword" in result.error_message
 
 
 def test_punctuation_is_removed(patch_slur_load):
-    validator = build_validator(make_config())
+    validator = build_validator()
     result = validator._validate("You are a, badword!!")
     assert result.outcome is "fail"
 
 
 def test_numbers_are_removed(patch_slur_load):
-    validator = build_validator(make_config())
+    validator = build_validator()
     result = validator._validate("b4dw0rd badword again")  # "badword" appears once cleaned
     assert result.outcome is "fail"
 

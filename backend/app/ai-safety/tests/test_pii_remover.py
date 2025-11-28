@@ -1,7 +1,12 @@
+'''
+To execute, run this command from the ai-safety directory:
+PYTHONPATH=$(pwd) pytest -vv -s
+'''
+
 import pytest
 from unittest.mock import MagicMock, patch
 
-from src.validators.piiremover import PIIRemover, ALL_SUPPORTED_LANGUAGES
+from src.validators.pii_remover import PIIRemover, ALL_SUPPORTED_LANGUAGES
 
 # -------------------------------
 # Basic fixture with mock Presidio
@@ -9,8 +14,8 @@ from src.validators.piiremover import PIIRemover, ALL_SUPPORTED_LANGUAGES
 @pytest.fixture
 def mock_presidio():
     """Mock AnalyzerEngine and AnonymizerEngine before validator loads."""
-    with patch("src.validators.piiremover.AnalyzerEngine") as mock_analyzer, \
-         patch("src.validators.piiremover.AnonymizerEngine") as mock_anonymizer:
+    with patch("src.validators.pii_remover.AnalyzerEngine") as mock_analyzer, \
+         patch("src.validators.pii_remover.AnonymizerEngine") as mock_anonymizer:
 
         mock_analyzer.return_value.analyze.return_value = []
         mock_anonymizer.return_value.anonymize.return_value = MagicMock(
@@ -19,14 +24,11 @@ def mock_presidio():
         yield mock_analyzer, mock_anonymizer
 
 @pytest.fixture
-def validator(config, mock_presidio):
-    return build_validator(config)
-
-def build_validator(config):
+def validator(mock_presidio):
     return PIIRemover(
-        entity_types=config.params.get("entity_types"),
-        threshold=config.params.get("threshold", 0.5),
-        language=config.params.get("language", "en"),
+        entity_types=None,
+        threshold=0.5,
+        language="en",
         language_detector=None,
     )
 
@@ -35,7 +37,6 @@ def build_validator(config):
 # -------------------------
 
 def test_validator_initialization(validator):
-    print(validator)
     assert validator.language in ALL_SUPPORTED_LANGUAGES
     assert isinstance(validator.entity_types, list)
     assert len(validator.entity_types) > 0
@@ -80,8 +81,6 @@ def test_default_entity_types_applied(validator):
     assert len(validator.entity_types) > 0
 
 
-def test_custom_entity_types_override(config, mock_presidio):
-    config.params = {"entity_types": ["EMAIL_ADDRESS"]}
-
-    v = PIIRemover(config)
+def test_custom_entity_types_override(mock_presidio):
+    v = PIIRemover(entity_types=["EMAIL_ADDRESS"])
     assert v.entity_types == ["EMAIL_ADDRESS"]
