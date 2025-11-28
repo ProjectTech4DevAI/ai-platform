@@ -1,15 +1,14 @@
-from ..utils.util import ValidatorItem
-
 from enum import Enum
+from guardrails import OnFailAction
 from guardrails.validators import (
     FailResult,
     PassResult,
     register_validator,
     ValidationResult,
-    Validator,
+    Validator
 )
 from pathlib import Path
-from typing import Callable, Dict, Optional
+from typing import Callable, Optional
 
 import emoji
 import ftfy
@@ -30,16 +29,20 @@ class LexicalSlur(Validator):
     Validate text for the presence of lexical slurs using a predefined list.
     """
 
-    def __init__(self, validator_config: ValidatorItem, on_fail: Optional[Callable] = None):
-        params = validator_config.params or {}
-        self.severity = params.get("severity", SlurSeverity.All)
-        self.languages = params.get("languages", ["en", "hi"])
+    def __init__(
+        self, 
+        severity: SlurSeverity = SlurSeverity.All,
+        languages: Optional[list] = None,
+        on_fail: Optional[Callable] = OnFailAction.FIX
+    ):    
+        self.severity = severity
+        self.languages = languages or ["en", "hi"]
         self.slur_list = self.load_slur_list()
         self.text = None
         super().__init__(on_fail=on_fail, search_words=self.slur_list)
 
-    def _validate(self, text: str) -> ValidationResult:
-        self.text = text
+    def _validate(self, value: str, metadata: dict = None) -> ValidationResult:
+        self.text = value
         self.text = self.remove_emojis(self.text)
         self.text = self.remove_nos(self.text)
         self.text = self.clean_text(self.text)
@@ -52,11 +55,17 @@ class LexicalSlur(Validator):
                     detected_slurs.append(slur)
 
         if len(detected_slurs) > 0:
+            for word in words:
+                if word in detected_slurs:
+                    self.text = self.text.replace(word, "[REDACTED_SLUR]")
+
+        if len(detected_slurs) > 0:
             return FailResult(
                 error_message=f"Mentioned toxic words: {', '.join(detected_slurs)}",
+                fix_value=self.text
             )
-        else:
-            return PassResult()
+
+        return PassResult(value=self.text)
 
     def normalize_text(self, text):
         # Fix mojibake, weird encodings, etc.

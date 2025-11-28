@@ -42,27 +42,32 @@ def make_config(severity="all", languages=None):
         params={"severity": severity, "languages": languages or ["en", "hi"]}
     )
 
+def build_validator(cfg):
+    return LexicalSlur(
+        severity=cfg.params["severity"],
+        languages=cfg.params["languages"],
+    )
 
 # ---------------------------------------
 # TESTS
 # ---------------------------------------
 
 def test_passes_when_no_slur(patch_slur_load):
-    validator = LexicalSlur(make_config())
+    validator = build_validator(make_config())
     result = validator._validate("hello world, everything is fine.")
     print(result)
     assert result.outcome is "pass"
 
 
 def test_fails_when_slur_detected(patch_slur_load):
-    validator = LexicalSlur(make_config())
+    validator = build_validator(make_config())
     result = validator._validate("You are a badword!")
     assert result.outcome is "fail"
     assert "badword" in result.error_message
 
 
 def test_emoji_are_removed_before_validation(patch_slur_load):
-    validator = LexicalSlur(make_config())
+    validator = build_validator(make_config())
     result = validator._validate("You 🤮 badword 🤮 person")
     print(result)
     assert result.outcome is "fail"
@@ -70,13 +75,13 @@ def test_emoji_are_removed_before_validation(patch_slur_load):
 
 
 def test_punctuation_is_removed(patch_slur_load):
-    validator = LexicalSlur(make_config())
+    validator = build_validator(make_config())
     result = validator._validate("You are a, badword!!")
     assert result.outcome is "fail"
 
 
 def test_numbers_are_removed(patch_slur_load):
-    validator = LexicalSlur(make_config())
+    validator = build_validator(make_config())
     result = validator._validate("b4dw0rd badword again")  # "badword" appears once cleaned
     assert result.outcome is "fail"
 
@@ -96,7 +101,7 @@ def test_severity_low_includes_all(patch_slur_load, monkeypatch, slur_csv):
 
     monkeypatch.setattr(LexicalSlur, "load_slur_list", fake_load_slur_list)
 
-    validator = LexicalSlur(make_config(severity=SlurSeverity.Low))
+    validator = LexicalSlur(severity=SlurSeverity.Low)
     assert validator.slur_list == ["lowone", "mediumone", "highone"]
 
 
@@ -114,7 +119,7 @@ def test_severity_medium_includes_m_and_h(patch_slur_load, monkeypatch, slur_csv
 
     monkeypatch.setattr(LexicalSlur, "load_slur_list", fake_load_slur_list)
 
-    validator = LexicalSlur(make_config(severity=SlurSeverity.Medium))
+    validator = LexicalSlur(severity=SlurSeverity.Medium)
     assert validator.slur_list == ["mediumone", "highone"]
 
 
@@ -132,5 +137,5 @@ def test_severity_high_includes_only_h(patch_slur_load, monkeypatch, slur_csv):
 
     monkeypatch.setattr(LexicalSlur, "load_slur_list", fake_load_slur_list)
 
-    validator = LexicalSlur(make_config(severity=SlurSeverity.High))
+    validator = LexicalSlur(severity=SlurSeverity.High)
     assert validator.slur_list == ["highone"]

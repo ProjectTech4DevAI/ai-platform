@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os
+from guardrails import OnFailAction
 from guardrails.validators import (
     FailResult,
     PassResult,
@@ -13,7 +14,6 @@ from typing import Callable, Optional
 
 from ..utils.exception import LLMGuardValidationError
 from ..utils.languagedetector import LanguageDetector
-from ..utils.util import ValidatorItem
 
 ALL_SUPPORTED_LANGUAGES = ["en", "hi"]
 
@@ -26,26 +26,33 @@ class PIIRemover(Validator):
     Deanonymizer can be used to replace the placeholders back to their original values.
     """
 
-    def __init__(self, validator_config: ValidatorItem, on_fail: Optional[Callable] = None):
+    def __init__(
+        self,
+        entity_types=None,
+        threshold=0.5,
+        language="en",
+        language_detector=None,
+        on_fail: Optional[Callable] = OnFailAction.FIX
+    ):
         super().__init__(on_fail=on_fail)
 
-        params = validator_config.params or {}
-        self.entity_types = params.get("entity_types", ["ALL"])
-        self.threshold = params.get("threshold", 0.5)
-        self.language = params.get("language", "en")
-        self.language_detector = params.get("language_detector", LanguageDetector())
+        self.entity_types = entity_types or ["ALL"]
+        self.threshold = threshold
+        self.language = language
+        self.language_detector = language_detector or LanguageDetector()
 
         if self.language not in ALL_SUPPORTED_LANGUAGES:
             raise LLMGuardValidationError(
-                f"Language must be in the list of allowed: {ALL_SUPPORTED_LANGUAGES}"
+                f"Language must be in {ALL_SUPPORTED_LANGUAGES}"
             )
 
-        os.environ["TOKENIZERS_PARALLELISM"] = "false"  # Disables huggingface/tokenizers warning
+        os.environ["TOKENIZERS_PARALLELISM"] = "false" # Disables huggingface/tokenizers warning
 
         self.analyzer = AnalyzerEngine()
         self.anonymizer = AnonymizerEngine()
 
-    def _validate(self, text: str) -> ValidationResult:
+    def _validate(self, value: str, metadata: dict = None) -> ValidationResult:
+        text = value
         lang = self.language_detector.predict(text)
 
         if lang == self.language_detector.is_hindi(text):
@@ -55,7 +62,8 @@ class PIIRemover(Validator):
 
         if anonymized_text != text:
             return FailResult(
-                error_message=f"{text} failed validation. Detected PII data and anonymized to {anonymized_text}."
+                error_message="PII detected and removed from the text.",
+                fix_value=anonymized_text
             )
         return PassResult(value=text)        
 
