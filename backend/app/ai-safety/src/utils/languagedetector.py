@@ -26,7 +26,7 @@ class LanguageDetector():
         if not text or not isinstance(text, str):
             return {"label": "unknown", "score": 0.0}
 
-        result = self.lid(text)[0]
+        result = self.lid(text)[0][0]
         raw_label = result["label"]
         score = float(result["score"])
 

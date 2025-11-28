@@ -1,5 +1,15 @@
+from ..utils.util import ValidatorItem
+
 from enum import Enum
-from ..validator import Validator
+from guardrails.validators import (
+    FailResult,
+    PassResult,
+    register_validator,
+    ValidationResult,
+    Validator,
+)
+from pathlib import Path
+from typing import Callable, Dict, Optional
 
 import emoji
 import ftfy
@@ -14,28 +24,21 @@ class SlurSeverity(Enum):
     High = "high"
     All = "all"
 
+@register_validator(name="lexical-slur", data_type="string")
 class LexicalSlur(Validator):
     """
     Validate text for the presence of lexical slurs using a predefined list.
     """
 
-    def __init__(self):
-        self.slur_list = []
-        self.text = None
-        self.severity = SlurSeverity.All
-        self.languages = []
-        pass
-
-    def make(self, validator_config):
-        if validator_config.params.has_key("severity"):
-            self.severity = SlurSeverity(validator_config.params["severity"])
-
-        if validator_config.params.has_key("languages"):
-            self.languages = validator_config.params["languages"]
-        
+    def __init__(self, validator_config: ValidatorItem, on_fail: Optional[Callable] = None):
+        params = validator_config.params or {}
+        self.severity = params.get("severity", SlurSeverity.All)
+        self.languages = params.get("languages", ["en", "hi"])
         self.slur_list = self.load_slur_list()
+        self.text = None
+        super().__init__(on_fail=on_fail, search_words=self.slur_list)
 
-    def execute(self, text: str):
+    def _validate(self, text: str) -> ValidationResult:
         self.text = text
         self.text = self.remove_emojis(self.text)
         self.text = self.remove_nos(self.text)
@@ -47,9 +50,13 @@ class LexicalSlur(Validator):
             if slur in words:
                 if slur not in detected_slurs:
                     detected_slurs.append(slur)
-        # if len(detected_slurs) == 0:
-        #     return None
-        # return detected_slurs
+
+        if len(detected_slurs) > 0:
+            return FailResult(
+                error_message=f"Mentioned toxic words: {', '.join(detected_slurs)}",
+            )
+        else:
+            return PassResult()
 
     def normalize_text(self, text):
         # Fix mojibake, weird encodings, etc.
@@ -73,7 +80,9 @@ class LexicalSlur(Validator):
         return text
 
     def load_slur_list(self):
-        file_path = "../Curated_Slurlist_Hindi_English.csv"
+        BASE_DIR = Path(__file__).resolve().parent.parent  # goes up from validators/ to src/
+        file_path = BASE_DIR / "Curated_Slurlist_Hindi_English.csv"
+
         df = pandas.read_csv(file_path)
         df['label'] = df['label'].str.lower()
 

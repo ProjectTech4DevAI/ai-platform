@@ -8,7 +8,6 @@ from pdfminer.high_level import extract_text, extract_pages
 from pdfminer.layout import LTTextContainer, LTChar, LTTextLine
 from pikepdf import Pdf, AttachedFileSpec, Name, Dictionary, Array
 
-
 class PdfAnonymizer():
     def __init__(
         self
