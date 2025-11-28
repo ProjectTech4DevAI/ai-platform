@@ -5,7 +5,7 @@ import pytest
 from sqlmodel import select
 
 from app.crud.evaluations.batch import build_evaluation_jsonl
-from app.models import EvaluationDataset
+from app.models import EvaluationDataset, EvaluationRun
 
 
 # Helper function to create CSV file-like object
@@ -698,3 +698,97 @@ class TestBatchEvaluationJSONLBuilding:
             assert request_dict["custom_id"] == f"item{i}"
             assert request_dict["body"]["input"] == f"Question {i}"
             assert request_dict["body"]["model"] == "gpt-4o"
+
+
+class TestGetEvaluationRunStatus:
+    """Test GET /evaluations/{evaluation_id} endpoint."""
+
+    @pytest.fixture
+    def create_test_dataset(self, db, user_api_key):
+        """Create a test dataset for evaluation runs."""
+        dataset = EvaluationDataset(
+            name="test_dataset_for_runs",
+            description="Test dataset",
+            dataset_metadata={
+                "original_items_count": 3,
+                "total_items_count": 3,
+                "duplication_factor": 1,
+            },
+            langfuse_dataset_id="langfuse_test_id",
+            object_store_url="s3://test/dataset.csv",
+            organization_id=user_api_key.organization_id,
+            project_id=user_api_key.project_id,
+        )
+        db.add(dataset)
+        db.commit()
+        db.refresh(dataset)
+        return dataset
+
+    def test_get_evaluation_run_trace_info_not_completed(
+        self, client, user_api_key_header, db, user_api_key, create_test_dataset
+    ):
+        """Test requesting trace info for incomplete evaluation returns error."""
+        eval_run = EvaluationRun(
+            run_name="test_pending_run",
+            dataset_name=create_test_dataset.name,
+            dataset_id=create_test_dataset.id,
+            config={"model": "gpt-4o"},
+            status="pending",
+            total_items=3,
+            organization_id=user_api_key.organization_id,
+            project_id=user_api_key.project_id,
+        )
+        db.add(eval_run)
+        db.commit()
+        db.refresh(eval_run)
+
+        response = client.get(
+            f"/api/v1/evaluations/{eval_run.id}",
+            params={"get_trace_info": True},
+            headers=user_api_key_header,
+        )
+
+        assert response.status_code == 200
+        response_data = response.json()
+        assert response_data["success"] is False
+        assert "only available for completed evaluations" in response_data["error"]
+        # Should still include the evaluation run data
+        assert response_data["data"]["id"] == eval_run.id
+
+    def test_get_evaluation_run_trace_info_completed(
+        self, client, user_api_key_header, db, user_api_key, create_test_dataset
+    ):
+        """Test requesting trace info for completed evaluation returns cached scores."""
+        eval_run = EvaluationRun(
+            run_name="test_completed_run",
+            dataset_name=create_test_dataset.name,
+            dataset_id=create_test_dataset.id,
+            config={"model": "gpt-4o"},
+            status="completed",
+            total_items=3,
+            score={
+                "traces": [
+                    {"trace_id": "trace1", "question": "Q1", "scores": []},
+                ],
+                "summary_scores": [],
+            },
+            organization_id=user_api_key.organization_id,
+            project_id=user_api_key.project_id,
+        )
+        db.add(eval_run)
+        db.commit()
+        db.refresh(eval_run)
+
+        response = client.get(
+            f"/api/v1/evaluations/{eval_run.id}",
+            params={"get_trace_info": True},
+            headers=user_api_key_header,
+        )
+
+        assert response.status_code == 200
+        response_data = response.json()
+        assert response_data["success"] is True
+        data = response_data["data"]
+        assert data["id"] == eval_run.id
+        assert data["status"] == "completed"
+        assert "traces" in data["score"]
