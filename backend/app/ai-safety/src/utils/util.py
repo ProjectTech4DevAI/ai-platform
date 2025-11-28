@@ -1,4 +1,3 @@
-# safety/models.py
 from pydantic import BaseModel, Field
 from typing import Callable, List, Literal, Optional, Union
 from guardrails import OnFailAction
