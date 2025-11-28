@@ -48,7 +48,7 @@ def create_langfuse_dataset_run(
                          "question": "What is 2+2?",
                          "generated_output": "4",
                          "ground_truth": "4",
-                         "response_id": "resp_0b99aadfead1fb62006908e7f540c48197bd110183a347c1d8",
+                         "response_id": "resp_0b99aadf...",
                          "usage": {
                              "input_tokens": 69,
                              "output_tokens": 258,
@@ -195,7 +195,8 @@ def update_traces_with_cosine_scores(
 
         if not trace_id:
             logger.warning(
-                "[update_traces_with_cosine_scores] Score item missing trace_id, skipping"
+                "[update_traces_with_cosine_scores] "
+                "Score item missing trace_id, skipping"
             )
             continue
 
@@ -242,7 +243,8 @@ def upload_dataset_to_langfuse(
     """
     logger.info(
         f"[upload_dataset_to_langfuse] Uploading dataset to Langfuse | "
-        f"dataset={dataset_name} | items={len(items)} | duplication_factor={duplication_factor}"
+        f"dataset={dataset_name} | items={len(items)} | "
+        f"duplication_factor={duplication_factor}"
     )
 
     try:
@@ -269,7 +271,8 @@ def upload_dataset_to_langfuse(
                 except Exception as e:
                     logger.error(
                         f"[upload_dataset_to_langfuse] Failed to upload item | "
-                        f"duplicate={duplicate_num + 1} | question={item['question'][:50]}... | {e}"
+                        f"duplicate={duplicate_num + 1} | "
+                        f"question={item['question'][:50]}... | {e}"
                     )
 
             # Flush after each original item's duplicates to prevent race conditions
@@ -282,8 +285,9 @@ def upload_dataset_to_langfuse(
         langfuse_dataset_id = dataset.id if hasattr(dataset, "id") else None
 
         logger.info(
-            f"[upload_dataset_to_langfuse] Successfully uploaded items to Langfuse dataset | "
-            f"items={total_uploaded} | dataset={dataset_name} | id={langfuse_dataset_id}"
+            f"[upload_dataset_to_langfuse] Successfully uploaded to Langfuse | "
+            f"items={total_uploaded} | dataset={dataset_name} | "
+            f"id={langfuse_dataset_id}"
         )
 
         return langfuse_dataset_id, total_uploaded
