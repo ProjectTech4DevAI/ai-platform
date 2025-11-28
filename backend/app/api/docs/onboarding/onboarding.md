@@ -22,6 +22,7 @@
 - If provided, the given credentials will be **encrypted** and stored as project credentials.
 - The `credential` parameter accepts a list of one or more credentials (e.g., an OpenAI key, Langfuse credentials, etc.).
 - If omitted, the project will be created **without credentials**.
+- We’ve also included a list of the providers currently supported.
    ### Example: For sending multiple credentials -
    ```
    "credentials": [
@@ -39,7 +40,7 @@
      }
    ]
    ```
-   ### Supported Providers
+  ### Supported Providers
     - openai
     - langfuse
 ---
