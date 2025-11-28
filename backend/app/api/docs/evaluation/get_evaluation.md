@@ -8,7 +8,7 @@ Retrieves comprehensive information about an evaluation run including its curren
 
 ## Query Parameters
 
-- **get_trace_info** (optional, default: false): If true, fetch and include Langfuse trace scores with Q&A context. On first request, data is fetched from Langfuse and cached in the score column. Subsequent requests return cached data.
+- **get_trace_info** (optional, default: false): If true, fetch and include Langfuse trace scores with Q&A context. On first request, data is fetched from Langfuse and cached in the score column. Subsequent requests return cached data. Only available for completed evaluations.
 
 - **resync_score** (optional, default: false): If true, clear cached scores and re-fetch from Langfuse. Useful when new evaluators have been added or scores have been updated. Requires get_trace_info=true.
 
@@ -24,10 +24,61 @@ EvaluationRunPublic with current status and results:
 - status: Current status (pending, running, completed, failed)
 - total_items: Total number of items being evaluated
 - completed_items: Number of items completed so far
-- results: Evaluation results (when completed)
+- score: Evaluation scores (when get_trace_info=true and status=completed)
 - error_message: Error message if failed
 - created_at: Timestamp when the evaluation was created
 - updated_at: Timestamp when the evaluation was last updated
+
+## Score Format
+
+When `get_trace_info=true` and evaluation is completed, the `score` field contains:
+
+```json
+{
+  "summary_scores": [
+    {
+      "name": "cosine_similarity",
+      "avg": 0.87,
+      "std": 0.12,
+      "total_pairs": 50,
+      "data_type": "NUMERIC"
+    },
+    {
+      "name": "response_category",
+      "distribution": {"CORRECT": 10, "PARTIAL": 5, "INCORRECT": 2},
+      "total_pairs": 17,
+      "data_type": "CATEGORICAL"
+    }
+  ],
+  "traces": [
+    {
+      "trace_id": "uuid-123",
+      "question": "What is 2+2?",
+      "llm_answer": "4",
+      "ground_truth_answer": "4",
+      "scores": [
+        {
+          "name": "cosine_similarity",
+          "value": 0.95,
+          "data_type": "NUMERIC"
+        },
+        {
+          "name": "correctness",
+          "value": 1,
+          "data_type": "NUMERIC",
+          "comment": "Response is correct"
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Notes:**
+- Only complete scores are included (scores where all traces have been rated)
+- Numeric values are rounded to 2 decimal places
+- NUMERIC scores show `avg` and `std` in summary
+- CATEGORICAL scores show `distribution` counts in summary
 
 ## Usage
 
