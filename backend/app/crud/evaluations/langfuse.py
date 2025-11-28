@@ -357,41 +357,36 @@ def fetch_trace_scores_from_langfuse(
     Returns:
         Score data with per-trace scores and summary statistics:
         {
-            "scores": {
-                "summary_scores": [
-                    {
-                        "name": "cosine_similarity",
-                        "avg": 0.87,
-                        "std": 0.12,
-                        "total_pairs": 50,
-                        "data_type": "NUMERIC"
-                    },
-                    {
-                        "name": "response_category",
-                        "distribution": {"CORRECT": 10, "PARTIAL": 5},
-                        "total_pairs": 15,
-                        "data_type": "CATEGORICAL"
-                    }
-                ],
-                "traces": [
-                    {
-                        "trace_id": "trace-uuid-123",
-                        "scores": [
-                            {
-                                "name": "cosine_similarity",
-                                "value": 0.95,
-                                "data_type": "NUMERIC"
-                            },
-                            {
-                                "name": "correctness",
-                                "value": 1,
-                                "data_type": "NUMERIC",
-                                "comment": "Response is correct"
-                            }
-                        ]
-                    }
-                ]
-            }
+            "summary_scores": [
+                {
+                    "name": "cosine_similarity",
+                    "avg": 0.87,
+                    "std": 0.12,
+                    "total_pairs": 50,
+                    "data_type": "NUMERIC"
+                },
+                {
+                    "name": "response_category",
+                    "distribution": {"CORRECT": 10, "PARTIAL": 5},
+                    "total_pairs": 15,
+                    "data_type": "CATEGORICAL"
+                }
+            ],
+            "traces": [
+                {
+                    "trace_id": "trace-uuid-123",
+                    "question": "What is 2+2?",
+                    "llm_answer": "4",
+                    "ground_truth_answer": "4",
+                    "scores": [
+                        {
+                            "name": "cosine_similarity",
+                            "value": 0.95,
+                            "data_type": "NUMERIC"
+                        }
+                    ]
+                }
+            ]
         }
 
     Raises:
@@ -439,8 +434,31 @@ def fetch_trace_scores_from_langfuse(
                 trace = langfuse.api.trace.get(trace_id)
                 trace_data: dict[str, Any] = {
                     "trace_id": trace_id,
+                    "question": "",
+                    "llm_answer": "",
+                    "ground_truth_answer": "",
                     "scores": [],
                 }
+
+                # Get question from input
+                if trace.input:
+                    if isinstance(trace.input, dict):
+                        trace_data["question"] = trace.input.get("question", "")
+                    elif isinstance(trace.input, str):
+                        trace_data["question"] = trace.input
+
+                # Get answer from output
+                if trace.output:
+                    if isinstance(trace.output, dict):
+                        trace_data["llm_answer"] = trace.output.get("answer", "")
+                    elif isinstance(trace.output, str):
+                        trace_data["llm_answer"] = trace.output
+
+                # Get ground truth from metadata
+                if trace.metadata and isinstance(trace.metadata, dict):
+                    trace_data["ground_truth_answer"] = trace.metadata.get(
+                        "ground_truth", ""
+                    )
 
                 # Add scores from this trace
                 if trace.scores:
@@ -540,10 +558,8 @@ def fetch_trace_scores_from_langfuse(
                 )
 
         result: dict[str, Any] = {
-            "scores": {
-                "summary_scores": summary_scores,
-                "traces": traces,
-            }
+            "summary_scores": summary_scores,
+            "traces": traces,
         }
 
         logger.info(
