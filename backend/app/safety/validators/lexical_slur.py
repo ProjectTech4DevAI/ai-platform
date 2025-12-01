@@ -8,7 +8,7 @@ from guardrails.validators import (
     Validator
 )
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, ClassVar, List, Literal, Optional, Union, Annotated
 
 import emoji
 import ftfy
@@ -17,10 +17,8 @@ import re
 import string
 import unicodedata
 
-from ..utils.constants import SLUR_LIST_FILENAME
-
-from sqlmodel import Field, SQLModel
-from typing import  List, Literal, Optional, Union, Annotated
+from app.safety.utils.constants import SLUR_LIST_FILENAME
+from app.safety.utils.base_validator_config import BaseValidatorConfig
 
 class SlurSeverity(Enum):
     Low = "low"
@@ -111,5 +109,9 @@ class LexicalSlur(Validator):
 
         return df['label'].tolist()
 
-
-
+    
+class LexicalSlurSafetyValidatorConfig(BaseValidatorConfig):
+    type: Literal["uli_slur_match"]
+    languages: List[str] = ["en", "hi"]
+    severity: Literal["low", "medium", "high", "all"] = "all"
+    validator_cls: ClassVar = LexicalSlur
