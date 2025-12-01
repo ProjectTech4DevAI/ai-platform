@@ -1,8 +1,9 @@
 import json
-from app.safety.guardrails import Guardrails
+from app.safety.guardrails_engine import GuardrailsEngine
 from app.safety.guardrail_config import GuardrailConfigRoot
 
-def test_framework():
+
+def get_test_guardrail_config():
     guardrail_config_string = '''
     {
         "guardrails":{
@@ -20,20 +21,14 @@ def test_framework():
         }
     }
     '''
-    # guardrail_config_string = '''
-    # {
-    #     "guardrails": "test"
-    # }
-    # '''
-    # parse and validate string into sqlmodel class 
     guardrail_config_dict = json.loads(guardrail_config_string)
     guardrail_config = GuardrailConfigRoot(**guardrail_config_dict)
+    return guardrail_config
 
-    # guardrail = Guardrails(guardrail_config)
-    # guardrail = Guardrail(guardrail_config)
-    # safe_input = guardrail.parse_input(input)
-    # safe_output = guardrail.parse_output(llm_output)
-
-
-    print(guardrail_config)
-    assert 1 == 1
+def test_framework():
+    guardrail_config = get_test_guardrail_config()
+    guardrail = GuardrailsEngine(guardrail_config)
+    guardrail.make()
+    safe_input = guardrail.run_input_validators("You are such an asshole and motherfucker")
+    print(safe_input)
+    assert "motherfucker" not in safe_input.validated_output

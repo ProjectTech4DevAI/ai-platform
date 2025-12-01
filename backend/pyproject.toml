@@ -37,6 +37,8 @@ dependencies = [
     "redis>=5.0.0,<6.0.0",
     "flower>=2.0.1",
     "guardrails-ai>=0.7.0",
+    "emoji",
+    "ftfy",
 ]
 
 [tool.uv]

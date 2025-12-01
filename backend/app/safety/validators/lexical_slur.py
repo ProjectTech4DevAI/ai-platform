@@ -95,7 +95,7 @@ class LexicalSlur(Validator):
 
     def load_slur_list(self):
         BASE_DIR = Path(__file__).resolve().parent.parent  # goes up from validators/ to src/
-        file_path = BASE_DIR / SLUR_LIST_FILENAME
+        file_path = f"{BASE_DIR}/validators/lexical_slur/{SLUR_LIST_FILENAME}"
 
         df = pandas.read_csv(file_path)
         df['label'] = df['label'].str.lower()

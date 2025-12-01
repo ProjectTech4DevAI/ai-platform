@@ -1,5 +1,5 @@
 import json
-from app.safety.guardrails import Guardrails
+from app.safety.guardrails_engine import GuardrailsEngine
 from app.safety.guardrail_config import GuardrailConfigRoot
 
 
