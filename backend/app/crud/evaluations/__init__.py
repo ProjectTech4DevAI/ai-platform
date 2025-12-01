@@ -25,7 +25,7 @@ from app.crud.evaluations.embeddings import (
 from app.crud.evaluations.langfuse import (
     create_langfuse_dataset_run,
     update_traces_with_cosine_scores,
-    upload_dataset_to_langfuse_from_csv,
+    upload_dataset_to_langfuse,
 )
 from app.crud.evaluations.processing import (
     check_and_process_evaluation,
@@ -62,5 +62,5 @@ __all__ = [
     # Langfuse
     "create_langfuse_dataset_run",
     "update_traces_with_cosine_scores",
-    "upload_dataset_to_langfuse_from_csv",
+    "upload_dataset_to_langfuse",
 ]
