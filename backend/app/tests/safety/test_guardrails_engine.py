@@ -1,4 +1,5 @@
 import json
+import os
 from app.safety.guardrails_engine import GuardrailsEngine
 from app.safety.guardrail_config import GuardrailConfigRoot
 
@@ -29,6 +30,6 @@ def test_framework():
     guardrail_config = get_test_guardrail_config()
     guardrail = GuardrailsEngine(guardrail_config)
     guardrail.make()
-    safe_input = guardrail.run_input_validators("You are such an asshole and motherfucker")
-    print(safe_input)
-    assert "motherfucker" not in safe_input.validated_output
+    safe_input = guardrail.run_input_validators(f"You are such an {os.getenv('TEST_SLUR_1')} and {os.getenv('TEST_SLUR_2')}")
+    assert os.getenv("TEST_SLUR_1") not in safe_input.validated_output
+    assert os.getenv("TEST_SLUR_2") not in safe_input.validated_output
