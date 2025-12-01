@@ -1,8 +1,11 @@
 import logging
+from typing import Any
 
+from langfuse import Langfuse
 from sqlmodel import Session, select
 
 from app.core.util import now
+from app.crud.evaluations.langfuse import fetch_trace_scores_from_langfuse
 from app.models import EvaluationRun
 
 logger = logging.getLogger(__name__)
@@ -191,3 +194,102 @@ def update_evaluation_run(
         raise
 
     return eval_run
+
+
+def get_or_fetch_score(
+    session: Session,
+    eval_run: EvaluationRun,
+    langfuse: Langfuse,
+    force_refetch: bool = False,
+) -> dict[str, Any]:
+    """
+    Get cached score with trace info or fetch from Langfuse and update.
+
+    This function implements a cache-on-first-request pattern:
+    - If score already has 'traces' key, return it
+    - Otherwise, fetch from Langfuse, update score column, and return
+    - If force_refetch is True, always fetch fresh data from Langfuse
+
+    Args:
+        session: Database session
+        eval_run: EvaluationRun instance
+        langfuse: Configured Langfuse client
+        force_refetch: If True, skip cache and fetch fresh from Langfuse
+
+    Returns:
+        Score data with per-trace scores and summary statistics
+
+    Raises:
+        ValueError: If the run is not found in Langfuse
+        Exception: If Langfuse API calls fail
+    """
+    # Check if score already exists with traces
+    has_score = eval_run.score is not None and "traces" in eval_run.score
+    if not force_refetch and has_score:
+        logger.info(
+            f"[get_or_fetch_score] Returning existing score | evaluation_id={eval_run.id}"
+        )
+        return eval_run.score
+
+    logger.info(
+        f"[get_or_fetch_score] Fetching score from Langfuse | "
+        f"evaluation_id={eval_run.id} | dataset={eval_run.dataset_name} | "
+        f"run={eval_run.run_name} | force_refetch={force_refetch}"
+    )
+
+    # Fetch from Langfuse
+    score = fetch_trace_scores_from_langfuse(
+        langfuse=langfuse,
+        dataset_name=eval_run.dataset_name,
+        run_name=eval_run.run_name,
+    )
+
+    # Update score column using existing helper
+    update_evaluation_run(session=session, eval_run=eval_run, score=score)
+
+    total_traces = len(score.get("traces", []))
+    logger.info(
+        f"[get_or_fetch_score] Updated score | "
+        f"evaluation_id={eval_run.id} | total_traces={total_traces}"
+    )
+
+    return score
+
+
+def save_score(
+    eval_run_id: int,
+    organization_id: int,
+    project_id: int,
+    score: dict[str, Any],
+) -> EvaluationRun | None:
+    """
+    Save score to evaluation run with its own session.
+
+    This function creates its own database session to persist the score,
+    allowing it to be called after releasing the request's main session.
+
+    Args:
+        eval_run_id: ID of the evaluation run to update
+        organization_id: Organization ID for access control
+        project_id: Project ID for access control
+        score: Score data to save
+
+    Returns:
+        Updated EvaluationRun instance, or None if not found
+    """
+    from app.core.db import engine
+
+    with Session(engine) as session:
+        eval_run = get_evaluation_run_by_id(
+            session=session,
+            evaluation_id=eval_run_id,
+            organization_id=organization_id,
+            project_id=project_id,
+        )
+        if eval_run:
+            update_evaluation_run(session=session, eval_run=eval_run, score=score)
+            logger.info(
+                f"[save_score] Saved score | evaluation_id={eval_run_id} | "
+                f"traces={len(score.get('traces', []))}"
+            )
+        return eval_run
