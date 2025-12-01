@@ -19,6 +19,9 @@ import unicodedata
 
 from ..utils.constants import SLUR_LIST_FILENAME
 
+from sqlmodel import Field, SQLModel
+from typing import  List, Literal, Optional, Union, Annotated
+
 class SlurSeverity(Enum):
     Low = "low"
     Medium = "medium"
@@ -107,3 +110,6 @@ class LexicalSlur(Validator):
             return df[df['severity'] == 'H']['label'].tolist()
 
         return df['label'].tolist()
+
+
+

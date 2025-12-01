@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from sqlmodel import Field, SQLModel
 from typing import Callable, ClassVar, List, Literal, Optional, Union
 from guardrails import OnFailAction
 from ..utils.language_detector import LanguageDetector
@@ -8,15 +8,15 @@ from ..validators.lexical_slur import LexicalSlur
 # ----------------------------------------
 # Validator-specific config models
 # ----------------------------------------
-class BaseValidatorConfig(BaseModel):
-    model_config = {
-        "arbitrary_types_allowed": True
-    }
+# class BaseValidatorConfig(BaseModel):
+#     model_config = {
+#         "arbitrary_types_allowed": True
+#     }
 
-    # override in subclasses
-    validator_cls: ClassVar = None
+#     # override in subclasses
+#     validator_cls: ClassVar = None
 
-class PIISafetyValidatorConfig(BaseValidatorConfig):
+class PIISafetyValidatorConfig(SQLModel):
     type: Literal["pii_remover"]
     language: str = "en"
     entity_types: List[str] = ["ALL"]
@@ -25,14 +25,14 @@ class PIISafetyValidatorConfig(BaseValidatorConfig):
     on_fail: Optional[Callable] = OnFailAction.FIX
     validator_cls: ClassVar = PIIRemover
 
-class LexicalSlurSafetyValidatorConfig(BaseValidatorConfig):
-    type: Literal["lexical_slur"]
+class LexicalSlurSafetyValidatorConfig(SQLModel):
+    type: Literal["uli_slur_match"]
     languages: List[str] = ["en", "hi"]
     severity: Literal["low", "medium", "high", "all"] = "all"
     on_fail: Optional[Callable] = OnFailAction.FIX
     validator_cls: ClassVar = LexicalSlur
 
-class GenderAssumptionBiasSafetyValidatorConfig(BaseValidatorConfig):
+class GenderAssumptionBiasSafetyValidatorConfig(SQLModel):
     type: Literal["gender_assumption_bias"]
     languages: List[str] = ["en", "hi"]
     on_fail: Optional[Callable] = OnFailAction.FIX

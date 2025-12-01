@@ -1,10 +1,10 @@
 import argparse
 import json
 from guardrails import Guard
-from .utils.util import GuardrailConfig
+# from .utils.util import GuardrailConfig
 
 class Guardrails():
-    def __init__(self, guardrail_config_path):        
+    def __init__(self, guardrail_config):        
         self.guardrail_config = self.load_guardrail_config(guardrail_config_path)
         self.input_guard = None
         self.output_guard = None
