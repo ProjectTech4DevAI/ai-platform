@@ -134,6 +134,9 @@ def execute_job(
     config = request.config
     callback_response = None
     config_blob: ConfigBlob | None = None
+    import time
+    pickup_time = int(time.time())
+    request.request_metadata["pickup_time"] = pickup_time
 
     logger.info(
         f"[execute_job] Starting LLM job execution | job_id={job_id}, task_id={task_id}, "
