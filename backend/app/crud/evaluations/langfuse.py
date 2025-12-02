@@ -273,7 +273,6 @@ def upload_dataset_to_langfuse(
         # Create or get dataset in Langfuse
         dataset = langfuse.create_dataset(name=dataset_name)
 
-    
         upload_tasks = [
             (item, duplicate_num)
             for item in items
