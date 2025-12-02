@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 
 from app.safety.validators.lexical_slur import LexicalSlur, SlurSeverity
-from app.safety.utils.constants import SLUR_LIST_FILENAME
+from app.safety.validators.constants import SLUR_LIST_FILENAME
 
 # ---------------------------------------
 # Helper: Create temporary slur CSV

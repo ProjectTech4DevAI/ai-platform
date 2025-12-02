@@ -1,4 +1,5 @@
 from guardrails import Guard
+from guardrails.utils.validator_utils import get_validator
 from app.safety.guardrail_config import GuardrailConfigRoot
 
 class GuardrailsEngine():
@@ -6,9 +7,21 @@ class GuardrailsEngine():
     Creates guardrails via user provided configuration.
     """
     def __init__(self, guardrail_config: GuardrailConfigRoot):
+        # Ensure hub validators are auto-installed
+        self._prepare_validators(guardrail_config.guardrails.input)
+        self._prepare_validators(guardrail_config.guardrails.output)
+
         self.guardrail_config = guardrail_config
+
+        # Now build guards
         self.input_guard = self._build_guard(self.guardrail_config.guardrails.input)
         self.output_guard = self._build_guard(self.guardrail_config.guardrails.output)
+
+    def _prepare_validators(self, validator_items):
+        for v_item in validator_items:
+            post_init = getattr(v_item, "post_init", None)
+            if post_init:
+                post_init()  # Install hub validators & load class
 
     def _build_guard(self, validator_items):
         """
@@ -17,16 +30,22 @@ class GuardrailsEngine():
         validator_instances = []
 
         for v_item in validator_items:
-            validator_cls = v_item.validator_cls
-            if not validator_cls:
-                raise ValueError(f"Unknown validator type: {v_item.type}")
-            # print(v_item, validator_cls, end="\n")
-
-            # # Convert pydantic model -> kwargs for validator constructor
+            # Convert pydantic model -> kwargs for validator constructor
             params = v_item.model_dump()
-            params.pop("type")
-            validator = validator_cls(**params)
-            validator_instances.append(validator)
+            v_type = params.pop("type")
+
+            # 1. Custom validator (has validator_cls)
+            validator_cls = getattr(v_item, "validator_cls", None)
+            if validator_cls:
+                validator = validator_cls(**params)
+                validator_instances.append(validator)
+                continue
+
+            validator_obj = get_validator({
+            "type": v_type,
+            **params
+            })
+            validator_instances.append(validator_obj)
 
         return Guard().use_many(*validator_instances)
 
