@@ -1,12 +1,12 @@
 from sqlmodel import Field, SQLModel
 from typing import List, Union, Annotated
 
-from app.safety.validators.lexical_slur import LexicalSlurSafetyValidatorConfig
-
 # todo this could be improved by having some auto-discovery mechanism inside
-# validators. We'll not have to list every new validator like this. 
+# validators. We'll not have to list every new validator like this.
+from app.safety.validators.lexical_slur import LexicalSlurSafetyValidatorConfig 
 
 ValidatorConfigItem = Annotated[
+    # future validators
     # Union[PIISafetyValidatorConfig, LexicalSlurSafetyValidatorConfig, GenderAssumptionBiasSafetyValidatorConfig],
     Union[LexicalSlurSafetyValidatorConfig],
     Field(discriminator="type")
@@ -18,4 +18,3 @@ class GuardrailConfig(SQLModel):
 
 class GuardrailConfigRoot(SQLModel):
     guardrails: GuardrailConfig
-    # output: list[ValidatorUnion]

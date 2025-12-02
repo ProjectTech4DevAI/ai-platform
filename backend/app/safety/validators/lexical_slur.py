@@ -17,8 +17,8 @@ import re
 import string
 import unicodedata
 
-from app.safety.utils.constants import SLUR_LIST_FILENAME
-from app.safety.utils.base_validator_config import BaseValidatorConfig
+from app.safety.validators.constants import SLUR_LIST_FILENAME
+from app.safety.validators.base_validator_config import BaseValidatorConfig
 
 class SlurSeverity(Enum):
     Low = "low"

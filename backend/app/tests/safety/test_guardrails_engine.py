@@ -1,10 +1,12 @@
 import json
-import os
 from app.safety.guardrails_engine import GuardrailsEngine
 from app.safety.guardrail_config import GuardrailConfigRoot
 
 
-def get_test_guardrail_config():
+def test_guard_creation():
+    """
+
+    """
     guardrail_config_string = '''
     {
         "guardrails":{
@@ -24,12 +26,50 @@ def get_test_guardrail_config():
     '''
     guardrail_config_dict = json.loads(guardrail_config_string)
     guardrail_config = GuardrailConfigRoot(**guardrail_config_dict)
-    return guardrail_config
-
-def test_framework():
-    guardrail_config = get_test_guardrail_config()
     guardrail = GuardrailsEngine(guardrail_config)
-    guardrail.make()
-    safe_input = guardrail.run_input_validators(f"You are such an {os.getenv('TEST_SLUR_1')} and {os.getenv('TEST_SLUR_2')}")
-    assert os.getenv("TEST_SLUR_1") not in safe_input.validated_output
-    assert os.getenv("TEST_SLUR_2") not in safe_input.validated_output
+
+    slur_a = "बदसूरत"
+    slur_b = "bhenchod"
+    unsafe_input = f"You are such an {slur_a} and {slur_b}"
+
+    safe_input = guardrail.run_input_validators(unsafe_input)
+
+    assert slur_a not in safe_input.validated_output
+    assert slur_b not in safe_input.validated_output
+    assert safe_input.validated_output == "you are such an [REDACTED_SLUR] and [REDACTED_SLUR]"
+
+
+def test_guard_creation_with_output_guard():
+    """
+
+    """
+    guardrail_config_string = '''
+    {
+        "guardrails":{
+            "input":[],
+            "output": [
+                {
+                    "type": "uli_slur_match",
+                    "severity": "all",
+                    "languages": [
+                        "en",
+                        "hi"
+                    ]
+                }
+            ]
+        }
+    }
+    '''
+    guardrail_config_dict = json.loads(guardrail_config_string)
+    guardrail_config = GuardrailConfigRoot(**guardrail_config_dict)
+    guardrail = GuardrailsEngine(guardrail_config)
+
+    slur_a = "बदसूरत"
+    slur_b = "bhenchod"
+    unsafe_output = f"You are such an {slur_a} and {slur_b}"
+
+    safe_output = guardrail.run_output_validators(unsafe_output)
+
+    assert slur_a not in safe_output.validated_output
+    assert slur_b not in safe_output.validated_output
+    assert safe_output.validated_output == "you are such an [REDACTED_SLUR] and [REDACTED_SLUR]"
