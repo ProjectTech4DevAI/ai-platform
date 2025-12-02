@@ -7,9 +7,6 @@ class GuardrailsEngine():
     """
     def __init__(self, guardrail_config: GuardrailConfigRoot):
         self.guardrail_config = guardrail_config
-        self.input_guard = None
-        self.output_guard = None
-
         self.input_guard = self._build_guard(self.guardrail_config.guardrails.input)
         self.output_guard = self._build_guard(self.guardrail_config.guardrails.output)
 
