@@ -4,9 +4,6 @@ from app.safety.guardrail_config import GuardrailConfigRoot
 
 
 def test_guard_creation():
-    """
-
-    """
     guardrail_config_string = '''
     {
         "guardrails":{
@@ -40,9 +37,6 @@ def test_guard_creation():
 
 
 def test_guard_creation_with_output_guard():
-    """
-
-    """
     guardrail_config_string = '''
     {
         "guardrails":{

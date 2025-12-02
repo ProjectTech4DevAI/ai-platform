@@ -1,8 +1,3 @@
-'''
-To execute, run this command from the ai-safety directory:
-PYTHONPATH=$(pwd) pytest -vv -s
-'''
-
 import pandas as pd
 import pytest
 
