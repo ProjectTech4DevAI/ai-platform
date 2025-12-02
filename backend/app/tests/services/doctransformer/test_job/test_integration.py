@@ -2,23 +2,23 @@
 Integration tests for document transformation service.
 """
 from typing import Tuple
+from uuid import uuid4
 from unittest.mock import patch
 
 import pytest
-from fastapi import BackgroundTasks
 from moto import mock_aws
 from sqlmodel import Session
 
 from app.crud import DocTransformationJobCrud, DocumentCrud
-from app.core.doctransform.service import execute_job, start_job
+from app.services.doctransform.job import execute_job, start_job
 from app.models import (
     Document,
-    DocTransformationJob,
     Project,
     TransformationStatus,
     UserProjectOrg,
+    DocTransformJobCreate,
 )
-from app.tests.core.doctransformer.test_service.utils import (
+from app.tests.services.doctransformer.test_job.utils import (
     DocTransformTestBase,
     MockTestTransformer,
 )
@@ -37,50 +37,51 @@ class TestExecuteJobIntegration(DocTransformTestBase):
         aws = self.setup_aws_s3()
         self.create_s3_document_content(aws, document)
 
-        # Start job using the service
+        job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
+        job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
+
         current_user = UserProjectOrg(
             id=1,
             email="test@example.com",
             project_id=project.id,
             organization_id=project.organization_id,
         )
-        background_tasks = BackgroundTasks()
 
-        job_id = start_job(
-            db=db,
-            current_user=current_user,
-            source_document_id=document.id,
-            transformer_name="test",
-            target_format="markdown",
-            background_tasks=background_tasks,
-        )
-
-        # Verify job was created
-        job = db.get(DocTransformationJob, job_id)
-        assert job.status == TransformationStatus.PENDING
-
-        # Execute the job manually (simulating background execution)
         with patch(
-            "app.core.doctransform.service.Session"
-        ) as mock_session_class, patch(
-            "app.core.doctransform.registry.TRANSFORMERS", {"test": MockTestTransformer}
+            "app.services.doctransform.job.start_low_priority_job",
+            return_value="fake-task-id",
+        ), patch("app.services.doctransform.job.Session") as mock_session_class, patch(
+            "app.services.doctransform.registry.TRANSFORMERS",
+            {"test": MockTestTransformer},
         ):
             mock_session_class.return_value.__enter__.return_value = db
             mock_session_class.return_value.__exit__.return_value = None
 
-            execute_job(
-                project_id=project.id,
+            returned_job_id = start_job(
+                db=db,
+                current_user=current_user,
                 job_id=job.id,
                 transformer_name="test",
                 target_format="markdown",
+                callback_url=None,
+            )
+            assert job.id == returned_job_id
+
+            execute_job(
+                project_id=project.id,
+                job_id=str(job.id),
+                source_document_id=str(document.id),
+                transformer_name="test",
+                target_format="markdown",
+                task_id=str(uuid4()),
+                callback_url=None,
+                task_instance=None,
             )
 
-        # Verify complete workflow
         db.refresh(job)
         assert job.status == TransformationStatus.COMPLETED
         assert job.transformed_document_id is not None
 
-        # Verify transformed document exists and is valid
         document_crud = DocumentCrud(session=db, project_id=project.id)
         transformed_doc = document_crud.read_one(job.transformed_document_id)
         assert transformed_doc.source_document_id == document.id
@@ -100,16 +101,14 @@ class TestExecuteJobIntegration(DocTransformTestBase):
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
         jobs = []
         for i in range(3):
-            job = job_crud.create(source_document_id=document.id)
+            job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
             jobs.append(job)
-        db.commit()
 
-        # Execute all jobs
         for job in jobs:
             with patch(
-                "app.core.doctransform.service.Session"
+                "app.services.doctransform.job.Session"
             ) as mock_session_class, patch(
-                "app.core.doctransform.registry.TRANSFORMERS",
+                "app.services.doctransform.registry.TRANSFORMERS",
                 {"test": MockTestTransformer},
             ):
                 mock_session_class.return_value.__enter__.return_value = db
@@ -117,12 +116,15 @@ class TestExecuteJobIntegration(DocTransformTestBase):
 
                 execute_job(
                     project_id=project.id,
-                    job_id=job.id,
+                    job_id=str(job.id),
+                    source_document_id=str(document.id),
                     transformer_name="test",
                     target_format="markdown",
+                    task_id=str(uuid4()),
+                    callback_url=None,
+                    task_instance=None,
                 )
 
-        # Verify all jobs completed successfully
         for job in jobs:
             db.refresh(job)
             assert job.status == TransformationStatus.COMPLETED
@@ -141,19 +143,16 @@ class TestExecuteJobIntegration(DocTransformTestBase):
         formats = ["markdown", "text", "html"]
         jobs = []
 
-        # Create jobs for different formats
         job_crud = DocTransformationJobCrud(session=db, project_id=project.id)
         for target_format in formats:
-            job = job_crud.create(source_document_id=document.id)
+            job = job_crud.create(DocTransformJobCreate(source_document_id=document.id))
             jobs.append((job, target_format))
-        db.commit()
 
-        # Execute all jobs
         for job, target_format in jobs:
             with patch(
-                "app.core.doctransform.service.Session"
+                "app.services.doctransform.job.Session"
             ) as mock_session_class, patch(
-                "app.core.doctransform.registry.TRANSFORMERS",
+                "app.services.doctransform.registry.TRANSFORMERS",
                 {"test": MockTestTransformer},
             ):
                 mock_session_class.return_value.__enter__.return_value = db
@@ -161,12 +160,15 @@ class TestExecuteJobIntegration(DocTransformTestBase):
 
                 execute_job(
                     project_id=project.id,
-                    job_id=job.id,
+                    job_id=str(job.id),
+                    source_document_id=str(document.id),
                     transformer_name="test",
                     target_format=target_format,
+                    task_id=str(uuid4()),
+                    callback_url=None,
+                    task_instance=None,
                 )
 
-        # Verify all jobs completed successfully with correct formats
         document_crud = DocumentCrud(session=db, project_id=project.id)
         for i, (job, target_format) in enumerate(jobs):
             db.refresh(job)
@@ -175,7 +177,6 @@ class TestExecuteJobIntegration(DocTransformTestBase):
 
             transformed_doc = document_crud.read_one(job.transformed_document_id)
             assert transformed_doc is not None
-            # Verify correct file extension based on format
             if target_format == "markdown":
                 assert transformed_doc.fname.endswith(".md")
             elif target_format == "text":

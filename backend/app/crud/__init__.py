@@ -6,9 +6,9 @@ from .user import (
 )
 from .collection.collection import CollectionCrud
 from .collection.collection_job import CollectionJobCrud
-from .document import DocumentCrud
+from .document.document import DocumentCrud
 from .document_collection import DocumentCollectionCrud
-from .doc_transformation_job import DocTransformationJobCrud
+from .document.doc_transformation_job import DocTransformationJobCrud
 from .jobs import JobCrud
 
 from .organization import (
