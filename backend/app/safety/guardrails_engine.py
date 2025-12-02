@@ -12,7 +12,7 @@ class GuardrailsEngine():
 
     def _build_guard(self, validator_items):
         """
-        Convert your config into Guard().use_many(*list_of_validators)
+        Creates Guardrails AI `Guard`
         """
         validator_instances = []
 
