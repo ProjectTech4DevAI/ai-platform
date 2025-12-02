@@ -122,6 +122,12 @@ class Settings(BaseSettings):
     CALLBACK_CONNECT_TIMEOUT: int = 3
     CALLBACK_READ_TIMEOUT: int = 10
 
+    # Resources Monitoring
+    RESOURCE_MONITORING_ENABLED: bool = True
+    RESOURCE_CHECK_INTERVAL: int = 5
+    CPU_THRESHOLD_PERCENT: float = 75.0
+    MEMORY_THRESHOLD_PERCENT: float = 75.0
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def COMPUTED_CELERY_WORKER_CONCURRENCY(self) -> int:
