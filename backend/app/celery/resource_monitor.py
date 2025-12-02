@@ -68,7 +68,7 @@ class ResourceMonitor:
 
             self.is_paused = True
             logger.warning(
-                f"🛑 Worker PAUSED - stopped consuming from queues: {', '.join(self.queue_names)}"
+                f"Worker PAUSED - stopped consuming from queues: {', '.join(self.queue_names)}"
             )
         except Exception as e:
             logger.error(f"Error pausing consumer: {e}", exc_info=True)
@@ -93,7 +93,7 @@ class ResourceMonitor:
 
             self.is_paused = False
             logger.info(
-                f"✅ Worker RESUMED - started consuming from queues: {', '.join(self.queue_names)}"
+                f"Worker RESUMED - started consuming from queues: {', '.join(self.queue_names)}"
             )
         except Exception as e:
             logger.error(f"Error resuming consumer: {e}", exc_info=True)
@@ -101,7 +101,7 @@ class ResourceMonitor:
     def monitor_loop(self):
         """Main monitoring loop - runs in separate thread."""
         logger.info(
-            f"🔍 Resource monitoring started - "
+            f"Resource monitoring started - "
             f"CPU threshold: {self.cpu_threshold}%, "
             f"Memory threshold: {self.memory_threshold}%, "
             f"Check interval: {self.check_interval}s, "
@@ -121,7 +121,7 @@ class ResourceMonitor:
                     # Pause if resources exceeded and not already paused
                     if should_pause_now and not self.is_paused:
                         logger.warning(
-                            f"⚠️  Resource threshold exceeded! "
+                            f"Resource threshold exceeded! "
                             f"CPU: {cpu:.1f}% (limit: {self.cpu_threshold}%), "
                             f"Memory: {memory:.1f}% (limit: {self.memory_threshold}%), "
                             f"Active tasks: {self.active_tasks}. "
@@ -132,7 +132,7 @@ class ResourceMonitor:
                     # Resume if resources OK and currently paused
                     elif not should_pause_now and self.is_paused:
                         logger.info(
-                            f"✓ Resources within limits - "
+                            f"Resources within limits - "
                             f"CPU: {cpu:.1f}%, Memory: {memory:.1f}%, "
                             f"Active tasks: {self.active_tasks}. "
                             f"Resuming task consumption..."
@@ -141,7 +141,7 @@ class ResourceMonitor:
 
                     elif not self.is_paused:
                         logger.debug(
-                            f"📊 Status - CPU: {cpu:.1f}%, Memory: {memory:.1f}%, "
+                            f"Status - CPU: {cpu:.1f}%, Memory: {memory:.1f}%, "
                             f"Active tasks: {self.active_tasks}, Paused: {self.is_paused}"
                         )
 
@@ -167,7 +167,7 @@ class ResourceMonitor:
             target=self.monitor_loop, daemon=True, name="ResourceMonitor"
         )
         monitor_thread.start()
-        logger.info("✨ Resource monitoring thread started")
+        logger.info("Resource monitoring thread started")
 
     def stop_monitoring(self):
         """Stop the monitoring thread."""
