@@ -30,7 +30,7 @@ class ResourceMonitor:
         self.active_tasks = 0
         self.lock = threading.Lock()
         self._should_stop = False
-        
+
         # Will be set by signal
         self.control: Control = None
         self.worker_hostname = None
@@ -62,11 +62,10 @@ class ResourceMonitor:
             # Cancel consumption for each queue
             for queue_name in self.queue_names:
                 self.control.cancel_consumer(
-                    queue=queue_name,
-                    destination=[self.worker_hostname]
+                    queue=queue_name, destination=[self.worker_hostname]
                 )
                 logger.info(f"Cancelled consumer for queue: {queue_name}")
-            
+
             self.is_paused = True
             logger.warning(
                 f"🛑 Worker PAUSED - stopped consuming from queues: {', '.join(self.queue_names)}"
@@ -88,11 +87,10 @@ class ResourceMonitor:
             # Add consumers back for each queue
             for queue_name in self.queue_names:
                 self.control.add_consumer(
-                    queue=queue_name,
-                    destination=[self.worker_hostname]
+                    queue=queue_name, destination=[self.worker_hostname]
                 )
                 logger.info(f"Added consumer for queue: {queue_name}")
-            
+
             self.is_paused = False
             logger.info(
                 f"✅ Worker RESUMED - started consuming from queues: {', '.join(self.queue_names)}"
@@ -116,7 +114,9 @@ class ResourceMonitor:
                 memory = self.get_memory_usage()
                 should_pause_now = self.should_pause(cpu, memory)
                 # Remove this line later
-                logger.info("Memmory Usage: {:.2f}%, CPU Usage: {:.2f}%".format(memory, cpu))
+                logger.info(
+                    "Memmory Usage: {:.2f}%, CPU Usage: {:.2f}%".format(memory, cpu)
+                )
                 with self.lock:
                     # Pause if resources exceeded and not already paused
                     if should_pause_now and not self.is_paused:
@@ -152,7 +152,7 @@ class ResourceMonitor:
 
         logger.info("Resource monitoring loop ended")
 
-    def  start_monitoring(self):
+    def start_monitoring(self):
         """Start the monitoring thread."""
         if not self.control or not self.worker_hostname:
             logger.error("Cannot start monitoring: control or worker hostname not set")
@@ -164,9 +164,7 @@ class ResourceMonitor:
 
         self._should_stop = False
         monitor_thread = threading.Thread(
-            target=self.monitor_loop,
-            daemon=True,
-            name="ResourceMonitor"
+            target=self.monitor_loop, daemon=True, name="ResourceMonitor"
         )
         monitor_thread.start()
         logger.info("✨ Resource monitoring thread started")
@@ -175,7 +173,7 @@ class ResourceMonitor:
         """Stop the monitoring thread."""
         logger.info("Stopping resource monitoring...")
         self._should_stop = True
-        
+
         # Ensure consumer is consuming on shutdown
         with self.lock:
             if self.is_paused:
