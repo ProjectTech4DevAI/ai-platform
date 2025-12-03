@@ -6,3 +6,6 @@ class BaseValidatorConfig(SQLModel):
     # override in subclasses
     validator_cls: ClassVar = None
     on_fail: Optional[Callable] = OnFailAction.FIX
+
+    model_config = {"arbitrary_types_allowed": True}
+

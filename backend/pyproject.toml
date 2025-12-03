@@ -40,7 +40,9 @@ dependencies = [
     "emoji",
     "ftfy",
     "presidio_analyzer",
-    "presidio_anonymizer",    
+    "presidio_anonymizer",
+    "transformers",
+    "torch",
 ]
 
 [tool.uv]
