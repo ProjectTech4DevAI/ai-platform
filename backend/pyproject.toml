@@ -39,6 +39,8 @@ dependencies = [
     "guardrails-ai>=0.7.0",
     "emoji",
     "ftfy",
+    "presidio_analyzer",
+    "presidio_anonymizer",    
 ]
 
 [tool.uv]

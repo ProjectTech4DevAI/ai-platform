@@ -3,12 +3,17 @@ from typing import List, Union, Annotated
 
 # todo this could be improved by having some auto-discovery mechanism inside
 # validators. We'll not have to list every new validator like this.
-from app.safety.validators.lexical_slur import LexicalSlurSafetyValidatorConfig 
 from app.safety.validators.ban_list_validator_config import BanListSafetyValidatorConfig
+from app.safety.validators.lexical_slur import LexicalSlurSafetyValidatorConfig 
+from app.safety.validators.pii_remover import PIIRemoverSafetyValidatorConfig
 
 ValidatorConfigItem = Annotated[
     # future validators
-    Union[LexicalSlurSafetyValidatorConfig, BanListSafetyValidatorConfig],
+    Union[
+        BanListSafetyValidatorConfig,
+        LexicalSlurSafetyValidatorConfig, 
+        PIIRemoverSafetyValidatorConfig
+    ],
     Field(discriminator="type")
 ]
 
