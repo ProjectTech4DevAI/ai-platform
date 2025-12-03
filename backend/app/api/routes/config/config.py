@@ -12,7 +12,7 @@ from app.models import (
     ConfigVersion,
     Message,
 )
-from app.utils import APIResponse
+from app.utils import APIResponse, load_description
 from app.api.permissions import Permission, require_permission
 
 router = APIRouter()
@@ -20,6 +20,7 @@ router = APIRouter()
 
 @router.post(
     "/",
+    description=load_description("config/create.md"),
     response_model=APIResponse[ConfigWithVersion],
     status_code=201,
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
@@ -44,6 +45,7 @@ def create_config(
 
 @router.get(
     "/",
+    description=load_description("config/list.md"),
     response_model=APIResponse[list[ConfigPublic]],
     status_code=200,
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
@@ -67,6 +69,7 @@ def list_configs(
 
 @router.get(
     "/{config_id}",
+    description=load_description("config/get.md"),
     response_model=APIResponse[ConfigPublic],
     status_code=200,
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
@@ -88,6 +91,7 @@ def get_config(
 
 @router.patch(
     "/{config_id}",
+    description=load_description("config/update.md"),
     response_model=APIResponse[ConfigPublic],
     status_code=200,
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
@@ -113,6 +117,7 @@ def update_config(
 
 @router.delete(
     "/{config_id}",
+    description=load_description("config/delete.md"),
     response_model=APIResponse[Message],
     status_code=200,
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
