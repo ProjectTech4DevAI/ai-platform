@@ -156,6 +156,12 @@ class EvaluationRun(SQLModel, table=True):
         description="Version of the config used for this evaluation",
     )
 
+    # Model field (snapshot at creation time)
+    model: str | None = SQLField(
+        default=None,
+        description="LLM model name used for this evaluation (e.g., gpt-4o-mini)",
+    )
+
     # Dataset reference
     dataset_id: int = SQLField(
         foreign_key="evaluation_dataset.id",
@@ -264,6 +270,7 @@ class EvaluationRunPublic(SQLModel):
     dataset_name: str
     config_id: UUID
     config_version: int
+    model: str | None
     dataset_id: int
     batch_job_id: int | None
     embedding_batch_job_id: int | None

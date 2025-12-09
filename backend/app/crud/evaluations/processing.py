@@ -253,16 +253,14 @@ async def process_completed_evaluation(
         if not results:
             raise ValueError("No valid results found in batch output")
 
-        # Extract model from config for cost tracking
-        model = eval_run.config.get("model") if eval_run.config else None
-
         # Step 5: Create Langfuse dataset run with traces
+        # Use model stored at creation time for cost tracking
         trace_id_mapping = create_langfuse_dataset_run(
             langfuse=langfuse,
             dataset_name=eval_run.dataset_name,
             run_name=eval_run.run_name,
             results=results,
-            model=model,
+            model=eval_run.model,
         )
 
         # Store object store URL in database
