@@ -8,12 +8,30 @@ from app.core.util import now
 
 class CredsBase(SQLModel):
     organization_id: int = Field(
-        foreign_key="organization.id", nullable=False, ondelete="CASCADE"
+        sa_column=sa.Column(
+            sa.Integer,
+            sa.ForeignKey("organization.id", ondelete="CASCADE"),
+            nullable=False,
+            comment="Reference to the organization",
+        )
     )
     project_id: int = Field(
-        default=None, foreign_key="project.id", nullable=False, ondelete="CASCADE"
+        sa_column=sa.Column(
+            sa.Integer,
+            sa.ForeignKey("project.id", ondelete="CASCADE"),
+            nullable=False,
+            comment="Reference to the project",
+        )
     )
-    is_active: bool = True
+    is_active: bool = Field(
+        default=True,
+        sa_column=sa.Column(
+            sa.Boolean,
+            default=True,
+            nullable=False,
+            comment="Flag indicating if this credential is currently active and usable",
+        ),
+    )
 
 
 class CredsCreate(SQLModel):
@@ -59,21 +77,48 @@ class Credential(CredsBase, table=True):
         ),
     )
 
-    id: int = Field(default=None, primary_key=True)
+    id: int = Field(
+        default=None,
+        sa_column=sa.Column(
+            sa.Integer,
+            primary_key=True,
+            comment="Unique ID for the credential",
+        ),
+    )
     provider: str = Field(
-        index=True, description="Provider name like 'openai', 'gemini'"
+        sa_column=sa.Column(
+            sa.String,
+            index=True,
+            nullable=False,
+            comment="Provider name like 'openai', 'gemini'",
+        ),
+        description="Provider name like 'openai', 'gemini'",
     )
     credential: str = Field(
-        sa_column=sa.Column(sa.String, nullable=False),
-        description="Encrypted provider-specific credentials",
+        sa_column=sa.Column(
+            sa.String,
+            nullable=False,
+            comment="Encrypted JSON string containing provider-specific API credentials",
+        ),
+        description="Encrypted JSON string containing provider-specific API credentials",
     )
     inserted_at: datetime = Field(
         default_factory=now,
-        sa_column=sa.Column(sa.DateTime, default=datetime.utcnow, nullable=False),
+        sa_column=sa.Column(
+            sa.DateTime,
+            default=datetime.utcnow,
+            nullable=False,
+            comment="Timestamp when the credential was created",
+        ),
     )
     updated_at: datetime = Field(
         default_factory=now,
-        sa_column=sa.Column(sa.DateTime, onupdate=datetime.utcnow, nullable=False),
+        sa_column=sa.Column(
+            sa.DateTime,
+            onupdate=datetime.utcnow,
+            nullable=False,
+            comment="Timestamp when the credential was last updated",
+        ),
     )
 
     organization: Optional["Organization"] = Relationship(back_populates="creds")
