@@ -10,18 +10,6 @@ Configurations allow you to store and manage reusable LLM parameters
 * Supports optional commit messages for tracking changes
 * Provider-agnostic storage - params are passed through to the provider as-is
 
-**Request Field Details:**
-
-- `name` (required): Unique configuration name
-- `description` (optional): Human-readable description for the config
-- `config_blob` (required): LLM configuration object containing:
-  - `completion` (required): Completion configuration with:
-    - `provider` (required): LLM provider (currently only "openai" supported)
-    - `params` (required): **Provider-specific parameters as flexible JSON**
-      - For OpenAI Responses API: `model`, `instructions`, `tools`, `temperature`, `metadata`, etc.
-      - Structure must match the provider's API specification exactly
-      - Stored as-is and passed through to the provider without modification
-- `commit_message` (optional): Message describing this initial version
 
 **Example for the config blob: OpenAI Responses API with File Search**
 

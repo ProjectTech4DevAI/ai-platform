@@ -12,7 +12,7 @@ for processing, and results are delivered via the callback URL when complete.
   - `auto_create` (optional, boolean, default false): Create new conversation if no ID provided
   - **Note**: Cannot specify both `id` and `auto_create=true`
 
-**`config`** (required) - Configuration for the LLM call (choose one mode):
+**`config`** (required) - Configuration for the LLM call (just choose one mode):
 
 - **Mode 1: Stored Configuration**
   - `id` (UUID): Configuration ID
