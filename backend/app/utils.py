@@ -339,7 +339,7 @@ def validate_callback_url(url: str) -> None:
         raise ValueError(f"Error validating callback URL: {str(e)}") from e
 
 
-def send_callback(callback_url: str, data: dict):
+def send_callback(callback_url: str, data: dict[str, Any]) -> bool:
     """
     Send results to the callback URL (synchronously) with SSRF protection.
 
