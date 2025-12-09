@@ -9,7 +9,7 @@ import pytest
 from app.crud.evaluations.langfuse import (
     create_langfuse_dataset_run,
     update_traces_with_cosine_scores,
-    upload_dataset_to_langfuse_from_csv,
+    upload_dataset_to_langfuse,
 )
 
 
@@ -380,29 +380,28 @@ class TestUpdateTracesWithCosineScores:
         mock_langfuse.flush.assert_called_once()
 
 
-class TestUploadDatasetToLangfuseFromCsv:
-    """Test uploading datasets to Langfuse from CSV content."""
+class TestUploadDatasetToLangfuse:
+    """Test uploading datasets to Langfuse from pre-parsed items."""
 
     @pytest.fixture
-    def valid_csv_content(self):
-        """Valid CSV content."""
-        csv_string = """question,answer
-"What is 2+2?","4"
-"What is the capital of France?","Paris"
-"Who wrote Romeo and Juliet?","Shakespeare"
-"""
-        return csv_string.encode("utf-8")
+    def valid_items(self):
+        """Valid parsed items."""
+        return [
+            {"question": "What is 2+2?", "answer": "4"},
+            {"question": "What is the capital of France?", "answer": "Paris"},
+            {"question": "Who wrote Romeo and Juliet?", "answer": "Shakespeare"},
+        ]
 
-    def test_upload_dataset_to_langfuse_from_csv_success(self, valid_csv_content):
+    def test_upload_dataset_to_langfuse_success(self, valid_items):
         """Test successful upload with duplication."""
         mock_langfuse = MagicMock()
         mock_dataset = MagicMock()
         mock_dataset.id = "dataset_123"
         mock_langfuse.create_dataset.return_value = mock_dataset
 
-        langfuse_id, total_items = upload_dataset_to_langfuse_from_csv(
+        langfuse_id, total_items = upload_dataset_to_langfuse(
             langfuse=mock_langfuse,
-            csv_content=valid_csv_content,
+            items=valid_items,
             dataset_name="test_dataset",
             duplication_factor=5,
         )
@@ -416,20 +415,19 @@ class TestUploadDatasetToLangfuseFromCsv:
         # Verify dataset items were created (3 original * 5 duplicates = 15)
         assert mock_langfuse.create_dataset_item.call_count == 15
 
-        mock_langfuse.flush.assert_called_once()
+        # Verify flush was called (once per original item + final flush = 4 times for 3 items)
+        assert mock_langfuse.flush.call_count == 4  # 3 items + 1 final
 
-    def test_upload_dataset_to_langfuse_from_csv_duplication_metadata(
-        self, valid_csv_content
-    ):
+    def test_upload_dataset_to_langfuse_duplication_metadata(self, valid_items):
         """Test that duplication metadata is included."""
         mock_langfuse = MagicMock()
         mock_dataset = MagicMock()
         mock_dataset.id = "dataset_123"
         mock_langfuse.create_dataset.return_value = mock_dataset
 
-        upload_dataset_to_langfuse_from_csv(
+        upload_dataset_to_langfuse(
             langfuse=mock_langfuse,
-            csv_content=valid_csv_content,
+            items=valid_items,
             dataset_name="test_dataset",
             duplication_factor=3,
         )
@@ -449,93 +447,66 @@ class TestUploadDatasetToLangfuseFromCsv:
         assert duplicate_numbers.count(2) == 3  # 3 original items, each with dup #2
         assert duplicate_numbers.count(3) == 3  # 3 original items, each with dup #3
 
-    def test_upload_dataset_to_langfuse_from_csv_missing_columns(self):
-        """Test with CSV missing required columns."""
-        mock_langfuse = MagicMock()
-
-        invalid_csv = b"query,response\nWhat is 2+2?,4\n"
-
-        with pytest.raises(ValueError, match="question.*answer"):
-            upload_dataset_to_langfuse_from_csv(
-                langfuse=mock_langfuse,
-                csv_content=invalid_csv,
-                dataset_name="test_dataset",
-                duplication_factor=1,
-            )
-
-    def test_upload_dataset_to_langfuse_from_csv_empty_rows(self):
-        """Test that empty rows are skipped."""
+    def test_upload_dataset_to_langfuse_empty_items(self):
+        """Test with empty items list."""
         mock_langfuse = MagicMock()
         mock_dataset = MagicMock()
         mock_dataset.id = "dataset_123"
         mock_langfuse.create_dataset.return_value = mock_dataset
 
-        # CSV with some empty rows
-        csv_with_empty = b"""question,answer
-"Valid question 1","Valid answer 1"
-"","Empty answer"
-"Valid question 2",""
-"Valid question 3","Valid answer 3"
-"""
-
-        langfuse_id, total_items = upload_dataset_to_langfuse_from_csv(
+        langfuse_id, total_items = upload_dataset_to_langfuse(
             langfuse=mock_langfuse,
-            csv_content=csv_with_empty,
+            items=[],
             dataset_name="test_dataset",
-            duplication_factor=2,
+            duplication_factor=1,
         )
 
-        # Should only process 2 valid items (first and last)
-        assert total_items == 4  # 2 valid items * 2 duplication
-        assert mock_langfuse.create_dataset_item.call_count == 4
+        assert langfuse_id == "dataset_123"
+        assert total_items == 0
+        mock_langfuse.create_dataset_item.assert_not_called()
+        # Only final flush
+        assert mock_langfuse.flush.call_count == 1
 
-    def test_upload_dataset_to_langfuse_from_csv_empty_dataset(self):
-        """Test with CSV that has no valid items."""
-        mock_langfuse = MagicMock()
-
-        empty_csv = b"""question,answer
-"",""
-"","answer without question"
-"""
-
-        with pytest.raises(ValueError, match="No valid items found"):
-            upload_dataset_to_langfuse_from_csv(
-                langfuse=mock_langfuse,
-                csv_content=empty_csv,
-                dataset_name="test_dataset",
-                duplication_factor=1,
-            )
-
-    def test_upload_dataset_to_langfuse_from_csv_invalid_encoding(self):
-        """Test with invalid CSV encoding."""
-        mock_langfuse = MagicMock()
-
-        # Invalid UTF-8 bytes
-        invalid_csv = b"\xff\xfe Invalid UTF-8"
-
-        with pytest.raises((ValueError, Exception)):
-            upload_dataset_to_langfuse_from_csv(
-                langfuse=mock_langfuse,
-                csv_content=invalid_csv,
-                dataset_name="test_dataset",
-                duplication_factor=1,
-            )
-
-    def test_upload_dataset_to_langfuse_from_csv_default_duplication(
-        self, valid_csv_content
-    ):
+    def test_upload_dataset_to_langfuse_single_duplication(self, valid_items):
         """Test upload with duplication factor of 1."""
         mock_langfuse = MagicMock()
         mock_dataset = MagicMock()
         mock_dataset.id = "dataset_123"
         mock_langfuse.create_dataset.return_value = mock_dataset
 
-        langfuse_id, total_items = upload_dataset_to_langfuse_from_csv(
+        langfuse_id, total_items = upload_dataset_to_langfuse(
             langfuse=mock_langfuse,
-            csv_content=valid_csv_content,
+            items=valid_items,
             dataset_name="test_dataset",
             duplication_factor=1,
         )
 
         assert total_items == 3  # 3 items * 1 duplication
+        assert mock_langfuse.create_dataset_item.call_count == 3
+        # 3 items + 1 final flush
+        assert mock_langfuse.flush.call_count == 4
+
+    def test_upload_dataset_to_langfuse_item_creation_error(self, valid_items):
+        """Test that item creation errors are logged but don't stop processing."""
+        mock_langfuse = MagicMock()
+        mock_dataset = MagicMock()
+        mock_dataset.id = "dataset_123"
+        mock_langfuse.create_dataset.return_value = mock_dataset
+
+        # First item succeeds, second fails, third succeeds
+        mock_langfuse.create_dataset_item.side_effect = [
+            None,  # Item 1 success
+            Exception("API error"),  # Item 2 fails
+            None,  # Item 3 success
+        ]
+
+        langfuse_id, total_items = upload_dataset_to_langfuse(
+            langfuse=mock_langfuse,
+            items=valid_items,
+            dataset_name="test_dataset",
+            duplication_factor=1,
+        )
+
+        # 2 succeeded out of 3
+        assert total_items == 2
         assert mock_langfuse.create_dataset_item.call_count == 3

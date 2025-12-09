@@ -5,7 +5,7 @@ import pytest
 from sqlmodel import select
 
 from app.crud.evaluations.batch import build_evaluation_jsonl
-from app.models import EvaluationDataset
+from app.models import EvaluationDataset, EvaluationRun
 
 
 # Helper function to create CSV file-like object
@@ -60,7 +60,7 @@ class TestDatasetUploadValidation:
                 "app.api.routes.evaluation.get_langfuse_client"
             ) as mock_get_langfuse_client,
             patch(
-                "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
+                "app.api.routes.evaluation.upload_dataset_to_langfuse"
             ) as mock_langfuse_upload,
         ):
             # Mock object store upload
@@ -86,7 +86,9 @@ class TestDatasetUploadValidation:
             )
 
             assert response.status_code == 200, response.text
-            data = response.json()
+            response_data = response.json()
+            assert response_data["success"] is True
+            data = response_data["data"]
 
             assert data["dataset_name"] == "test_dataset"
             assert data["original_items"] == 3
@@ -144,7 +146,7 @@ class TestDatasetUploadValidation:
                 "app.api.routes.evaluation.get_langfuse_client"
             ) as mock_get_langfuse_client,
             patch(
-                "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
+                "app.api.routes.evaluation.upload_dataset_to_langfuse"
             ) as mock_langfuse_upload,
         ):
             # Mock object store and Langfuse uploads
@@ -165,7 +167,9 @@ class TestDatasetUploadValidation:
             )
 
             assert response.status_code == 200, response.text
-            data = response.json()
+            response_data = response.json()
+            assert response_data["success"] is True
+            data = response_data["data"]
 
             # Should only have 2 valid items (first and last rows)
             assert data["original_items"] == 2
@@ -178,7 +182,7 @@ class TestDatasetUploadDuplication:
     def test_upload_with_default_duplication(
         self, client, user_api_key_header, valid_csv_content
     ):
-        """Test uploading with default duplication factor (5)."""
+        """Test uploading with default duplication factor (1)."""
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
             patch(
@@ -188,12 +192,12 @@ class TestDatasetUploadDuplication:
                 "app.api.routes.evaluation.get_langfuse_client"
             ) as mock_get_langfuse_client,
             patch(
-                "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
+                "app.api.routes.evaluation.upload_dataset_to_langfuse"
             ) as mock_langfuse_upload,
         ):
             mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
             mock_get_langfuse_client.return_value = Mock()
-            mock_langfuse_upload.return_value = ("test_dataset_id", 15)
+            mock_langfuse_upload.return_value = ("test_dataset_id", 3)
 
             filename, file_obj = create_csv_file(valid_csv_content)
 
@@ -202,17 +206,19 @@ class TestDatasetUploadDuplication:
                 files={"file": (filename, file_obj, "text/csv")},
                 data={
                     "dataset_name": "test_dataset",
-                    # duplication_factor not provided, should default to 5
+                    # duplication_factor not provided, should default to 1
                 },
                 headers=user_api_key_header,
             )
 
             assert response.status_code == 200, response.text
-            data = response.json()
+            response_data = response.json()
+            assert response_data["success"] is True
+            data = response_data["data"]
 
-            assert data["duplication_factor"] == 5
+            assert data["duplication_factor"] == 1
             assert data["original_items"] == 3
-            assert data["total_items"] == 15  # 3 items * 5 duplication
+            assert data["total_items"] == 3  # 3 items * 1 duplication
 
     def test_upload_with_custom_duplication(
         self, client, user_api_key_header, valid_csv_content
@@ -227,7 +233,7 @@ class TestDatasetUploadDuplication:
                 "app.api.routes.evaluation.get_langfuse_client"
             ) as mock_get_langfuse_client,
             patch(
-                "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
+                "app.api.routes.evaluation.upload_dataset_to_langfuse"
             ) as mock_langfuse_upload,
         ):
             mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
@@ -247,7 +253,9 @@ class TestDatasetUploadDuplication:
             )
 
             assert response.status_code == 200, response.text
-            data = response.json()
+            response_data = response.json()
+            assert response_data["success"] is True
+            data = response_data["data"]
 
             assert data["duplication_factor"] == 4
             assert data["original_items"] == 3
@@ -266,7 +274,7 @@ class TestDatasetUploadDuplication:
                 "app.api.routes.evaluation.get_langfuse_client"
             ) as mock_get_langfuse_client,
             patch(
-                "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
+                "app.api.routes.evaluation.upload_dataset_to_langfuse"
             ) as mock_langfuse_upload,
         ):
             mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
@@ -287,7 +295,9 @@ class TestDatasetUploadDuplication:
             )
 
             assert response.status_code == 200, response.text
-            data = response.json()
+            response_data = response.json()
+            assert response_data["success"] is True
+            data = response_data["data"]
 
             # Verify the description is stored
             dataset = db.exec(
@@ -356,7 +366,7 @@ class TestDatasetUploadDuplication:
                 "app.api.routes.evaluation.get_langfuse_client"
             ) as mock_get_langfuse_client,
             patch(
-                "app.api.routes.evaluation.upload_dataset_to_langfuse_from_csv"
+                "app.api.routes.evaluation.upload_dataset_to_langfuse"
             ) as mock_langfuse_upload,
         ):
             mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
@@ -376,7 +386,9 @@ class TestDatasetUploadDuplication:
             )
 
             assert response.status_code == 200, response.text
-            data = response.json()
+            response_data = response.json()
+            assert response_data["success"] is True
+            data = response_data["data"]
 
             assert data["duplication_factor"] == 1
             assert data["original_items"] == 3
@@ -686,3 +698,97 @@ class TestBatchEvaluationJSONLBuilding:
             assert request_dict["custom_id"] == f"item{i}"
             assert request_dict["body"]["input"] == f"Question {i}"
             assert request_dict["body"]["model"] == "gpt-4o"
+
+
+class TestGetEvaluationRunStatus:
+    """Test GET /evaluations/{evaluation_id} endpoint."""
+
+    @pytest.fixture
+    def create_test_dataset(self, db, user_api_key):
+        """Create a test dataset for evaluation runs."""
+        dataset = EvaluationDataset(
+            name="test_dataset_for_runs",
+            description="Test dataset",
+            dataset_metadata={
+                "original_items_count": 3,
+                "total_items_count": 3,
+                "duplication_factor": 1,
+            },
+            langfuse_dataset_id="langfuse_test_id",
+            object_store_url="s3://test/dataset.csv",
+            organization_id=user_api_key.organization_id,
+            project_id=user_api_key.project_id,
+        )
+        db.add(dataset)
+        db.commit()
+        db.refresh(dataset)
+        return dataset
+
+    def test_get_evaluation_run_trace_info_not_completed(
+        self, client, user_api_key_header, db, user_api_key, create_test_dataset
+    ):
+        """Test requesting trace info for incomplete evaluation returns error."""
+        eval_run = EvaluationRun(
+            run_name="test_pending_run",
+            dataset_name=create_test_dataset.name,
+            dataset_id=create_test_dataset.id,
+            config={"model": "gpt-4o"},
+            status="pending",
+            total_items=3,
+            organization_id=user_api_key.organization_id,
+            project_id=user_api_key.project_id,
+        )
+        db.add(eval_run)
+        db.commit()
+        db.refresh(eval_run)
+
+        response = client.get(
+            f"/api/v1/evaluations/{eval_run.id}",
+            params={"get_trace_info": True},
+            headers=user_api_key_header,
+        )
+
+        assert response.status_code == 200
+        response_data = response.json()
+        assert response_data["success"] is False
+        assert "only available for completed evaluations" in response_data["error"]
+        # Should still include the evaluation run data
+        assert response_data["data"]["id"] == eval_run.id
+
+    def test_get_evaluation_run_trace_info_completed(
+        self, client, user_api_key_header, db, user_api_key, create_test_dataset
+    ):
+        """Test requesting trace info for completed evaluation returns cached scores."""
+        eval_run = EvaluationRun(
+            run_name="test_completed_run",
+            dataset_name=create_test_dataset.name,
+            dataset_id=create_test_dataset.id,
+            config={"model": "gpt-4o"},
+            status="completed",
+            total_items=3,
+            score={
+                "traces": [
+                    {"trace_id": "trace1", "question": "Q1", "scores": []},
+                ],
+                "summary_scores": [],
+            },
+            organization_id=user_api_key.organization_id,
+            project_id=user_api_key.project_id,
+        )
+        db.add(eval_run)
+        db.commit()
+        db.refresh(eval_run)
+
+        response = client.get(
+            f"/api/v1/evaluations/{eval_run.id}",
+            params={"get_trace_info": True},
+            headers=user_api_key_header,
+        )
+
+        assert response.status_code == 200
+        response_data = response.json()
+        assert response_data["success"] is True
+        data = response_data["data"]
+        assert data["id"] == eval_run.id
+        assert data["status"] == "completed"
+        assert "traces" in data["score"]

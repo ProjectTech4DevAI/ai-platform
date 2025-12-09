@@ -105,9 +105,9 @@ class EndpointInvoker:
             logger.debug(f"Response status: {response.status_code}")
             logger.debug(f"Response headers: {dict(response.headers)}")
 
-            # If unauthorized, re-authenticate and retry once
-            if response.status_code == 401:
-                logger.info("Token expired, re-authenticating...")
+            # If unauthorized or forbidden (token expired/invalid), re-authenticate and retry once
+            if response.status_code in (401, 403):
+                logger.info("Token expired or invalid, re-authenticating...")
                 await self.authenticate(client)
                 headers = {"Authorization": f"Bearer {self.access_token}"}
                 response = await client.get(

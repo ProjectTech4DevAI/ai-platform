@@ -1,16 +1,15 @@
 from uuid import UUID
 import logging
 
-from fastapi import APIRouter, HTTPException, Query, Path
+from fastapi import APIRouter, Query, Path
 
 from app.api.deps import CurrentUserOrgProject, SessionDep
 from app.crud import DocTransformationJobCrud, DocumentCrud
 from app.models import (
     DocTransformationJobPublic,
     DocTransformationJobsPublic,
-    TransformedDocumentPublic,
 )
-from app.utils import APIResponse
+from app.utils import APIResponse, load_description
 from app.services.documents.helpers import build_job_schema, build_job_schemas
 from app.core.cloud import get_cloud_storage
 
@@ -21,7 +20,7 @@ router = APIRouter(prefix="/documents/transformation", tags=["documents"])
 
 @router.get(
     "/{job_id}",
-    description="Get the status and details of a document transformation job.",
+    description=load_description("documents/job_info.md"),
     response_model=APIResponse[DocTransformationJobPublic],
 )
 def get_transformation_job(
@@ -53,7 +52,7 @@ def get_transformation_job(
 
 @router.get(
     "/",
-    description="Get the status and details of multiple document transformation jobs by IDs.",
+    description=load_description("documents/job_list.md"),
     response_model=APIResponse[DocTransformationJobsPublic],
 )
 def get_multiple_transformation_jobs(
