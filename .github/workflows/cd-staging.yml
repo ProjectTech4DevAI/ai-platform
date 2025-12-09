@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment: AWS_ENV_VARS
 
     permissions:
       packages: write
@@ -34,11 +35,11 @@ jobs:
       - name: Build and Push Docker Image
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          REPOSITORY: ${{ github.event.repository.name }}-staging-repo
+          REPOSITORY: ${{ vars.AWS_RESOURCE_PREFIX }}-staging-repo
         run: |
           docker build -t $REGISTRY/$REPOSITORY:latest ./backend
           docker push $REGISTRY/$REPOSITORY:latest
 
       - name: Deploy to ECS
         run: |
-          aws ecs update-service --cluster ${{ github.event.repository.name }}-staging-cluster --service ${{ github.event.repository.name }}-staging-service --force-new-deployment
+          aws ecs update-service --cluster ${{ vars.AWS_RESOURCE_PREFIX }}-staging-cluster --service ${{ vars.AWS_RESOURCE_PREFIX }}-staging-service --force-new-deployment
