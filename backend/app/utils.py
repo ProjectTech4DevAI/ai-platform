@@ -368,6 +368,8 @@ def send_callback(callback_url: str, data: dict[str, Any]) -> bool:
 
     try:
         with requests.Session() as session:
+            session.trust_env = False  # Ignores environment proxies and other implicit settings for SSRF safety
+
             response = session.post(
                 callback_url,
                 json=data,
@@ -391,7 +393,7 @@ def send_callback(callback_url: str, data: dict[str, Any]) -> bool:
                     )
                     return False
 
-            logger.info(f"[send_callback] Callback sent successfully")
+            logger.info("[send_callback] Callback sent successfully")
             return True
 
     except requests.RequestException as e:
