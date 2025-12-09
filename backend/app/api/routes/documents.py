@@ -114,11 +114,11 @@ async def upload_doc(
     | None = Form(
         None, description="Name of the transformer to apply when converting."
     ),
-    callback_url: HttpUrl
+    callback_url: str
     | None = Form(None, description="URL to call to report endpoint status"),
 ):
     if callback_url:
-        validate_callback_url(str(callback_url))
+        validate_callback_url(callback_url)
 
     source_format, actual_transformer = pre_transform_validation(
         src_filename=src.filename,
@@ -146,7 +146,7 @@ async def upload_doc(
         target_format=target_format,
         actual_transformer=actual_transformer,
         source_document_id=source_document.id,
-        callback_url=str(callback_url),
+        callback_url=callback_url,
     )
 
     document_schema = DocumentPublic.model_validate(

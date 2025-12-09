@@ -265,7 +265,7 @@ def handle_openai_error(e: openai.OpenAIError) -> str:
     return str(e)
 
 
-def _is_private_ip(ip: str) -> bool:
+def _is_private_ip(ip: str) -> tuple[bool, str]:
     """Check if an IP address is private, localhost, or reserved."""
     try:
         ip_obj = ipaddress.ip_address(ip)
