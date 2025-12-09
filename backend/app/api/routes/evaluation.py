@@ -20,7 +20,7 @@ from app.crud.evaluations import (
     upload_dataset_to_langfuse,
 )
 from app.crud.evaluations import list_evaluation_runs as list_evaluation_runs_crud
-from app.crud.evaluations.core import resolve_config_from_stored, save_score
+from app.crud.evaluations.core import save_score
 from app.crud.evaluations.dataset import delete_dataset as delete_dataset_crud
 from app.crud.evaluations.langfuse import fetch_trace_scores_from_langfuse
 from app.models.evaluation import (
@@ -34,6 +34,7 @@ from app.utils import (
     load_description,
 )
 from app.services.llm.jobs import resolve_config_blob
+from app.services.llm.providers import LLMProvider
 from app.models.llm.request import LLMCallConfig
 from app.crud.config.version import ConfigVersionCrud
 
@@ -487,16 +488,22 @@ def evaluate(
             status_code=400,
             detail=f"Failed to resolve config from stored config: {error}",
         )
+    elif config.completion.provider != LLMProvider.OPENAI:
+        raise HTTPException(
+            status_code=400,
+            detail="Only 'openai' provider is supported for evaluation configs",
+        )
 
     logger.info("[evaluate] Successfully resolved config from config management")
 
-    # Create EvaluationRun record with resolved config and references
+    # Create EvaluationRun record with config references
     eval_run = create_evaluation_run(
         session=_session,
         run_name=experiment_name,
         dataset_name=dataset_name,
         dataset_id=dataset_id,
-        config=config.completion.params,
+        config_id=config_id,
+        config_version=config_version,
         organization_id=auth_context.organization.id,
         project_id=auth_context.project.id,
     )
