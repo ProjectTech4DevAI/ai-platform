@@ -496,6 +496,9 @@ def evaluate(
 
     logger.info("[evaluate] Successfully resolved config from config management")
 
+    # Extract model from config for storage
+    model = config.completion.params.get("model")
+
     # Create EvaluationRun record with config references
     eval_run = create_evaluation_run(
         session=_session,
@@ -504,6 +507,7 @@ def evaluate(
         dataset_id=dataset_id,
         config_id=config_id,
         config_version=config_version,
+        model=model,
         organization_id=auth_context.organization.id,
         project_id=auth_context.project.id,
     )

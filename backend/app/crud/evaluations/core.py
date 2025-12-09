@@ -21,6 +21,7 @@ def create_evaluation_run(
     config_version: int,
     organization_id: int,
     project_id: int,
+    model: str | None = None,
 ) -> EvaluationRun:
     """
     Create a new evaluation run record in the database.
@@ -34,6 +35,7 @@ def create_evaluation_run(
         config_version: Version number of the config
         organization_id: Organization ID
         project_id: Project ID
+        model: LLM model name (snapshot at creation time)
 
     Returns:
         The created EvaluationRun instance
@@ -44,6 +46,7 @@ def create_evaluation_run(
         dataset_id=dataset_id,
         config_id=config_id,
         config_version=config_version,
+        model=model,
         status="pending",
         organization_id=organization_id,
         project_id=project_id,
