@@ -362,7 +362,11 @@ def send_callback(callback_url: str, data: dict[str, Any]) -> bool:
     """
     try:
         validate_callback_url(str(callback_url))
+    except ValueError as ve:
+        logger.error(f"[send_callback] Invalid callback URL: {ve}", exc_info=True)
+        return False
 
+    try:
         with requests.Session() as session:
             response = session.post(
                 callback_url,
@@ -387,7 +391,7 @@ def send_callback(callback_url: str, data: dict[str, Any]) -> bool:
                     )
                     return False
 
-            logger.info(f"[send_callback] Callback sent successfully to {callback_url}")
+            logger.info(f"[send_callback] Callback sent successfully")
             return True
 
     except requests.RequestException as e:
