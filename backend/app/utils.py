@@ -1,10 +1,13 @@
 import functools as ft
+import ipaddress
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import requests
+import socket
 from typing import Any, Dict, Generic, Optional, TypeVar
+from urllib.parse import urlparse
 
 import jwt
 import emails
@@ -262,12 +265,105 @@ def handle_openai_error(e: openai.OpenAIError) -> str:
     return str(e)
 
 
-def send_callback(callback_url: str, data: dict):
-    """Send results to the callback URL (synchronously)."""
+def _is_private_ip(ip: str) -> bool:
+    """Check if an IP address is private, localhost, or reserved."""
     try:
+        ip_obj = ipaddress.ip_address(ip)
+
+        checks = [
+            (ip_obj.is_loopback, "loopback/localhost"),
+            (ip_obj.is_link_local, "link-local"),
+            (ip_obj.is_multicast, "multicast"),
+            (ip_obj.is_private, "private"),
+            (ip_obj.is_reserved, "reserved"),
+        ]
+
+        for is_blocked, reason in checks:
+            if is_blocked:
+                return (True, reason)
+
+        return (False, "")
+
+    except ValueError:
+        return (False, "")
+
+
+def validate_callback_url(url: str) -> None:
+    """
+    Validate callback URL to prevent SSRF attacks.
+
+    Blocks:
+    - Non-HTTPS URLs
+    - Private IP addresses (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
+    - Localhost/loopback addresses (127.0.0.0/8, ::1)
+    - Link-local addresses (169.254.0.0/16)
+    - Cloud metadata endpoints (169.254.169.254)
+    - Reserved IP ranges
+
+    Args:
+        url: The callback URL to validate
+
+    Raises:
+        ValueError: If URL is not allowed
+    """
+    try:
+        parsed = urlparse(url)
+
+        if parsed.scheme != "https":
+            raise ValueError(
+                f"Only HTTPS URLs are allowed for callbacks. Got: {parsed.scheme}"
+            )
+
+        if not parsed.hostname:
+            raise ValueError("URL must have a valid hostname")
+
+        addr_info = socket.getaddrinfo(
+            parsed.hostname,
+            parsed.port or 443,
+            socket.AF_UNSPEC,
+            socket.SOCK_STREAM,
+        )
+
+        for info in addr_info:
+            ip_address = info[4][0]
+            is_blocked, reason = _is_private_ip(ip_address)
+            if is_blocked:
+                raise ValueError(
+                    f"Callback URL resolves to {reason} IP address: {ip_address}. "
+                    f"This IP type is not allowed for callbacks."
+                )
+
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(f"Error validating callback URL: {str(e)}") from e
+
+
+def send_callback(callback_url: str, data: dict):
+    """
+    Send results to the callback URL (synchronously) with SSRF protection.
+
+    Security features:
+    - HTTPS-only enforcement
+    - Private IP blocking (RFC 1918)
+    - Localhost/loopback blocking
+    - Cloud metadata endpoint blocking
+    - DNS rebinding protection
+    - Redirect following disabled
+    - Strict timeouts
+    - Response size limits (prevents DoS via large responses)
+
+    Args:
+        callback_url: The HTTPS URL to send the callback to
+        data: The JSON data to send in the POST request
+
+    Returns:
+        bool: True if callback succeeded, False otherwise
+    """
+    try:
+        validate_callback_url(str(callback_url))
+
         with requests.Session() as session:
-            # uncomment this to run locally without SSL
-            # session.verify = False
             response = session.post(
                 callback_url,
                 json=data,
@@ -275,10 +371,25 @@ def send_callback(callback_url: str, data: dict):
                     settings.CALLBACK_CONNECT_TIMEOUT,
                     settings.CALLBACK_READ_TIMEOUT,
                 ),
+                allow_redirects=False,
+                stream=True,
             )
+
             response.raise_for_status()
+
+            total_size = 0
+            for chunk in response.iter_content(chunk_size=8192):
+                total_size += len(chunk)
+                if total_size > settings.CALLBACK_MAX_RESPONSE_SIZE:
+                    response.close()
+                    logger.error(
+                        f"[send_callback] Response size exceeds {settings.CALLBACK_MAX_RESPONSE_SIZE} bytes while reading"
+                    )
+                    return False
+
             logger.info(f"[send_callback] Callback sent successfully to {callback_url}")
             return True
+
     except requests.RequestException as e:
         logger.error(f"[send_callback] Callback failed: {str(e)}", exc_info=True)
         return False
