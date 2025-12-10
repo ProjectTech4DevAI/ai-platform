@@ -9,7 +9,6 @@ from alembic import op
 import sqlalchemy as sa
 import sqlmodel.sql.sqltypes
 from sqlalchemy.orm import Session
-from app.alembic.migrate_api_key import migrate_api_keys, verify_migration
 
 
 # revision identifiers, used by Alembic.
@@ -34,30 +33,17 @@ def upgrade():
     # Step 2: Add UUID column before migration
     op.add_column("apikey", sa.Column("new_id", sa.Uuid(), nullable=True))
 
-    # Step 3: Migrate existing encrypted keys to the new hashed format and generate UUIDs
-    bind = op.get_bind()
-    with Session(bind=bind) as session:
-        migrate_api_keys(session, generate_uuid=True)
-
-        # Step 4: Verify migration was successful
-        if not verify_migration(session):
-            raise Exception(
-                "API key migration verification failed. Please check the logs."
-            )
-
-        session.flush()
-
-    # Step 5: Make the columns non-nullable after migration
+    # Step 3: Make the columns non-nullable after migration
     op.alter_column("apikey", "key_prefix", nullable=False)
     op.alter_column("apikey", "key_hash", nullable=False)
 
-    # Step 6: Replace old PK with UUID-based PK
+    # Step 4: Replace old PK with UUID-based PK
     op.drop_constraint("apikey_pkey", "apikey", type_="primary")
     op.drop_column("apikey", "id")
     op.alter_column("apikey", "new_id", new_column_name="id", nullable=False)
     op.create_primary_key("apikey_pkey", "apikey", ["id"])
 
-    # Step 7: Update indexes and drop old key column
+    # Step 5: Update indexes and drop old key column
     op.drop_index("ix_apikey_key", table_name="apikey")
     op.create_index(op.f("ix_apikey_key_prefix"), "apikey", ["key_prefix"], unique=True)
     op.drop_column("apikey", "key")
