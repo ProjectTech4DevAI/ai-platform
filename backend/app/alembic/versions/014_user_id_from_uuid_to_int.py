@@ -1,7 +1,7 @@
 """user_id from uuid to int
 
-Revision ID: 66abc97f3782
-Revises: 60b6c511a485
+Revision ID: 014
+Revises: 013
 Create Date: 2025-06-16 11:05:36.196795
 
 """

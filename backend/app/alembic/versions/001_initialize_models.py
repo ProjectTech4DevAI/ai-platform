@@ -1,6 +1,6 @@
 """Initialize models
 
-Revision ID: e2412789c190
+Revision ID: 001
 Revises:
 Create Date: 2023-11-24 22:55:43.195942
 

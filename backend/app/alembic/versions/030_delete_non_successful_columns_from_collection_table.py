@@ -1,7 +1,7 @@
 """delete processing and failed columns from collection table
 
-Revision ID: 7ab577d3af26
-Revises: c6fb6d0b5897
+Revision ID: 030
+Revises: 029
 Create Date: 2025-10-06 13:59:28.561706
 
 """

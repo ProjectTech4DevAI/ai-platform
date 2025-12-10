@@ -1,7 +1,7 @@
 """create job table
 
-Revision ID: c6fb6d0b5897
-Revises: 6ed6ed401847
+Revision ID: 029
+Revises: 028
 Create Date: 2025-09-22 17:55:57.558157
 
 """

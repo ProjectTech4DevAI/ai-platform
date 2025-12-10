@@ -1,7 +1,7 @@
 """add error message column in collections table
 
-Revision ID: 5a59c6c29a82
-Revises: e9dd35eff62c
+Revision ID: 022
+Revises: 021
 Create Date: 2025-08-11 15:40:40.127161
 
 """

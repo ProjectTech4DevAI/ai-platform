@@ -1,7 +1,7 @@
 """adding collection job table and altering collections table
 
-Revision ID: b30727137e65
-Revises: 7ab577d3af26
+Revision ID: 031
+Revises: 030
 Create Date: 2025-10-05 14:19:14.213933
 
 """

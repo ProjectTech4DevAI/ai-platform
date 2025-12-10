@@ -1,7 +1,7 @@
 """Alter unique constraint assistant table
 
-Revision ID: 38f0e8c8dc92
-Revises: 5a59c6c29a82
+Revision ID: 023
+Revises: 022
 Create Date: 2025-08-20 15:02:39.151977
 
 """

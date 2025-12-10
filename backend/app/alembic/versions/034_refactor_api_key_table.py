@@ -1,7 +1,7 @@
 """Refactor API key table
 
-Revision ID: e7c68e43ce6f
-Revises: 27c271ab6dd0
+Revision ID: 034
+Revises: 033
 Create Date: 2025-10-16 13:06:51.777671
 
 """

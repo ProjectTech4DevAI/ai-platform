@@ -1,7 +1,7 @@
 """Change vector_store_id to vector_store_ids in openai_assistant table
 
-Revision ID: f2589428c1d0
-Revises: 3389c67fdcb4
+Revision ID: 018
+Revises: 017
 Create Date: 2025-07-10 11:18:21.223114
 
 """

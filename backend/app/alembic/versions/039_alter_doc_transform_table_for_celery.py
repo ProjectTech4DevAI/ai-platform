@@ -1,7 +1,7 @@
 """alter doc transform table for celery
 
-Revision ID: eed36ae3c79a
-Revises: ecda6b144627
+Revision ID: 039
+Revises: 038
 Create Date: 2025-11-12 20:08:39.774862
 
 """

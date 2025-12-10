@@ -1,7 +1,7 @@
 """item table drop
 
-Revision ID: 8d7a05fd0ad4
-Revises: c43313eca57d
+Revision ID: 008
+Revises: 007
 Create Date: 2025-04-08 15:26:46.613516
 
 """

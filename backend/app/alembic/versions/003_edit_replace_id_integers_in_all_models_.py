@@ -1,7 +1,7 @@
 """Edit replace id integers in all models to use UUID instead
 
-Revision ID: d98dd8ec85a3
-Revises: 9c0a54914c78
+Revision ID: 003
+Revises: 002
 Create Date: 2024-07-19 04:08:04.000976
 
 """

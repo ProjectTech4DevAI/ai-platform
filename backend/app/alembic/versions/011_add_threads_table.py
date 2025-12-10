@@ -1,7 +1,7 @@
 """add threads table
 
-Revision ID: 79e47bc3aac6
-Revises: f23675767ed2
+Revision ID: 011
+Revises: 010
 Create Date: 2025-05-12 15:49:39.142806
 
 """

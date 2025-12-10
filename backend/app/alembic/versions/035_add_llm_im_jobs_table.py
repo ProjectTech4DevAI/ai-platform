@@ -1,7 +1,7 @@
 """Add LLM in jobs table
 
-Revision ID: 219033c644de
-Revises: e7c68e43ce6f
+Revision ID: 035
+Revises: 034
 Create Date: 2025-10-17 15:38:33.565674
 
 """

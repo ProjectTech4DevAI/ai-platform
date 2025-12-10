@@ -1,7 +1,7 @@
 """Add cascade delete relationships
 
-Revision ID: 1a31ce608336
-Revises: d98dd8ec85a3
+Revision ID: 004
+Revises: 003
 Create Date: 2024-07-31 22:24:34.447891
 
 """

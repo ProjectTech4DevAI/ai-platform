@@ -1,7 +1,7 @@
 """Add max length for string(varchar) fields in User and Items models
 
-Revision ID: 9c0a54914c78
-Revises: e2412789c190
+Revision ID: 002
+Revises: 001
 Create Date: 2024-06-17 14:42:44.639457
 
 """

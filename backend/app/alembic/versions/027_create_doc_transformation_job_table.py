@@ -1,7 +1,7 @@
 """create doc transformation job table
 
-Revision ID: 9f8a4af9d6fd
-Revises: b5b9412d3d2a
+Revision ID: 027
+Revises: 026
 Create Date: 2025-08-29 16:00:47.848950
 
 """

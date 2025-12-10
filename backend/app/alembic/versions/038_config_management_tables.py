@@ -1,7 +1,7 @@
 """Config management tables
 
-Revision ID: ecda6b144627
-Revises: 633e69806207
+Revision ID: 038
+Revises: 037
 Create Date: 2025-11-19 13:16:50.954576
 
 """

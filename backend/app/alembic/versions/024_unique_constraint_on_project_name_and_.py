@@ -1,7 +1,7 @@
 """unique constraint on project_name and org id
 
-Revision ID: 8725df286943
-Revises: 38f0e8c8dc92
+Revision ID: 024
+Revises: 023
 Create Date: 2025-08-27 12:22:36.633904
 
 """

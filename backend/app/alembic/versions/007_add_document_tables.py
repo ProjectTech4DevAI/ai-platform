@@ -1,7 +1,7 @@
 """Add document tables
 
-Revision ID: c43313eca57d
-Revises: 0f205e3779ee
+Revision ID: 007
+Revises: 006
 Create Date: 2025-04-07 10:04:10.414165
 
 """

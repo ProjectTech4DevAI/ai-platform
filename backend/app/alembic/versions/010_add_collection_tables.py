@@ -1,7 +1,7 @@
 """Add collection tables
 
-Revision ID: f23675767ed2
-Revises: 543f97951bd0
+Revision ID: 010
+Revises: 009
 Create Date: 2025-04-23 20:42:48.254463
 
 """

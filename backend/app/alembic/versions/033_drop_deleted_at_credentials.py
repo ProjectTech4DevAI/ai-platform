@@ -1,7 +1,7 @@
 """drop column deleted_at from credentials
 
-Revision ID: 27c271ab6dd0
-Revises: 93d484f5798e
+Revision ID: 033
+Revises: 032
 Create Date: 2025-10-15 11:10:02.554097
 
 """

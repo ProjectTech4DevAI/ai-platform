@@ -1,7 +1,7 @@
 """Add is_deleted column in assistant table
 
-Revision ID: e8ee93526b37
-Revises: 4aa1f48c6321
+Revision ID: 020
+Revises: 019
 Create Date: 2025-07-21 12:40:03.791321
 
 """

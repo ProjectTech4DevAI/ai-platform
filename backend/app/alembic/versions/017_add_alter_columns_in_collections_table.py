@@ -1,7 +1,7 @@
 """add/alter columns in collections table
 
-Revision ID: 3389c67fdcb4
-Revises: 8757b005d681
+Revision ID: 017
+Revises: 016
 Create Date: 2025-06-20 18:08:16.585843
 
 """

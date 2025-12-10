@@ -1,7 +1,7 @@
 """Fixing inconsistencies
 
-Revision ID: 4aa1f48c6321
-Revises: 3389c67fdcb4
+Revision ID: 019
+Revises: 018
 Create Date: 2025-07-03 16:46:13.642386
 
 """

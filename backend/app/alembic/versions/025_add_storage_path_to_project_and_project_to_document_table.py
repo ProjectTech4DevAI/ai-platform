@@ -1,7 +1,7 @@
 """add storage_path to project and project_id to document table
 
-Revision ID: 40307ab77e9f
-Revises: 8725df286943
+Revision ID: 025
+Revises: 024
 Create Date: 2025-08-28 10:54:30.712627
 
 """

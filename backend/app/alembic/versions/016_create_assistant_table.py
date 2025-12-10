@@ -1,7 +1,7 @@
 """create assistant table
 
-Revision ID: 8757b005d681
-Revises: 8e7dc5eab0b0
+Revision ID: 016
+Revises: 015
 Create Date: 2025-06-16 13:40:10.447538
 
 """

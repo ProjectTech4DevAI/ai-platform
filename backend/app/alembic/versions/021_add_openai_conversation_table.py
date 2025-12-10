@@ -1,7 +1,7 @@
 """add_openai_conversation_table
 
-Revision ID: e9dd35eff62c
-Revises: e8ee93526b37
+Revision ID: 021
+Revises: 020
 Create Date: 2025-07-25 18:26:38.132146
 
 """

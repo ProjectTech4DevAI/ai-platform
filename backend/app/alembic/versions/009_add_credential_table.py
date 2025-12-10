@@ -1,7 +1,7 @@
 """add credential table
 
-Revision ID: 543f97951bd0
-Revises: 8d7a05fd0ad4
+Revision ID: 009
+Revises: 008
 Create Date: 2025-04-14 23:50:51.118373
 
 """

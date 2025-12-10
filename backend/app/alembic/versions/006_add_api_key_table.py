@@ -1,7 +1,7 @@
 """add api key table
 
-Revision ID: 0f205e3779ee
-Revises: 99f4fc325617
+Revision ID: 006
+Revises: 005
 Create Date: 2025-03-21 23:43:34.181704
 
 """
