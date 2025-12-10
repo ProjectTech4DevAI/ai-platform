@@ -1,8 +1,8 @@
-"""empty message
+"""add_db_comments
 
-Revision ID: 6d3cfa2cf283
+Revision ID: 8d3c3e8ce7b8
 Revises: eed36ae3c79a
-Create Date: 2025-12-09 15:11:09.763758
+Create Date: 2025-12-10 13:33:44.172685
 
 """
 from alembic import op
@@ -11,7 +11,7 @@ import sqlmodel.sql.sqltypes
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = "6d3cfa2cf283"
+revision = "8d3c3e8ce7b8"
 down_revision = "eed36ae3c79a"
 branch_labels = None
 depends_on = None
