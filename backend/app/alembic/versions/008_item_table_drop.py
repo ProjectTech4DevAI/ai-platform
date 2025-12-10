@@ -11,8 +11,8 @@ import sqlmodel.sql.sqltypes
 
 
 # revision identifiers, used by Alembic.
-revision = '008'
-down_revision = '007'
+revision = "008"
+down_revision = "007"
 branch_labels = None
 depends_on = None
 

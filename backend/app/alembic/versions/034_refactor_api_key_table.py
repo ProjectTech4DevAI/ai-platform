@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 
 
 # revision identifiers, used by Alembic.
-revision = '034'
-down_revision = '033'
+revision = "034"
+down_revision = "033"
 branch_labels = None
 depends_on = None
 
