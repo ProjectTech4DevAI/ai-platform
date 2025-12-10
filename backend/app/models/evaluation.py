@@ -348,8 +348,8 @@ class EvaluationRunPublic(SQLModel):
     id: int
     run_name: str
     dataset_name: str
-    config_id: UUID
-    config_version: int
+    config_id: UUID | None
+    config_version: int | None
     model: str | None
     dataset_id: int
     batch_job_id: int | None
