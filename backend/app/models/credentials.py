@@ -8,29 +8,23 @@ from app.core.util import now
 
 class CredsBase(SQLModel):
     organization_id: int = Field(
-        sa_column=sa.Column(
-            sa.Integer,
-            sa.ForeignKey("organization.id", ondelete="CASCADE"),
-            nullable=False,
-            comment="Reference to the organization",
-        )
+        foreign_key="organization.id",
+        nullable=False,
+        ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the organization"},
     )
     project_id: int = Field(
-        sa_column=sa.Column(
-            sa.Integer,
-            sa.ForeignKey("project.id", ondelete="CASCADE"),
-            nullable=False,
-            comment="Reference to the project",
-        )
+        foreign_key="project.id",
+        nullable=False,
+        ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the project"},
     )
     is_active: bool = Field(
         default=True,
-        sa_column=sa.Column(
-            sa.Boolean,
-            default=True,
-            nullable=False,
-            comment="Flag indicating if this credential is currently active and usable",
-        ),
+        nullable=False,
+        sa_column_kwargs={
+            "comment": "Flag indicating if this credential is currently active and usable"
+        },
     )
 
 
@@ -77,48 +71,33 @@ class Credential(CredsBase, table=True):
         ),
     )
 
-    id: int = Field(
+    id: int | None = Field(
         default=None,
-        sa_column=sa.Column(
-            sa.Integer,
-            primary_key=True,
-            comment="Unique ID for the credential",
-        ),
+        primary_key=True,
+        sa_column_kwargs={"comment": "Unique ID for the credential"},
     )
     provider: str = Field(
-        sa_column=sa.Column(
-            sa.String,
-            index=True,
-            nullable=False,
-            comment="Provider name like 'openai', 'gemini'",
-        ),
+        index=True,
+        nullable=False,
         description="Provider name like 'openai', 'gemini'",
+        sa_column_kwargs={"comment": "Provider name like 'openai', 'gemini'"},
     )
     credential: str = Field(
-        sa_column=sa.Column(
-            sa.String,
-            nullable=False,
-            comment="Encrypted JSON string containing provider-specific API credentials",
-        ),
+        nullable=False,
         description="Encrypted JSON string containing provider-specific API credentials",
+        sa_column_kwargs={
+            "comment": "Encrypted JSON string containing provider-specific API credentials"
+        },
     )
     inserted_at: datetime = Field(
         default_factory=now,
-        sa_column=sa.Column(
-            sa.DateTime,
-            default=datetime.utcnow,
-            nullable=False,
-            comment="Timestamp when the credential was created",
-        ),
+        nullable=False,
+        sa_column_kwargs={"comment": "Timestamp when the credential was created"},
     )
     updated_at: datetime = Field(
         default_factory=now,
-        sa_column=sa.Column(
-            sa.DateTime,
-            onupdate=datetime.utcnow,
-            nullable=False,
-            comment="Timestamp when the credential was last updated",
-        ),
+        nullable=False,
+        sa_column_kwargs={"comment": "Timestamp when the credential was last updated"},
     )
 
     organization: Optional["Organization"] = Relationship(back_populates="creds")
