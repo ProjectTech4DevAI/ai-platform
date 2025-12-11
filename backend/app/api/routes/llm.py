@@ -8,7 +8,6 @@ from app.services.llm.jobs import start_job
 from app.utils import APIResponse, validate_callback_url, load_description
 
 
-
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["LLM"])
