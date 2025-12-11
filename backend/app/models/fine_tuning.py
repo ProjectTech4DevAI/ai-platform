@@ -71,11 +71,6 @@ class Fine_Tuning(FineTuningJobBase, table=True):
         nullable=False,
         sa_column_kwargs={"comment": "Train/test split ratio for the dataset"},
     )
-    document_id: UUID = Field(
-        foreign_key="document.id",
-        nullable=False,
-        sa_column_kwargs={"comment": "Reference to the training document"},
-    )
     training_file_id: str | None = Field(
         default=None,
         sa_column_kwargs={"comment": "OpenAI training file identifier"},
@@ -109,6 +104,18 @@ class Fine_Tuning(FineTuningJobBase, table=True):
         default=None,
         sa_column_kwargs={"comment": "Error message if the job failed"},
     )
+    is_deleted: bool = Field(
+        default=False,
+        nullable=False,
+        sa_column_kwargs={"comment": "Soft delete flag"},
+    )
+
+    # Foreign keys
+    document_id: UUID = Field(
+        foreign_key="document.id",
+        nullable=False,
+        sa_column_kwargs={"comment": "Reference to the training document"},
+    )
     project_id: int = Field(
         foreign_key="project.id",
         nullable=False,
@@ -121,11 +128,8 @@ class Fine_Tuning(FineTuningJobBase, table=True):
         ondelete="CASCADE",
         sa_column_kwargs={"comment": "Reference to the organization"},
     )
-    is_deleted: bool = Field(
-        default=False,
-        nullable=False,
-        sa_column_kwargs={"comment": "Soft delete flag"},
-    )
+
+    # Timestamps
     inserted_at: datetime = Field(
         default_factory=now,
         nullable=False,
@@ -142,6 +146,7 @@ class Fine_Tuning(FineTuningJobBase, table=True):
         sa_column_kwargs={"comment": "Timestamp when the job was deleted"},
     )
 
+    # Relationships
     project: "Project" = Relationship(back_populates="fine_tuning")
     model_evaluation: "ModelEvaluation" = Relationship(back_populates="fine_tuning")
 

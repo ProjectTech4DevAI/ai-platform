@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 
 # Shared properties for an Organization
 class OrganizationBase(SQLModel):
+    """Base model for organizations with common data fields."""
+
     name: str = Field(
         unique=True,
         index=True,
@@ -40,11 +42,15 @@ class OrganizationUpdate(SQLModel):
 
 # Database model for Organization
 class Organization(OrganizationBase, table=True):
+    """Database model for organizations."""
+
     id: int = Field(
         default=None,
         primary_key=True,
         sa_column_kwargs={"comment": "Unique identifier for the organization"},
     )
+
+    # Timestamps
     inserted_at: datetime = Field(
         default_factory=now,
         nullable=False,
@@ -58,7 +64,7 @@ class Organization(OrganizationBase, table=True):
         },
     )
 
-    # Relationship back to Creds
+    # Relationships
     creds: list["Credential"] = Relationship(
         back_populates="organization", cascade_delete=True
     )

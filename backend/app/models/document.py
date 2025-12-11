@@ -8,6 +8,14 @@ from app.models.doc_transformation_job import TransformationStatus
 
 
 class DocumentBase(SQLModel):
+    """Base model for documents with common fields."""
+
+    fname: str = Field(
+        description="The original filename of the document",
+        sa_column_kwargs={"comment": "Original filename of the document"},
+    )
+
+    # Foreign keys
     project_id: int = Field(
         description="The ID of the project to which the document belongs",
         foreign_key="project.id",
@@ -15,13 +23,11 @@ class DocumentBase(SQLModel):
         ondelete="CASCADE",
         sa_column_kwargs={"comment": "Reference to the project"},
     )
-    fname: str = Field(
-        description="The original filename of the document",
-        sa_column_kwargs={"comment": "Original filename of the document"},
-    )
 
 
 class Document(DocumentBase, table=True):
+    """Database model for documents."""
+
     id: UUID = Field(
         default_factory=uuid4,
         primary_key=True,
@@ -31,6 +37,22 @@ class Document(DocumentBase, table=True):
     object_store_url: str = Field(
         sa_column_kwargs={"comment": "Cloud storage URL for the document"},
     )
+    is_deleted: bool = Field(
+        default=False,
+        sa_column_kwargs={"comment": "Soft delete flag"},
+    )
+
+    # Foreign keys
+    source_document_id: UUID | None = Field(
+        default=None,
+        foreign_key="document.id",
+        nullable=True,
+        sa_column_kwargs={
+            "comment": "Reference to source document if this is a transformation"
+        },
+    )
+
+    # Timestamps
     inserted_at: datetime = Field(
         default_factory=now,
         description="The timestamp when the document was inserted",
@@ -41,21 +63,9 @@ class Document(DocumentBase, table=True):
         description="The timestamp when the document was last updated",
         sa_column_kwargs={"comment": "Timestamp when the document was last updated"},
     )
-    is_deleted: bool = Field(
-        default=False,
-        sa_column_kwargs={"comment": "Soft delete flag"},
-    )
     deleted_at: datetime | None = Field(
         default=None,
         sa_column_kwargs={"comment": "Timestamp when the document was deleted"},
-    )
-    source_document_id: UUID | None = Field(
-        default=None,
-        foreign_key="document.id",
-        nullable=True,
-        sa_column_kwargs={
-            "comment": "Reference to source document if this is a transformation"
-        },
     )
 
 

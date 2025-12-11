@@ -48,17 +48,6 @@ class ModelEvaluation(ModelEvaluationBase, table=True):
         primary_key=True,
         sa_column_kwargs={"comment": "Unique identifier for the evaluation"},
     )
-    fine_tuning_id: int = Field(
-        foreign_key="fine_tuning.id",
-        nullable=False,
-        ondelete="CASCADE",
-        sa_column_kwargs={"comment": "Reference to the fine-tuning job"},
-    )
-    document_id: UUID = Field(
-        foreign_key="document.id",
-        nullable=False,
-        sa_column_kwargs={"comment": "Reference to the evaluation document"},
-    )
     fine_tuned_model: str = Field(
         sa_column_kwargs={"comment": "Name of the fine-tuned model being evaluated"},
     )
@@ -95,6 +84,24 @@ class ModelEvaluation(ModelEvaluationBase, table=True):
         default=None,
         sa_column_kwargs={"comment": "Error message if evaluation failed"},
     )
+    is_deleted: bool = Field(
+        default=False,
+        nullable=False,
+        sa_column_kwargs={"comment": "Soft delete flag"},
+    )
+
+    # Foreign keys
+    fine_tuning_id: int = Field(
+        foreign_key="fine_tuning.id",
+        nullable=False,
+        ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the fine-tuning job"},
+    )
+    document_id: UUID = Field(
+        foreign_key="document.id",
+        nullable=False,
+        sa_column_kwargs={"comment": "Reference to the evaluation document"},
+    )
     project_id: int = Field(
         foreign_key="project.id",
         nullable=False,
@@ -107,11 +114,8 @@ class ModelEvaluation(ModelEvaluationBase, table=True):
         ondelete="CASCADE",
         sa_column_kwargs={"comment": "Reference to the organization"},
     )
-    is_deleted: bool = Field(
-        default=False,
-        nullable=False,
-        sa_column_kwargs={"comment": "Soft delete flag"},
-    )
+
+    # Timestamps
     inserted_at: datetime = Field(
         default_factory=now,
         nullable=False,
@@ -128,6 +132,7 @@ class ModelEvaluation(ModelEvaluationBase, table=True):
         sa_column_kwargs={"comment": "Timestamp when the evaluation was deleted"},
     )
 
+    # Relationships
     project: "Project" = Relationship()
     fine_tuning: "Fine_Tuning" = Relationship(back_populates="model_evaluation")
 

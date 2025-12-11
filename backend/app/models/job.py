@@ -20,6 +20,8 @@ class JobType(str, Enum):
 
 
 class Job(SQLModel, table=True):
+    """Database model for tracking async jobs."""
+
     __tablename__ = "job"
 
     id: UUID = Field(
@@ -55,6 +57,8 @@ class Job(SQLModel, table=True):
             "comment": "Type of job being executed (e.g., RESPONSE, LLM_API)"
         },
     )
+
+    # Timestamps
     created_at: datetime = Field(
         default_factory=now,
         sa_column_kwargs={"comment": "Timestamp when the job was created"},

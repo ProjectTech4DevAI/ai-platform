@@ -43,6 +43,22 @@ class CollectionJob(SQLModel, table=True):
         description="Type of operation",
         sa_column_kwargs={"comment": "Type of operation (CREATE, DELETE)"},
     )
+    task_id: str = Field(
+        nullable=True,
+        sa_column_kwargs={"comment": "Celery task ID for async processing"},
+    )
+    trace_id: str | None = Field(
+        default=None,
+        description="Tracing ID for correlating logs and traces.",
+        sa_column_kwargs={"comment": "Tracing ID for correlating logs and traces"},
+    )
+    error_message: str | None = Field(
+        sa_column=Column(
+            Text, nullable=True, comment="Error message if the job failed"
+        ),
+    )
+
+    # Foreign keys
     collection_id: UUID | None = Field(
         foreign_key="collection.id",
         nullable=True,
@@ -55,28 +71,14 @@ class CollectionJob(SQLModel, table=True):
         ondelete="CASCADE",
         sa_column_kwargs={"comment": "Reference to the project"},
     )
-    task_id: str = Field(
-        nullable=True,
-        sa_column_kwargs={"comment": "Celery task ID for async processing"},
-    )
-    trace_id: str | None = Field(
-        default=None,
-        description="Tracing ID for correlating logs and traces.",
-        sa_column_kwargs={"comment": "Tracing ID for correlating logs and traces"},
-    )
 
-    error_message: str | None = Field(
-        sa_column=Column(
-            Text, nullable=True, comment="Error message if the job failed"
-        ),
-    )
+    # Timestamps
     inserted_at: datetime = Field(
         default_factory=now,
         nullable=False,
         description="When the job record was created",
         sa_column_kwargs={"comment": "Timestamp when the job was created"},
     )
-
     updated_at: datetime = Field(
         default_factory=now,
         nullable=False,

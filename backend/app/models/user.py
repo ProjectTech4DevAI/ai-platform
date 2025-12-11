@@ -4,6 +4,8 @@ from sqlmodel import Field, SQLModel
 
 # Shared properties
 class UserBase(SQLModel):
+    """Base model for users with common data fields."""
+
     email: EmailStr = Field(
         unique=True,
         index=True,
@@ -61,6 +63,8 @@ class UpdatePassword(SQLModel):
 
 # Database model, database table inferred from class name
 class User(UserBase, table=True):
+    """Database model for users."""
+
     id: int = Field(
         default=None,
         primary_key=True,

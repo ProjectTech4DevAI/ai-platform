@@ -7,6 +7,9 @@ from app.core.util import now
 
 
 class APIKeyBase(SQLModel):
+    """Base model for API keys with foreign key fields."""
+
+    # Foreign keys
     organization_id: int = Field(
         foreign_key="organization.id",
         nullable=False,
@@ -43,12 +46,13 @@ class APIKeyCreateResponse(APIKeyPublic):
 
 
 class APIKey(APIKeyBase, table=True):
+    """Database model for API keys."""
+
     id: UUID = Field(
         default_factory=uuid4,
         primary_key=True,
         sa_column_kwargs={"comment": "Unique identifier for the API key"},
     )
-
     key_prefix: str = Field(
         unique=True,
         index=True,
@@ -61,7 +65,13 @@ class APIKey(APIKeyBase, table=True):
         nullable=False,
         sa_column_kwargs={"comment": "Bcrypt hash of the secret of the API key"},
     )
+    is_deleted: bool = Field(
+        default=False,
+        nullable=False,
+        sa_column_kwargs={"comment": "Soft delete flag"},
+    )
 
+    # Timestamps
     inserted_at: datetime = Field(
         default_factory=now,
         nullable=False,
@@ -71,11 +81,6 @@ class APIKey(APIKeyBase, table=True):
         default_factory=now,
         nullable=False,
         sa_column_kwargs={"comment": "Timestamp when the API key was last updated"},
-    )
-    is_deleted: bool = Field(
-        default=False,
-        nullable=False,
-        sa_column_kwargs={"comment": "Soft delete flag"},
     )
     deleted_at: datetime | None = Field(
         default=None,

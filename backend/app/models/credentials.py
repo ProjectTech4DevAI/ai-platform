@@ -12,8 +12,17 @@ if TYPE_CHECKING:
 
 
 class CredsBase(SQLModel):
-    """Database model for CredsBase operations."""
+    """Base model for credentials with foreign keys and common fields."""
 
+    is_active: bool = Field(
+        default=True,
+        nullable=False,
+        sa_column_kwargs={
+            "comment": "Flag indicating if this credential is currently active and usable"
+        },
+    )
+
+    # Foreign keys
     organization_id: int = Field(
         foreign_key="organization.id",
         nullable=False,
@@ -25,13 +34,6 @@ class CredsBase(SQLModel):
         nullable=False,
         ondelete="CASCADE",
         sa_column_kwargs={"comment": "Reference to the project"},
-    )
-    is_active: bool = Field(
-        default=True,
-        nullable=False,
-        sa_column_kwargs={
-            "comment": "Flag indicating if this credential is currently active and usable"
-        },
     )
 
 
@@ -96,6 +98,8 @@ class Credential(CredsBase, table=True):
             "comment": "Encrypted JSON string containing provider-specific API credentials"
         },
     )
+
+    # Timestamps
     inserted_at: datetime = Field(
         default_factory=now,
         nullable=False,
@@ -107,6 +111,7 @@ class Credential(CredsBase, table=True):
         sa_column_kwargs={"comment": "Timestamp when the credential was last updated"},
     )
 
+    # Relationships
     organization: "Organization | None" = Relationship(back_populates="creds")
     project: "Project | None" = Relationship(back_populates="creds")
 

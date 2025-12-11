@@ -97,6 +97,13 @@ class OpenAIConversation(OpenAIConversationBase, table=True):
         default=None,
         sa_column_kwargs={"comment": "OpenAI assistant identifier if used"},
     )
+    is_deleted: bool = Field(
+        default=False,
+        nullable=False,
+        sa_column_kwargs={"comment": "Soft delete flag"},
+    )
+
+    # Foreign keys
     project_id: int = Field(
         foreign_key="project.id",
         nullable=False,
@@ -109,6 +116,8 @@ class OpenAIConversation(OpenAIConversationBase, table=True):
         ondelete="CASCADE",
         sa_column_kwargs={"comment": "Reference to the organization"},
     )
+
+    # Timestamps
     inserted_at: datetime = Field(
         default_factory=now,
         nullable=False,
@@ -120,11 +129,6 @@ class OpenAIConversation(OpenAIConversationBase, table=True):
         sa_column_kwargs={
             "comment": "Timestamp when the conversation was last updated"
         },
-    )
-    is_deleted: bool = Field(
-        default=False,
-        nullable=False,
-        sa_column_kwargs={"comment": "Soft delete flag"},
     )
     deleted_at: datetime | None = Field(
         default=None,

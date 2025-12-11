@@ -25,17 +25,6 @@ class DocTransformationJob(SQLModel, table=True):
         primary_key=True,
         sa_column_kwargs={"comment": "Unique identifier for the transformation job"},
     )
-    source_document_id: UUID = Field(
-        foreign_key="document.id",
-        sa_column_kwargs={
-            "comment": "Reference to the source document being transformed"
-        },
-    )
-    transformed_document_id: UUID | None = Field(
-        default=None,
-        foreign_key="document.id",
-        sa_column_kwargs={"comment": "Reference to the resulting transformed document"},
-    )
     status: TransformationStatus = Field(
         default=TransformationStatus.PENDING,
         sa_column_kwargs={
@@ -56,6 +45,21 @@ class DocTransformationJob(SQLModel, table=True):
         default=None,
         sa_column_kwargs={"comment": "Error message if transformation failed"},
     )
+
+    # Foreign keys
+    source_document_id: UUID = Field(
+        foreign_key="document.id",
+        sa_column_kwargs={
+            "comment": "Reference to the source document being transformed"
+        },
+    )
+    transformed_document_id: UUID | None = Field(
+        default=None,
+        foreign_key="document.id",
+        sa_column_kwargs={"comment": "Reference to the resulting transformed document"},
+    )
+
+    # Timestamps
     inserted_at: datetime = Field(
         default_factory=now,
         sa_column_kwargs={"comment": "Timestamp when the job was created"},

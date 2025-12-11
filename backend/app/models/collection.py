@@ -20,21 +20,6 @@ class Collection(SQLModel, table=True):
         primary_key=True,
         sa_column_kwargs={"comment": "Unique identifier for the collection"},
     )
-
-    organization_id: int = Field(
-        foreign_key="organization.id",
-        nullable=False,
-        ondelete="CASCADE",
-        sa_column_kwargs={"comment": "Reference to the organization"},
-    )
-
-    project_id: int = Field(
-        foreign_key="project.id",
-        nullable=False,
-        ondelete="CASCADE",
-        sa_column_kwargs={"comment": "Reference to the project"},
-    )
-
     llm_service_id: str = Field(
         nullable=False,
         sa_column_kwargs={
@@ -46,6 +31,21 @@ class Collection(SQLModel, table=True):
         sa_column_kwargs={"comment": "Name of the LLM service provider"},
     )
 
+    # Foreign keys
+    organization_id: int = Field(
+        foreign_key="organization.id",
+        nullable=False,
+        ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the organization"},
+    )
+    project_id: int = Field(
+        foreign_key="project.id",
+        nullable=False,
+        ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the project"},
+    )
+
+    # Timestamps
     inserted_at: datetime = Field(
         default_factory=now,
         sa_column_kwargs={"comment": "Timestamp when the collection was created"},
@@ -59,6 +59,7 @@ class Collection(SQLModel, table=True):
         sa_column_kwargs={"comment": "Timestamp when the collection was deleted"},
     )
 
+    # Relationships
     organization: Organization = Relationship(back_populates="collections")
     project: Project = Relationship(back_populates="collections")
 

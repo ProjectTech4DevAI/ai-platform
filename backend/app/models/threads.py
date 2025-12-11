@@ -45,6 +45,8 @@ class OpenAI_Thread(OpenAIThreadBase, table=True):
         default=None,
         sa_column_kwargs={"comment": "Error message if the interaction failed"},
     )
+
+    # Timestamps
     inserted_at: datetime = Field(
         default_factory=now,
         sa_column_kwargs={"comment": "Timestamp when the record was created"},

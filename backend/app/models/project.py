@@ -17,6 +17,8 @@ if TYPE_CHECKING:
 
 # Shared properties for a Project
 class ProjectBase(SQLModel):
+    """Base model for projects with common data fields."""
+
     name: str = Field(
         index=True,
         max_length=255,
@@ -47,6 +49,8 @@ class ProjectUpdate(SQLModel):
 
 # Database model for Project
 class Project(ProjectBase, table=True):
+    """Database model for projects."""
+
     __table_args__ = (
         UniqueConstraint("name", "organization_id", name="uq_project_name_org_id"),
     )
@@ -56,6 +60,14 @@ class Project(ProjectBase, table=True):
         primary_key=True,
         sa_column_kwargs={"comment": "Unique identifier for the project"},
     )
+    storage_path: UUID = Field(
+        default_factory=uuid4,
+        nullable=False,
+        unique=True,
+        sa_column_kwargs={"comment": "Unique UUID used for cloud storage path"},
+    )
+
+    # Foreign keys
     organization_id: int = Field(
         foreign_key="organization.id",
         index=True,
@@ -63,12 +75,8 @@ class Project(ProjectBase, table=True):
         ondelete="CASCADE",
         sa_column_kwargs={"comment": "Reference to the organization"},
     )
-    storage_path: UUID = Field(
-        default_factory=uuid4,
-        nullable=False,
-        unique=True,
-        sa_column_kwargs={"comment": "Unique UUID used for cloud storage path"},
-    )
+
+    # Timestamps
     inserted_at: datetime = Field(
         default_factory=now,
         nullable=False,
@@ -80,6 +88,7 @@ class Project(ProjectBase, table=True):
         sa_column_kwargs={"comment": "Timestamp when the project was last updated"},
     )
 
+    # Relationships
     creds: list["Credential"] = Relationship(
         back_populates="project", cascade_delete=True
     )
