@@ -1,23 +1,27 @@
 from uuid import UUID
-from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
-from app.core.util import now
-
 
 class DocumentCollection(SQLModel, table=True):
-    id: Optional[int] = Field(
+    """Junction table linking documents to collections."""
+
+    id: int | None = Field(
         default=None,
         primary_key=True,
+        sa_column_kwargs={
+            "comment": "Unique identifier for the document-collection link"
+        },
     )
     document_id: UUID = Field(
         foreign_key="document.id",
         nullable=False,
         ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the document"},
     )
     collection_id: UUID = Field(
         foreign_key="collection.id",
         nullable=False,
         ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the collection"},
     )

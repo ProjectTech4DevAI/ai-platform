@@ -1,12 +1,11 @@
+from datetime import datetime
 from enum import Enum
 from uuid import UUID, uuid4
-from datetime import datetime
 
-from sqlmodel import Field, SQLModel, Column, Text
-from pydantic import ConfigDict
+from sqlmodel import Column, Field, SQLModel, Text
 
 from app.core.util import now
-from app.models.collection import CollectionPublic, CollectionIDPublic
+from app.models.collection import CollectionIDPublic, CollectionPublic
 
 
 class CollectionJobStatus(str, Enum):
@@ -22,41 +21,67 @@ class CollectionActionType(str, Enum):
 
 
 class CollectionJob(SQLModel, table=True):
-    """Database model for tracking collection operations."""
+    """Database model for CollectionJob operations."""
 
     __tablename__ = "collection_jobs"
 
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    id: UUID = Field(
+        default_factory=uuid4,
+        primary_key=True,
+        sa_column_kwargs={"comment": "Unique identifier for the collection job"},
+    )
     status: CollectionJobStatus = Field(
         default=CollectionJobStatus.PENDING,
         nullable=False,
         description="Current job status",
+        sa_column_kwargs={
+            "comment": "Current job status (PENDING, PROCESSING, SUCCESSFUL, FAILED)"
+        },
     )
     action_type: CollectionActionType = Field(
-        nullable=False, description="Type of operation"
+        nullable=False,
+        description="Type of operation",
+        sa_column_kwargs={"comment": "Type of operation (CREATE, DELETE)"},
     )
     collection_id: UUID | None = Field(
-        foreign_key="collection.id", nullable=True, ondelete="CASCADE"
+        foreign_key="collection.id",
+        nullable=True,
+        ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the collection"},
     )
     project_id: int = Field(
-        foreign_key="project.id", nullable=False, ondelete="CASCADE"
+        foreign_key="project.id",
+        nullable=False,
+        ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the project"},
     )
-    task_id: str = Field(nullable=True)
+    task_id: str = Field(
+        nullable=True,
+        sa_column_kwargs={"comment": "Celery task ID for async processing"},
+    )
     trace_id: str | None = Field(
-        default=None, description="Tracing ID for correlating logs and traces."
+        default=None,
+        description="Tracing ID for correlating logs and traces.",
+        sa_column_kwargs={"comment": "Tracing ID for correlating logs and traces"},
     )
 
-    error_message: str | None = Field(sa_column=Column(Text, nullable=True))
+    error_message: str | None = Field(
+        sa_column=Column(
+            Text, nullable=True, comment="Error message if the job failed"
+        ),
+    )
     inserted_at: datetime = Field(
         default_factory=now,
         nullable=False,
         description="When the job record was created",
+        sa_column_kwargs={"comment": "Timestamp when the job was created"},
     )
 
     updated_at: datetime = Field(
         default_factory=now,
         nullable=False,
         description="Last time the job record was updated",
+        sa_column_kwargs={"comment": "Timestamp when the job was last updated"},
     )
 
     @property

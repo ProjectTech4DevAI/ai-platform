@@ -1,21 +1,32 @@
-from uuid import UUID, uuid4
-import secrets
-import base64
 from datetime import datetime
-from typing import Optional, List
-from sqlmodel import SQLModel, Field, Relationship
+from uuid import UUID, uuid4
+
+from sqlmodel import Field, SQLModel
 
 from app.core.util import now
 
 
 class APIKeyBase(SQLModel):
     organization_id: int = Field(
-        foreign_key="organization.id", nullable=False, ondelete="CASCADE"
+        foreign_key="organization.id",
+        nullable=False,
+        ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the organization"},
     )
     project_id: int = Field(
-        foreign_key="project.id", nullable=False, ondelete="CASCADE"
+        foreign_key="project.id",
+        nullable=False,
+        ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the project"},
     )
-    user_id: int = Field(foreign_key="user.id", nullable=False, ondelete="CASCADE")
+    user_id: int = Field(
+        foreign_key="user.id",
+        nullable=False,
+        ondelete="CASCADE",
+        sa_column_kwargs={
+            "comment": "Reference to the user for whom the API key was created"
+        },
+    )
 
 
 class APIKeyPublic(APIKeyBase):
@@ -32,14 +43,42 @@ class APIKeyCreateResponse(APIKeyPublic):
 
 
 class APIKey(APIKeyBase, table=True):
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    id: UUID = Field(
+        default_factory=uuid4,
+        primary_key=True,
+        sa_column_kwargs={"comment": "Unique identifier for the API key"},
+    )
 
     key_prefix: str = Field(
-        unique=True, index=True, nullable=False
-    )  # Unique identifier from the key
-    key_hash: str = Field(nullable=False)  # bcrypt hash of the secret portion
+        unique=True,
+        index=True,
+        nullable=False,
+        sa_column_kwargs={
+            "comment": "Unique prefix portion of the API key for identification"
+        },
+    )
+    key_hash: str = Field(
+        nullable=False,
+        sa_column_kwargs={"comment": "Bcrypt hash of the secret of the API key"},
+    )
 
-    inserted_at: datetime = Field(default_factory=now, nullable=False)
-    updated_at: datetime = Field(default_factory=now, nullable=False)
-    is_deleted: bool = Field(default=False, nullable=False)
-    deleted_at: Optional[datetime] = Field(default=None, nullable=True)
+    inserted_at: datetime = Field(
+        default_factory=now,
+        nullable=False,
+        sa_column_kwargs={"comment": "Timestamp when the API key was created"},
+    )
+    updated_at: datetime = Field(
+        default_factory=now,
+        nullable=False,
+        sa_column_kwargs={"comment": "Timestamp when the API key was last updated"},
+    )
+    is_deleted: bool = Field(
+        default=False,
+        nullable=False,
+        sa_column_kwargs={"comment": "Soft delete flag"},
+    )
+    deleted_at: datetime | None = Field(
+        default=None,
+        nullable=True,
+        sa_column_kwargs={"comment": "Timestamp when the API key was deleted"},
+    )

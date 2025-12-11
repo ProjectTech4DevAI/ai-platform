@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 class BatchJob(SQLModel, table=True):
-    """Batch job table for tracking async LLM batch operations."""
+    """Database model for BatchJob operations."""
 
     __tablename__ = "batch_job"
     __table_args__ = (
@@ -21,26 +21,37 @@ class BatchJob(SQLModel, table=True):
         Index("idx_batch_job_status_project", "provider_status", "project_id"),
     )
 
-    id: int | None = Field(default=None, primary_key=True)
+    id: int | None = Field(
+        default=None,
+        primary_key=True,
+        sa_column_kwargs={"comment": "Unique identifier for the batch job"},
+    )
 
     # Provider and job type
     provider: str = Field(
         description="LLM provider name (e.g., 'openai', 'anthropic')",
+        sa_column_kwargs={"comment": "LLM provider name (e.g., openai, anthropic)"},
     )
     job_type: str = Field(
         index=True,
         description=(
             "Type of batch job (e.g., 'evaluation', 'classification', 'embedding')"
         ),
+        sa_column_kwargs={
+            "comment": "Type of batch job (e.g., evaluation, classification, embedding)"
+        },
     )
 
     # Batch configuration - stores all provider-specific config
     config: dict[str, Any] = Field(
         default_factory=dict,
-        sa_column=Column(JSONB, nullable=False),
+        sa_column=Column(
+            JSONB,
+            nullable=False,
+            comment="Complete batch configuration including model, temperature, instructions, tools, etc.",
+        ),
         description=(
-            "Complete batch configuration including model, temperature, "
-            "instructions, tools, etc."
+            "Complete batch configuration including model, temperature, instructions, tools, etc."
         ),
     )
 
@@ -48,14 +59,17 @@ class BatchJob(SQLModel, table=True):
     provider_batch_id: str | None = Field(
         default=None,
         description="Provider's batch job ID (e.g., OpenAI batch_id)",
+        sa_column_kwargs={"comment": "Provider's batch job ID (e.g., OpenAI batch_id)"},
     )
     provider_file_id: str | None = Field(
         default=None,
         description="Provider's input file ID",
+        sa_column_kwargs={"comment": "Provider's input file ID"},
     )
     provider_output_file_id: str | None = Field(
         default=None,
         description="Provider's output file ID",
+        sa_column_kwargs={"comment": "Provider's output file ID"},
     )
 
     # Provider status tracking
@@ -65,40 +79,56 @@ class BatchJob(SQLModel, table=True):
             "Provider-specific status (e.g., OpenAI: validating, in_progress, "
             "finalizing, completed, failed, expired, cancelling, cancelled)"
         ),
+        sa_column_kwargs={
+            "comment": "Provider-specific status (e.g., validating, in_progress, completed, failed)"
+        },
     )
 
     # Raw results (before parent-specific processing)
     raw_output_url: str | None = Field(
         default=None,
         description="S3 URL of raw batch output file",
+        sa_column_kwargs={"comment": "S3 URL of raw batch output file"},
     )
     total_items: int = Field(
         default=0,
         description="Total number of items in the batch",
+        sa_column_kwargs={"comment": "Total number of items in the batch"},
     )
 
     # Error handling
     error_message: str | None = Field(
         default=None,
-        sa_column=Column(Text, nullable=True),
+        sa_column=Column(Text, nullable=True, comment="Error message if batch failed"),
         description="Error message if batch failed",
     )
 
     # Foreign keys
     organization_id: int = Field(
-        foreign_key="organization.id", nullable=False, ondelete="CASCADE", index=True
+        foreign_key="organization.id",
+        nullable=False,
+        ondelete="CASCADE",
+        index=True,
+        sa_column_kwargs={"comment": "Reference to the organization"},
     )
     project_id: int = Field(
-        foreign_key="project.id", nullable=False, ondelete="CASCADE", index=True
+        foreign_key="project.id",
+        nullable=False,
+        ondelete="CASCADE",
+        index=True,
+        sa_column_kwargs={"comment": "Reference to the project"},
     )
 
     # Timestamps
     inserted_at: datetime = Field(
-        default_factory=now, description="The timestamp when the batch job was started"
+        default_factory=now,
+        description="The timestamp when the batch job was started",
+        sa_column_kwargs={"comment": "Timestamp when the batch job was started"},
     )
     updated_at: datetime = Field(
         default_factory=now,
         description="The timestamp when the batch job was last updated",
+        sa_column_kwargs={"comment": "Timestamp when the batch job was last updated"},
     )
 
     # Relationships

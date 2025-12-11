@@ -17,9 +17,20 @@ if TYPE_CHECKING:
 
 # Shared properties for a Project
 class ProjectBase(SQLModel):
-    name: str = Field(index=True, max_length=255)
-    description: str | None = Field(default=None, max_length=500)
-    is_active: bool = True
+    name: str = Field(
+        index=True,
+        max_length=255,
+        sa_column_kwargs={"comment": "Project name"},
+    )
+    description: str | None = Field(
+        default=None,
+        max_length=500,
+        sa_column_kwargs={"comment": "Project description"},
+    )
+    is_active: bool = Field(
+        default=True,
+        sa_column_kwargs={"comment": "Flag indicating if the project is active"},
+    )
 
 
 # Properties to receive via API on creation
@@ -40,13 +51,34 @@ class Project(ProjectBase, table=True):
         UniqueConstraint("name", "organization_id", name="uq_project_name_org_id"),
     )
 
-    id: int = Field(default=None, primary_key=True)
-    organization_id: int = Field(
-        foreign_key="organization.id", index=True, nullable=False, ondelete="CASCADE"
+    id: int = Field(
+        default=None,
+        primary_key=True,
+        sa_column_kwargs={"comment": "Unique identifier for the project"},
     )
-    storage_path: UUID = Field(default_factory=uuid4, nullable=False, unique=True)
-    inserted_at: datetime = Field(default_factory=now, nullable=False)
-    updated_at: datetime = Field(default_factory=now, nullable=False)
+    organization_id: int = Field(
+        foreign_key="organization.id",
+        index=True,
+        nullable=False,
+        ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the organization"},
+    )
+    storage_path: UUID = Field(
+        default_factory=uuid4,
+        nullable=False,
+        unique=True,
+        sa_column_kwargs={"comment": "Unique UUID used for cloud storage path"},
+    )
+    inserted_at: datetime = Field(
+        default_factory=now,
+        nullable=False,
+        sa_column_kwargs={"comment": "Timestamp when the project was created"},
+    )
+    updated_at: datetime = Field(
+        default_factory=now,
+        nullable=False,
+        sa_column_kwargs={"comment": "Timestamp when the project was last updated"},
+    )
 
     creds: list["Credential"] = Relationship(
         back_populates="project", cascade_delete=True

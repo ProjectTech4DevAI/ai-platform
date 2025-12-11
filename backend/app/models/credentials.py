@@ -1,12 +1,19 @@
-from typing import Dict, Any, Optional
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
+
 import sqlalchemy as sa
 from sqlmodel import Field, Relationship, SQLModel
-from datetime import datetime
 
 from app.core.util import now
 
+if TYPE_CHECKING:
+    from .organization import Organization
+    from .project import Project
+
 
 class CredsBase(SQLModel):
+    """Database model for CredsBase operations."""
+
     organization_id: int = Field(
         foreign_key="organization.id",
         nullable=False,
@@ -35,7 +42,7 @@ class CredsCreate(SQLModel):
     """
 
     is_active: bool = True
-    credential: Dict[str, Any] = Field(
+    credential: dict[str, Any] = Field(
         default=None,
         description="Dictionary mapping provider names to their credentials",
     )
@@ -49,10 +56,10 @@ class CredsUpdate(SQLModel):
     provider: str = Field(
         description="Name of the provider to update/add credentials for"
     )
-    credential: Dict[str, Any] = Field(
+    credential: dict[str, Any] = Field(
         description="Credentials for the specified provider",
     )
-    is_active: Optional[bool] = Field(
+    is_active: bool | None = Field(
         default=None, description="Whether the credentials are active"
     )
 
@@ -100,8 +107,8 @@ class Credential(CredsBase, table=True):
         sa_column_kwargs={"comment": "Timestamp when the credential was last updated"},
     )
 
-    organization: Optional["Organization"] = Relationship(back_populates="creds")
-    project: Optional["Project"] = Relationship(back_populates="creds")
+    organization: "Organization | None" = Relationship(back_populates="creds")
+    project: "Project | None" = Relationship(back_populates="creds")
 
     def to_public(self) -> "CredsPublic":
         """Convert the database model to a public model with decrypted credentials."""
@@ -126,6 +133,6 @@ class CredsPublic(CredsBase):
 
     id: int
     provider: str
-    credential: Optional[Dict[str, Any]] = None
+    credential: dict[str, Any] | None = None
     inserted_at: datetime
     updated_at: datetime

@@ -83,18 +83,32 @@ class EvaluationDataset(SQLModel, table=True):
         ),
     )
 
-    id: int = SQLField(default=None, primary_key=True)
+    id: int = SQLField(
+        default=None,
+        primary_key=True,
+        sa_column_kwargs={"comment": "Unique identifier for the dataset"},
+    )
 
     # Dataset information
-    name: str = SQLField(index=True, description="Name of the dataset")
+    name: str = SQLField(
+        index=True,
+        description="Name of the dataset",
+        sa_column_kwargs={"comment": "Name of the evaluation dataset"},
+    )
     description: str | None = SQLField(
-        default=None, description="Optional description of the dataset"
+        default=None,
+        description="Optional description of the dataset",
+        sa_column_kwargs={"comment": "Description of the dataset"},
     )
 
     # Dataset metadata stored as JSONB
     dataset_metadata: dict[str, Any] = SQLField(
         default_factory=dict,
-        sa_column=Column(JSONB, nullable=False),
+        sa_column=Column(
+            JSONB,
+            nullable=False,
+            comment="Dataset metadata (item counts, duplication factor, etc.)",
+        ),
         description=(
             "Dataset metadata (original_items_count, total_items_count, "
             "duplication_factor)"
@@ -103,23 +117,47 @@ class EvaluationDataset(SQLModel, table=True):
 
     # Storage references
     object_store_url: str | None = SQLField(
-        default=None, description="Object store URL where CSV is stored"
+        default=None,
+        description="Object store URL where CSV is stored",
+        sa_column_kwargs={"comment": "S3 URL where the dataset CSV is stored"},
     )
     langfuse_dataset_id: str | None = SQLField(
-        default=None, description="Langfuse dataset ID for reference"
+        default=None,
+        description="Langfuse dataset ID for reference",
+        sa_column_kwargs={
+            "comment": "Langfuse dataset ID for observability integration"
+        },
     )
 
     # Foreign keys
     organization_id: int = SQLField(
-        foreign_key="organization.id", nullable=False, ondelete="CASCADE"
+        foreign_key="organization.id",
+        nullable=False,
+        ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the organization"},
     )
     project_id: int = SQLField(
-        foreign_key="project.id", nullable=False, ondelete="CASCADE"
+        foreign_key="project.id",
+        nullable=False,
+        ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the project"},
     )
 
     # Timestamps
-    inserted_at: datetime = SQLField(default_factory=now, nullable=False)
-    updated_at: datetime = SQLField(default_factory=now, nullable=False)
+    inserted_at: datetime = SQLField(
+        default_factory=now,
+        nullable=False,
+        sa_column_kwargs={
+            "comment": "Timestamp when the evaluation dataset was created"
+        },
+    )
+    updated_at: datetime = SQLField(
+        default_factory=now,
+        nullable=False,
+        sa_column_kwargs={
+            "comment": "Timestamp when the evaluation dataset was last updated"
+        },
+    )
 
     # Relationships
     project: "Project" = Relationship()
@@ -138,16 +176,31 @@ class EvaluationRun(SQLModel, table=True):
         Index("idx_eval_run_status_project", "status", "project_id"),
     )
 
-    id: int = SQLField(default=None, primary_key=True)
+    id: int = SQLField(
+        default=None,
+        primary_key=True,
+        sa_column_kwargs={"comment": "Unique identifier for the evaluation run"},
+    )
 
     # Input fields (provided by user)
-    run_name: str = SQLField(index=True, description="Name of the evaluation run")
-    dataset_name: str = SQLField(description="Name of the Langfuse dataset")
+    run_name: str = SQLField(
+        index=True,
+        description="Name of the evaluation run",
+        sa_column_kwargs={"comment": "Name of the evaluation run"},
+    )
+    dataset_name: str = SQLField(
+        description="Name of the Langfuse dataset",
+        sa_column_kwargs={"comment": "Name of the Langfuse dataset used"},
+    )
 
     # Config field - dict requires sa_column
     config: dict[str, Any] = SQLField(
         default_factory=dict,
-        sa_column=Column(JSONB, nullable=False),
+        sa_column=Column(
+            JSONB,
+            nullable=False,
+            comment="Evaluation configuration (model, instructions, etc.)",
+        ),
         description="Evaluation configuration",
     )
 
@@ -157,6 +210,7 @@ class EvaluationRun(SQLModel, table=True):
         nullable=False,
         ondelete="CASCADE",
         description="Reference to the evaluation_dataset used for this run",
+        sa_column_kwargs={"comment": "Reference to the evaluation dataset"},
     )
 
     # Batch job references
@@ -167,6 +221,7 @@ class EvaluationRun(SQLModel, table=True):
         description=(
             "Reference to the batch_job that processes this evaluation (responses)"
         ),
+        sa_column_kwargs={"comment": "Reference to the batch job for responses"},
     )
     embedding_batch_job_id: int | None = SQLField(
         default=None,
@@ -174,51 +229,76 @@ class EvaluationRun(SQLModel, table=True):
         nullable=True,
         ondelete="SET NULL",
         description="Reference to the batch_job for embedding-based similarity scoring",
+        sa_column_kwargs={
+            "comment": "Reference to the batch job for embedding similarity scoring"
+        },
     )
 
     # Output/Status fields (updated by system during processing)
     status: str = SQLField(
         default="pending",
         description="Overall evaluation status: pending, processing, completed, failed",
+        sa_column_kwargs={
+            "comment": "Evaluation status (pending, processing, completed, failed)"
+        },
     )
     object_store_url: str | None = SQLField(
         default=None,
         description="Object store URL of processed evaluation results for future reference",
+        sa_column_kwargs={"comment": "S3 URL of processed evaluation results"},
     )
     total_items: int = SQLField(
-        default=0, description="Total number of items evaluated (set during processing)"
+        default=0,
+        description="Total number of items evaluated (set during processing)",
+        sa_column_kwargs={"comment": "Total number of items evaluated"},
     )
 
     # Score field - dict requires sa_column
     score: dict[str, Any] | None = SQLField(
         default=None,
-        sa_column=Column(JSONB, nullable=True),
+        sa_column=Column(
+            JSONB,
+            nullable=True,
+            comment="Evaluation scores (correctness, cosine_similarity, etc.)",
+        ),
         description="Evaluation scores (e.g., correctness, cosine_similarity, etc.)",
     )
 
     # Error message field
     error_message: str | None = SQLField(
         default=None,
-        sa_column=Column(Text, nullable=True),
+        sa_column=Column(
+            Text, nullable=True, comment="Error message if evaluation failed"
+        ),
         description="Error message if failed",
     )
 
     # Foreign keys
     organization_id: int = SQLField(
-        foreign_key="organization.id", nullable=False, ondelete="CASCADE"
+        foreign_key="organization.id",
+        nullable=False,
+        ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the organization"},
     )
     project_id: int = SQLField(
-        foreign_key="project.id", nullable=False, ondelete="CASCADE"
+        foreign_key="project.id",
+        nullable=False,
+        ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the project"},
     )
 
     # Timestamps
     inserted_at: datetime = Field(
         default_factory=now,
         description="The timestamp when the evaluation run was started",
+        sa_column_kwargs={"comment": "Timestamp when the evaluation run was started"},
     )
     updated_at: datetime = Field(
         default_factory=now,
         description="The timestamp when the evaluation run was last updated",
+        sa_column_kwargs={
+            "comment": "Timestamp when the evaluation run was last updated"
+        },
     )
 
     # Relationships
