@@ -1,6 +1,5 @@
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 from pydantic import field_validator
@@ -8,10 +7,7 @@ from sqlalchemy import Column, Text
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.core.util import now
-
-if TYPE_CHECKING:
-    from .model_evaluation import ModelEvaluation
-    from .project import Project
+from app.models.project import Project
 
 
 class FineTuningStatus(str, Enum):
@@ -147,7 +143,7 @@ class Fine_Tuning(FineTuningJobBase, table=True):
     )
 
     # Relationships
-    project: "Project" = Relationship(back_populates="fine_tuning")
+    project: Project = Relationship(back_populates="fine_tuning")
     model_evaluation: "ModelEvaluation" = Relationship(back_populates="fine_tuning")
 
 

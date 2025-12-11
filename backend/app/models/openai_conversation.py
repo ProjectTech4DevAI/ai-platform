@@ -1,15 +1,12 @@
 import re
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from pydantic import field_validator
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.core.util import now
-
-if TYPE_CHECKING:
-    from .organization import Organization
-    from .project import Project
+from app.models.organization import Organization
+from app.models.project import Project
 
 
 def validate_response_id_pattern(v: str) -> str:
@@ -137,8 +134,8 @@ class OpenAIConversation(OpenAIConversationBase, table=True):
     )
 
     # Relationships
-    project: "Project" = Relationship(back_populates="openai_conversations")
-    organization: "Organization" = Relationship(back_populates="openai_conversations")
+    project: Project = Relationship(back_populates="openai_conversations")
+    organization: Organization = Relationship(back_populates="openai_conversations")
 
 
 class OpenAIConversationCreate(SQLModel):

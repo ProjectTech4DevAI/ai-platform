@@ -1,15 +1,12 @@
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from sqlalchemy import Column, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 
 from app.core.util import now
-
-if TYPE_CHECKING:
-    from .organization import Organization
-    from .project import Project
+from app.models.organization import Organization
+from app.models.project import Project
 
 
 class AssistantBase(SQLModel):
@@ -115,8 +112,8 @@ class Assistant(AssistantBase, table=True):
     )
 
     # Relationships
-    project: "Project" = Relationship(back_populates="assistants")
-    organization: "Organization" = Relationship(back_populates="assistants")
+    project: Project = Relationship(back_populates="assistants")
+    organization: Organization = Relationship(back_populates="assistants")
 
 
 class AssistantCreate(SQLModel):

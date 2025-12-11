@@ -1,14 +1,12 @@
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import sqlalchemy as sa
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.core.util import now
-
-if TYPE_CHECKING:
-    from .organization import Organization
-    from .project import Project
+from app.models.organization import Organization
+from app.models.project import Project
 
 
 class CredsBase(SQLModel):
@@ -112,8 +110,8 @@ class Credential(CredsBase, table=True):
     )
 
     # Relationships
-    organization: "Organization | None" = Relationship(back_populates="creds")
-    project: "Project | None" = Relationship(back_populates="creds")
+    organization: Organization | None = Relationship(back_populates="creds")
+    project: Project | None = Relationship(back_populates="creds")
 
     def to_public(self) -> "CredsPublic":
         """Convert the database model to a public model with decrypted credentials."""
