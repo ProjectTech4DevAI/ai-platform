@@ -30,7 +30,7 @@ from app.api.deps import CurrentUserOrgProject, SessionDep
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/model_evaluation", tags=["model_evaluation"])
+router = APIRouter(prefix="/model_evaluation", tags=["Model Evaluation"])
 
 
 def attach_prediction_file_url(model_obj, storage):

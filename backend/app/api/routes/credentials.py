@@ -17,7 +17,7 @@ from app.models import CredsCreate, CredsPublic, CredsUpdate, UserProjectOrg
 from app.utils import APIResponse
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/credentials", tags=["credentials"])
+router = APIRouter(prefix="/credentials", tags=["Credentials"])
 
 
 @router.post(

@@ -23,7 +23,7 @@ from app.utils import APIResponse, get_openai_client, handle_openai_error, mask_
 
 
 logger = logging.getLogger(__name__)
-router = APIRouter(tags=["responses"])
+router = APIRouter(tags=["Responses"])
 
 
 @router.post("/responses", response_model=APIResponse[ResponseJobStatus])

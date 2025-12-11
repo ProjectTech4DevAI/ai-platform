@@ -17,7 +17,7 @@ from app.crud.project import (
 from app.utils import APIResponse
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/projects", tags=["projects"])
+router = APIRouter(prefix="/projects", tags=["Projects"])
 
 
 # Retrieve projects

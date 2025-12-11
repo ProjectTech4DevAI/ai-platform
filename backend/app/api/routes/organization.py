@@ -20,7 +20,7 @@ from app.crud.organization import create_organization, get_organization_by_id
 from app.utils import APIResponse
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/organizations", tags=["organizations"])
+router = APIRouter(prefix="/organizations", tags=["Organizations"])
 
 
 # Retrieve organizations

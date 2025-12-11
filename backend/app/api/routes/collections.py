@@ -35,7 +35,7 @@ from app.services.collections import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/collections", tags=["collections"])
+router = APIRouter(prefix="/collections", tags=["Collections"])
 collection_callback_router = APIRouter()
 
 
