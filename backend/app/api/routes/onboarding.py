@@ -23,4 +23,9 @@ def onboard_project_route(
     current_user: User = Depends(get_current_active_superuser),
 ):
     response = onboard_project(session=session, onboard_in=onboard_in)
-    return APIResponse.success_response(data=response)
+
+    metadata = None
+    if onboard_in.credentials:
+        metadata = {"note": ("Given credential(s) have been saved for this project.")}
+
+    return APIResponse.success_response(data=response, metadata=metadata)

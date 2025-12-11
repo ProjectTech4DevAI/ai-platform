@@ -109,7 +109,7 @@ async def upload_doc(
         None, description="Name of the transformer to apply when converting."
     ),
     callback_url: str
-    | None = Form(None, description="URL to call to report endpoint status"),
+    | None = Form(None, description="URL to call to report doc transformation status"),
 ):
     source_format, actual_transformer = pre_transform_validation(
         src_filename=src.filename,
