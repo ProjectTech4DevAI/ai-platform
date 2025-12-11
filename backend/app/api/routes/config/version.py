@@ -9,7 +9,7 @@ from app.models import (
     Message,
     ConfigVersionItems,
 )
-from app.utils import APIResponse
+from app.utils import APIResponse, load_description
 from app.api.permissions import Permission, require_permission
 
 router = APIRouter()
@@ -17,6 +17,7 @@ router = APIRouter()
 
 @router.post(
     "/{config_id}/versions",
+    description=load_description("config/create_version.md"),
     response_model=APIResponse[ConfigVersionPublic],
     status_code=201,
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
@@ -43,6 +44,7 @@ def create_version(
 
 @router.get(
     "/{config_id}/versions",
+    description=load_description("config/list_versions.md"),
     response_model=APIResponse[list[ConfigVersionItems]],
     status_code=200,
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
@@ -72,6 +74,7 @@ def list_versions(
 
 @router.get(
     "/{config_id}/versions/{version_number}",
+    description=load_description("config/get_version.md"),
     response_model=APIResponse[ConfigVersionPublic],
     status_code=200,
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
@@ -98,6 +101,7 @@ def get_version(
 
 @router.delete(
     "/{config_id}/versions/{version_number}",
+    description=load_description("config/delete_version.md"),
     response_model=APIResponse[Message],
     status_code=200,
     dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
