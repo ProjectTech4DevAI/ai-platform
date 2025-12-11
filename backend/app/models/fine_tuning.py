@@ -61,6 +61,7 @@ class Fine_Tuning(FineTuningJobBase, table=True):
     )
     base_model: str = Field(
         nullable=False,
+        description="Base model for fine-tuning",
         sa_column_kwargs={"comment": "Base model used for fine-tuning"},
     )
     split_ratio: float = Field(
@@ -78,26 +79,32 @@ class Fine_Tuning(FineTuningJobBase, table=True):
     )
     provider_job_id: str | None = Field(
         default=None,
+        description="Fine tuning Job ID returned by OpenAI",
         sa_column_kwargs={"comment": "Fine-tuning job ID returned by the provider"},
     )
     status: FineTuningStatus = Field(
         default=FineTuningStatus.pending,
+        description="Fine tuning status",
         sa_column_kwargs={"comment": "Current status of the fine-tuning job"},
     )
     fine_tuned_model: str | None = Field(
         default=None,
+        description="Final fine tuned model name from OpenAI",
         sa_column_kwargs={"comment": "Name of the resulting fine-tuned model"},
     )
     train_data_s3_object: str | None = Field(
         default=None,
+        description="S3 URI of the training data stored in S3",
         sa_column_kwargs={"comment": "S3 URI of the training data"},
     )
     test_data_s3_object: str | None = Field(
         default=None,
+        description="S3 URI of the testing data stored in S3",
         sa_column_kwargs={"comment": "S3 URI of the testing data"},
     )
     error_message: str | None = Field(
         default=None,
+        description="Error message for when something failed",
         sa_column_kwargs={"comment": "Error message if the job failed"},
     )
     is_deleted: bool = Field(

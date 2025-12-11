@@ -10,7 +10,7 @@ class UserBase(SQLModel):
         unique=True,
         index=True,
         max_length=255,
-        sa_column_kwargs={"comment": "User's email address (unique identifier)"},
+        sa_column_kwargs={"comment": "User's email address"},
     )
     is_active: bool = Field(
         default=True,
