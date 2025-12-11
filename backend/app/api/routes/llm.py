@@ -5,7 +5,8 @@ from fastapi import APIRouter
 from app.api.deps import AuthContextDep, SessionDep
 from app.models import LLMCallRequest, LLMCallResponse, Message
 from app.services.llm.jobs import start_job
-from app.utils import APIResponse, validate_callback_url
+from app.utils import APIResponse, validate_callback_url, load_description
+
 
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,7 @@ def llm_callback_notification(body: APIResponse[LLMCallResponse]):
 
 @router.post(
     "/llm/call",
+    description=load_description("llm/llm_call.md"),
     response_model=APIResponse[Message],
     callbacks=llm_callback_router.routes,
 )

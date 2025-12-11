@@ -38,7 +38,7 @@ def test_onboard_project_new_organization_project_user(db: Session) -> None:
         email=email,
         password=password,
         user_name=user_name,
-        openai_api_key=openai_key,
+        credentials=[{"openai": {"api_key": openai_key}}],
     )
 
     response = onboard_project(session=db, onboard_in=onboard_request)
@@ -246,7 +246,7 @@ def test_onboard_project_response_data_integrity(db: Session) -> None:
         email=email,
         password=password,
         user_name=user_name,
-        openai_api_key=openai_key,
+        credential=[{"openai": {"api_key": openai_key}}],
     )
 
     response = onboard_project(session=db, onboard_in=onboard_request)
