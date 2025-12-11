@@ -53,5 +53,8 @@ class OpenAI_Thread(OpenAIThreadBase, table=True):
     )
     updated_at: datetime = Field(
         default_factory=now,
-        sa_column_kwargs={"comment": "Timestamp when the record was last updated"},
+        sa_column_kwargs={
+            "comment": "Timestamp when the record was last updated",
+            "onupdate": now,
+        },
     )

@@ -44,6 +44,7 @@ class CollectionJob(SQLModel, table=True):
         sa_column_kwargs={"comment": "Type of operation (CREATE, DELETE)"},
     )
     task_id: str = Field(
+        default=None,
         nullable=True,
         sa_column_kwargs={"comment": "Celery task ID for async processing"},
     )

@@ -17,11 +17,17 @@ class DocumentCollection(SQLModel, table=True):
         foreign_key="document.id",
         nullable=False,
         ondelete="CASCADE",
-        sa_column_kwargs={"comment": "Reference to the document"},
+        sa_column_kwargs={
+            "comment": "Reference to the document",
+            "ondelete": "CASCADE",
+        },
     )
     collection_id: UUID = Field(
         foreign_key="collection.id",
         nullable=False,
         ondelete="CASCADE",
-        sa_column_kwargs={"comment": "Reference to the collection"},
+        sa_column_kwargs={
+            "comment": "Reference to the collection",
+            "ondelete": "CASCADE",
+        },
     )
