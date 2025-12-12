@@ -3,7 +3,7 @@ Make an LLM API call using either a stored configuration or an ad-hoc configurat
 This endpoint initiates an asynchronous LLM call job. The request is queued
 for processing, and results are delivered via the callback URL when complete.
 
-### Request Fields
+### Key Parameters
 
 **`query`** (required) - Query parameters for this LLM call:
 - `input` (required, string, min 1 char): User question/prompt/query

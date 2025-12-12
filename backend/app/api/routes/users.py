@@ -27,7 +27,7 @@ from app.utils import generate_new_account_email, send_email
 from app.core.exception_handlers import HTTPException
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(prefix="/users", tags=["Users"])
 
 
 @router.get(

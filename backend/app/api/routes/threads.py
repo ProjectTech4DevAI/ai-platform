@@ -18,7 +18,7 @@ from app.core.util import configure_openai
 from app.core.langfuse.langfuse import LangfuseTracer
 
 logger = logging.getLogger(__name__)
-router = APIRouter(tags=["threads"])
+router = APIRouter(tags=["Threads"])
 
 
 class StartThreadRequest(BaseModel):

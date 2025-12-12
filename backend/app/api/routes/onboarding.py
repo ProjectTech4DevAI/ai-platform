@@ -8,7 +8,7 @@ from app.crud import onboard_project
 from app.models import OnboardingRequest, OnboardingResponse, User
 from app.utils import APIResponse, load_description
 
-router = APIRouter(tags=["onboarding"])
+router = APIRouter(tags=["Onboarding"])
 
 
 @router.post(

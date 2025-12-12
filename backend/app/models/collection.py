@@ -62,7 +62,7 @@ class AssistantOptions(SQLModel):
     model: Optional[str] = Field(
         default=None,
         description=(
-            "**[To Be Deprecated]**  "
+            "**[Deprecated]**  "
             "OpenAI model to attach to this assistant. The model "
             "must be compatable with the assistants API; see the "
             "OpenAI [model documentation](https://platform.openai.com/docs/models/compare) for more."
@@ -72,7 +72,7 @@ class AssistantOptions(SQLModel):
     instructions: Optional[str] = Field(
         default=None,
         description=(
-            "**[To Be Deprecated]**  "
+            "**[Deprecated]**  "
             "Assistant instruction. Sometimes referred to as the "
             '"system" prompt.'
         ),
@@ -80,7 +80,7 @@ class AssistantOptions(SQLModel):
     temperature: float = Field(
         default=1e-6,
         description=(
-            "**[To Be Deprecated]**  "
+            "**[Deprecated]**  "
             "Model temperature. The default is slightly "
             "greater-than zero because it is [unknown how OpenAI "
             "handles zero](https://community.openai.com/t/clarifications-on-setting-temperature-0/886447/5)."
