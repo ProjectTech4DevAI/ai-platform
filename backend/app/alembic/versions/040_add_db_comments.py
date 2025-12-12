@@ -2,7 +2,7 @@
 
 Revision ID: 040
 Revises: 039
-Create Date: 2025-12-12 16:17:16.115000
+Create Date: 2025-12-12 16:29:47.694694
 
 """
 from alembic import op
@@ -325,6 +325,111 @@ def upgrade():
         existing_type=postgresql.TIMESTAMP(),
         comment="Timestamp when the job was last updated",
         existing_nullable=False,
+    )
+    op.alter_column(
+        "config",
+        "name",
+        existing_type=sa.VARCHAR(length=128),
+        comment="Configuration name",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config",
+        "description",
+        existing_type=sa.VARCHAR(length=512),
+        comment="Description of the configuration",
+        existing_nullable=True,
+    )
+    op.alter_column(
+        "config",
+        "id",
+        existing_type=sa.UUID(),
+        comment="Unique identifier for the configuration",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config",
+        "project_id",
+        existing_type=sa.INTEGER(),
+        comment="Reference to the project",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config",
+        "inserted_at",
+        existing_type=postgresql.TIMESTAMP(),
+        comment="Timestamp when the configuration was created",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config",
+        "updated_at",
+        existing_type=postgresql.TIMESTAMP(),
+        comment="Timestamp when the configuration was last updated",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config",
+        "deleted_at",
+        existing_type=postgresql.TIMESTAMP(),
+        comment="Timestamp when the configuration was deleted",
+        existing_nullable=True,
+    )
+    op.alter_column(
+        "config_version",
+        "config_blob",
+        existing_type=postgresql.JSONB(astext_type=sa.Text()),
+        comment="Provider-specific configuration parameters (temperature, max_tokens, etc.)",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config_version",
+        "commit_message",
+        existing_type=sa.VARCHAR(length=512),
+        comment="Optional message describing the changes in this version",
+        existing_nullable=True,
+    )
+    op.alter_column(
+        "config_version",
+        "id",
+        existing_type=sa.UUID(),
+        comment="Unique identifier for the configuration version",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config_version",
+        "config_id",
+        existing_type=sa.UUID(),
+        comment="Reference to the parent configuration",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config_version",
+        "version",
+        existing_type=sa.INTEGER(),
+        comment="Version number starting at 1",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config_version",
+        "inserted_at",
+        existing_type=postgresql.TIMESTAMP(),
+        comment="Timestamp when the version was created",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config_version",
+        "updated_at",
+        existing_type=postgresql.TIMESTAMP(),
+        comment="Timestamp when the version was last updated",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config_version",
+        "deleted_at",
+        existing_type=postgresql.TIMESTAMP(),
+        comment="Timestamp when the version was soft-deleted",
+        existing_nullable=True,
     )
     op.alter_column(
         "credential",
@@ -1413,6 +1518,7 @@ def upgrade():
         comment="Unique identifier for the user",
         existing_nullable=False,
         autoincrement=True,
+        existing_server_default=sa.text("nextval('user_id_seq'::regclass)"),
     )
     op.alter_column(
         "user",
@@ -1442,6 +1548,7 @@ def downgrade():
         existing_comment="Unique identifier for the user",
         existing_nullable=False,
         autoincrement=True,
+        existing_server_default=sa.text("nextval('user_id_seq'::regclass)"),
     )
     op.alter_column(
         "user",
@@ -2671,6 +2778,126 @@ def downgrade():
         existing_type=sa.BOOLEAN(),
         comment=None,
         existing_comment="Flag indicating if this credential is currently active and usable",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config_version",
+        "deleted_at",
+        existing_type=postgresql.TIMESTAMP(),
+        comment=None,
+        existing_comment="Timestamp when the version was soft-deleted",
+        existing_nullable=True,
+    )
+    op.alter_column(
+        "config_version",
+        "updated_at",
+        existing_type=postgresql.TIMESTAMP(),
+        comment=None,
+        existing_comment="Timestamp when the version was last updated",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config_version",
+        "inserted_at",
+        existing_type=postgresql.TIMESTAMP(),
+        comment=None,
+        existing_comment="Timestamp when the version was created",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config_version",
+        "version",
+        existing_type=sa.INTEGER(),
+        comment=None,
+        existing_comment="Version number starting at 1",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config_version",
+        "config_id",
+        existing_type=sa.UUID(),
+        comment=None,
+        existing_comment="Reference to the parent configuration",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config_version",
+        "id",
+        existing_type=sa.UUID(),
+        comment=None,
+        existing_comment="Unique identifier for the configuration version",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config_version",
+        "commit_message",
+        existing_type=sa.VARCHAR(length=512),
+        comment=None,
+        existing_comment="Optional message describing the changes in this version",
+        existing_nullable=True,
+    )
+    op.alter_column(
+        "config_version",
+        "config_blob",
+        existing_type=postgresql.JSONB(astext_type=sa.Text()),
+        comment=None,
+        existing_comment="Provider-specific configuration parameters (temperature, max_tokens, etc.)",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config",
+        "deleted_at",
+        existing_type=postgresql.TIMESTAMP(),
+        comment=None,
+        existing_comment="Timestamp when the configuration was deleted",
+        existing_nullable=True,
+    )
+    op.alter_column(
+        "config",
+        "updated_at",
+        existing_type=postgresql.TIMESTAMP(),
+        comment=None,
+        existing_comment="Timestamp when the configuration was last updated",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config",
+        "inserted_at",
+        existing_type=postgresql.TIMESTAMP(),
+        comment=None,
+        existing_comment="Timestamp when the configuration was created",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config",
+        "project_id",
+        existing_type=sa.INTEGER(),
+        comment=None,
+        existing_comment="Reference to the project",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config",
+        "id",
+        existing_type=sa.UUID(),
+        comment=None,
+        existing_comment="Unique identifier for the configuration",
+        existing_nullable=False,
+    )
+    op.alter_column(
+        "config",
+        "description",
+        existing_type=sa.VARCHAR(length=512),
+        comment=None,
+        existing_comment="Description of the configuration",
+        existing_nullable=True,
+    )
+    op.alter_column(
+        "config",
+        "name",
+        existing_type=sa.VARCHAR(length=128),
+        comment=None,
+        existing_comment="Configuration name",
         existing_nullable=False,
     )
     op.alter_column(

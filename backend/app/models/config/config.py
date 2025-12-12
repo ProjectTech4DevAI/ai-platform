@@ -13,9 +13,17 @@ from .version import ConfigVersionPublic
 class ConfigBase(SQLModel):
     """Base model for LLM configuration metadata"""
 
-    name: str = Field(min_length=1, max_length=128, description="Config name")
+    name: str = Field(
+        min_length=1,
+        max_length=128,
+        description="Config name",
+        sa_column_kwargs={"comment": "Configuration name"},
+    )
     description: str | None = Field(
-        default=None, max_length=512, description="Optional description"
+        default=None,
+        max_length=512,
+        description="Description of the configuration",
+        sa_column_kwargs={"comment": "Description of the configuration"},
     )
 
 
@@ -39,18 +47,37 @@ class Config(ConfigBase, table=True):
         ),
     )
 
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    id: UUID = Field(
+        default_factory=uuid4,
+        primary_key=True,
+        sa_column_kwargs={"comment": "Unique identifier for the configuration"},
+    )
 
     project_id: int = Field(
         foreign_key="project.id",
         nullable=False,
         ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the project"},
     )
 
-    inserted_at: datetime = Field(default_factory=now, nullable=False)
-    updated_at: datetime = Field(default_factory=now, nullable=False)
+    inserted_at: datetime = Field(
+        default_factory=now,
+        nullable=False,
+        sa_column_kwargs={"comment": "Timestamp when the configuration was created"},
+    )
+    updated_at: datetime = Field(
+        default_factory=now,
+        nullable=False,
+        sa_column_kwargs={
+            "comment": "Timestamp when the configuration was last updated"
+        },
+    )
 
-    deleted_at: datetime | None = Field(default=None, nullable=True)
+    deleted_at: datetime | None = Field(
+        default=None,
+        nullable=True,
+        sa_column_kwargs={"comment": "Timestamp when the configuration was deleted"},
+    )
 
 
 class ConfigCreate(ConfigBase):
@@ -61,7 +88,7 @@ class ConfigCreate(ConfigBase):
     commit_message: str | None = Field(
         default=None,
         max_length=512,
-        description="Optional message describing the changes in this version",
+        description="Message describing the changes in this version",
     )
 
     @field_validator("config_blob")
