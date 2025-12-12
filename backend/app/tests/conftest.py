@@ -21,7 +21,7 @@ from app.tests.utils.auth import (
     get_user_test_auth_context,
     TestAuthContext,
 )
-from app.seed_data.seed_data import seed_database
+from app.tests.seed_data.seed_data import seed_database
 
 
 @pytest.fixture(scope="function")
