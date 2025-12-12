@@ -14,7 +14,7 @@ from app.crud.credentials import (
     update_creds_for_org,
 )
 from app.models import CredsCreate, CredsPublic, CredsUpdate, UserProjectOrg
-from app.utils import APIResponse
+from app.utils import APIResponse, load_description
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/credentials", tags=["Credentials"])
@@ -23,8 +23,7 @@ router = APIRouter(prefix="/credentials", tags=["Credentials"])
 @router.post(
     "/",
     response_model=APIResponse[list[CredsPublic]],
-    summary="Create new credentials for the current organization and project",
-    description="Creates new credentials for the caller's organization and project. Each organization can have different credentials for different providers and projects. Only one credential per provider is allowed per organization-project combination.",
+    description=load_description("credentials/create.md"),
 )
 def create_new_credential(
     *,
@@ -53,8 +52,7 @@ def create_new_credential(
 @router.get(
     "/",
     response_model=APIResponse[list[CredsPublic]],
-    summary="Get all credentials for current org and project",
-    description="Retrieves all provider credentials associated with the caller's organization and project.",
+    description=load_description("credentials/list.md"),
 )
 def read_credential(
     *,
@@ -75,8 +73,7 @@ def read_credential(
 @router.get(
     "/provider/{provider}",
     response_model=APIResponse[dict],
-    summary="Get specific provider credentials for current org and project",
-    description="Retrieves credentials for a specific provider (e.g., 'openai', 'anthropic') for the caller's organization and project.",
+    description=load_description("credentials/get_provider.md"),
 )
 def read_provider_credential(
     *,
@@ -100,8 +97,7 @@ def read_provider_credential(
 @router.patch(
     "/",
     response_model=APIResponse[list[CredsPublic]],
-    summary="Update credentials for current org and project",
-    description="Updates credentials for a specific provider of the caller's organization and project.",
+    description=load_description("credentials/update.md"),
 )
 def update_credential(
     *,
@@ -133,7 +129,7 @@ def update_credential(
 @router.delete(
     "/provider/{provider}",
     response_model=APIResponse[dict],
-    summary="Delete specific provider credentials for current org and project",
+    description=load_description("credentials/delete_provider.md"),
 )
 def delete_provider_credential(
     *,
@@ -157,8 +153,7 @@ def delete_provider_credential(
 @router.delete(
     "/",
     response_model=APIResponse[dict],
-    summary="Delete all credentials for current org and project",
-    description="Removes all credentials for the caller's organization and project. This is a hard delete operation that permanently removes credentials from the database.",
+    description=load_description("credentials/delete_all.md"),
 )
 def delete_all_credentials(
     *,

@@ -4,7 +4,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from sqlmodel import Session
-from openai import OpenAI
 
 from app.crud import (
     fetch_by_id,
@@ -24,7 +23,7 @@ from app.models import (
 from app.core.db import engine
 from app.core.cloud import get_cloud_storage
 from app.core.finetune.evaluation import ModelEvaluator
-from app.utils import get_openai_client, APIResponse
+from app.utils import get_openai_client, APIResponse, load_description
 from app.api.deps import CurrentUserOrgProject, SessionDep
 
 
@@ -112,7 +111,11 @@ def run_model_evaluation(
             )
 
 
-@router.post("/evaluate_models/", response_model=APIResponse)
+@router.post(
+    "/evaluate_models/",
+    response_model=APIResponse,
+    description=load_description("model_evaluation/evaluate.md"),
+)
 def evaluate_models(
     request: ModelEvaluationCreate,
     background_tasks: BackgroundTasks,
@@ -196,6 +199,7 @@ def evaluate_models(
     "/{document_id}/top_model",
     response_model=APIResponse[ModelEvaluationPublic],
     response_model_exclude_none=True,
+    description=load_description("model_evaluation/get_top_model.md"),
 )
 def get_top_model_by_doc_id(
     document_id: UUID,
@@ -223,6 +227,7 @@ def get_top_model_by_doc_id(
     "/{document_id}",
     response_model=APIResponse[list[ModelEvaluationPublic]],
     response_model_exclude_none=True,
+    description=load_description("model_evaluation/list_by_document.md"),
 )
 def get_evaluations_by_doc_id(
     document_id: UUID,

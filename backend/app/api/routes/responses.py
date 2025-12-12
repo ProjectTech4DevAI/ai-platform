@@ -19,14 +19,23 @@ from app.models import (
 from app.services.response.jobs import start_job
 from app.services.response.response import get_file_search_results
 from app.services.response.callbacks import get_additional_data
-from app.utils import APIResponse, get_openai_client, handle_openai_error, mask_string
+from app.utils import (
+    APIResponse,
+    get_openai_client,
+    handle_openai_error,
+    load_description,
+)
 
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Responses"])
 
 
-@router.post("/responses", response_model=APIResponse[ResponseJobStatus])
+@router.post(
+    "/responses",
+    response_model=APIResponse[ResponseJobStatus],
+    description=load_description("responses/create_async.md"),
+)
 async def responses(
     request: ResponsesAPIRequest,
     _session: Session = Depends(get_db),
@@ -56,7 +65,11 @@ async def responses(
     return APIResponse.success_response(data=response)
 
 
-@router.post("/responses/sync", response_model=APIResponse[CallbackResponse])
+@router.post(
+    "/responses/sync",
+    response_model=APIResponse[CallbackResponse],
+    description=load_description("responses/create_sync.md"),
+)
 async def responses_sync(
     request: ResponsesSyncAPIRequest,
     _session: Session = Depends(get_db),
