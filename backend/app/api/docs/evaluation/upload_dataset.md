@@ -27,7 +27,7 @@ Your dataset name will be automatically sanitized for Langfuse compatibility:
 
 **Duplication Factor:**
 
-Control how many times each Q&A pair is duplicated (1-5x, default: 5):
+Control how many times each Q&A pair is duplicated (1-5x, default: 1):
 * Higher duplication = better statistical significance
 * Useful for batch evaluation reliability
 * `1` = no duplication (original dataset only)
