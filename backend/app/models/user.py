@@ -1,15 +1,32 @@
-import uuid
-
 from pydantic import EmailStr
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, SQLModel
 
 
 # Shared properties
 class UserBase(SQLModel):
-    email: EmailStr = Field(unique=True, index=True, max_length=255)
-    is_active: bool = True
-    is_superuser: bool = False
-    full_name: str | None = Field(default=None, max_length=255)
+    """Base model for users with common data fields."""
+
+    email: EmailStr = Field(
+        unique=True,
+        index=True,
+        max_length=255,
+        sa_column_kwargs={"comment": "User's email address"},
+    )
+    is_active: bool = Field(
+        default=True,
+        sa_column_kwargs={"comment": "Flag indicating if the user account is active"},
+    )
+    is_superuser: bool = Field(
+        default=False,
+        sa_column_kwargs={
+            "comment": "Flag indicating if user has superuser privileges"
+        },
+    )
+    full_name: str | None = Field(
+        default=None,
+        max_length=255,
+        sa_column_kwargs={"comment": "User's full name"},
+    )
 
 
 # Properties to receive via API on creation
@@ -46,8 +63,16 @@ class UpdatePassword(SQLModel):
 
 # Database model, database table inferred from class name
 class User(UserBase, table=True):
-    id: int = Field(default=None, primary_key=True)
-    hashed_password: str
+    """Database model for users."""
+
+    id: int = Field(
+        default=None,
+        primary_key=True,
+        sa_column_kwargs={"comment": "Unique identifier for the user"},
+    )
+    hashed_password: str = Field(
+        sa_column_kwargs={"comment": "Bcrypt hash of the user's password"},
+    )
 
 
 class UserOrganization(UserBase):

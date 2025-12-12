@@ -1,19 +1,38 @@
-from typing import Dict, Any, Optional
+from datetime import datetime
+from typing import Any
+
 import sqlalchemy as sa
 from sqlmodel import Field, Relationship, SQLModel
-from datetime import datetime
 
 from app.core.util import now
+from app.models.organization import Organization
+from app.models.project import Project
 
 
 class CredsBase(SQLModel):
+    """Base model for credentials with foreign keys and common fields."""
+
+    is_active: bool = Field(
+        default=True,
+        nullable=False,
+        sa_column_kwargs={
+            "comment": "Flag indicating if this credential is currently active and usable"
+        },
+    )
+
+    # Foreign keys
     organization_id: int = Field(
-        foreign_key="organization.id", nullable=False, ondelete="CASCADE"
+        foreign_key="organization.id",
+        nullable=False,
+        ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the organization"},
     )
     project_id: int = Field(
-        default=None, foreign_key="project.id", nullable=False, ondelete="CASCADE"
+        foreign_key="project.id",
+        nullable=False,
+        ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the project"},
     )
-    is_active: bool = True
 
 
 class CredsCreate(SQLModel):
@@ -23,7 +42,7 @@ class CredsCreate(SQLModel):
     """
 
     is_active: bool = True
-    credential: Dict[str, Any] = Field(
+    credential: dict[str, Any] = Field(
         default=None,
         description="Dictionary mapping provider names to their credentials",
     )
@@ -37,10 +56,10 @@ class CredsUpdate(SQLModel):
     provider: str = Field(
         description="Name of the provider to update/add credentials for"
     )
-    credential: Dict[str, Any] = Field(
+    credential: dict[str, Any] = Field(
         description="Credentials for the specified provider",
     )
-    is_active: Optional[bool] = Field(
+    is_active: bool | None = Field(
         default=None, description="Whether the credentials are active"
     )
 
@@ -59,25 +78,40 @@ class Credential(CredsBase, table=True):
         ),
     )
 
-    id: int = Field(default=None, primary_key=True)
+    id: int | None = Field(
+        default=None,
+        primary_key=True,
+        sa_column_kwargs={"comment": "Unique ID for the credential"},
+    )
     provider: str = Field(
-        index=True, description="Provider name like 'openai', 'gemini'"
+        index=True,
+        nullable=False,
+        description="Provider name like 'openai', 'gemini'",
+        sa_column_kwargs={"comment": "Provider name like 'openai', 'gemini'"},
     )
     credential: str = Field(
-        sa_column=sa.Column(sa.String, nullable=False),
-        description="Encrypted provider-specific credentials",
+        nullable=False,
+        description="Encrypted JSON string containing provider-specific API credentials",
+        sa_column_kwargs={
+            "comment": "Encrypted JSON string containing provider-specific API credentials"
+        },
     )
+
+    # Timestamps
     inserted_at: datetime = Field(
         default_factory=now,
-        sa_column=sa.Column(sa.DateTime, default=datetime.utcnow, nullable=False),
+        nullable=False,
+        sa_column_kwargs={"comment": "Timestamp when the credential was created"},
     )
     updated_at: datetime = Field(
         default_factory=now,
-        sa_column=sa.Column(sa.DateTime, onupdate=datetime.utcnow, nullable=False),
+        nullable=False,
+        sa_column_kwargs={"comment": "Timestamp when the credential was last updated"},
     )
 
-    organization: Optional["Organization"] = Relationship(back_populates="creds")
-    project: Optional["Project"] = Relationship(back_populates="creds")
+    # Relationships
+    organization: Organization | None = Relationship(back_populates="creds")
+    project: Project | None = Relationship(back_populates="creds")
 
     def to_public(self) -> "CredsPublic":
         """Convert the database model to a public model with decrypted credentials."""
@@ -102,6 +136,6 @@ class CredsPublic(CredsBase):
 
     id: int
     provider: str
-    credential: Optional[Dict[str, Any]] = None
+    credential: dict[str, Any] | None = None
     inserted_at: datetime
     updated_at: datetime

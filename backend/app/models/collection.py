@@ -1,38 +1,65 @@
-from uuid import UUID, uuid4
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
+from uuid import UUID, uuid4
 
-from sqlmodel import Field, Relationship, SQLModel
 from pydantic import HttpUrl, model_validator
+from sqlmodel import Field, Relationship, SQLModel
 
 from app.core.util import now
 from app.models.document import DocumentPublic
+
 from .organization import Organization
 from .project import Project
 
 
 class Collection(SQLModel, table=True):
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    """Database model for Collection operations."""
 
+    id: UUID = Field(
+        default_factory=uuid4,
+        primary_key=True,
+        sa_column_kwargs={"comment": "Unique identifier for the collection"},
+    )
+    llm_service_id: str = Field(
+        nullable=False,
+        sa_column_kwargs={
+            "comment": "External LLM service identifier (e.g., OpenAI vector store ID)"
+        },
+    )
+    llm_service_name: str = Field(
+        nullable=False,
+        sa_column_kwargs={"comment": "Name of the LLM service provider"},
+    )
+
+    # Foreign keys
     organization_id: int = Field(
         foreign_key="organization.id",
         nullable=False,
         ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the organization"},
     )
-
     project_id: int = Field(
         foreign_key="project.id",
         nullable=False,
         ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the project"},
     )
 
-    llm_service_id: str = Field(nullable=False)
-    llm_service_name: str = Field(nullable=False)
+    # Timestamps
+    inserted_at: datetime = Field(
+        default_factory=now,
+        sa_column_kwargs={"comment": "Timestamp when the collection was created"},
+    )
+    updated_at: datetime = Field(
+        default_factory=now,
+        sa_column_kwargs={"comment": "Timestamp when the collection was last updated"},
+    )
+    deleted_at: datetime | None = Field(
+        default=None,
+        sa_column_kwargs={"comment": "Timestamp when the collection was deleted"},
+    )
 
-    inserted_at: datetime = Field(default_factory=now)
-    updated_at: datetime = Field(default_factory=now)
-    deleted_at: Optional[datetime] = None
-
+    # Relationships
     organization: Organization = Relationship(back_populates="collections")
     project: Project = Relationship(back_populates="collections")
 
@@ -59,7 +86,7 @@ class AssistantOptions(SQLModel):
     # Fields to be passed along to OpenAI. They must be a subset of
     # parameters accepted by the OpenAI.clien.beta.assistants.create
     # API.
-    model: Optional[str] = Field(
+    model: str | None = Field(
         default=None,
         description=(
             "**[To Be Deprecated]**  "
@@ -69,7 +96,7 @@ class AssistantOptions(SQLModel):
         ),
     )
 
-    instructions: Optional[str] = Field(
+    instructions: str | None = Field(
         default=None,
         description=(
             "**[To Be Deprecated]**  "
@@ -112,7 +139,7 @@ class AssistantOptions(SQLModel):
 
 
 class CallbackRequest(SQLModel):
-    callback_url: Optional[HttpUrl] = Field(
+    callback_url: HttpUrl | None = Field(
         default=None,
         description="URL to call to report endpoint status",
     )

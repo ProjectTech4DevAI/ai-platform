@@ -1,9 +1,9 @@
 import enum
-from uuid import UUID, uuid4
 from datetime import datetime
+from uuid import UUID, uuid4
 
-from sqlmodel import SQLModel, Field
 from pydantic import ConfigDict
+from sqlmodel import Field, SQLModel
 
 from app.core.util import now
 
@@ -16,21 +16,58 @@ class TransformationStatus(str, enum.Enum):
 
 
 class DocTransformationJob(SQLModel, table=True):
+    """Database model for DocTransformationJob operations."""
+
     __tablename__ = "doc_transformation_job"
 
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    source_document_id: UUID = Field(foreign_key="document.id")
-    transformed_document_id: UUID | None = Field(
-        default=None, foreign_key="document.id"
+    id: UUID = Field(
+        default_factory=uuid4,
+        primary_key=True,
+        sa_column_kwargs={"comment": "Unique identifier for the transformation job"},
     )
-    status: TransformationStatus = Field(default=TransformationStatus.PENDING)
-    task_id: str | None = Field(default=None, nullable=True)
+    status: TransformationStatus = Field(
+        default=TransformationStatus.PENDING,
+        sa_column_kwargs={
+            "comment": "Current status (PENDING, PROCESSING, COMPLETED, FAILED)"
+        },
+    )
+    task_id: str | None = Field(
+        default=None,
+        nullable=True,
+        sa_column_kwargs={"comment": "Celery task ID for async processing"},
+    )
     trace_id: str | None = Field(
-        default=None, description="Tracing ID for correlating logs and traces."
+        default=None,
+        description="Tracing ID for correlating logs and traces.",
+        sa_column_kwargs={"comment": "Tracing ID for correlating logs and traces"},
     )
-    error_message: str | None = Field(default=None)
-    inserted_at: datetime = Field(default_factory=now)
-    updated_at: datetime = Field(default_factory=now)
+    error_message: str | None = Field(
+        default=None,
+        sa_column_kwargs={"comment": "Error message if transformation failed"},
+    )
+
+    # Foreign keys
+    source_document_id: UUID = Field(
+        foreign_key="document.id",
+        sa_column_kwargs={
+            "comment": "Reference to the source document being transformed"
+        },
+    )
+    transformed_document_id: UUID | None = Field(
+        default=None,
+        foreign_key="document.id",
+        sa_column_kwargs={"comment": "Reference to the resulting transformed document"},
+    )
+
+    # Timestamps
+    inserted_at: datetime = Field(
+        default_factory=now,
+        sa_column_kwargs={"comment": "Timestamp when the job was created"},
+    )
+    updated_at: datetime = Field(
+        default_factory=now,
+        sa_column_kwargs={"comment": "Timestamp when the job was last updated"},
+    )
 
     @property
     def job_id(self) -> UUID:

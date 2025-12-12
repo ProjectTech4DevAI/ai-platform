@@ -15,8 +15,18 @@ if TYPE_CHECKING:
 
 # Shared properties for an Organization
 class OrganizationBase(SQLModel):
-    name: str = Field(unique=True, index=True, max_length=255)
-    is_active: bool = True
+    """Base model for organizations with common data fields."""
+
+    name: str = Field(
+        unique=True,
+        index=True,
+        max_length=255,
+        sa_column_kwargs={"comment": "Organization name (unique identifier)"},
+    )
+    is_active: bool = Field(
+        default=True,
+        sa_column_kwargs={"comment": "Flag indicating if the organization is active"},
+    )
 
 
 # Properties to receive via API on creation
@@ -32,11 +42,29 @@ class OrganizationUpdate(SQLModel):
 
 # Database model for Organization
 class Organization(OrganizationBase, table=True):
-    id: int = Field(default=None, primary_key=True)
-    inserted_at: datetime = Field(default_factory=now, nullable=False)
-    updated_at: datetime = Field(default_factory=now, nullable=False)
+    """Database model for organizations."""
 
-    # Relationship back to Creds
+    id: int = Field(
+        default=None,
+        primary_key=True,
+        sa_column_kwargs={"comment": "Unique identifier for the organization"},
+    )
+
+    # Timestamps
+    inserted_at: datetime = Field(
+        default_factory=now,
+        nullable=False,
+        sa_column_kwargs={"comment": "Timestamp when the organization was created"},
+    )
+    updated_at: datetime = Field(
+        default_factory=now,
+        nullable=False,
+        sa_column_kwargs={
+            "comment": "Timestamp when the organization was last updated"
+        },
+    )
+
+    # Relationships
     creds: list["Credential"] = Relationship(
         back_populates="organization", cascade_delete=True
     )

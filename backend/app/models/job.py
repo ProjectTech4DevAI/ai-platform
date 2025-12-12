@@ -1,8 +1,9 @@
 from datetime import datetime
 from enum import Enum
-from uuid import uuid4, UUID
+from uuid import UUID, uuid4
 
-from sqlmodel import SQLModel, Field
+from sqlmodel import Field, SQLModel
+
 from app.core.util import now
 
 
@@ -19,29 +20,53 @@ class JobType(str, Enum):
 
 
 class Job(SQLModel, table=True):
+    """Database model for tracking async jobs."""
+
     __tablename__ = "job"
 
     id: UUID = Field(
         default_factory=uuid4,
         primary_key=True,
+        sa_column_kwargs={"comment": "Unique identifier for the job"},
     )
     task_id: str | None = Field(
-        nullable=True, description="Celery task ID returned when job is queued."
+        nullable=True,
+        description="Celery task ID returned when job is queued.",
+        sa_column_kwargs={"comment": "Celery task ID returned when job is queued"},
     )
     trace_id: str | None = Field(
-        default=None, description="Tracing ID for correlating logs and traces."
+        default=None,
+        description="Tracing ID for correlating logs and traces.",
+        sa_column_kwargs={"comment": "Tracing ID for correlating logs and traces"},
     )
     error_message: str | None = Field(
-        default=None, description="Error details if the job fails."
+        default=None,
+        description="Error details if the job fails.",
+        sa_column_kwargs={"comment": "Error details if the job fails"},
     )
     status: JobStatus = Field(
-        default=JobStatus.PENDING, description="Current state of the job."
+        default=JobStatus.PENDING,
+        description="Current state of the job.",
+        sa_column_kwargs={
+            "comment": "Current state of the job (PENDING, PROCESSING, SUCCESS, FAILED)"
+        },
     )
     job_type: JobType = Field(
-        description="Type of job being executed (e.g., response, ingestion)."
+        description="Type of job being executed (e.g., response, ingestion).",
+        sa_column_kwargs={
+            "comment": "Type of job being executed (e.g., RESPONSE, LLM_API)"
+        },
     )
-    created_at: datetime = Field(default_factory=now)
-    updated_at: datetime = Field(default_factory=now)
+
+    # Timestamps
+    created_at: datetime = Field(
+        default_factory=now,
+        sa_column_kwargs={"comment": "Timestamp when the job was created"},
+    )
+    updated_at: datetime = Field(
+        default_factory=now,
+        sa_column_kwargs={"comment": "Timestamp when the job was last updated"},
+    )
 
 
 class JobUpdate(SQLModel):
