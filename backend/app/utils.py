@@ -351,7 +351,6 @@ def send_callback(callback_url: str, data: dict[str, Any]) -> bool:
     - DNS rebinding protection
     - Redirect following disabled
     - Strict timeouts
-    - Response size limits (prevents DoS via large responses)
 
     Args:
         callback_url: The HTTPS URL to send the callback to
@@ -378,20 +377,9 @@ def send_callback(callback_url: str, data: dict[str, Any]) -> bool:
                     settings.CALLBACK_READ_TIMEOUT,
                 ),
                 allow_redirects=False,
-                stream=True,
             )
 
             response.raise_for_status()
-
-            total_size = 0
-            for chunk in response.iter_content(chunk_size=8192):
-                total_size += len(chunk)
-                if total_size > settings.CALLBACK_MAX_RESPONSE_SIZE:
-                    response.close()
-                    logger.error(
-                        f"[send_callback] Response size exceeds {settings.CALLBACK_MAX_RESPONSE_SIZE} bytes while reading"
-                    )
-                    return False
 
             logger.info("[send_callback] Callback sent successfully")
             return True

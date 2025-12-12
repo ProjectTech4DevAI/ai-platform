@@ -121,7 +121,6 @@ class Settings(BaseSettings):
     # callback timeouts and limits
     CALLBACK_CONNECT_TIMEOUT: int = 3
     CALLBACK_READ_TIMEOUT: int = 10
-    CALLBACK_MAX_RESPONSE_SIZE: int = 1048576  # (1*1024*1024)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
