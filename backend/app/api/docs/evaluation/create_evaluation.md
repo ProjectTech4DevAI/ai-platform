@@ -8,7 +8,7 @@ predefined datasets with automatic progress tracking and result collection.
 * Asynchronous processing with automatic progress tracking (checks every 60s)
 * Supports configuration from direct parameters or existing assistants
 * Stores results for comparison and analysis
-* Note that you can use `GET /evaluations/{evaluation_id}` to monitor progress and retrieve results of evaluation.
+* Use `GET /evaluations/{evaluation_id}` to monitor progress and retrieve results of evaluation.
 
 **Example: Using Direct Configuration**
 

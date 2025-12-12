@@ -13,6 +13,6 @@ The following (source_format → target_format) transformations are supported:
 
 ### Transformers
 
-Available transformer names and their implementations, default transformer is zerox for now:
+Available transformer names and their implementations, default transformer is zerox:
 
 - `zerox`
