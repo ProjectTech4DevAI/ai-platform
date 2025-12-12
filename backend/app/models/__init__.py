@@ -21,6 +21,19 @@ from .collection_job import (
     CollectionJobCreate,
     CollectionJobImmediatePublic,
 )
+from .config import (
+    Config,
+    ConfigBase,
+    ConfigCreate,
+    ConfigUpdate,
+    ConfigPublic,
+    ConfigWithVersion,
+    ConfigVersion,
+    ConfigVersionBase,
+    ConfigVersionCreate,
+    ConfigVersionPublic,
+    ConfigVersionItems,
+)
 from .credentials import (
     Credential,
     CredsBase,
@@ -32,13 +45,17 @@ from .credentials import (
 from .document import (
     Document,
     DocumentPublic,
+    DocTransformationJobPublic,
+    DocTransformationJobsPublic,
+    TransformedDocumentPublic,
     DocumentUploadResponse,
     TransformationJobInfo,
 )
 from .doc_transformation_job import (
     DocTransformationJob,
-    DocTransformationJobs,
     TransformationStatus,
+    DocTransformJobCreate,
+    DocTransformJobUpdate,
 )
 from .document_collection import DocumentCollection
 
@@ -70,6 +87,8 @@ from .fine_tuning import (
 from .job import Job, JobType, JobStatus, JobUpdate
 
 from .llm import (
+    ConfigBlob,
+    CompletionConfig,
     LLMCallRequest,
     LLMCallResponse,
 )

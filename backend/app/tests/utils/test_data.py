@@ -8,12 +8,19 @@ from app.models import (
     Credential,
     OrganizationCreate,
     ProjectCreate,
+    ConfigBlob,
+    CompletionConfig,
     CredsCreate,
     FineTuningJobCreate,
     Fine_Tuning,
     ModelEvaluation,
     ModelEvaluationBase,
     ModelEvaluationStatus,
+    Config,
+    ConfigCreate,
+    ConfigVersion,
+    ConfigVersionCreate,
+    ConfigBase,
 )
 from app.crud import (
     create_organization,
@@ -23,6 +30,7 @@ from app.crud import (
     create_model_evaluation,
     APIKeyCrud,
 )
+from app.crud.config import ConfigCrud, ConfigVersionCrud
 from app.core.providers import Provider
 from app.tests.utils.user import create_random_user
 from app.tests.utils.utils import (
@@ -226,3 +234,84 @@ def create_test_model_evaluation(db) -> list[ModelEvaluation]:
         model_evaluations.append(model_eval)
 
     return model_evaluations
+
+
+def create_test_config(
+    db: Session,
+    project_id: int | None = None,
+    name: str | None = None,
+    description: str | None = None,
+    config_blob: ConfigBlob | None = None,
+) -> Config:
+    """
+    Creates and returns a test configuration with an initial version.
+
+    Persists the config and version to the database.
+    """
+    if project_id is None:
+        project = create_test_project(db)
+        project_id = project.id
+
+    if name is None:
+        name = f"test-config-{random_lower_string()}"
+
+    if config_blob is None:
+        config_blob = ConfigBlob(
+            completion=CompletionConfig(
+                provider="openai",
+                params={
+                    "model": "gpt-4",
+                    "temperature": 0.7,
+                    "max_tokens": 1000,
+                },
+            )
+        )
+
+    config_create = ConfigCreate(
+        name=name,
+        description=description or "Test configuration description",
+        config_blob=config_blob,
+        commit_message="Initial version",
+    )
+
+    config_crud = ConfigCrud(session=db, project_id=project_id)
+    config, version = config_crud.create_or_raise(config_create)
+
+    return config
+
+
+def create_test_version(
+    db: Session,
+    config_id,
+    project_id: int,
+    config_blob: ConfigBlob | None = None,
+    commit_message: str | None = None,
+) -> ConfigVersion:
+    """
+    Creates and returns a test version for an existing configuration.
+
+    Persists the version to the database.
+    """
+    if config_blob is None:
+        config_blob = ConfigBlob(
+            completion=CompletionConfig(
+                provider="openai",
+                params={
+                    "model": "gpt-4",
+                    "temperature": 0.8,
+                    "max_tokens": 1500,
+                },
+            )
+        )
+
+    version_create = ConfigVersionCreate(
+        config_blob=config_blob,
+        commit_message=commit_message or "Test version commit",
+    )
+
+    version_crud = ConfigVersionCrud(
+        session=db, project_id=project_id, config_id=config_id
+    )
+    version = version_crud.create_or_raise(version_create=version_create)
+
+    return version

@@ -1,13 +1,12 @@
 import logging
 from pathlib import Path
+from typing import Union
 from uuid import UUID, uuid4
 
 from fastapi import (
     APIRouter,
-    BackgroundTasks,
     File,
     Form,
-    HTTPException,
     Query,
     UploadFile,
 )
@@ -15,99 +14,111 @@ from fastapi import Path as FastPath
 
 from app.api.deps import CurrentUserOrgProject, SessionDep
 from app.core.cloud import get_cloud_storage
-from app.core.doctransform import service as transformation_service
-from app.core.doctransform.registry import (
-    get_available_transformers,
-    get_file_format,
-    is_transformation_supported,
-    resolve_transformer,
-)
 from app.crud import CollectionCrud, DocumentCrud
 from app.crud.rag import OpenAIAssistantCrud, OpenAIVectorStoreCrud
 from app.models import (
     Document,
     DocumentPublic,
+    TransformedDocumentPublic,
     DocumentUploadResponse,
     Message,
     TransformationJobInfo,
+    DocTransformationJobPublic,
 )
 from app.services.collections.helpers import pick_service_for_documennt
+from app.services.documents.helpers import (
+    schedule_transformation,
+    pre_transform_validation,
+    build_document_schema,
+    build_document_schemas,
+)
 from app.utils import APIResponse, get_openai_client, load_description
 
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/documents", tags=["documents"])
+doctransformation_callback_router = APIRouter()
+
+
+@doctransformation_callback_router.post(
+    "{$callback_url}",
+    name="doctransformation_callback",
+)
+def doctransformation_callback_notification(
+    body: APIResponse[DocTransformationJobPublic],
+):
+    """
+    Callback endpoint specification for document transformation.
+
+    The callback will receive:
+    - On success: APIResponse with success=True and data containing DocTransformationJobPublic
+    - On failure: APIResponse with success=False and error message
+    - metadata field will always be included if provided in the request
+    """
+    ...
 
 
 @router.get(
-    "/list",
+    "/",
     description=load_description("documents/list.md"),
-    response_model=APIResponse[list[DocumentPublic]],
+    response_model=APIResponse[list[Union[DocumentPublic, TransformedDocumentPublic]]],
 )
 def list_docs(
     session: SessionDep,
     current_user: CurrentUserOrgProject,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, gt=0, le=100),
+    include_url: bool = Query(
+        False, description="Include a signed URL to access each document"
+    ),
 ):
     crud = DocumentCrud(session, current_user.project_id)
-    data = crud.read_many(skip, limit)
-    return APIResponse.success_response(data)
+    documents = crud.read_many(skip, limit)
+
+    storage = (
+        get_cloud_storage(session=session, project_id=current_user.project_id)
+        if include_url and documents
+        else None
+    )
+
+    results = build_document_schemas(
+        documents=documents,
+        include_url=include_url,
+        storage=storage,
+    )
+    return APIResponse.success_response(results)
 
 
 @router.post(
-    "/upload",
+    "/",
     description=load_description("documents/upload.md"),
     response_model=APIResponse[DocumentUploadResponse],
+    callbacks=doctransformation_callback_router.routes,
 )
 async def upload_doc(
     session: SessionDep,
     current_user: CurrentUserOrgProject,
-    background_tasks: BackgroundTasks,
     src: UploadFile = File(...),
     target_format: str
     | None = Form(
         None,
-        description="Desired output format for the uploaded document (e.g., pdf, docx, txt). ",
+        description="Desired output format for the uploaded document (e.g., pdf, docx, txt).",
     ),
     transformer: str
     | None = Form(
-        None, description="Name of the transformer to apply when converting. "
+        None, description="Name of the transformer to apply when converting."
     ),
+    callback_url: str
+    | None = Form(None, description="URL to call to report doc transformation status"),
 ):
-    # Determine source file format
-    try:
-        source_format = get_file_format(src.filename)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    # validate if transformation is possible or not
-    if target_format:
-        if not is_transformation_supported(source_format, target_format):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Transformation from {source_format} to {target_format} is not supported",
-            )
-
-        # Resolve the transformer to use
-        if not transformer:
-            transformer = "default"
-        try:
-            actual_transformer = resolve_transformer(
-                source_format, target_format, transformer
-            )
-        except ValueError as e:
-            available_transformers = get_available_transformers(
-                source_format, target_format
-            )
-            raise HTTPException(
-                status_code=400,
-                detail=f"{str(e)}. Available transformers: {list(available_transformers.keys())}",
-            )
+    source_format, actual_transformer = pre_transform_validation(
+        src_filename=src.filename,
+        target_format=target_format,
+        transformer=transformer,
+    )
 
     storage = get_cloud_storage(session=session, project_id=current_user.project_id)
     document_id = uuid4()
-
     object_store_url = storage.put(src, Path(str(document_id)))
 
     crud = DocumentCrud(session, current_user.project_id)
@@ -118,24 +129,16 @@ async def upload_doc(
     )
     source_document = crud.update(document)
 
-    job_info: TransformationJobInfo | None = None
-    if target_format and actual_transformer:
-        job_id = transformation_service.start_job(
-            db=session,
-            current_user=current_user,
-            source_document_id=source_document.id,
-            transformer_name=actual_transformer,
-            target_format=target_format,
-            background_tasks=background_tasks,
-        )
-        job_info = TransformationJobInfo(
-            message=f"Document accepted for transformation from {source_format} to {target_format}.",
-            job_id=str(job_id),
-            source_format=source_format,
-            target_format=target_format,
-            transformer=actual_transformer,
-            status_check_url=f"/documents/transformations/{job_id}",
-        )
+    job_info: TransformationJobInfo | None = schedule_transformation(
+        session=session,
+        project_id=current_user.project_id,
+        current_user=current_user,
+        source_format=source_format,
+        target_format=target_format,
+        actual_transformer=actual_transformer,
+        source_document_id=source_document.id,
+        callback_url=callback_url,
+    )
 
     document_schema = DocumentPublic.model_validate(
         source_document, from_attributes=True
@@ -143,15 +146,16 @@ async def upload_doc(
     document_schema.signed_url = storage.get_signed_url(
         source_document.object_store_url
     )
-    response = DocumentUploadResponse(
-        **document_schema.model_dump(), transformation_job=job_info
-    )
 
+    response = DocumentUploadResponse(
+        **document_schema.model_dump(),
+        transformation_job=job_info,
+    )
     return APIResponse.success_response(response)
 
 
 @router.delete(
-    "/remove/{doc_id}",
+    "/{doc_id}",
     description=load_description("documents/delete.md"),
     response_model=APIResponse[Message],
 )
@@ -182,7 +186,7 @@ def remove_doc(
 
 
 @router.delete(
-    "/remove/{doc_id}/permanent",
+    "/{doc_id}/permanent",
     description=load_description("documents/permanent_delete.md"),
     response_model=APIResponse[Message],
 )
@@ -216,9 +220,9 @@ def permanent_delete_doc(
 
 
 @router.get(
-    "/info/{doc_id}",
+    "/{doc_id}",
     description=load_description("documents/info.md"),
-    response_model=APIResponse[DocumentPublic],
+    response_model=APIResponse[Union[DocumentPublic, TransformedDocumentPublic]],
 )
 def doc_info(
     session: SessionDep,
@@ -231,9 +235,15 @@ def doc_info(
     crud = DocumentCrud(session, current_user.project_id)
     document = crud.read_one(doc_id)
 
-    doc_schema = DocumentPublic.model_validate(document, from_attributes=True)
-    if include_url:
-        storage = get_cloud_storage(session=session, project_id=current_user.project_id)
-        doc_schema.signed_url = storage.get_signed_url(document.object_store_url)
+    storage = (
+        get_cloud_storage(session=session, project_id=current_user.project_id)
+        if include_url
+        else None
+    )
 
+    doc_schema = build_document_schema(
+        document=document,
+        include_url=include_url,
+        storage=storage,
+    )
     return APIResponse.success_response(doc_schema)

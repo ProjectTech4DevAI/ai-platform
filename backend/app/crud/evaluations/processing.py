@@ -63,7 +63,12 @@ def parse_evaluation_output(
                 "question": "What is 2+2?",
                 "generated_output": "4",
                 "ground_truth": "4",
-                "response_id": "resp_0b99aadfead1fb62006908e7f540c48197bd110183a347c1d8"
+                "response_id": "resp_0b99aadfead1fb62006908e7f540c48197bd110183a347c1d8",
+                "usage": {
+                    "input_tokens": 69,
+                    "output_tokens": 258,
+                    "total_tokens": 327
+                }
             },
             ...
         ]
@@ -96,6 +101,9 @@ def parse_evaluation_output(
 
             # Extract response ID from response.body.id
             response_id = response_body.get("id")
+
+            # Extract usage information for cost tracking
+            usage = response_body.get("usage")
 
             # Handle errors in batch processing
             if response.get("error"):
@@ -152,6 +160,7 @@ def parse_evaluation_output(
                     "generated_output": generated_output,
                     "ground_truth": ground_truth,
                     "response_id": response_id,
+                    "usage": usage,
                 }
             )
 
@@ -244,12 +253,16 @@ async def process_completed_evaluation(
         if not results:
             raise ValueError("No valid results found in batch output")
 
+        # Extract model from config for cost tracking
+        model = eval_run.config.get("model") if eval_run.config else None
+
         # Step 5: Create Langfuse dataset run with traces
         trace_id_mapping = create_langfuse_dataset_run(
             langfuse=langfuse,
             dataset_name=eval_run.dataset_name,
             run_name=eval_run.run_name,
             results=results,
+            model=model,
         )
 
         # Store object store URL in database
