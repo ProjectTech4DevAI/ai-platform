@@ -138,8 +138,10 @@ $ docker compose exec backend bash
 * After changing a model (for example, adding a column), inside the container, create a revision, e.g.:
 
 ```console
-$ alembic revision --autogenerate -m "Add column last_name to User model"
+$ alembic revision --autogenerate -m "Add column last_name to User model" --rev-id 040
 ```
+
+* The rev-id should always be the latest existing revision ID plus 1.
 
 * Commit to the git repository the files generated in the alembic directory.
 
