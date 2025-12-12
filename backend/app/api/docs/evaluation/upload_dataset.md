@@ -1,6 +1,6 @@
 Upload a CSV file containing golden Q&A pairs for evaluation.
 
-Datasets allow you to store reusable question-answer pairs for systematic LLM testing with automatic validation, duplication for statistical significance, and Langfuse integration. Response includes dataset ID, sanitized name, item counts, Langfuse dataset ID, and object store URL.
+Datasets allow you to store reusable question-answer pairs for systematic LLM testing with automatic validation, duplication for statistical significance, and Langfuse integration. Response includes dataset ID, sanitized name, item counts, Langfuse dataset ID, and object store URL (the cloud storage location where your CSV file is stored).
 
 **Key Features:**
 * Validates CSV format and required columns (question, answer)

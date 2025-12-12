@@ -25,8 +25,8 @@
 - We’ve also included a list of the providers currently supported by kaapi.
 
    ### Supported Providers
-   - openai
-   - langfuse
+   - **LLM:** openai
+   - **Observability:** langfuse
 
    ### Example: For sending multiple credentials -
    ```
