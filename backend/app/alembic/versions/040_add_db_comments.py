@@ -1,8 +1,8 @@
 """add_db_comments
 
-Revision ID: 707b8035b64c
-Revises: eed36ae3c79a
-Create Date: 2025-12-11 13:55:04.965381
+Revision ID: 040
+Revises: 039
+Create Date: 2025-12-12 16:17:16.115000
 
 """
 from alembic import op
@@ -11,8 +11,8 @@ import sqlmodel.sql.sqltypes
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = "707b8035b64c"
-down_revision = "eed36ae3c79a"
+revision = "040"
+down_revision = "039"
 branch_labels = None
 depends_on = None
 
@@ -96,6 +96,7 @@ def upgrade():
         comment="Unique identifier for the batch job",
         existing_nullable=False,
         autoincrement=True,
+        existing_server_default=sa.text("nextval('batch_job_id_seq'::regclass)"),
     )
     op.alter_column(
         "batch_job",
@@ -1381,7 +1382,7 @@ def upgrade():
         "user",
         "email",
         existing_type=sa.VARCHAR(length=255),
-        comment="User's email address (unique identifier)",
+        comment="User's email address",
         existing_nullable=False,
     )
     op.alter_column(
@@ -1412,7 +1413,6 @@ def upgrade():
         comment="Unique identifier for the user",
         existing_nullable=False,
         autoincrement=True,
-        existing_server_default=sa.text("nextval('user_id_seq'::regclass)"),
     )
     op.alter_column(
         "user",
@@ -1442,7 +1442,6 @@ def downgrade():
         existing_comment="Unique identifier for the user",
         existing_nullable=False,
         autoincrement=True,
-        existing_server_default=sa.text("nextval('user_id_seq'::regclass)"),
     )
     op.alter_column(
         "user",
@@ -1473,7 +1472,7 @@ def downgrade():
         "email",
         existing_type=sa.VARCHAR(length=255),
         comment=None,
-        existing_comment="User's email address (unique identifier)",
+        existing_comment="User's email address",
         existing_nullable=False,
     )
     op.alter_column(
@@ -2942,6 +2941,7 @@ def downgrade():
         existing_comment="Unique identifier for the batch job",
         existing_nullable=False,
         autoincrement=True,
+        existing_server_default=sa.text("nextval('batch_job_id_seq'::regclass)"),
     )
     op.alter_column(
         "apikey",
