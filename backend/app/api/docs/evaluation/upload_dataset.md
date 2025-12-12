@@ -5,7 +5,7 @@ Datasets allow you to store reusable question-answer pairs for systematic LLM te
 **Key Features:**
 * Validates CSV format and required columns (question, answer)
 * Automatic dataset name sanitization for Langfuse compatibility
-* Optional item duplication for statistical significance (1-5x, default: 5x)
+* Optional item duplication for statistical significance (1-5x, default: 1x)
 * Uploads to object store and syncs with Langfuse
 * Skips rows with missing values automatically
 
