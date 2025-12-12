@@ -7,7 +7,7 @@ pipeline:
 * Create an OpenAI [Vector
   Store](https://platform.openai.com/docs/api-reference/vector-stores)
   based on those file(s).
-* [To be deprecated] Attach the Vector Store to an OpenAI
+* [Deprecated] Attach the Vector Store to an OpenAI
   [Assistant](https://platform.openai.com/docs/api-reference/assistants). Use
   parameters in the request body relevant to an Assistant to flesh out
   its configuration. Note that an assistant will only be created when you pass both
