@@ -10,6 +10,7 @@ from fastapi import (
     Query,
     UploadFile,
 )
+from pydantic import HttpUrl
 from fastapi import Path as FastPath
 
 from app.api.deps import CurrentUserOrgProject, SessionDep
@@ -32,7 +33,12 @@ from app.services.documents.helpers import (
     build_document_schema,
     build_document_schemas,
 )
-from app.utils import APIResponse, get_openai_client, load_description
+from app.utils import (
+    APIResponse,
+    get_openai_client,
+    load_description,
+    validate_callback_url,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -111,6 +117,9 @@ async def upload_doc(
     callback_url: str
     | None = Form(None, description="URL to call to report doc transformation status"),
 ):
+    if callback_url:
+        validate_callback_url(callback_url)
+
     source_format, actual_transformer = pre_transform_validation(
         src_filename=src.filename,
         target_format=target_format,
