@@ -1,5 +1,6 @@
 import logging
 from typing import Any
+from uuid import UUID
 
 from langfuse import Langfuse
 from sqlmodel import Session, select
@@ -16,9 +17,11 @@ def create_evaluation_run(
     run_name: str,
     dataset_name: str,
     dataset_id: int,
-    config: dict,
+    config_id: UUID,
+    config_version: int,
     organization_id: int,
     project_id: int,
+    model: str | None = None,
 ) -> EvaluationRun:
     """
     Create a new evaluation run record in the database.
@@ -28,9 +31,11 @@ def create_evaluation_run(
         run_name: Name of the evaluation run/experiment
         dataset_name: Name of the dataset being used
         dataset_id: ID of the dataset
-        config: Configuration dict for the evaluation
+        config_id: UUID of the stored config
+        config_version: Version number of the config
         organization_id: Organization ID
         project_id: Project ID
+        model: LLM model name (snapshot at creation time)
 
     Returns:
         The created EvaluationRun instance
@@ -39,7 +44,9 @@ def create_evaluation_run(
         run_name=run_name,
         dataset_name=dataset_name,
         dataset_id=dataset_id,
-        config=config,
+        config_id=config_id,
+        config_version=config_version,
+        model=model,
         status="pending",
         organization_id=organization_id,
         project_id=project_id,
@@ -56,7 +63,10 @@ def create_evaluation_run(
         logger.error(f"Failed to create EvaluationRun: {e}", exc_info=True)
         raise
 
-    logger.info(f"Created EvaluationRun record: id={eval_run.id}, run_name={run_name}")
+    logger.info(
+        f"Created EvaluationRun record: id={eval_run.id}, run_name={run_name}, "
+        f"config_id={config_id}, config_version={config_version}"
+    )
 
     return eval_run
 
