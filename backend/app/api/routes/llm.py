@@ -5,7 +5,7 @@ from fastapi import APIRouter
 from app.api.deps import AuthContextDep, SessionDep
 from app.models import LLMCallRequest, LLMCallResponse, Message
 from app.services.llm.jobs import start_job
-from app.utils import APIResponse, load_description
+from app.utils import APIResponse, validate_callback_url, load_description
 
 
 logger = logging.getLogger(__name__)
@@ -44,6 +44,9 @@ def llm_call(
     """
     project_id = _current_user.project.id
     organization_id = _current_user.organization.id
+
+    if request.callback_url:
+        validate_callback_url(str(request.callback_url))
 
     start_job(
         db=_session,
