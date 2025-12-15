@@ -5,10 +5,19 @@ import re
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Body, File, Form, HTTPException, Query, UploadFile
+from fastapi import (
+    APIRouter,
+    Body,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+)
 
 from app.api.deps import AuthContextDep, SessionDep
 from app.core.cloud import get_cloud_storage
+from app.crud.config.version import ConfigVersionCrud
 from app.crud.evaluations import (
     create_evaluation_dataset,
     create_evaluation_run,
@@ -27,16 +36,15 @@ from app.models.evaluation import (
     DatasetUploadResponse,
     EvaluationRunPublic,
 )
+from app.models.llm.request import LLMCallConfig
+from app.services.llm.jobs import resolve_config_blob
+from app.services.llm.providers import LLMProvider
 from app.utils import (
     APIResponse,
     get_langfuse_client,
     get_openai_client,
     load_description,
 )
-from app.services.llm.jobs import resolve_config_blob
-from app.services.llm.providers import LLMProvider
-from app.models.llm.request import LLMCallConfig
-from app.crud.config.version import ConfigVersionCrud
 
 
 logger = logging.getLogger(__name__)
@@ -496,9 +504,6 @@ def evaluate(
 
     logger.info("[evaluate] Successfully resolved config from config management")
 
-    # Extract model from config for storage
-    model = config.completion.params.get("model")
-
     # Create EvaluationRun record with config references
     eval_run = create_evaluation_run(
         session=_session,
@@ -507,7 +512,6 @@ def evaluate(
         dataset_id=dataset_id,
         config_id=config_id,
         config_version=config_version,
-        model=model,
         organization_id=auth_context.organization.id,
         project_id=auth_context.project.id,
     )

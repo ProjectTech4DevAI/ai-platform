@@ -24,10 +24,6 @@ def upgrade():
         "evaluation_run", sa.Column("config_version", sa.Integer(), nullable=True)
     )
     op.create_foreign_key(None, "evaluation_run", "config", ["config_id"], ["id"])
-    op.add_column(
-        "evaluation_run",
-        sa.Column("model", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
-    )
     op.drop_column("evaluation_run", "config")
     # ### end Alembic commands ###
 
@@ -45,6 +41,5 @@ def downgrade():
     )
     op.drop_constraint(None, "evaluation_run", type_="foreignkey")
     op.drop_column("evaluation_run", "config_version")
-    op.drop_column("evaluation_run", "model")
     op.drop_column("evaluation_run", "config_id")
     # ### end Alembic commands ###

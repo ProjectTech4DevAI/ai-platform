@@ -6,8 +6,11 @@ from langfuse import Langfuse
 from sqlmodel import Session, select
 
 from app.core.util import now
+from app.crud.config.version import ConfigVersionCrud
 from app.crud.evaluations.langfuse import fetch_trace_scores_from_langfuse
 from app.models import EvaluationRun
+from app.models.llm.request import LLMCallConfig
+from app.services.llm.jobs import resolve_config_blob
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +24,6 @@ def create_evaluation_run(
     config_version: int,
     organization_id: int,
     project_id: int,
-    model: str | None = None,
 ) -> EvaluationRun:
     """
     Create a new evaluation run record in the database.
@@ -35,7 +37,6 @@ def create_evaluation_run(
         config_version: Version number of the config
         organization_id: Organization ID
         project_id: Project ID
-        model: LLM model name (snapshot at creation time)
 
     Returns:
         The created EvaluationRun instance
@@ -46,7 +47,6 @@ def create_evaluation_run(
         dataset_id=dataset_id,
         config_id=config_id,
         config_version=config_version,
-        model=model,
         status="pending",
         organization_id=organization_id,
         project_id=project_id,
@@ -303,3 +303,47 @@ def save_score(
                 f"traces={len(score.get('traces', []))}"
             )
         return eval_run
+
+
+def resolve_model_from_config(
+    session: Session,
+    eval_run: EvaluationRun,
+) -> str:
+    """
+    Resolve the model name from the evaluation run's config.
+
+    Args:
+        session: Database session
+        eval_run: EvaluationRun instance
+
+    Returns:
+        Model name from config
+
+    Raises:
+        ValueError: If config is missing, invalid, or has no model
+    """
+    if not eval_run.config_id or not eval_run.config_version:
+        raise ValueError(
+            f"Evaluation run {eval_run.id} has no config reference "
+            f"(config_id={eval_run.config_id}, config_version={eval_run.config_version})"
+        )
+
+    config_version_crud = ConfigVersionCrud(
+        session=session,
+        config_id=eval_run.config_id,
+        project_id=eval_run.project_id,
+    )
+
+    config, error = resolve_config_blob(
+        config_crud=config_version_crud,
+        config=LLMCallConfig(id=eval_run.config_id, version=eval_run.config_version),
+    )
+
+    if error or config is None:
+        raise ValueError(
+            f"Config resolution failed for evaluation {eval_run.id} "
+            f"(config_id={eval_run.config_id}, version={eval_run.config_version}): {error}"
+        )
+
+    model = config.completion.params.get("model")
+    return model
