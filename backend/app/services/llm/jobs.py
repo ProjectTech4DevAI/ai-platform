@@ -10,11 +10,12 @@ from app.crud.config import ConfigVersionCrud
 from app.crud.credentials import get_provider_credential
 from app.crud.jobs import JobCrud
 from app.models import JobStatus, JobType, JobUpdate, LLMCallRequest
-from app.models.llm.request import ConfigBlob, LLMCallConfig
+from app.models.llm.request import ConfigBlob, LLMCallConfig, KaapiCompletionConfig
 from app.utils import APIResponse, send_callback
 from app.celery.utils import start_high_priority_job
 from app.core.langfuse.langfuse import observe_llm_execution
 from app.services.llm.providers.registry import get_llm_provider
+from app.services.llm.mappers import transform_kaapi_config_to_native
 
 
 logger = logging.getLogger(__name__)
@@ -171,9 +172,22 @@ def execute_job(
                 config_blob = config.blob
 
             try:
+                # Transform Kaapi config to native config if needed (before getting provider)
+                completion_config = config_blob.completion
+                if isinstance(completion_config, KaapiCompletionConfig):
+                    completion_config = transform_kaapi_config_to_native(completion_config)
+            except Exception as e:
+                callback_response = APIResponse.failure_response(
+                    error=f"Error processing configuration: {str(e)}",
+                    metadata=request.request_metadata,
+                )
+                return handle_job_error(job_id, request.callback_url, callback_response)
+
+
+            try:
                 provider_instance = get_llm_provider(
                     session=session,
-                    provider_type=config_blob.completion.provider,
+                    provider_type=completion_config.provider,  # Now always native provider type
                     project_id=project_id,
                     organization_id=organization_id,
                 )
