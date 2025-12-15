@@ -1,8 +1,8 @@
-"""Add config_id and version in evals run table
+"""add config in evals run table
 
-Revision ID: 7b48f23ebfdd
-Revises: eed36ae3c79a
-Create Date: 2025-12-09 14:19:57.620312
+Revision ID: 040
+Revises: 039
+Create Date: 2025-12-15 12:44:35.250572
 
 """
 from alembic import op
@@ -11,8 +11,8 @@ import sqlmodel.sql.sqltypes
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = "7b48f23ebfdd"
-down_revision = "eed36ae3c79a"
+revision = "040"
+down_revision = "039"
 branch_labels = None
 depends_on = None
 
