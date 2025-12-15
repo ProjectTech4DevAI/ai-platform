@@ -148,17 +148,10 @@ def observe_llm_execution(
                 logger.warning(f"[Langfuse] Failed to initialize client: {e}")
                 return func(completion_config, query, **kwargs)
 
-            trace_metadata = {
-                "provider": completion_config.provider,
-            }
-
-            if query.conversation and query.conversation.id:
-                trace_metadata["conversation_id"] = query.conversation.id
 
             trace = langfuse.trace(
                 name="unified-llm-call",
                 input=query.input,
-                metadata=trace_metadata,
                 tags=[completion_config.provider],
             )
 
