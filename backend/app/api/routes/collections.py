@@ -26,7 +26,7 @@ from app.models.collection import (
     DeletionRequest,
     CollectionPublic,
 )
-from app.utils import APIResponse, load_description
+from app.utils import APIResponse, load_description, validate_callback_url
 from app.services.collections import (
     create_collection as create_service,
     delete_collection as delete_service,
@@ -81,6 +81,9 @@ def create_collection(
     current_user: CurrentUserOrgProject,
     request: CreationRequest,
 ):
+    if request.callback_url:
+        validate_callback_url(str(request.callback_url))
+
     collection_job_crud = CollectionJobCrud(session, current_user.project_id)
     collection_job = collection_job_crud.create(
         CollectionJobCreate(
@@ -130,6 +133,9 @@ def delete_collection(
     collection_id: UUID = FastPath(description="Collection to delete"),
     request: CallbackRequest | None = Body(default=None),
 ):
+    if request and request.callback_url:
+        validate_callback_url(str(request.callback_url))
+
     _ = CollectionCrud(session, current_user.project_id).read_one(collection_id)
 
     deletion_request = DeletionRequest(
