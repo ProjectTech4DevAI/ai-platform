@@ -90,3 +90,55 @@ The application uses different environment files:
 
 - Python 3.11+ with type hints
 - Pre-commit hooks for linting and formatting
+
+## Coding Conventions
+
+### Logging Format
+
+Always include the function name in square brackets at the start of log messages:
+
+```python
+logger.info(f"[function_name] Message here {mask_string(sensitive_value)}.")
+```
+
+Example:
+```python
+logger.info(
+    f"[sync_assistant] Successfully ingested assistant with ID {mask_string(assistant_id)}."
+)
+```
+
+### Database Column Comments
+
+Add descriptive comments to database columns using `sa_column_kwargs`. This helps non-developers understand column purposes directly from the database schema:
+
+```python
+field_name: int = Field(
+    foreign_key="table.id",
+    nullable=False,
+    ondelete="CASCADE",
+    sa_column_kwargs={"comment": "Description of what this column stores"}
+)
+```
+
+Prioritize comments for:
+- Columns with non-obvious purposes
+- Status/type fields (document valid values)
+- JSON/metadata columns (describe expected structure)
+- Foreign keys (clarify the relationship)
+
+### Endpoint Documentation
+
+Use external markdown files for Swagger API documentation instead of inline strings:
+
+```python
+@router.post(
+    "/endpoint",
+    description=load_description("domain/action.md"),
+    response_model=APIResponse[ResponseModel],
+)
+```
+
+Store documentation files in `backend/app/api/docs/<domain>/<action>.md`
+
+Example: `backend/app/api/docs/evaluation/create_evaluation.md`
