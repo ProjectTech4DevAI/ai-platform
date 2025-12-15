@@ -738,7 +738,6 @@ class TestGetEvaluationRunStatus:
             dataset_id=create_test_dataset.id,
             config_id=config.id,
             config_version=1,
-            model="gpt-4o",
             status="pending",
             total_items=3,
             organization_id=user_api_key.organization_id,
@@ -774,7 +773,6 @@ class TestGetEvaluationRunStatus:
             dataset_id=create_test_dataset.id,
             config_id=config.id,
             config_version=1,
-            model="gpt-4o",
             status="completed",
             total_items=3,
             score={
