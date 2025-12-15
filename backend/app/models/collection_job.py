@@ -43,7 +43,7 @@ class CollectionJob(SQLModel, table=True):
         description="Type of operation",
         sa_column_kwargs={"comment": "Type of operation (CREATE, DELETE)"},
     )
-    task_id: str = Field(
+    task_id: str | None = Field(
         default=None,
         nullable=True,
         sa_column_kwargs={"comment": "Celery task ID for async processing"},
@@ -54,6 +54,7 @@ class CollectionJob(SQLModel, table=True):
         sa_column_kwargs={"comment": "Tracing ID for correlating logs and traces"},
     )
     error_message: str | None = Field(
+        default=None,
         sa_column=Column(
             Text, nullable=True, comment="Error message if the job failed"
         ),

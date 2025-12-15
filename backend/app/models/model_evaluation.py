@@ -42,7 +42,7 @@ class ModelEvaluation(ModelEvaluationBase, table=True):
 
     id: int = Field(
         primary_key=True,
-        sa_column_kwargs={"comment": "Unique identifier for the evaluation"},
+        sa_column_kwargs={"comment": "Unique identifier for the model evaluation"},
     )
     fine_tuned_model: str = Field(
         description="Fine-tuned model name from OpenAI",

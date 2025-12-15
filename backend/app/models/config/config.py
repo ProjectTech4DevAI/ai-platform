@@ -88,7 +88,7 @@ class ConfigCreate(ConfigBase):
     commit_message: str | None = Field(
         default=None,
         max_length=512,
-        description="Message describing the changes in this version",
+        description="Optional message describing the changes in this version",
     )
 
     @field_validator("config_blob")

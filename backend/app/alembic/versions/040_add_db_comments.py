@@ -2,7 +2,7 @@
 
 Revision ID: 040
 Revises: 039
-Create Date: 2025-12-12 16:29:47.694694
+Create Date: 2025-12-15 13:17:01.138399
 
 """
 from alembic import op
@@ -847,6 +847,7 @@ def upgrade():
         comment="Unique identifier for the fine-tuning job",
         existing_nullable=False,
         autoincrement=True,
+        existing_server_default=sa.text("nextval('fine_tuning_id_seq'::regclass)"),
     )
     op.alter_column(
         "fine_tuning",
@@ -876,14 +877,14 @@ def upgrade():
         "fine_tuning",
         "train_data_s3_object",
         existing_type=sa.VARCHAR(),
-        comment="S3 URI of the training data",
+        comment="S3 URL of the training data",
         existing_nullable=True,
     )
     op.alter_column(
         "fine_tuning",
         "test_data_s3_object",
         existing_type=sa.VARCHAR(),
-        comment="S3 URI of the testing data",
+        comment="S3 URL of the testing data",
         existing_nullable=True,
     )
     op.alter_column(
@@ -1004,7 +1005,7 @@ def upgrade():
         "model_evaluation",
         "id",
         existing_type=sa.INTEGER(),
-        comment="Unique identifier for the evaluation",
+        comment="Unique identifier for the model evaluation",
         existing_nullable=False,
         autoincrement=True,
     )
@@ -2128,7 +2129,7 @@ def downgrade():
         "id",
         existing_type=sa.INTEGER(),
         comment=None,
-        existing_comment="Unique identifier for the evaluation",
+        existing_comment="Unique identifier for the model evaluation",
         existing_nullable=False,
         autoincrement=True,
     )
@@ -2267,7 +2268,7 @@ def downgrade():
         "test_data_s3_object",
         existing_type=sa.VARCHAR(),
         comment=None,
-        existing_comment="S3 URI of the testing data",
+        existing_comment="S3 URL of the testing data",
         existing_nullable=True,
     )
     op.alter_column(
@@ -2275,7 +2276,7 @@ def downgrade():
         "train_data_s3_object",
         existing_type=sa.VARCHAR(),
         comment=None,
-        existing_comment="S3 URI of the training data",
+        existing_comment="S3 URL of the training data",
         existing_nullable=True,
     )
     op.alter_column(
@@ -2313,6 +2314,7 @@ def downgrade():
         existing_comment="Unique identifier for the fine-tuning job",
         existing_nullable=False,
         autoincrement=True,
+        existing_server_default=sa.text("nextval('fine_tuning_id_seq'::regclass)"),
     )
     op.alter_column(
         "fine_tuning",

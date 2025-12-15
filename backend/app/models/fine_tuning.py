@@ -94,13 +94,13 @@ class Fine_Tuning(FineTuningJobBase, table=True):
     )
     train_data_s3_object: str | None = Field(
         default=None,
-        description="S3 URI of the training data stored in S3",
-        sa_column_kwargs={"comment": "S3 URI of the training data"},
+        description="S3 URL of the training data stored in S3",
+        sa_column_kwargs={"comment": "S3 URL of the training data"},
     )
     test_data_s3_object: str | None = Field(
         default=None,
-        description="S3 URI of the testing data stored in S3",
-        sa_column_kwargs={"comment": "S3 URI of the testing data"},
+        description="S3 URL of the testing data stored in S3",
+        sa_column_kwargs={"comment": "S3 URL of the testing data"},
     )
     error_message: str | None = Field(
         default=None,
