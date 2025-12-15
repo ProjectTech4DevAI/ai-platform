@@ -5,6 +5,7 @@ from app.crud.evaluations.core import (
     create_evaluation_run,
     get_evaluation_run_by_id,
     list_evaluation_runs,
+    save_score,
 )
 from app.crud.evaluations.cron import (
     process_all_pending_evaluations,
@@ -24,6 +25,7 @@ from app.crud.evaluations.embeddings import (
 )
 from app.crud.evaluations.langfuse import (
     create_langfuse_dataset_run,
+    fetch_trace_scores_from_langfuse,
     update_traces_with_cosine_scores,
     upload_dataset_to_langfuse,
 )
@@ -39,6 +41,7 @@ __all__ = [
     "create_evaluation_run",
     "get_evaluation_run_by_id",
     "list_evaluation_runs",
+    "save_score",
     # Cron
     "process_all_pending_evaluations",
     "process_all_pending_evaluations_sync",
@@ -61,6 +64,7 @@ __all__ = [
     "start_embedding_batch",
     # Langfuse
     "create_langfuse_dataset_run",
+    "fetch_trace_scores_from_langfuse",
     "update_traces_with_cosine_scores",
     "upload_dataset_to_langfuse",
 ]
