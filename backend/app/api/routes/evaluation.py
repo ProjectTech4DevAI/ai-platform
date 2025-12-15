@@ -498,7 +498,7 @@ def evaluate(
         )
     elif config.completion.provider != LLMProvider.OPENAI:
         raise HTTPException(
-            status_code=400,
+            status_code=422,
             detail="Only 'openai' provider is supported for evaluation configs",
         )
 
