@@ -131,11 +131,11 @@ The workflows use **AWS OIDC authentication**, which is more secure than storing
 The IAM role ARN is configured in workflow files:
 
 ```yaml
-role-to-assume: arn:aws:iam::024209611402:role/github-action-role
-aws-region: ap-south-1
+role-to-assume: arn:aws:iam::{YOUR_AWS_ACCOUNT_ID}:role/github-action-role
+aws-region: {YOUR_AWS_REGION}
 ```
 
-**Note**: Update these values if using a different AWS account or region.
+**Note**: Replace `{YOUR_AWS_ACCOUNT_ID}` with your AWS account ID and `{YOUR_AWS_REGION}` with your chosen region (e.g., `ap-south-1`, `us-east-1`).
 
 ## Environment Variables in AWS ECS
 
