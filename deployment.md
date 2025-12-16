@@ -4,7 +4,7 @@ You can deploy the project using Docker Compose to a remote server.
 
 You can use CI/CD (continuous integration and continuous deployment) systems to deploy automatically, there are already configurations to do it with GitHub Actions.
 
-But you have to configure a couple things first. 🤓
+But you have to configure a couple things first.
 
 ## Preparation
 

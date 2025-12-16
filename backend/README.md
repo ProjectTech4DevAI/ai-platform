@@ -29,6 +29,14 @@ Make sure your editor is using the correct Python virtual environment, with the 
 
 Modify or add SQLModel models for data and SQL tables in `./backend/app/models/`, API endpoints in `./backend/app/api/`, CRUD (Create, Read, Update, Delete) utils in `./backend/app/crud/`.
 
+## Seed Database (Optional)
+
+For local development, seed the database with baseline data:
+
+```console
+$ uv run python -m app.seed_data.seed_data
+```
+
 ## VS Code
 
 There are already configurations in place to run the backend through the VS Code debugger, so that you can use breakpoints, pause and explore variables, etc.
