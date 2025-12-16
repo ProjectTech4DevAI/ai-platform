@@ -25,7 +25,7 @@ def map_kaapi_to_openai_params(kaapi_params: KaapiLLMParams) -> dict:
     """
     openai_params = {}
 
-    if kaapi_params.temperature and kaapi_params.reasoning:
+    if kaapi_params.temperature is not None and kaapi_params.reasoning is not None:
         raise ValueError(
             "Cannot set both 'temperature' and 'reasoning' parameters together for OpenAI."
         )
