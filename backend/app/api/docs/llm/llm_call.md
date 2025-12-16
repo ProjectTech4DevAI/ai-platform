@@ -21,11 +21,13 @@ for processing, and results are delivered via the callback URL when complete.
   - **Note**: When using stored configuration, do not include the `blob` field in the request body
 
 - **Mode 2: Ad-hoc Configuration**
-  - `blob` (object): Complete configuration object (see Create Config endpoint documentation for examples)
-    - `completion` (required):
-      - `provider` (required, string): Currently only "openai"
-      - `params` (required, object): Provider-specific parameters (flexible JSON)
+  - `blob` (object): Complete configuration object
+    - `completion` (required, object): Completion configuration
+      - `provider` (required, string): Provider type - either `"openai"` (Kaapi abstraction) or `"openai-native"` (pass-through)
+      - `params` (required, object): Parameters structure depends on provider type (see schema for detailed structure)
   - **Note**: When using ad-hoc configuration, do not include `id` and `version` fields
+  - **Recommendation**: Use stored configs (Mode 1) for production; use ad-hoc configs only for testing/validation
+  - **Schema**: Check the API schema or examples below for the complete parameter structure for each provider type
 
 **`callback_url`** (optional, HTTPS URL):
 - Webhook endpoint to receive the response

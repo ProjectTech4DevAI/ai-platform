@@ -175,14 +175,15 @@ def execute_job(
                 # Transform Kaapi config to native config if needed (before getting provider)
                 completion_config = config_blob.completion
                 if isinstance(completion_config, KaapiCompletionConfig):
-                    completion_config = transform_kaapi_config_to_native(completion_config)
+                    completion_config = transform_kaapi_config_to_native(
+                        completion_config
+                    )
             except Exception as e:
                 callback_response = APIResponse.failure_response(
                     error=f"Error processing configuration: {str(e)}",
                     metadata=request.request_metadata,
                 )
                 return handle_job_error(job_id, request.callback_url, callback_response)
-
 
             try:
                 provider_instance = get_llm_provider(

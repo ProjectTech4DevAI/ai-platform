@@ -30,7 +30,6 @@ def map_kaapi_to_openai_params(kaapi_params: KaapiLLMParams) -> dict:
             "Cannot set both 'temperature' and 'reasoning' parameters together for OpenAI."
         )
 
-
     if kaapi_params.model:
         openai_params["model"] = kaapi_params.model
 
@@ -38,16 +37,16 @@ def map_kaapi_to_openai_params(kaapi_params: KaapiLLMParams) -> dict:
         openai_params["instructions"] = kaapi_params.instructions
 
     if kaapi_params.knowledge_base_ids:
-        openai_params["tools"] = [{
-            "type": "file_search",
-            "vector_store_ids": kaapi_params.knowledge_base_ids,
-            "max_num_results": kaapi_params.max_num_results or 20,
-        }]
+        openai_params["tools"] = [
+            {
+                "type": "file_search",
+                "vector_store_ids": kaapi_params.knowledge_base_ids,
+                "max_num_results": kaapi_params.max_num_results or 20,
+            }
+        ]
 
     if kaapi_params.reasoning:
-        openai_params["reasoning"] = {
-            "effort": kaapi_params.reasoning
-        }
+        openai_params["reasoning"] = {"effort": kaapi_params.reasoning}
 
     if kaapi_params.temperature is not None:
         openai_params["temperature"] = kaapi_params.temperature
