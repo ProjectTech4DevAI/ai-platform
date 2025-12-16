@@ -2,8 +2,6 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
-from requests import Session, RequestException
-from pydantic import BaseModel, HttpUrl
 
 from openai import OpenAI
 
@@ -22,19 +20,6 @@ def raise_from_unknown(error: Exception, status_code=500):
         )
     )
     raise HTTPException(status_code=status_code, detail=str(error))
-
-
-def post_callback(url: HttpUrl, payload: BaseModel):
-    errno = 0
-    with Session() as session:
-        response = session.post(str(url), json=payload.model_dump())
-        try:
-            response.raise_for_status()
-        except RequestException as err:
-            logger.warning(f"Callback failure: {err}")
-            errno += 1
-
-    return not errno
 
 
 def configure_openai(credentials: dict) -> tuple[OpenAI, bool]:
