@@ -174,7 +174,7 @@ Run migrations as a one-time ECS task:
 aws ecs run-task \
   --cluster {prefix}-cluster \
   --task-definition {migration-task-def} \
-  --region ap-south-1
+  --region {YOUR_AWS_REGION}
 ```
 
 This runs the migration in the same environment as your application, ensuring consistency.
@@ -228,7 +228,7 @@ aws ecs update-service \
   --cluster {prefix}-cluster \
   --service {prefix}-service \
   --task-definition {previous-task-def-arn} \
-  --region ap-south-1
+  --region {YOUR_AWS_REGION}
 ```
 
 ECS will perform a rolling update back to the specified task definition.
