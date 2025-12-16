@@ -20,8 +20,8 @@ fastapi run --reload app/main.py
 # Run pre-commit hooks
 uv run pre-commit run --all-files
 
-# Generate database migration
-alembic revision --autogenerate -m 'Description'
+# Generate database migration (rev-id should be latest existing revision ID + 1)
+alembic revision --autogenerate -m "Description" --rev-id 040
 
 # Seed database with test data
 uv run python -m app.seed_data.seed_data
