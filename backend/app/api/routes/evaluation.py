@@ -45,7 +45,7 @@ ALLOWED_MIME_TYPES = {
     "text/plain",  # Some systems report CSV as text/plain
 }
 
-router = APIRouter(tags=["evaluation"])
+router = APIRouter(tags=["Evaluation"])
 
 
 def _dataset_to_response(dataset) -> DatasetUploadResponse:
