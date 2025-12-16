@@ -148,7 +148,6 @@ def observe_llm_execution(
                 logger.warning(f"[Langfuse] Failed to initialize client: {e}")
                 return func(completion_config, query, **kwargs)
 
-
             trace = langfuse.trace(
                 name="unified-llm-call",
                 input=query.input,
