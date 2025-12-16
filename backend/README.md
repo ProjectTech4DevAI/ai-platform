@@ -37,12 +37,6 @@ For local development, seed the database with baseline data:
 $ uv run python -m app.seed_data.seed_data
 ```
 
-## VS Code
-
-There are already configurations in place to run the backend through the VS Code debugger, so that you can use breakpoints, pause and explore variables, etc.
-
-The setup is also already configured so you can run the tests through the VS Code Python tests tab.
-
 ## Docker Compose Override
 
 During development, you can change Docker Compose settings that will only affect the local development environment in the file `docker-compose.override.yml`.

@@ -1,125 +1,236 @@
 # Kaapi - Deployment
 
-You can deploy the project using Docker Compose to a remote server.
+Kaapi uses a modern cloud-native deployment architecture built on AWS services with automated CI/CD pipelines.
 
-You can use CI/CD (continuous integration and continuous deployment) systems to deploy automatically, there are already configurations to do it with GitHub Actions.
+## Deployment Architecture
 
-But you have to configure a couple things first.
+### Overview
 
-## Preparation
+The deployment follows a containerized approach where:
+- Application code is packaged into Docker images
+- Images are stored in AWS ECR (Elastic Container Registry)
+- ECS (Elastic Container Service) runs and manages the containers
+- GitHub Actions automates the build and deployment process
 
-* Have a remote server ready and available.
-* Configure the DNS records of your domain to point to the IP of the server you just created.
-* Install and configure [Docker](https://docs.docker.com/engine/install/) on the remote server (Docker Engine, not Docker Desktop).
+### CI/CD Pipeline
 
-## Deploy the FastAPI Project
+The deployment pipeline is triggered automatically:
+1. **Code Push**: Developer pushes code to GitHub
+2. **Build**: GitHub Actions builds Docker image
+3. **Push**: Image is pushed to ECR
+4. **Deploy**: ECS pulls new image and updates running tasks
 
-You can deploy your FastAPI project with Docker Compose.
+### Environments
 
-**Note**: You might want to jump ahead to the section about Continuous Deployment with GitHub Actions.
+Two deployment environments are configured:
+- **Staging**: Deployed on every push to `main` branch for testing
+- **Production**: Deployed only on version tags for stable releases
 
-## Environment Variables
+## Prerequisites
 
-You need to set some environment variables first.
+Before deploying, ensure the following AWS infrastructure exists:
 
-Set the `ENVIRONMENT`, by default `development`, but when deploying to a server you would put something like `staging` or `production`:
+### AWS Infrastructure
+
+1. **ECS Clusters**: Separate clusters for staging and production environments
+2. **ECR Repositories**: Container image repositories for each environment
+3. **ECS Task Definitions**: Define container configurations, resource limits, and environment variables
+4. **ECS Services**: Manage the desired number of running tasks
+5. **IAM Role for GitHub**: Allows GitHub Actions to authenticate via OIDC (no long-lived credentials)
+6. **RDS PostgreSQL**: Managed database service (recommended for production)
+7. **ElastiCache Redis**: Managed Redis for caching (optional)
+8. **Amazon MQ RabbitMQ**: Managed message broker for Celery (optional)
+
+### GitHub Setup
+
+Configure GitHub to allow automated deployments:
+
+1. **Environment**: Create `AWS_ENV_VARS` environment for deployment protection
+2. **Variable**: Set `AWS_RESOURCE_PREFIX` to identify your AWS resources
+
+## AWS Resource Naming Convention
+
+All AWS resources follow a consistent naming pattern using `AWS_RESOURCE_PREFIX` as the base identifier.
+
+This naming convention ensures clear separation between environments and easy identification of resources.
+
+## Deployment Workflows
+
+### Staging Deployment
+
+**Purpose**: Automatically deploy changes to a testing environment for validation before production.
+
+**Trigger**: Push to `main` branch
 
 ```bash
-export ENVIRONMENT=production
+git push origin main
 ```
 
-Set the `DOMAIN`, by default `localhost` (for development), but when deploying you would use your own domain, for example:
+**Workflow Steps** (`.github/workflows/cd-staging.yml`):
+1. **Checkout**: Clone the repository code
+2. **AWS Authentication**: Use OIDC to authenticate (no stored credentials)
+3. **ECR Login**: Authenticate to container registry
+4. **Build**: Create Docker image from `./backend` directory
+5. **Push**: Upload image to staging ECR repository with `latest` tag
+6. **Deploy**: Force ECS to pull and deploy the new image
+
+The deployment typically completes in 5-10 minutes depending on image size and ECS configuration.
+
+### Production Deployment
+
+**Purpose**: Deploy stable, tested versions to the production environment.
+
+**Trigger**: Create and push a version tag
 
 ```bash
-export DOMAIN=fastapi-project.example.com
+# Create a version tag
+git tag v1.0.0
+
+# Push the tag to trigger deployment
+git push origin v1.0.0
 ```
 
-You can set several variables, like:
+**Workflow Steps** (`.github/workflows/cd-production.yml`):
+1. **Checkout**: Clone the repository at the tagged version
+2. **AWS Authentication**: Use OIDC to authenticate
+3. **ECR Login**: Authenticate to container registry
+4. **Build**: Create Docker image from `./backend` directory
+5. **Push**: Upload image to production ECR repository with `latest` tag
+6. **Deploy**: Force ECS to pull and deploy the new image
 
-* `PROJECT_NAME`: The name of the project, used in the API for the docs and emails.
-* `STACK_NAME`: The name of the stack used for Docker Compose labels and project name, this should be different for `staging`, `production`, etc. You could use the same domain replacing dots with dashes, e.g. `fastapi-project-example-com` and `staging-fastapi-project-example-com`.
-* `SECRET_KEY`: The secret key for the FastAPI project, used to sign tokens.
-* `FIRST_SUPERUSER`: The email of the first superuser, this superuser will be the one that can create new users.
-* `POSTGRES_SERVER`: The hostname of the PostgreSQL server. You can leave the default of `db`, provided by the same Docker Compose. You normally wouldn't need to change this unless you are using a third-party provider.
-* `POSTGRES_PORT`: The port of the PostgreSQL server. You can leave the default. You normally wouldn't need to change this unless you are using a third-party provider.
-* `POSTGRES_PASSWORD`: The Postgres password.
-* `POSTGRES_USER`: The Postgres user, you can leave the default.
-* `POSTGRES_DB`: The database name to use for this application. You can leave the default of `app`.
-* `SENTRY_DSN`: The DSN for Sentry, if you are using it.
+**Best Practice**: Use semantic versioning (e.g., `v1.0.0`, `v1.2.3`) to clearly identify releases.
 
-### Generate secret keys
+## GitHub Configuration
 
-Some environment variables in the `.env` file have a default value of `changethis`.
+### Step 1: Create Environment
 
-You have to change them with a secret key, to generate secret keys you can run the following command:
+Environments in GitHub provide deployment protection and organization.
+
+1. Go to repository **Settings → Environments**
+2. Click **New environment**
+3. Name it: `AWS_ENV_VARS`
+4. Optionally, add protection rules (e.g., required reviewers)
+
+### Step 2: Set Repository Variable
+
+Variables store non-sensitive configuration that workflows need.
+
+1. Go to **Settings → Secrets and variables → Actions → Variables tab**
+2. Click **New repository variable**
+3. Add:
+   - **Name**: `AWS_RESOURCE_PREFIX`
+   - **Value**: Your AWS resource prefix (e.g., `kaapi`)
+
+### Step 3: AWS Authentication Setup
+
+The workflows use **AWS OIDC authentication**, which is more secure than storing AWS access keys:
+- No long-lived credentials stored in GitHub
+- AWS IAM role assumes identity based on GitHub's OIDC token
+- Permissions are scoped to specific actions
+
+The IAM role ARN is configured in workflow files:
+
+```yaml
+role-to-assume: arn:aws:iam::024209611402:role/github-action-role
+aws-region: ap-south-1
+```
+
+**Note**: Update these values if using a different AWS account or region.
+
+## Environment Variables in AWS ECS
+
+Application configuration is managed through environment variables set in **ECS Task Definitions**. These are injected into containers at runtime.
+
+### Configuring Environment Variables
+
+Environment variables in ECS Task Definitions include database credentials, AWS credentials, API keys, and service endpoints. Refer to `.env.example` in the repository for a complete list of required and optional variables.
+
+Key categories:
+- **Authentication & Security**: JWT keys, admin credentials
+- **Database**: PostgreSQL connection details
+- **AWS Services**: S3 access credentials
+- **Background Tasks**: RabbitMQ and Redis endpoints
+- **Optional**: OpenAI API key, Sentry DSN
+
+### Generate Secure Keys
+
+Use Python to generate cryptographically secure keys:
 
 ```bash
 python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-Copy the content and use that as password / secret key. And run that again to generate another secure key.
+Run this multiple times to generate different keys for `SECRET_KEY`, passwords, etc.
 
-### Deploy with Docker Compose
+## Database Migrations
 
-With the environment variables in place, you can deploy with Docker Compose:
+Database schema changes must be applied before deploying new application versions. This ensures the database structure matches what the code expects.
+
+### Using ECS Run Task (Recommended for Production)
+
+Run migrations as a one-time ECS task:
 
 ```bash
-docker compose -f docker-compose.yml up -d
+aws ecs run-task \
+  --cluster {prefix}-cluster \
+  --task-definition {migration-task-def} \
+  --region ap-south-1
 ```
 
-For production you wouldn't want to have the overrides in `docker-compose.override.yml`, that's why we explicitly specify `docker-compose.yml` as the file to use.
+This runs the migration in the same environment as your application, ensuring consistency.
 
-## Continuous Deployment (CD)
+### Local Migration (Development/Testing)
 
-You can use GitHub Actions to deploy your project automatically. 😎
+For testing migrations locally:
 
-You can have multiple environment deployments.
+```bash
+cd backend
+uv run alembic upgrade head
+```
 
-There are already two environments configured, `staging` and `production`. 🚀
+**Important**: Always test migrations in staging before applying to production.
 
-### Set Secrets
+## Monitoring & Observability
 
-On your repository, configure secrets for the environment variables you need, the same ones described above, including `SECRET_KEY`, etc. Follow the [official GitHub guide for setting repository secrets](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions#creating-secrets-for-a-repository).
+### AWS CloudWatch
 
-The current Github Actions workflows expect these secrets:
+**Logs**: View application logs from ECS tasks
+```bash
+aws logs tail /ecs/{cluster}/{service} --follow
+```
 
-* `DOMAIN_PRODUCTION`
-* `DOMAIN_STAGING`
-* `STACK_NAME_PRODUCTION`
-* `STACK_NAME_STAGING`
-* `EMAILS_FROM_EMAIL`
-* `FIRST_SUPERUSER`
-* `FIRST_SUPERUSER_PASSWORD`
-* `POSTGRES_PASSWORD`
-* `SECRET_KEY`
+**Metrics**: Monitor CPU, memory, request count, error rates
 
-## GitHub Action Deployment Workflows
+### ECS Console
 
-There are GitHub Action workflows in the `.github/workflows` directory already configured for deploying to the environments (GitHub Actions runners with the labels):
+- View running tasks and their health status
+- Check deployment status and history
+- Monitor service events and errors
 
-* `staging`: after pushing (or merging) to the branch `master`.
-* `production`: after publishing a release.
+### Health Checks
 
-If you need to add extra environments you could use those as a starting point.
+ECS performs health checks on the `/api/v1/utils/health/` endpoint. If this fails, tasks are replaced automatically.
 
-## URLs
+## Rollback Procedures
 
-Replace `fastapi-project.example.com` with your domain.
+If a deployment introduces issues, rollback to a previous stable version.
 
-### Production
+### List Previous Versions
 
-Frontend: `https://dashboard.fastapi-project.example.com`
+```bash
+aws ecs list-task-definitions --family-prefix {prefix}
+```
 
-Backend API docs: `https://api.fastapi-project.example.com/docs`
+### Rollback to Previous Version
 
-Backend API base URL: `https://api.fastapi-project.example.com`
+```bash
+aws ecs update-service \
+  --cluster {prefix}-cluster \
+  --service {prefix}-service \
+  --task-definition {previous-task-def-arn} \
+  --region ap-south-1
+```
 
-Adminer: `https://adminer.fastapi-project.example.com`
+ECS will perform a rolling update back to the specified task definition.
 
-### Staging
-
-Backend API docs: `https://api.staging.fastapi-project.example.com/docs`
-
-Backend API base URL: `https://api.staging.fastapi-project.example.com`
-
-Adminer: `https://adminer.staging.fastapi-project.example.com`
+**Tip**: Keep track of stable task definition ARNs for quick rollbacks.
