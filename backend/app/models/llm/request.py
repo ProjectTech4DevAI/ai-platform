@@ -14,7 +14,6 @@ class KaapiLLMParams(SQLModel):
     """
 
     model: str = Field(
-        default=None,
         description="Model identifier to use for completion (e.g., 'gpt-4o', 'gpt-5')",
     )
     instructions: str | None = Field(
