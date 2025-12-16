@@ -1,4 +1,4 @@
-# Contributing to Tech4Dev AI Platform
+# Contributing to Kaapi
 
 Thank you for considering contributing to **Kaapi**! We welcome contributions of all kinds, including bug reports, feature requests, documentation improvements, and code contributions.
 
