@@ -42,7 +42,7 @@ from app.utils import (
 
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/documents", tags=["documents"])
+router = APIRouter(prefix="/documents", tags=["Documents"])
 doctransformation_callback_router = APIRouter()
 
 
