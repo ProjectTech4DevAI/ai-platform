@@ -22,7 +22,7 @@ from app.services.collections.helpers import extract_error_message
 
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/collections", tags=["collections"])
+router = APIRouter(prefix="/collections", tags=["Collections"])
 
 
 @router.get(
