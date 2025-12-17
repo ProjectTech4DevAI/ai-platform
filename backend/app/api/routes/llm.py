@@ -42,8 +42,8 @@ def llm_call(
     """
     Endpoint to initiate an LLM call as a background job.
     """
-    project_id = _current_user.project.id
-    organization_id = _current_user.organization.id
+    project_id = _current_user.project_.id
+    organization_id = _current_user.organization_.id
 
     if request.callback_url:
         validate_callback_url(str(request.callback_url))

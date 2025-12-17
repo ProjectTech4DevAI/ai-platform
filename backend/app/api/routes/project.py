@@ -6,10 +6,8 @@ from sqlalchemy import func
 from sqlmodel import select
 
 from app.models import Project, ProjectCreate, ProjectUpdate, ProjectPublic
-from app.api.deps import (
-    SessionDep,
-    get_current_active_superuser,
-)
+from app.api.deps import SessionDep
+from app.api.permissions import Permission, require_permission
 from app.crud.project import (
     create_project,
     get_project_by_id,
@@ -23,7 +21,7 @@ router = APIRouter(prefix="/projects", tags=["Projects"])
 # Retrieve projects
 @router.get(
     "/",
-    dependencies=[Depends(get_current_active_superuser)],
+    dependencies=[Depends(require_permission(Permission.SUPERUSER))],
     response_model=APIResponse[List[ProjectPublic]],
     description=load_description("projects/list.md"),
 )
@@ -44,7 +42,7 @@ def read_projects(
 # Create a new project
 @router.post(
     "/",
-    dependencies=[Depends(get_current_active_superuser)],
+    dependencies=[Depends(require_permission(Permission.SUPERUSER))],
     response_model=APIResponse[ProjectPublic],
     description=load_description("projects/create.md"),
 )
@@ -55,7 +53,7 @@ def create_new_project(*, session: SessionDep, project_in: ProjectCreate):
 
 @router.get(
     "/{project_id}",
-    dependencies=[Depends(get_current_active_superuser)],
+    dependencies=[Depends(require_permission(Permission.SUPERUSER))],
     response_model=APIResponse[ProjectPublic],
     description=load_description("projects/get.md"),
 )
@@ -73,7 +71,7 @@ def read_project(*, session: SessionDep, project_id: int):
 # Update a project
 @router.patch(
     "/{project_id}",
-    dependencies=[Depends(get_current_active_superuser)],
+    dependencies=[Depends(require_permission(Permission.SUPERUSER))],
     response_model=APIResponse[ProjectPublic],
     description=load_description("projects/update.md"),
 )
@@ -98,7 +96,7 @@ def update_project(*, session: SessionDep, project_id: int, project_in: ProjectU
 # Delete a project
 @router.delete(
     "/{project_id}",
-    dependencies=[Depends(get_current_active_superuser)],
+    dependencies=[Depends(require_permission(Permission.SUPERUSER))],
     include_in_schema=False,
     description=load_description("projects/delete.md"),
 )
