@@ -93,6 +93,10 @@ The application uses different environment files:
 
 ## Coding Conventions
 
+### Type Hints
+
+Always add type hints to all function parameters and return values.
+
 ### Logging Format
 
 Prefix all log messages with the function name in square brackets.
