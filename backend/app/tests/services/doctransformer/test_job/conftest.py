@@ -73,7 +73,7 @@ def current_user(db: Session, user_api_key: TestAuthContext) -> AuthContext:
     return AuthContext(
         user=user_api_key.user,
         organization=user_api_key.organization,
-        project=user_api_key.project
+        project=user_api_key.project,
     )
 
 
@@ -84,9 +84,7 @@ def background_tasks() -> BackgroundTasks:
 
 
 @pytest.fixture
-def test_document(
-    db: Session, current_user: AuthContext
-) -> Tuple[Document, Project]:
+def test_document(db: Session, current_user: AuthContext) -> Tuple[Document, Project]:
     """Create a test document for the current user's project."""
     store = DocumentStore(db, current_user.project.id)
     project = get_project_by_id(session=db, project_id=current_user.project.id)
