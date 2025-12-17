@@ -218,7 +218,9 @@ def get_top_model_by_doc_id(
         f"project_id={current_user.project_.id}"
     )
 
-    top_model = fetch_top_model_by_doc_id(session, document_id, current_user.project_.id)
+    top_model = fetch_top_model_by_doc_id(
+        session, document_id, current_user.project_.id
+    )
     storage = get_cloud_storage(session=session, project_id=current_user.project_.id)
 
     top_model = attach_prediction_file_url(top_model, storage)

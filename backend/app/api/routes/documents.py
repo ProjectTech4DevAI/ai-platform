@@ -145,7 +145,6 @@ async def upload_doc(
     job_info: TransformationJobInfo | None = schedule_transformation(
         session=session,
         project_id=current_user.project_.id,
-        current_user=current_user,
         source_format=source_format,
         target_format=target_format,
         actual_transformer=actual_transformer,

@@ -6,7 +6,15 @@ from pathlib import Path
 
 import openai
 from sqlmodel import Session
-from fastapi import APIRouter, HTTPException, BackgroundTasks, File, Form, UploadFile, Depends
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    BackgroundTasks,
+    File,
+    Form,
+    UploadFile,
+    Depends,
+)
 
 from app.models import (
     FineTuningJobCreate,

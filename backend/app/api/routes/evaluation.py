@@ -4,7 +4,16 @@ import logging
 import re
 from pathlib import Path
 
-from fastapi import APIRouter, Body, File, Form, HTTPException, Query, UploadFile, Depends
+from fastapi import (
+    APIRouter,
+    Body,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    Depends,
+)
 
 from app.api.deps import AuthContextDep, SessionDep
 from app.api.permissions import Permission, require_permission
