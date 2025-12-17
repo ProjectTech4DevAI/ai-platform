@@ -242,7 +242,7 @@ def process_run(request: dict, client: OpenAI, tracer: LangfuseTracer):
     send_callback(request["callback_url"], response)
 
 
-def poll_run_and_prepare_response(request: dict, client: OpenAI, db: Session):
+def poll_run_and_prepare_response(request: dict, client: OpenAI, db: SessionDep):
     """Handles a thread run, processes the response, and upserts the result to the database."""
     thread_id = request["thread_id"]
     prompt = request["question"]
