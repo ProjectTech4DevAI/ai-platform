@@ -175,9 +175,12 @@ def execute_job(
                 # Transform Kaapi config to native config if needed (before getting provider)
                 completion_config = config_blob.completion
                 if isinstance(completion_config, KaapiCompletionConfig):
-                    completion_config = transform_kaapi_config_to_native(
+                    completion_config, warnings = transform_kaapi_config_to_native(
                         completion_config
                     )
+                    if request.request_metadata is None:
+                        request.request_metadata = {}
+                    request.request_metadata.setdefault("warnings", []).extend(warnings)
             except Exception as e:
                 callback_response = APIResponse.failure_response(
                     error=f"Error processing configuration: {str(e)}",

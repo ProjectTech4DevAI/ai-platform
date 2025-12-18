@@ -24,7 +24,7 @@ class KaapiLLMParams(SQLModel):
         default=None,
         description="List of vector store IDs to use for knowledge retrieval",
     )
-    reasoning: str | None = Field(
+    reasoning: Literal["low", "medium", "high"] | None = Field(
         default=None,
         description="Reasoning configuration or instructions",
     )

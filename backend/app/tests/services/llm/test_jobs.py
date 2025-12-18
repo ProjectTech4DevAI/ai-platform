@@ -584,7 +584,6 @@ class TestExecuteJob:
                 params=KaapiLLMParams(
                     model="gpt-3.5-turbo",
                     temperature=0.5,
-                    max_tokens=500,
                 ),
             )
         )
@@ -621,6 +620,107 @@ class TestExecuteJob:
             assert result["success"]
             db.refresh(job_for_execution)
             assert job_for_execution.status == JobStatus.SUCCESS
+
+    def test_kaapi_config_warnings_passed_through_metadata(
+        self, db, job_for_execution, mock_llm_response
+    ):
+        """Test that warnings from Kaapi config transformation are passed through in metadata."""
+        project = get_project(db)
+
+        # Use a config that will generate warnings (temperature on reasoning model)
+        config_blob = ConfigBlob(
+            completion=KaapiCompletionConfig(
+                provider="openai",
+                params=KaapiLLMParams(
+                    model="o1",  # Reasoning model
+                    temperature=0.7,  # This will be suppressed with warning
+                ),
+            )
+        )
+        config = create_test_config(db, project_id=project.id, config_blob=config_blob)
+        db.commit()
+
+        kaapi_request_data = {
+            "query": {"input": "Test query"},
+            "config": {
+                "id": str(config.id),
+                "version": 1,
+            },
+            "include_provider_raw_response": False,
+            "callback_url": None,
+        }
+
+        with (
+            patch("app.services.llm.jobs.Session") as mock_session_class,
+            patch("app.services.llm.jobs.get_llm_provider") as mock_get_provider,
+        ):
+            mock_session_class.return_value.__enter__.return_value = db
+            mock_session_class.return_value.__exit__.return_value = None
+
+            mock_provider = MagicMock()
+            mock_provider.execute.return_value = (mock_llm_response, None)
+            mock_get_provider.return_value = mock_provider
+
+            result = self._execute_job(job_for_execution, db, kaapi_request_data)
+
+            # Verify the result includes warnings in metadata
+            assert result["success"]
+            assert "metadata" in result
+            assert "warnings" in result["metadata"]
+            assert len(result["metadata"]["warnings"]) == 1
+            assert "temperature" in result["metadata"]["warnings"][0].lower()
+            assert "suppressed" in result["metadata"]["warnings"][0]
+
+    def test_kaapi_config_warnings_merged_with_existing_metadata(
+        self, db, job_for_execution, mock_llm_response
+    ):
+        """Test that warnings are merged with existing request metadata."""
+        project = get_project(db)
+
+        config_blob = ConfigBlob(
+            completion=KaapiCompletionConfig(
+                provider="openai",
+                params=KaapiLLMParams(
+                    model="gpt-4",  # Non-reasoning model
+                    reasoning="high",  # This will be suppressed with warning
+                ),
+            )
+        )
+        config = create_test_config(db, project_id=project.id, config_blob=config_blob)
+        db.commit()
+
+        kaapi_request_data = {
+            "query": {"input": "Test query"},
+            "config": {
+                "id": str(config.id),
+                "version": 1,
+            },
+            "include_provider_raw_response": False,
+            "callback_url": None,
+            "request_metadata": {"tracking_id": "test-123"},
+        }
+
+        with (
+            patch("app.services.llm.jobs.Session") as mock_session_class,
+            patch("app.services.llm.jobs.get_llm_provider") as mock_get_provider,
+        ):
+            mock_session_class.return_value.__enter__.return_value = db
+            mock_session_class.return_value.__exit__.return_value = None
+
+            mock_provider = MagicMock()
+            mock_provider.execute.return_value = (mock_llm_response, None)
+            mock_get_provider.return_value = mock_provider
+
+            result = self._execute_job(job_for_execution, db, kaapi_request_data)
+
+            # Verify warnings are added to existing metadata
+            assert result["success"]
+            assert "metadata" in result
+            assert result["metadata"]["tracking_id"] == "test-123"
+            assert "warnings" in result["metadata"]
+            assert len(result["metadata"]["warnings"]) == 1
+            assert "reasoning" in result["metadata"]["warnings"][0].lower()
+            assert "does not support reasoning" in result["metadata"]["warnings"][0]
 
 
 class TestResolveConfigBlob:
