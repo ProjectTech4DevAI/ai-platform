@@ -130,7 +130,9 @@ def observe_llm_execution(
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(completion_config: NativeCompletionConfig, query: QueryParams, **kwargs):
+        def wrapper(
+            completion_config: NativeCompletionConfig, query: QueryParams, **kwargs
+        ):
             # Skip observability if no credentials provided
             if not credentials:
                 logger.info("[Langfuse] No credentials - skipping observability")
