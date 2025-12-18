@@ -221,7 +221,7 @@ def execute_job(
         )(provider_instance.execute)
 
         response, error = decorated_execute(
-            completion_config=config_blob.completion,
+            completion_config=completion_config,
             query=request.query,
             include_provider_raw_response=request.include_provider_raw_response,
         )
