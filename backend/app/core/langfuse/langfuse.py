@@ -6,7 +6,7 @@ from functools import wraps
 from asgi_correlation_id import correlation_id
 from langfuse import Langfuse
 from langfuse.client import StatefulGenerationClient, StatefulTraceClient
-from app.models.llm import CompletionConfig, QueryParams, LLMCallResponse
+from app.models.llm import NativeCompletionConfig, QueryParams, LLMCallResponse
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +130,7 @@ def observe_llm_execution(
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(completion_config: CompletionConfig, query: QueryParams, **kwargs):
+        def wrapper(completion_config: NativeCompletionConfig, query: QueryParams, **kwargs):
             # Skip observability if no credentials provided
             if not credentials:
                 logger.info("[Langfuse] No credentials - skipping observability")
