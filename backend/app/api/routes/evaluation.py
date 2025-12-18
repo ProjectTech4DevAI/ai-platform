@@ -30,7 +30,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["evaluation"])
 
-
 def _dataset_to_response(dataset) -> DatasetUploadResponse:
     """Convert a dataset model to a DatasetUploadResponse."""
     return DatasetUploadResponse(

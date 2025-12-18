@@ -15,7 +15,7 @@ from app.core.cloud import get_cloud_storage
 
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/documents/transformation", tags=["documents"])
+router = APIRouter(prefix="/documents/transformation", tags=["Documents"])
 
 
 @router.get(
