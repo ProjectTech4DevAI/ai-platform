@@ -13,13 +13,20 @@ from app.models.llm.request import ConfigBlob
 
 class ConfigVersionBase(SQLModel):
     config_blob: dict[str, Any] = Field(
-        sa_column=sa.Column(JSONB, nullable=False),
+        sa_column=sa.Column(
+            JSONB,
+            nullable=False,
+            comment="Provider-specific configuration parameters (temperature, max_tokens, etc.)",
+        ),
         description="Provider-specific configuration parameters (temperature, max_tokens, etc.)",
     )
     commit_message: str | None = Field(
         default=None,
         max_length=512,
         description="Optional message describing the changes in this version",
+        sa_column_kwargs={
+            "comment": "Optional message describing the changes in this version"
+        },
     )
 
     @field_validator("config_blob")
@@ -43,21 +50,41 @@ class ConfigVersion(ConfigVersionBase, table=True):
         ),
     )
 
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    id: UUID = Field(
+        default_factory=uuid4,
+        primary_key=True,
+        sa_column_kwargs={"comment": "Unique identifier for the configuration version"},
+    )
 
     config_id: UUID = Field(
         foreign_key="config.id",
         nullable=False,
         ondelete="CASCADE",
+        sa_column_kwargs={"comment": "Reference to the parent configuration"},
     )
     version: int = Field(
-        nullable=False, description="Version number starting at 1", ge=1
+        nullable=False,
+        description="Version number starting at 1",
+        ge=1,
+        sa_column_kwargs={"comment": "Version number starting at 1"},
     )
 
-    inserted_at: datetime = Field(default_factory=now, nullable=False)
-    updated_at: datetime = Field(default_factory=now, nullable=False)
+    inserted_at: datetime = Field(
+        default_factory=now,
+        nullable=False,
+        sa_column_kwargs={"comment": "Timestamp when the version was created"},
+    )
+    updated_at: datetime = Field(
+        default_factory=now,
+        nullable=False,
+        sa_column_kwargs={"comment": "Timestamp when the version was last updated"},
+    )
 
-    deleted_at: datetime | None = Field(default=None, nullable=True)
+    deleted_at: datetime | None = Field(
+        default=None,
+        nullable=True,
+        sa_column_kwargs={"comment": "Timestamp when the version was soft-deleted"},
+    )
 
 
 class ConfigVersionCreate(ConfigVersionBase):

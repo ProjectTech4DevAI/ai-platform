@@ -18,10 +18,33 @@
 
 ---
 
-## 🔑 OpenAI API Key (Optional)
-- If provided, the API key will be **encrypted** and stored as project credentials.
-- If omitted, the project will be created **without OpenAI credentials**.
+## 🔑 Credentials (Optional)
+- If provided, the given credentials will be **encrypted** and stored as project credentials.
+- The `credentials` parameter accepts a list of one or more credentials (e.g., an OpenAI key, Langfuse credentials, etc.).
+- If omitted, the project will be created **without credentials**.
+- We’ve also included a list of the providers currently supported by kaapi.
 
+   ### Supported Providers
+   - **LLM:** openai
+   - **Observability:** langfuse
+
+   ### Example: For sending multiple credentials -
+   ```
+   "credentials": [
+     {
+       "openai": {
+         "api_key": "sk-proj-..."
+       }
+     },
+     {
+       "langfuse": {
+         "public_key": "pk-lf-...",
+         "secret_key": "sk-lf-...",
+         "host": "https://cloud.langfuse.com"
+       }
+     }
+   ]
+   ```
 ---
 
 ## 🔄 Transactional Guarantee

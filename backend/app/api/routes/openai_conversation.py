@@ -16,7 +16,7 @@ from app.models import (
     UserProjectOrg,
     OpenAIConversationPublic,
 )
-from app.utils import APIResponse
+from app.utils import APIResponse, load_description
 
 router = APIRouter(prefix="/openai-conversation", tags=["OpenAI Conversations"])
 
@@ -25,6 +25,7 @@ router = APIRouter(prefix="/openai-conversation", tags=["OpenAI Conversations"])
     "/{conversation_id}",
     response_model=APIResponse[OpenAIConversationPublic],
     summary="Get a single conversation by its ID",
+    description=load_description("openai_conversation/get.md"),
 )
 def get_conversation_route(
     conversation_id: int = Path(..., description="The conversation ID to fetch"),
@@ -48,6 +49,7 @@ def get_conversation_route(
     "/response/{response_id}",
     response_model=APIResponse[OpenAIConversationPublic],
     summary="Get a conversation by its OpenAI response ID",
+    description=load_description("openai_conversation/get_by_response_id.md"),
 )
 def get_conversation_by_response_id_route(
     response_id: str = Path(..., description="The OpenAI response ID to fetch"),
@@ -72,6 +74,7 @@ def get_conversation_by_response_id_route(
     "/ancestor/{ancestor_response_id}",
     response_model=APIResponse[OpenAIConversationPublic],
     summary="Get a conversation by its ancestor response ID",
+    description=load_description("openai_conversation/get_by_ancestor_id.md"),
 )
 def get_conversation_by_ancestor_id_route(
     ancestor_response_id: str = Path(
@@ -98,6 +101,7 @@ def get_conversation_by_ancestor_id_route(
     "/",
     response_model=APIResponse[list[OpenAIConversationPublic]],
     summary="List all conversations in the current project",
+    description=load_description("openai_conversation/list.md"),
 )
 def list_conversations_route(
     session: Session = Depends(get_db),
@@ -126,7 +130,11 @@ def list_conversations_route(
     )
 
 
-@router.delete("/{conversation_id}", response_model=APIResponse)
+@router.delete(
+    "/{conversation_id}",
+    response_model=APIResponse,
+    description=load_description("openai_conversation/delete.md"),
+)
 def delete_conversation_route(
     conversation_id: Annotated[int, Path(description="Conversation ID to delete")],
     session: Session = Depends(get_db),

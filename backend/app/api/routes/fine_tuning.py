@@ -41,7 +41,7 @@ from app.api.routes.model_evaluation import run_model_evaluation
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/fine_tuning", tags=["fine_tuning"])
+router = APIRouter(prefix="/fine_tuning", tags=["Fine Tuning"])
 
 
 OPENAI_TO_INTERNAL_STATUS = {

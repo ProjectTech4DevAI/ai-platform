@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     ] = "development"
 
     PROJECT_NAME: str
+    API_VERSION: str = "0.5.0"
     SENTRY_DSN: HttpUrl | None = None
     POSTGRES_SERVER: str
     POSTGRES_PORT: int = 5432
@@ -118,7 +119,7 @@ class Settings(BaseSettings):
     CELERY_ENABLE_UTC: bool = True
     CELERY_TIMEZONE: str = "UTC"
 
-    # callback timeouts
+    # callback timeouts and limits
     CALLBACK_CONNECT_TIMEOUT: int = 3
     CALLBACK_READ_TIMEOUT: int = 10
 
