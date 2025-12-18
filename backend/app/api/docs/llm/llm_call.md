@@ -25,7 +25,9 @@ for processing, and results are delivered via the callback URL when complete.
     - `completion` (required, object): Completion configuration
       - `provider` (required, string): Provider type - either `"openai"` (Kaapi abstraction) or `"openai-native"` (pass-through)
       - `params` (required, object): Parameters structure depends on provider type (see schema for detailed structure)
-  - **Note**: When using ad-hoc configuration, do not include `id` and `version` fields
+  - **Note**
+    - When using ad-hoc configuration, do not include `id` and `version` fields
+    - When using the Kaapi abstraction, parameters that are not supported by the selected provider or model are automatically suppressed. If any parameters are ignored, a list of warnings is included in the metadata.warnings. For example, the GPT-5 model does not support the temperature parameter, so Kaapi will neither throw an error nor pass this parameter to the model; instead, it will return a warning in the metadata.warnings response.
   - **Recommendation**: Use stored configs (Mode 1) for production; use ad-hoc configs only for testing/validation
   - **Schema**: Check the API schema or examples below for the complete parameter structure for each provider type
 
@@ -40,5 +42,8 @@ for processing, and results are delivered via the callback URL when complete.
 **`request_metadata`** (optional, object):
 - Custom JSON metadata
 - Passed through unchanged in the response
+
+### Note
+- `warnings` list is automatically added in response metadata when using Kaapi configs if any parameters are suppressed or adjusted (e.g., temperature on reasoning models)
 
 ---
