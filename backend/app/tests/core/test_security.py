@@ -1,9 +1,7 @@
 import pytest
-from uuid import uuid4
 from sqlmodel import Session
+
 from app.core.security import (
-    get_password_hash,
-    verify_password,
     encrypt_api_key,
     decrypt_api_key,
     get_encryption_key,

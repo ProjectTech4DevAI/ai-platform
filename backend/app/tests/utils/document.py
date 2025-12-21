@@ -16,8 +16,7 @@ from app.crud.project import get_project_by_id
 from app.models import Document, DocumentPublic, Project
 from app.utils import APIResponse
 from app.tests.utils.auth import TestAuthContext
-
-from .utils import SequentialUuidGenerator
+from app.tests.utils.utils import SequentialUuidGenerator
 
 
 def httpx_to_standard(response: Response):

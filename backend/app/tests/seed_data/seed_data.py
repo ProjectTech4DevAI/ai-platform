@@ -1,7 +1,7 @@
 import json
 import logging
-from datetime import datetime
 from pathlib import Path
+from passlib.context import CryptContext
 from typing import Optional
 
 from pydantic import BaseModel, EmailStr
@@ -21,7 +21,6 @@ from app.models import (
 )
 
 
-# Pydantic models for data validation
 class OrgData(BaseModel):
     name: str
     is_active: bool
@@ -112,7 +111,6 @@ def create_project(session: Session, project_data_raw: dict) -> Project:
     try:
         project_data = ProjectData.model_validate(project_data_raw)
         logging.info(f"Creating project: {project_data.name}")
-        # Query organization ID by name
         organization = session.exec(
             select(Organization).where(
                 Organization.name == project_data.organization_name
@@ -150,7 +148,7 @@ def create_user(session: Session, user_data_raw: dict) -> User:
             hashed_password=hashed_password,
         )
         session.add(user)
-        session.flush()  # Ensure ID is assigned
+        session.flush()
         return user
     except Exception as e:
         logging.error(f"Error creating user: {e}")
@@ -162,7 +160,6 @@ def create_api_key(session: Session, api_key_data_raw: dict) -> APIKey:
     try:
         api_key_data = APIKeyData.model_validate(api_key_data_raw)
         logging.info(f"Creating API key for user {api_key_data.user_email}")
-        # Query organization ID by name
         organization = session.exec(
             select(Organization).where(
                 Organization.name == api_key_data.organization_name
@@ -177,7 +174,6 @@ def create_api_key(session: Session, api_key_data_raw: dict) -> APIKey:
         ).first()
         if not project:
             raise ValueError(f"Project '{api_key_data.project_name}' not found")
-        # Query user ID by email
         user = session.exec(
             select(User).where(User.email == api_key_data.user_email)
         ).first()
@@ -191,11 +187,9 @@ def create_api_key(session: Session, api_key_data_raw: dict) -> APIKey:
             raise ValueError(f"Invalid API key format: {raw_key}")
 
         # Extract the key_prefix (first 16 characters after "ApiKey ")
-        key_portion = raw_key[7:]  # Remove "ApiKey " prefix
+        key_portion = raw_key[7:]
 
-        key_prefix = key_portion[:12]  # First 12 characters as prefix
-
-        from passlib.context import CryptContext
+        key_prefix = key_portion[:12]
 
         pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
         key_hash = pwd_context.hash(key_portion[12:])
@@ -223,7 +217,6 @@ def create_credential(session: Session, credential_data_raw: dict) -> Credential
         credential_data = CredentialData.model_validate(credential_data_raw)
         logging.info(f"Creating credential for provider: {credential_data.provider}")
 
-        # Query organization ID by name
         organization = session.exec(
             select(Organization).where(
                 Organization.name == credential_data.organization_name
@@ -234,7 +227,6 @@ def create_credential(session: Session, credential_data_raw: dict) -> Credential
                 f"Organization '{credential_data.organization_name}' not found"
             )
 
-        # Query organization ID by name
         project = session.exec(
             select(Project).where(Project.name == credential_data.project_name)
         ).first()
@@ -267,7 +259,6 @@ def create_assistant(session: Session, assistant_data_raw: dict) -> Assistant:
         assistant_data = AssistantData.model_validate(assistant_data_raw)
         logging.info(f"Creating assistant: {assistant_data.name}")
 
-        # Query organization ID by name
         organization = session.exec(
             select(Organization).where(
                 Organization.name == assistant_data.organization_name
@@ -278,7 +269,6 @@ def create_assistant(session: Session, assistant_data_raw: dict) -> Assistant:
                 f"Organization '{assistant_data.organization_name}' not found"
             )
 
-        # Query project ID by name
         project = session.exec(
             select(Project).where(Project.name == assistant_data.project_name)
         ).first()
@@ -310,7 +300,6 @@ def create_document(session: Session, document_data_raw: dict) -> Document:
         document_data = DocumentData.model_validate(document_data_raw)
         logging.info(f"Creating document: {document_data.fname}")
 
-        # Get the organization
         organization = session.exec(
             select(Organization).where(
                 Organization.name == document_data.organization_name
@@ -322,7 +311,6 @@ def create_document(session: Session, document_data_raw: dict) -> Document:
                 f"Organization '{document_data.organization_name}' not found"
             )
 
-        # Get the project
         project = session.exec(
             select(Project).where(
                 Project.name == document_data.project_name,
@@ -340,11 +328,6 @@ def create_document(session: Session, document_data_raw: dict) -> Document:
             .where(APIKey.organization_id == organization.id)
         ).all()
 
-        user = users[1]
-        if not user:
-            raise ValueError(f"No user found in organization '{organization.name}'")
-
-        # Create and store document
         document = Document(
             fname=document_data.fname,
             object_store_url=document_data.object_store_url,
@@ -364,6 +347,7 @@ def clear_database(session: Session) -> None:
     """Clear all seeded data from the database."""
     logging.info("Clearing existing data...")
     session.exec(delete(Assistant))
+    session.exec(delete(Document))
     session.exec(delete(APIKey))
     session.exec(delete(Project))
     session.exec(delete(Organization))
@@ -393,13 +377,10 @@ def seed_database(session: Session) -> None:
     logging.info("Starting database seeding...")
 
     try:
-        # Clear existing data first
         clear_database(session)
 
-        # Load seed data from JSON
         seed_data = load_seed_data()
 
-        # Create organizations
         organizations = []
         for org_data in seed_data["organization"]:
             organization = create_organization(session, org_data)
@@ -414,14 +395,12 @@ def seed_database(session: Session) -> None:
             elif user_data["email"] == "{{ADMIN_EMAIL}}":
                 user_data["email"] = settings.EMAIL_TEST_USER
 
-        # Create users
         users = []
         for user_data in seed_data["users"]:
             user = create_user(session, user_data)
             users.append(user)
             logging.info(f"Created user: {user.email} (ID: {user.id})")
 
-        # Create projects
         projects = []
         for project_data in seed_data["projects"]:
             project = create_project(session, project_data)
@@ -434,14 +413,12 @@ def seed_database(session: Session) -> None:
             elif api_key_data["user_email"] == "{{ADMIN_EMAIL}}":
                 api_key_data["user_email"] = settings.EMAIL_TEST_USER
 
-        # Create API keys
         api_keys = []
         for api_key_data in seed_data["apikeys"]:
             api_key = create_api_key(session, api_key_data)
             api_keys.append(api_key)
             logging.info(f"Created API key (ID: {api_key.id})")
 
-        # Create credentials
         credentials = []
         for credential_data in seed_data["credentials"]:
             credential = create_credential(session, credential_data)
@@ -450,7 +427,6 @@ def seed_database(session: Session) -> None:
                 f"Created credential for provider: {credential.provider} (ID: {credential.id})"
             )
 
-        # Create assistants
         assistants = []
         for assistant_data in seed_data.get("assistants", []):
             assistant = create_assistant(session, assistant_data)

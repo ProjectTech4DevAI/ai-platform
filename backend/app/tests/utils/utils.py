@@ -3,9 +3,6 @@ import string
 from uuid import UUID
 from typing import Type, TypeVar
 
-
-import pytest
-from pydantic import EmailStr
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
