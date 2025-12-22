@@ -10,17 +10,17 @@ docker compose watch
 
 * Now you can open your browser and interact with these URLs:
 
-Backend, JSON based web API based on OpenAPI: http://localhost:8000
+Backend, JSON based web API based on OpenAPI: <http://localhost:8000>
 
-Automatic interactive documentation with Swagger UI (from the OpenAPI backend): http://localhost:8000/docs
+Automatic interactive documentation with Swagger UI (from the OpenAPI backend): <http://localhost:8000/docs>
 
-Alternative interactive documentation (ReDoc): http://localhost:8000/redoc
+Alternative interactive documentation (ReDoc): <http://localhost:8000/redoc>
 
-Adminer, database web administration: http://localhost:8080
+Adminer, database web administration: <http://localhost:8080>
 
-RabbitMQ Management UI: http://localhost:15672
+RabbitMQ Management UI: <http://localhost:15672>
 
-Celery Flower (task monitoring): http://localhost:5555
+Celery Flower (task monitoring): <http://localhost:5555>
 
 **Note**: The first time you start your stack, it might take a minute for it to be ready. While the backend waits for the database to be ready and configures everything. You can check the logs to monitor it.
 
@@ -53,7 +53,7 @@ cd backend
 fastapi run --reload app/main.py
 ```
 
-This way the backend runs on the same port (`http://localhost:8000`) whether it's in Docker or running locally.
+This way the backend runs on the same port (<http://localhost:8000>) whether it's in Docker or running locally.
 
 ### Running Completely Without Docker
 
@@ -82,7 +82,7 @@ sudo systemctl enable --now redis-server
 
 **Verify services are running:**
 
-- RabbitMQ Management UI: http://localhost:15672 (default credentials: `guest`/`guest`)
+- RabbitMQ Management UI: <http://localhost:15672> (default credentials: `guest`/`guest`)
 - Redis: `redis-cli ping` (should return `PONG`)
 
 #### 2. Start the Backend Server
@@ -94,7 +94,7 @@ cd backend
 fastapi run --reload app/main.py
 ```
 
-The backend will be available at http://localhost:8000
+The backend will be available at <http://localhost:8000>
 
 #### 3. Start Celery Worker
 
@@ -118,10 +118,10 @@ cd backend
 uv run celery -A app.celery.celery_app flower --port=5555
 ```
 
-Flower will be available at: http://localhost:5555
+Flower will be available at: <http://localhost:5555>
 
 > **Note:** If you start Flower before running any Celery workers, you may see warnings like:
-> ```
+> ```text
 > WARNING - flower.inspector - Inspect method ... failed
 > ```
 > This just means there are no active workers yet. Once you start a Celery worker (step 3),
@@ -199,14 +199,14 @@ prettier.................................................................Passed
 
 All services are available on localhost with different ports:
 
-**Backend**: http://localhost:8000
+**Backend**: <http://localhost:8000>
 
-**Swagger UI** (Interactive API Docs): http://localhost:8000/docs
+**Swagger UI** (Interactive API Docs): <http://localhost:8000/docs>
 
-**ReDoc** (Alternative API Docs): http://localhost:8000/redoc
+**ReDoc** (Alternative API Docs): <http://localhost:8000/redoc>
 
-**Adminer** (Database Management): http://localhost:8080
+**Adminer** (Database Management): <http://localhost:8080>
 
-**RabbitMQ Management**: http://localhost:15672 (username: guest, password: guest)
+**RabbitMQ Management**: <http://localhost:15672> (username: guest, password: guest)
 
-**Celery Flower** (Task Monitoring): http://localhost:5555
+**Celery Flower** (Task Monitoring): <http://localhost:5555>
