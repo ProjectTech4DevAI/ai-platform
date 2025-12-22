@@ -7,9 +7,6 @@ assignees: ''
 
 ---
 
-**Which feature or component needs enhancement?**
-Clearly identify the existing feature/component that needs improvement.
-
 **Describe the current behavior**
 A clear description of how it currently works and what the limitations are.
 

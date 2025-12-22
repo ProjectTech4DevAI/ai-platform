@@ -55,6 +55,80 @@ fastapi run --reload app/main.py
 
 This way the backend runs on the same port (`http://localhost:8000`) whether it's in Docker or running locally.
 
+### Running Completely Without Docker
+
+If you want to run everything locally without Docker, you'll need to set up RabbitMQ, Redis, Celery, and optionally Celery Flower manually.
+
+#### 1. Install and Start RabbitMQ & Redis
+
+**macOS (using Homebrew):**
+
+```bash
+brew install rabbitmq redis
+
+brew services start rabbitmq
+brew services start redis
+```
+
+**Ubuntu / Debian:**
+
+```bash
+sudo apt update
+sudo apt install rabbitmq-server redis-server
+
+sudo systemctl enable --now rabbitmq-server
+sudo systemctl enable --now redis-server
+```
+
+**Verify services are running:**
+
+- RabbitMQ Management UI: http://localhost:15672 (default credentials: `guest`/`guest`)
+- Redis: `redis-cli ping` (should return `PONG`)
+
+#### 2. Start the Backend Server
+
+In your first terminal:
+
+```bash
+cd backend
+fastapi run --reload app/main.py
+```
+
+The backend will be available at http://localhost:8000
+
+#### 3. Start Celery Worker
+
+In a second terminal, start the Celery worker:
+
+```bash
+cd backend
+uv run celery -A app.celery.celery_app worker --loglevel=info
+```
+
+Leave this process running. This handles background tasks like document processing and LLM job execution.
+
+#### 4. (Optional) Start Celery Flower for Task Monitoring
+
+Flower provides a web UI to monitor Celery tasks and workers.
+
+**Start Flower in a fourth terminal:**
+
+```bash
+cd backend
+uv run celery -A app.celery.celery_app flower --port=5555
+```
+
+Flower will be available at: http://localhost:5555
+
+> **Note:** If you start Flower before running any Celery workers, you may see warnings like:
+> ```
+> WARNING - flower.inspector - Inspect method ... failed
+> ```
+> This just means there are no active workers yet. Once you start a Celery worker (step 3),
+> Flower will be able to inspect it and the warnings will stop.
+
+---
+
 ## Docker Compose files and env vars
 
 The `docker-compose.yml` file contains all the configurations for the stack, including services like PostgreSQL, Redis, RabbitMQ, backend, Celery workers, and Adminer.
