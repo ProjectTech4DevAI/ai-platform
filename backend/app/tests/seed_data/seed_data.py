@@ -85,10 +85,14 @@ def load_seed_data() -> dict:
         with open(json_path, "r") as f:
             return json.load(f)
     except FileNotFoundError:
-        logging.error(f"Error: Seed data file not found at {json_path}")
+        logging.error(
+            f"[tests.seed_data]Error: Seed data file not found at {json_path}"
+        )
         raise
     except json.JSONDecodeError as e:
-        logging.error(f"Error: Failed to decode JSON from {json_path}: {e}")
+        logging.error(
+            f"[tests.seed_data]Error: Failed to decode JSON from {json_path}: {e}"
+        )
         raise
 
 
@@ -96,13 +100,12 @@ def create_organization(session: Session, org_data_raw: dict) -> Organization:
     """Create an organization from data."""
     try:
         org_data = OrgData.model_validate(org_data_raw)
-        logging.info(f"Creating organization: {org_data.name}")
         organization = Organization(name=org_data.name, is_active=org_data.is_active)
         session.add(organization)
         session.flush()  # Ensure ID is assigned
         return organization
     except Exception as e:
-        logging.error(f"Error creating organization: {e}")
+        logging.error(f"[tests.seed_data]Error creating organization: {e}")
         raise
 
 
@@ -110,7 +113,6 @@ def create_project(session: Session, project_data_raw: dict) -> Project:
     """Create a project from data."""
     try:
         project_data = ProjectData.model_validate(project_data_raw)
-        logging.info(f"Creating project: {project_data.name}")
         organization = session.exec(
             select(Organization).where(
                 Organization.name == project_data.organization_name
@@ -130,7 +132,7 @@ def create_project(session: Session, project_data_raw: dict) -> Project:
         session.flush()  # Ensure ID is assigned
         return project
     except Exception as e:
-        logging.error(f"Error creating project: {e}")
+        logging.error(f"[tests.seed_data]Error creating project: {e}")
         raise
 
 
@@ -138,7 +140,6 @@ def create_user(session: Session, user_data_raw: dict) -> User:
     """Create a user from data."""
     try:
         user_data = UserData.model_validate(user_data_raw)
-        logging.info(f"Creating user: {user_data.email}")
         hashed_password = get_password_hash(user_data.password)
         user = User(
             email=user_data.email,
@@ -151,7 +152,7 @@ def create_user(session: Session, user_data_raw: dict) -> User:
         session.flush()
         return user
     except Exception as e:
-        logging.error(f"Error creating user: {e}")
+        logging.error(f"[tests.seed_data]Error creating user: {e}")
         raise
 
 
@@ -159,7 +160,6 @@ def create_api_key(session: Session, api_key_data_raw: dict) -> APIKey:
     """Create an API key from data."""
     try:
         api_key_data = APIKeyData.model_validate(api_key_data_raw)
-        logging.info(f"Creating API key for user {api_key_data.user_email}")
         organization = session.exec(
             select(Organization).where(
                 Organization.name == api_key_data.organization_name
@@ -207,7 +207,7 @@ def create_api_key(session: Session, api_key_data_raw: dict) -> APIKey:
         session.flush()
         return api_key
     except Exception as e:
-        logging.error(f"Error creating API key: {e}")
+        logging.error(f"[tests.seed_data]Error creating API key: {e}")
         raise
 
 
@@ -215,8 +215,6 @@ def create_credential(session: Session, credential_data_raw: dict) -> Credential
     """Create a credential from data."""
     try:
         credential_data = CredentialData.model_validate(credential_data_raw)
-        logging.info(f"Creating credential for provider: {credential_data.provider}")
-
         organization = session.exec(
             select(Organization).where(
                 Organization.name == credential_data.organization_name
@@ -249,7 +247,7 @@ def create_credential(session: Session, credential_data_raw: dict) -> Credential
         session.flush()  # Ensure ID is assigned
         return credential
     except Exception as e:
-        logging.error(f"Error creating credential: {e}")
+        logging.error(f"[tests.seed_data]Error creating credential: {e}")
         raise
 
 
@@ -257,8 +255,6 @@ def create_assistant(session: Session, assistant_data_raw: dict) -> Assistant:
     """Create an assistant from data."""
     try:
         assistant_data = AssistantData.model_validate(assistant_data_raw)
-        logging.info(f"Creating assistant: {assistant_data.name}")
-
         organization = session.exec(
             select(Organization).where(
                 Organization.name == assistant_data.organization_name
@@ -290,7 +286,7 @@ def create_assistant(session: Session, assistant_data_raw: dict) -> Assistant:
         session.flush()  # Ensure ID is assigned
         return assistant
     except Exception as e:
-        logging.error(f"Error creating assistant: {e}")
+        logging.error(f"[tests.seed_data]Error creating assistant: {e}")
         raise
 
 
@@ -298,8 +294,6 @@ def create_document(session: Session, document_data_raw: dict) -> Document:
     """Create a document from seed data."""
     try:
         document_data = DocumentData.model_validate(document_data_raw)
-        logging.info(f"Creating document: {document_data.fname}")
-
         organization = session.exec(
             select(Organization).where(
                 Organization.name == document_data.organization_name
@@ -328,6 +322,10 @@ def create_document(session: Session, document_data_raw: dict) -> Document:
             .where(APIKey.organization_id == organization.id)
         ).all()
 
+        user = users[1]
+        if not user:
+            raise ValueError(f"No user found in organization '{organization.name}'")
+
         document = Document(
             fname=document_data.fname,
             object_store_url=document_data.object_store_url,
@@ -339,13 +337,12 @@ def create_document(session: Session, document_data_raw: dict) -> Document:
         return document
 
     except Exception as e:
-        logging.error(f"Error creating document: {e}")
+        logging.error(f"[tests.seed_data]Error creating document: {e}")
         raise
 
 
 def clear_database(session: Session) -> None:
     """Clear all seeded data from the database."""
-    logging.info("Clearing existing data...")
     session.exec(delete(Assistant))
     session.exec(delete(Document))
     session.exec(delete(APIKey))
@@ -354,7 +351,7 @@ def clear_database(session: Session) -> None:
     session.exec(delete(User))
     session.exec(delete(Credential))
     session.commit()
-    logging.info("Existing data cleared.")
+    logging.info("[tests.seed_data] Existing database cleared")
 
 
 def seed_database(session: Session) -> None:
@@ -374,20 +371,14 @@ def seed_database(session: Session) -> None:
     This seed data is used by the test suite and ensures that all tests
     can rely on both OpenAI and Langfuse credentials being available without manual setup.
     """
-    logging.info("Starting database seeding...")
-
+    logging.info("[tests.seed_data] Starting database seeding")
     try:
         clear_database(session)
 
         seed_data = load_seed_data()
 
-        organizations = []
         for org_data in seed_data["organization"]:
-            organization = create_organization(session, org_data)
-            organizations.append(organization)
-            logging.info(
-                f"Created organization: {organization.name} (ID: {organization.id})"
-            )
+            create_organization(session, org_data)
 
         for user_data in seed_data["users"]:
             if user_data["email"] == "{{SUPERUSER_EMAIL}}":
@@ -395,17 +386,11 @@ def seed_database(session: Session) -> None:
             elif user_data["email"] == "{{ADMIN_EMAIL}}":
                 user_data["email"] = settings.EMAIL_TEST_USER
 
-        users = []
         for user_data in seed_data["users"]:
-            user = create_user(session, user_data)
-            users.append(user)
-            logging.info(f"Created user: {user.email} (ID: {user.id})")
+            create_user(session, user_data)
 
-        projects = []
         for project_data in seed_data["projects"]:
-            project = create_project(session, project_data)
-            projects.append(project)
-            logging.info(f"Created project: {project.name} (ID: {project.id})")
+            create_project(session, project_data)
 
         for api_key_data in seed_data["apikeys"]:
             if api_key_data["user_email"] == "{{SUPERUSER_EMAIL}}":
@@ -413,47 +398,27 @@ def seed_database(session: Session) -> None:
             elif api_key_data["user_email"] == "{{ADMIN_EMAIL}}":
                 api_key_data["user_email"] = settings.EMAIL_TEST_USER
 
-        api_keys = []
         for api_key_data in seed_data["apikeys"]:
-            api_key = create_api_key(session, api_key_data)
-            api_keys.append(api_key)
-            logging.info(f"Created API key (ID: {api_key.id})")
+            create_api_key(session, api_key_data)
 
-        credentials = []
         for credential_data in seed_data["credentials"]:
-            credential = create_credential(session, credential_data)
-            credentials.append(credential)
-            logging.info(
-                f"Created credential for provider: {credential.provider} (ID: {credential.id})"
-            )
+            create_credential(session, credential_data)
 
-        assistants = []
         for assistant_data in seed_data.get("assistants", []):
-            assistant = create_assistant(session, assistant_data)
-            assistants.append(assistant)
-            logging.info(f"Created assistant: {assistant.name} (ID: {assistant.id})")
+            create_assistant(session, assistant_data)
 
-        documents = []
         for document_data in seed_data.get("documents", []):
-            document = create_document(session, document_data)
-            documents.append(document)
-            logging.info(f"Created document: {document.fname} (ID: {document.id})")
+            create_document(session, document_data)
 
-        logging.info("Database seeding completed successfully!")
         session.commit()
+        logging.info("[tests.seed_data] Database seeded successfully")
     except Exception as e:
-        logging.error(f"Error during seeding: {e}")
+        logging.error(f"[tests.seed_data] Error seeding database: {e}")
         session.rollback()
         raise
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    logging.info("Initializing database session...")
     with Session(engine) as session:
-        try:
-            seed_database(session)
-            logging.info("Database seeded successfully!")
-        except Exception as e:
-            logging.error(f"Error seeding database: {e}")
-            session.rollback()
+        seed_database(session)

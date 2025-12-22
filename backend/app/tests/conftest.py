@@ -102,3 +102,54 @@ def superuser_api_key(db: Session) -> TestAuthContext:
 def user_api_key(db: Session) -> TestAuthContext:
     auth_ctx = get_user_test_auth_context(db)
     return auth_ctx
+
+
+@pytest.fixture
+def test_dataset_factory(db: Session):
+    """Factory fixture for creating test evaluation datasets."""
+    from sqlmodel import select
+    from app.models import Organization, Project
+    from app.tests.utils.test_data import create_test_evaluation_dataset
+
+    def _create_test_dataset(
+        name: str = "test_dataset",
+        description: str = "Test dataset for evaluation runs",
+        original_items_count: int = 5,
+        duplication_factor: int = 1,
+        organization_id: int | None = None,
+        project_id: int | None = None,
+    ):
+        """Create a test dataset with specified parameters.
+
+        Args:
+            name: Dataset name
+            description: Dataset description
+            original_items_count: Number of original items
+            duplication_factor: How many times to duplicate each item
+            organization_id: Organization ID (fetches first org if None)
+            project_id: Project ID (fetches first project if None)
+
+        Returns:
+            Created evaluation dataset
+        """
+        if organization_id is None:
+            org = db.exec(select(Organization)).first()
+            organization_id = org.id
+
+        if project_id is None:
+            project = db.exec(
+                select(Project).where(Project.organization_id == organization_id)
+            ).first()
+            project_id = project.id
+
+        return create_test_evaluation_dataset(
+            db=db,
+            organization_id=organization_id,
+            project_id=project_id,
+            name=name,
+            description=description,
+            original_items_count=original_items_count,
+            duplication_factor=duplication_factor,
+        )
+
+    return _create_test_dataset

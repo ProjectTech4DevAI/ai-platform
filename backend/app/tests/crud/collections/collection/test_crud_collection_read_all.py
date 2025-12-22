@@ -27,12 +27,6 @@ def create_collections(db: Session, n: int):
         return crud.project_id
 
 
-@pytest.fixture(scope="class")
-def refresh(self, db: Session):
-    db.exec(delete(Collection))
-    db.commit()
-
-
 class TestCollectionReadAll:
     _ncollections = 5
 

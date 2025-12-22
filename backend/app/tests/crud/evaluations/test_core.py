@@ -19,25 +19,7 @@ from app.tests.utils.test_data import create_test_evaluation_dataset
 class TestCreateEvaluationRun:
     """Test creating evaluation runs."""
 
-    @pytest.fixture
-    def test_dataset(self, db: Session):
-        """Create a test dataset for evaluation runs."""
-        org = db.exec(select(Organization)).first()
-        project = db.exec(
-            select(Project).where(Project.organization_id == org.id)
-        ).first()
-
-        return create_test_evaluation_dataset(
-            db=db,
-            organization_id=org.id,
-            project_id=project.id,
-            name="test_dataset",
-            description="Test dataset for evaluation runs",
-            original_items_count=5,
-            duplication_factor=1,
-        )
-
-    def test_create_evaluation_run_minimal(self, db: Session, test_dataset):
+    def test_create_evaluation_run_minimal(self, db: Session, test_dataset_factory):
         """Test creating an evaluation run with minimal config."""
         eval_run = create_evaluation_run(
             session=db,

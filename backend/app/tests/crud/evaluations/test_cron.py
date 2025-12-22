@@ -9,7 +9,6 @@ from app.crud.evaluations.cron import (
 )
 from app.crud.evaluations.core import create_evaluation_run
 from app.core.util import now
-from app.models import Organization, Project
 from app.models import BatchJob, Organization, Project
 from app.tests.utils.test_data import create_test_evaluation_dataset
 

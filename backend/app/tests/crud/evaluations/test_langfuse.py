@@ -382,7 +382,7 @@ class TestUploadDatasetToLangfuse:
 
         assert mock_langfuse.create_dataset_item.call_count == 15
 
-        assert mock_langfuse.flush.call_count == 4
+        assert mock_langfuse.flush.call_count == 1
 
     def test_upload_dataset_to_langfuse_duplication_metadata(self, valid_items):
         """Test that duplication metadata is included."""
@@ -445,7 +445,7 @@ class TestUploadDatasetToLangfuse:
 
         assert total_items == 3
         assert mock_langfuse.create_dataset_item.call_count == 3
-        assert mock_langfuse.flush.call_count == 4
+        assert mock_langfuse.flush.call_count == 1
 
     def test_upload_dataset_to_langfuse_item_creation_error(self, valid_items):
         """Test that item creation errors are logged but don't stop processing."""
