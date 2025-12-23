@@ -2,7 +2,7 @@ import json
 import logging
 from pathlib import Path
 from passlib.context import CryptContext
-from typing import Optional
+from typing import Optional, Any
 
 from pydantic import BaseModel, EmailStr
 from sqlmodel import Session, delete, select
@@ -78,7 +78,7 @@ class DocumentData(BaseModel):
     project_name: str
 
 
-def load_seed_data() -> dict:
+def load_seed_data() -> dict[str, Any]:
     """Load seed data from JSON file."""
     json_path = Path(__file__).parent / "seed_data.json"
     try:
@@ -96,7 +96,7 @@ def load_seed_data() -> dict:
         raise
 
 
-def create_organization(session: Session, org_data_raw: dict) -> Organization:
+def create_organization(session: Session, org_data_raw: dict[str, Any]) -> Organization:
     """Create an organization from data."""
     try:
         org_data = OrgData.model_validate(org_data_raw)
@@ -109,7 +109,7 @@ def create_organization(session: Session, org_data_raw: dict) -> Organization:
         raise
 
 
-def create_project(session: Session, project_data_raw: dict) -> Project:
+def create_project(session: Session, project_data_raw: dict[str, Any]) -> Project:
     """Create a project from data."""
     try:
         project_data = ProjectData.model_validate(project_data_raw)
@@ -136,7 +136,7 @@ def create_project(session: Session, project_data_raw: dict) -> Project:
         raise
 
 
-def create_user(session: Session, user_data_raw: dict) -> User:
+def create_user(session: Session, user_data_raw: dict[str, Any]) -> User:
     """Create a user from data."""
     try:
         user_data = UserData.model_validate(user_data_raw)
@@ -156,7 +156,7 @@ def create_user(session: Session, user_data_raw: dict) -> User:
         raise
 
 
-def create_api_key(session: Session, api_key_data_raw: dict) -> APIKey:
+def create_api_key(session: Session, api_key_data_raw: dict[str, Any]) -> APIKey:
     """Create an API key from data."""
     try:
         api_key_data = APIKeyData.model_validate(api_key_data_raw)
@@ -211,7 +211,9 @@ def create_api_key(session: Session, api_key_data_raw: dict) -> APIKey:
         raise
 
 
-def create_credential(session: Session, credential_data_raw: dict) -> Credential:
+def create_credential(
+    session: Session, credential_data_raw: dict[str, Any]
+) -> Credential:
     """Create a credential from data."""
     try:
         credential_data = CredentialData.model_validate(credential_data_raw)
@@ -251,7 +253,7 @@ def create_credential(session: Session, credential_data_raw: dict) -> Credential
         raise
 
 
-def create_assistant(session: Session, assistant_data_raw: dict) -> Assistant:
+def create_assistant(session: Session, assistant_data_raw: dict[str, Any]) -> Assistant:
     """Create an assistant from data."""
     try:
         assistant_data = AssistantData.model_validate(assistant_data_raw)
@@ -290,7 +292,7 @@ def create_assistant(session: Session, assistant_data_raw: dict) -> Assistant:
         raise
 
 
-def create_document(session: Session, document_data_raw: dict) -> Document:
+def create_document(session: Session, document_data_raw: dict[str, Any]) -> Document:
     """Create a document from seed data."""
     try:
         document_data = DocumentData.model_validate(document_data_raw)

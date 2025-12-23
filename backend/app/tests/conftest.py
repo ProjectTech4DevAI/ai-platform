@@ -7,8 +7,7 @@ os.environ["ENVIRONMENT"] = "testing"
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 from sqlalchemy import event
-from collections.abc import Generator, Callable
-from typing import Any
+from typing import Any, Generator
 
 # Now import after setting environment
 from app.core.config import settings

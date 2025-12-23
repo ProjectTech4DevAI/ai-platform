@@ -1,7 +1,6 @@
 import itertools as it
 import functools as ft
-from typing import Any
-from collections.abc import Generator
+from typing import Any, Generator
 from uuid import UUID
 from pathlib import Path
 from datetime import datetime
