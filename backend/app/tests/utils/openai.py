@@ -108,7 +108,7 @@ def mock_openai_response(
     return response
 
 
-def get_mock_openai_client_with_vector_store():
+def get_mock_openai_client_with_vector_store() -> MagicMock:
     mock_client = MagicMock()
 
     # Vector store

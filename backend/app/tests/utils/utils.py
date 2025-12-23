@@ -18,7 +18,7 @@ def random_lower_string() -> str:
     return "".join(random.choices(string.ascii_lowercase, k=32))
 
 
-def generate_random_string(length=10):
+def generate_random_string(length: int = 10) -> str:
     return "".join(random.choices(string.ascii_letters + string.digits, k=length))
 
 
@@ -145,10 +145,10 @@ def get_organization(session: Session, name: str | None = None) -> Organization:
 
 
 class SequentialUuidGenerator:
-    def __init__(self, start=0):
+    def __init__(self, start: int = 0) -> None:
         self.start = start
 
-    def __iter__(self):
+    def __iter__(self) -> "SequentialUuidGenerator":
         return self
 
     def __next__(self) -> UUID:

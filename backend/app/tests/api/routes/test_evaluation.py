@@ -122,7 +122,7 @@ class TestDatasetUploadValidation:
             headers=user_api_key_header,
         )
 
-        assert response.status_code == 422  # unprocessable entity
+        assert response.status_code == 422
         response_data = response.json()
         error_str = response_data.get(
             "detail", response_data.get("message", str(response_data))

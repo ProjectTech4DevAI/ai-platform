@@ -1,5 +1,7 @@
 import itertools as it
 import functools as ft
+from typing import Any
+from collections.abc import Generator
 from uuid import UUID
 from pathlib import Path
 from datetime import datetime
@@ -16,7 +18,8 @@ from app.crud.project import get_project_by_id
 from app.models import Document, DocumentPublic, Project
 from app.utils import APIResponse
 from app.tests.utils.auth import TestAuthContext
-from app.tests.utils.utils import SequentialUuidGenerator
+
+from .utils import SequentialUuidGenerator
 
 
 def httpx_to_standard(response: Response):
@@ -50,32 +53,32 @@ class DocumentMaker:
 
 
 class DocumentStore:
-    def __init__(self, db: Session, project_id: int):
+    def __init__(self, db: Session, project_id: int) -> None:
         self.db = db
         self.documents = DocumentMaker(project_id=project_id, session=db)
         self.clear(self.db)
 
     @staticmethod
-    def clear(db: Session):
+    def clear(db: Session) -> None:
         db.exec(delete(Document))
         db.commit()
 
     @property
-    def project(self):
+    def project(self) -> Project:
         return self.documents.project
 
-    def put(self):
+    def put(self) -> Document:
         doc = next(self.documents)
         self.db.add(doc)
         self.db.commit()
         self.db.refresh(doc)
         return doc
 
-    def extend(self, n: int):
+    def extend(self, n: int) -> Generator[Document, None, None]:
         for _ in range(n):
             yield self.put()
 
-    def fill(self, n: int):
+    def fill(self, n: int) -> list[Document]:
         return list(self.extend(n))
 
 
@@ -83,14 +86,14 @@ class Route:
     _empty = ParseResult(*it.repeat("", len(ParseResult._fields)))
     _root = Path(settings.API_V1_STR, "documents")
 
-    def __init__(self, endpoint, **qs_args):
+    def __init__(self, endpoint: str | Path, **qs_args: Any) -> None:
         self.endpoint = endpoint
         self.qs_args = qs_args
 
-    def __str__(self):
+    def __str__(self) -> str:
         return urlunparse(self.to_url())
 
-    def to_url(self):
+    def to_url(self) -> ParseResult:
         path = self._root.joinpath(self.endpoint)
         kwargs = {
             "path": str(path),
@@ -101,7 +104,7 @@ class Route:
 
         return self._empty._replace(**kwargs)
 
-    def append(self, doc: Document, suffix: str = None):
+    def append(self, doc: Document, suffix: str | None = None) -> "Route":
         segments = [self.endpoint, str(doc.id)]
         if suffix:
             segments.append(suffix)
@@ -114,13 +117,13 @@ class WebCrawler:
     client: TestClient
     user_api_key: TestAuthContext
 
-    def get(self, route: Route):
+    def get(self, route: Route) -> Response:
         return self.client.get(
             str(route),
             headers={"X-API-KEY": self.user_api_key.key},
         )
 
-    def delete(self, route: Route):
+    def delete(self, route: Route) -> Response:
         return self.client.delete(
             str(route),
             headers={"X-API-KEY": self.user_api_key.key},
@@ -132,23 +135,23 @@ class DocumentComparator:
 
     @ft.singledispatchmethod
     @staticmethod
-    def to_string(value):
+    def to_string(value: Any) -> Any:
         return value
 
     @to_string.register
     @staticmethod
-    def _(value: UUID):
+    def _(value: UUID) -> str:
         return str(value)
 
     @to_string.register
     @staticmethod
-    def _(value: datetime):
+    def _(value: datetime) -> str:
         return value.isoformat()
 
-    def __init__(self, document: Document):
+    def __init__(self, document: Document) -> None:
         self.document = document
 
-    def __eq__(self, other: dict):
+    def __eq__(self, other: dict) -> bool:
         this = dict(self.to_public_dict())
         return this == other
 
@@ -165,5 +168,5 @@ class DocumentComparator:
 
 
 @pytest.fixture
-def crawler(client: TestClient, user_api_key: TestAuthContext):
+def crawler(client: TestClient, user_api_key: TestAuthContext) -> WebCrawler:
     return WebCrawler(client, user_api_key=user_api_key)
