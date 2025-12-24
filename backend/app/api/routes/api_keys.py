@@ -50,7 +50,7 @@ def list_api_keys_route(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=100, description="Maximum records to return"),
 ):
-    crud = APIKeyCrud(session, current_user.project.id)
+    crud = APIKeyCrud(session, current_user.project_.id)
     api_keys = crud.read_all(skip=skip, limit=limit)
 
     return APIResponse.success_response(api_keys)
@@ -67,7 +67,7 @@ def delete_api_key_route(
     current_user: AuthContextDep,
     session: SessionDep,
 ):
-    api_key_crud = APIKeyCrud(session=session, project_id=current_user.project.id)
+    api_key_crud = APIKeyCrud(session=session, project_id=current_user.project_.id)
     api_key_crud.delete(key_id=key_id)
 
     return APIResponse.success_response(Message(message="API Key deleted successfully"))
