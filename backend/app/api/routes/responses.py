@@ -3,9 +3,9 @@ import logging
 import openai
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
-from sqlmodel import Session
 
-from app.api.deps import get_db, get_current_user_org_project
+from app.api.deps import AuthContextDep, SessionDep
+from app.api.permissions import Permission, require_permission
 from app.core.langfuse.langfuse import LangfuseTracer
 from app.crud.credentials import get_provider_credential
 from app.models import (
@@ -14,7 +14,6 @@ from app.models import (
     ResponsesAPIRequest,
     ResponseJobStatus,
     ResponsesSyncAPIRequest,
-    UserProjectOrg,
 )
 from app.services.response.jobs import start_job
 from app.services.response.response import get_file_search_results
@@ -35,16 +34,17 @@ router = APIRouter(tags=["Responses"])
     "/responses",
     response_model=APIResponse[ResponseJobStatus],
     description=load_description("responses/create_async.md"),
+    dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
 async def responses(
     request: ResponsesAPIRequest,
-    _session: Session = Depends(get_db),
-    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
+    _session: SessionDep,
+    _current_user: AuthContextDep,
 ):
     """Asynchronous endpoint that processes requests using Celery."""
     project_id, organization_id = (
-        _current_user.project_id,
-        _current_user.organization_id,
+        _current_user.project_.id,
+        _current_user.organization_.id,
     )
 
     start_job(
@@ -69,16 +69,17 @@ async def responses(
     "/responses/sync",
     response_model=APIResponse[CallbackResponse],
     description=load_description("responses/create_sync.md"),
+    dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
 async def responses_sync(
     request: ResponsesSyncAPIRequest,
-    _session: Session = Depends(get_db),
-    _current_user: UserProjectOrg = Depends(get_current_user_org_project),
+    _session: SessionDep,
+    _current_user: AuthContextDep,
 ):
     """Synchronous endpoint for benchmarking OpenAI responses API with Langfuse tracing."""
     project_id, organization_id = (
-        _current_user.project_id,
-        _current_user.organization_id,
+        _current_user.project_.id,
+        _current_user.organization_.id,
     )
 
     try:

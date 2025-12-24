@@ -11,10 +11,8 @@ from app.models import (
     OrganizationUpdate,
     OrganizationPublic,
 )
-from app.api.deps import (
-    SessionDep,
-    get_current_active_superuser,
-)
+from app.api.deps import SessionDep
+from app.api.permissions import Permission, require_permission
 from app.crud.organization import create_organization, get_organization_by_id
 from app.utils import APIResponse, load_description
 
@@ -25,7 +23,7 @@ router = APIRouter(prefix="/organizations", tags=["Organizations"])
 # Retrieve organizations
 @router.get(
     "/",
-    dependencies=[Depends(get_current_active_superuser)],
+    dependencies=[Depends(require_permission(Permission.SUPERUSER))],
     response_model=APIResponse[List[OrganizationPublic]],
     description=load_description("organization/list.md"),
 )
@@ -42,7 +40,7 @@ def read_organizations(session: SessionDep, skip: int = 0, limit: int = 100):
 # Create a new organization
 @router.post(
     "/",
-    dependencies=[Depends(get_current_active_superuser)],
+    dependencies=[Depends(require_permission(Permission.SUPERUSER))],
     response_model=APIResponse[OrganizationPublic],
     description=load_description("organization/create.md"),
 )
@@ -53,7 +51,7 @@ def create_new_organization(*, session: SessionDep, org_in: OrganizationCreate):
 
 @router.get(
     "/{org_id}",
-    dependencies=[Depends(get_current_active_superuser)],
+    dependencies=[Depends(require_permission(Permission.SUPERUSER))],
     response_model=APIResponse[OrganizationPublic],
     description=load_description("organization/get.md"),
 )
@@ -71,7 +69,7 @@ def read_organization(*, session: SessionDep, org_id: int):
 # Update an organization
 @router.patch(
     "/{org_id}",
-    dependencies=[Depends(get_current_active_superuser)],
+    dependencies=[Depends(require_permission(Permission.SUPERUSER))],
     response_model=APIResponse[OrganizationPublic],
     description=load_description("organization/update.md"),
 )
@@ -100,7 +98,7 @@ def update_organization(
 # Delete an organization
 @router.delete(
     "/{org_id}",
-    dependencies=[Depends(get_current_active_superuser)],
+    dependencies=[Depends(require_permission(Permission.SUPERUSER))],
     response_model=APIResponse[None],
     include_in_schema=False,
     description=load_description("organization/delete.md"),
