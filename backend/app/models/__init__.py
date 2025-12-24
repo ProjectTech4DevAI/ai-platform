@@ -146,8 +146,6 @@ from .user import (
     NewPassword,
     User,
     UserCreate,
-    UserOrganization,
-    UserProjectOrg,
     UserPublic,
     UserRegister,
     UserUpdate,
