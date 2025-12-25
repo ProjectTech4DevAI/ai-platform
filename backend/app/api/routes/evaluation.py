@@ -2,7 +2,16 @@
 
 import logging
 
-from fastapi import APIRouter, Body, File, Form, HTTPException, Query, UploadFile
+from fastapi import (
+    APIRouter,
+    Body,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    Depends,
+)
 
 from app.api.deps import AuthContextDep, SessionDep
 from app.crud.evaluations import (
@@ -48,6 +57,7 @@ def _dataset_to_response(dataset) -> DatasetUploadResponse:
     "/evaluations/datasets",
     description=load_description("evaluation/upload_dataset.md"),
     response_model=APIResponse[DatasetUploadResponse],
+    dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
 async def upload_dataset_endpoint(
     _session: SessionDep,
@@ -86,6 +96,7 @@ async def upload_dataset_endpoint(
     "/evaluations/datasets",
     description=load_description("evaluation/list_datasets.md"),
     response_model=APIResponse[list[DatasetUploadResponse]],
+    dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
 def list_datasets_endpoint(
     _session: SessionDep,
@@ -100,8 +111,8 @@ def list_datasets_endpoint(
 
     datasets = list_datasets(
         session=_session,
-        organization_id=auth_context.organization.id,
-        project_id=auth_context.project.id,
+        organization_id=auth_context.organization_.id,
+        project_id=auth_context.project_.id,
         limit=limit,
         offset=offset,
     )
@@ -115,6 +126,7 @@ def list_datasets_endpoint(
     "/evaluations/datasets/{dataset_id}",
     description=load_description("evaluation/get_dataset.md"),
     response_model=APIResponse[DatasetUploadResponse],
+    dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
 def get_dataset(
     dataset_id: int,
@@ -124,15 +136,15 @@ def get_dataset(
     """Get a specific evaluation dataset."""
     logger.info(
         f"[get_dataset] Fetching dataset | id={dataset_id} | "
-        f"org_id={auth_context.organization.id} | "
-        f"project_id={auth_context.project.id}"
+        f"org_id={auth_context.organization_.id} | "
+        f"project_id={auth_context.project_.id}"
     )
 
     dataset = get_dataset_by_id(
         session=_session,
         dataset_id=dataset_id,
-        organization_id=auth_context.organization.id,
-        project_id=auth_context.project.id,
+        organization_id=auth_context.organization_.id,
+        project_id=auth_context.project_.id,
     )
 
     if not dataset:
@@ -147,6 +159,7 @@ def get_dataset(
     "/evaluations/datasets/{dataset_id}",
     description=load_description("evaluation/delete_dataset.md"),
     response_model=APIResponse[dict],
+    dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
 def delete_dataset(
     dataset_id: int,
@@ -156,15 +169,15 @@ def delete_dataset(
     """Delete an evaluation dataset."""
     logger.info(
         f"[delete_dataset] Deleting dataset | id={dataset_id} | "
-        f"org_id={auth_context.organization.id} | "
-        f"project_id={auth_context.project.id}"
+        f"org_id={auth_context.organization_.id} | "
+        f"project_id={auth_context.project_.id}"
     )
 
     success, message = delete_dataset_crud(
         session=_session,
         dataset_id=dataset_id,
-        organization_id=auth_context.organization.id,
-        project_id=auth_context.project.id,
+        organization_id=auth_context.organization_.id,
+        project_id=auth_context.project_.id,
     )
 
     if not success:
@@ -183,6 +196,7 @@ def delete_dataset(
     "/evaluations",
     description=load_description("evaluation/create_evaluation.md"),
     response_model=APIResponse[EvaluationRunPublic],
+    dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
 def evaluate(
     _session: SessionDep,
@@ -215,6 +229,7 @@ def evaluate(
     "/evaluations",
     description=load_description("evaluation/list_evaluations.md"),
     response_model=APIResponse[list[EvaluationRunPublic]],
+    dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
 def list_evaluation_runs(
     _session: SessionDep,
@@ -225,15 +240,15 @@ def list_evaluation_runs(
     """List evaluation runs."""
     logger.info(
         f"[list_evaluation_runs] Listing evaluation runs | "
-        f"org_id={auth_context.organization.id} | "
-        f"project_id={auth_context.project.id} | limit={limit} | offset={offset}"
+        f"org_id={auth_context.organization_.id} | "
+        f"project_id={auth_context.project_.id} | limit={limit} | offset={offset}"
     )
 
     return APIResponse.success_response(
         data=list_evaluation_runs_crud(
             session=_session,
-            organization_id=auth_context.organization.id,
-            project_id=auth_context.project.id,
+            organization_id=auth_context.organization_.id,
+            project_id=auth_context.project_.id,
             limit=limit,
             offset=offset,
         )
@@ -244,6 +259,7 @@ def list_evaluation_runs(
     "/evaluations/{evaluation_id}",
     description=load_description("evaluation/get_evaluation.md"),
     response_model=APIResponse[EvaluationRunPublic],
+    dependencies=[Depends(require_permission(Permission.REQUIRE_PROJECT))],
 )
 def get_evaluation_run_status(
     evaluation_id: int,
@@ -293,5 +309,4 @@ def get_evaluation_run_status(
 
     if error:
         return APIResponse.failure_response(error=error, data=eval_run)
-
     return APIResponse.success_response(data=eval_run)

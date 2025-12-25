@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
 from pydantic import HttpUrl, model_validator
@@ -28,7 +28,7 @@ class Collection(SQLModel, table=True):
     )
     llm_service_name: str = Field(
         nullable=False,
-        sa_column_kwargs={"comment": "Name of the LLM service provider"},
+        sa_column_kwargs={"comment": "Name of the LLM service"},
     )
 
     # Foreign keys
@@ -145,8 +145,17 @@ class CallbackRequest(SQLModel):
     )
 
 
+class ProviderOptions(SQLModel):
+    """LLM provider configuration."""
+
+    provider: Literal["openai"] = Field(
+        default="openai", description="LLM provider to use for this collection"
+    )
+
+
 class CreationRequest(
     DocumentOptions,
+    ProviderOptions,
     AssistantOptions,
     CallbackRequest,
 ):
