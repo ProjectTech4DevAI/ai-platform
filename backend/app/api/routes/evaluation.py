@@ -24,6 +24,7 @@ from app.models.evaluation import (
     DatasetUploadResponse,
     EvaluationRunPublic,
 )
+from app.api.permissions import Permission, require_permission
 from app.services.evaluation import (
     get_evaluation_with_scores,
     start_evaluation,
