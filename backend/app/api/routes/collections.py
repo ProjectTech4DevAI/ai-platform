@@ -203,7 +203,7 @@ def collection_info(
 
     if include_docs:
         document_collection_crud = DocumentCollectionCrud(session)
-        documents = document_collection_crud.read(collection, limit)
+        documents = document_collection_crud.read(collection, skip=None, limit=limit)
 
         storage = None
         if include_url and documents:

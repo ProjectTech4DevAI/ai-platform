@@ -191,7 +191,7 @@ def test_collection_info_include_docs_and_url(
     client: TestClient,
     db: Session,
     user_api_key_header,
-):
+) -> None:
     """
     Test that when include_docs=true and include_url=true,
     the endpoint returns documents with their URLs.
@@ -218,6 +218,9 @@ def test_collection_info_include_docs_and_url(
     assert isinstance(docs, list)
     assert len(docs) >= 1
 
-    # Verify document has URL field when include_url=true
-    doc = docs[0]
+    doc_ids = {d["id"] for d in docs}
+    assert str(document.id) in doc_ids
+
+    doc = next(d for d in docs if d["id"] == str(document.id))
+    assert "signed_url" in doc
     assert doc["signed_url"].startswith("https://")
