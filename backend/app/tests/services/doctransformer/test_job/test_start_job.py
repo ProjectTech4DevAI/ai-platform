@@ -13,7 +13,7 @@ from app.models import (
     DocTransformationJob,
     Project,
     TransformationStatus,
-    UserProjectOrg,
+    AuthContext,
     DocTransformJobCreate,
 )
 from app.tests.services.doctransformer.test_job.utils import (
@@ -33,13 +33,13 @@ class TestStartJob(DocTransformTestBase):
     def test_start_job_success(
         self,
         db: Session,
-        current_user: UserProjectOrg,
+        current_user: AuthContext,
         test_document: tuple[Document, Project],
     ) -> None:
         """start_job should enqueue execute_job with correct kwargs and return the same job id."""
         document, _project = test_document
 
-        job = self._create_job(db, current_user.project_id, document.id)
+        job = self._create_job(db, current_user.project.id, document.id)
 
         with patch(
             "app.services.doctransform.job.start_low_priority_job"
@@ -48,7 +48,7 @@ class TestStartJob(DocTransformTestBase):
 
             returned_job_id = start_job(
                 db=db,
-                current_user=current_user,
+                project_id=current_user.project.id,
                 job_id=job.id,
                 transformer_name="test-transformer",
                 target_format="markdown",
@@ -67,7 +67,7 @@ class TestStartJob(DocTransformTestBase):
         mock_schedule.assert_called_once()
         kwargs = mock_schedule.call_args.kwargs
         assert kwargs["function_path"] == "app.services.doctransform.job.execute_job"
-        assert kwargs["project_id"] == current_user.project_id
+        assert kwargs["project_id"] == current_user.project.id
         assert kwargs["job_id"] == str(job.id)
         assert kwargs["source_document_id"] == str(job.source_document_id)
         assert kwargs["transformer_name"] == "test-transformer"
@@ -77,7 +77,7 @@ class TestStartJob(DocTransformTestBase):
     def test_start_job_with_nonexistent_document(
         self,
         db: Session,
-        current_user: UserProjectOrg,
+        current_user: AuthContext,
     ) -> None:
         """
         Previously: start_job validated document and raised 404.
@@ -92,7 +92,7 @@ class TestStartJob(DocTransformTestBase):
                 mock_schedule.return_value = "fake-task-id"
                 start_job(
                     db=db,
-                    current_user=current_user,
+                    project_id=current_user.project.id,
                     job_id=nonexistent_job_id,
                     transformer_name="test-transformer",
                     target_format="markdown",
@@ -102,7 +102,7 @@ class TestStartJob(DocTransformTestBase):
     def test_start_job_with_different_formats(
         self,
         db: Session,
-        current_user: UserProjectOrg,
+        current_user: AuthContext,
         test_document: tuple[Document, Project],
         monkeypatch,
     ) -> None:
@@ -118,11 +118,11 @@ class TestStartJob(DocTransformTestBase):
             mock_schedule.return_value = "fake-task-id"
 
             for target_format in formats:
-                job = self._create_job(db, current_user.project_id, document.id)
+                job = self._create_job(db, current_user.project.id, document.id)
 
                 returned_job_id = start_job(
                     db=db,
-                    current_user=current_user,
+                    project_id=current_user.project.id,
                     job_id=job.id,
                     transformer_name="test",
                     target_format=target_format,
@@ -141,7 +141,7 @@ class TestStartJob(DocTransformTestBase):
                     kwargs["function_path"]
                     == "app.services.doctransform.job.execute_job"
                 )
-                assert kwargs["project_id"] == current_user.project_id
+                assert kwargs["project_id"] == current_user.project.id
                 assert kwargs["job_id"] == str(job.id)
                 assert kwargs["source_document_id"] == str(job.source_document_id)
                 assert kwargs["transformer_name"] == "test"
@@ -151,7 +151,7 @@ class TestStartJob(DocTransformTestBase):
     def test_start_job_with_different_transformers(
         self,
         db: Session,
-        current_user: UserProjectOrg,
+        current_user: AuthContext,
         test_document: tuple[Document, Project],
         transformer_name: str,
         monkeypatch,
@@ -160,7 +160,7 @@ class TestStartJob(DocTransformTestBase):
         monkeypatch.setitem(TRANSFORMERS, "test", MockTestTransformer)
 
         document, _ = test_document
-        job = self._create_job(db, current_user.project_id, document.id)
+        job = self._create_job(db, current_user.project.id, document.id)
 
         with patch(
             "app.services.doctransform.job.start_low_priority_job"
@@ -169,7 +169,7 @@ class TestStartJob(DocTransformTestBase):
 
             returned_job_id = start_job(
                 db=db,
-                current_user=current_user,
+                project_id=current_user.project.id,
                 job_id=job.id,
                 transformer_name=transformer_name,
                 target_format="markdown",
@@ -184,7 +184,7 @@ class TestStartJob(DocTransformTestBase):
         assert kwargs["transformer_name"] == transformer_name
         assert kwargs["target_format"] == "markdown"
         assert kwargs["function_path"] == "app.services.doctransform.job.execute_job"
-        assert kwargs["project_id"] == current_user.project_id
+        assert kwargs["project_id"] == current_user.project.id
         assert kwargs["job_id"] == str(job.id)
         assert kwargs["source_document_id"] == str(job.source_document_id)
         assert returned_job_id == job.id
