@@ -188,7 +188,8 @@ def collection_info(
     include_url: bool = Query(
         False, description="Include a signed URL to access the document"
     ),
-    limit: int = Query(
+    limit: int
+    | None = Query(
         None,
         gt=0,
         le=500,
