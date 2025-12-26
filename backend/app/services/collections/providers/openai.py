@@ -9,7 +9,7 @@ from app.core.cloud.storage import CloudStorage
 from app.crud.rag import OpenAIVectorStoreCrud, OpenAIAssistantCrud
 from app.services.collections.helpers import (
     batch_documents,
-    OPENAI_VECTOR_STORE,
+    get_service_name,
     _backout,
 )
 from app.models import CreateCollectionResult, CreationRequest, Collection
@@ -107,7 +107,7 @@ class OpenAIProvider(BaseProvider):
 
                 return CreateCollectionResult(
                     llm_service_id=vector_store.id,
-                    llm_service_name=OPENAI_VECTOR_STORE,
+                    llm_service_name=get_service_name("openai"),
                     collection_blob=collection_blob,
                 )
 
@@ -129,7 +129,7 @@ class OpenAIProvider(BaseProvider):
             collection: Collection that has been requested to be deleted
         """
         try:
-            if collection.llm_service_name != OPENAI_VECTOR_STORE:
+            if collection.llm_service_name != get_service_name("openai"):
                 OpenAIAssistantCrud(self.client).delete(collection.llm_service_id)
                 logger.info(
                     f"[OpenAIProvider.delete] Deleted assistant | assistant_id={collection.llm_service_id}"

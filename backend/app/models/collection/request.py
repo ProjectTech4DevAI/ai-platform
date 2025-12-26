@@ -1,15 +1,26 @@
 from datetime import datetime
+from enum import Enum
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
 from pydantic import HttpUrl, model_validator
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, ENUM
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.core.util import now
 from app.models.organization import Organization
 from app.models.project import Project
+
+
+class ProviderType(str, Enum):
+    """Supported LLM providers for collections."""
+
+    OPENAI = "openai"
+
+
+#   BEDROCK = "bedrock"
+#   GEMINI = "gemini"
 
 
 class Collection(SQLModel, table=True):
@@ -19,6 +30,20 @@ class Collection(SQLModel, table=True):
         default_factory=uuid4,
         primary_key=True,
         sa_column_kwargs={"comment": "Unique identifier for the collection"},
+    )
+
+    provider: ProviderType = Field(
+        sa_column=sa.Column(
+            ENUM(
+                "openai",
+                #   "bedrock",
+                #  "gemini",
+                name="providertype",
+                create_type=False,
+            ),
+            nullable=False,
+            comment="LLM provider used for this collection (e.g., 'openai', 'bedrock', 'gemini', etc)",
+        ),
     )
     llm_service_id: str = Field(
         nullable=False,
@@ -103,12 +128,12 @@ class CreateCollectionParams(SQLModel):
     )
 
     def model_post_init(self, __context: Any):
-        """Deduplicate documents by file_id."""
+        """Deduplicate documents by document id."""
         seen = set()
         unique_docs = []
         for doc in self.documents:
-            if doc.file_id not in seen:
-                seen.add(doc.file_id)
+            if doc.id not in seen:
+                seen.add(doc.id)
                 unique_docs.append(doc)
         self.documents = unique_docs
 
@@ -181,9 +206,19 @@ class CallbackRequest(SQLModel):
 class ProviderOptions(SQLModel):
     """LLM provider configuration."""
 
-    provider: Literal["openai"] = Field(
-        default="openai", description="LLM provider to use for this collection"
+    provider: ProviderType = Field(
+        default=ProviderType.OPENAI,
+        description="LLM provider to use for this collection",
     )
+
+    @model_validator(mode="before")
+    def normalize_provider(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Normalize provider value to lowercase for case-insensitive matching."""
+        if isinstance(values, dict) and "provider" in values:
+            provider = values["provider"]
+            if isinstance(provider, str):
+                values["provider"] = provider.lower()
+        return values
 
 
 class CreationRequest(AssistantOptions, ProviderOptions, CallbackRequest):

@@ -20,8 +20,9 @@ from app.models import (
     CollectionJobUpdate,
     CollectionPublic,
     CollectionJobPublic,
+    CreationRequest,
+    ProviderType,
 )
-from app.models.collection import CreationRequest
 from app.services.collections.helpers import extract_error_message
 from app.services.collections.providers.registry import get_llm_provider
 from app.celery.utils import start_low_priority_job
@@ -51,7 +52,6 @@ def start_job(
         project_id=project_id,
         job_id=str(collection_job_id),
         trace_id=trace_id,
-        with_assistant=with_assistant,
         request=request.model_dump(mode="json"),
         organization_id=organization_id,
     )
@@ -138,7 +138,6 @@ def execute_job(
     organization_id: int,
     task_id: str,
     job_id: str,
-    with_assistant: bool,
     task_instance,
 ) -> None:
     """
@@ -192,7 +191,7 @@ def execute_job(
 
         with Session(engine) as session:
             document_crud = DocumentCrud(session, project_id)
-            flat_docs = document_crud.read_many_by_ids(
+            flat_docs = document_crud.read_each(
                 [doc.id for doc in creation_request.collection_params.documents]
             )
 
@@ -212,11 +211,11 @@ def execute_job(
                 llm_service_id=llm_service_id,
                 llm_service_name=llm_service_name,
                 collection_blob=collection_blob,
+                provider=creation_request.provider,
             )
             collection_crud.create(collection)
             collection = collection_crud.read_one(collection.id)
 
-            # Link documents to the new collection
             if flat_docs:
                 DocumentCollectionCrud(session).create(collection, flat_docs)
 

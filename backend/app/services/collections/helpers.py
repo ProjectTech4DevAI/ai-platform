@@ -14,8 +14,15 @@ from app.models import DocumentCollection, Collection
 
 logger = logging.getLogger(__name__)
 
-# llm service name for when only an openai vector store is being made
-OPENAI_VECTOR_STORE = "openai vector store"
+
+def get_service_name(provider: str) -> str:
+    """Get the collection service name for a provider."""
+    names = {
+        "openai": "openai vector store",
+        #   "bedrock": "bedrock knowledge base",
+        #  "gemini": "gemini file search store",
+    }
+    return names.get(provider.lower(), "")
 
 
 def extract_error_message(err: Exception) -> str:
@@ -101,4 +108,4 @@ def pick_service_for_documennt(session, doc_id: UUID, a_crud, v_crud):
     service = (
         (getattr(coll, "llm_service_name", "") or "").strip().lower() if coll else ""
     )
-    return v_crud if service == OPENAI_VECTOR_STORE else a_crud
+    return v_crud if service == get_service_name("openai") else a_crud

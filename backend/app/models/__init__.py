@@ -15,6 +15,7 @@ from .collection import (
     CollectionIDPublic,
     CollectionWithDocsPublic,
     DeletionRequest,
+    ProviderType,
 )
 from .collection_job import (
     CollectionActionType,

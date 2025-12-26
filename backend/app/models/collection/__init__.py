@@ -5,6 +5,7 @@ from app.models.collection.request import (
     CallbackRequest,
     AssistantOptions,
     CreateCollectionParams,
+    ProviderType,
 )
 from app.models.collection.response import (
     CollectionIDPublic,
