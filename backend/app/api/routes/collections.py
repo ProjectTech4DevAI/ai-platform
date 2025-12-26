@@ -186,7 +186,7 @@ def collection_info(
         description="If true, include documents linked to this collection",
     ),
     include_url: bool = Query(
-        False, description="Include a signed URL to access the document"
+        True, description="Include a signed URL to access the document"
     ),
     limit: int
     | None = Query(
