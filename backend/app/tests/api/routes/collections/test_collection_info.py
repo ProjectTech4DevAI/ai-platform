@@ -9,6 +9,7 @@ from app.tests.utils.utils import get_project, get_document
 from app.tests.utils.collection import get_collection, get_vector_store_collection
 from app.crud import DocumentCollectionCrud
 from app.models import Collection, Document
+from app.services.collections.helpers import get_service_name
 
 
 def link_document_to_collection(
@@ -163,7 +164,7 @@ def test_collection_info_vector_store_collection(
     payload = data["data"]
 
     assert payload["id"] == str(collection.id)
-    assert payload["llm_service_name"] == "openai vector store"
+    assert payload["llm_service_name"] == get_service_name("openai")
     assert payload["llm_service_id"] == collection.llm_service_id
 
     docs = payload.get("documents", [])

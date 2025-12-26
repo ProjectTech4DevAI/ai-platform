@@ -7,6 +7,7 @@ from app.tests.utils.collection import (
     get_collection,
     get_vector_store_collection,
 )
+from app.services.collections.helpers import get_service_name
 
 
 def test_list_collections_returns_api_response(
@@ -101,7 +102,7 @@ def test_list_collections_includes_vector_store_collection_with_fields(
 
     row = matching[0]
     assert row["project_id"] == project.id
-    assert row["llm_service_name"] == "openai vector store"
+    assert row["llm_service_name"] == get_service_name("openai")
     assert row["llm_service_id"] == collection.llm_service_id
 
 
