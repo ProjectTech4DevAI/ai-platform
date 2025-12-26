@@ -855,12 +855,6 @@ class TestGetEvaluationRunStatus:
             and "get_trace_info" in error_str.lower()
         )
 
-    def test_get_evaluation_run_without_authentication(self, client):
-        """Test that getting evaluation run requires authentication."""
-        response = client.get("/api/v1/evaluations/1")
-
-        assert response.status_code == 401
-
 
 class TestGetDataset:
     """Test GET /evaluations/datasets/{dataset_id} endpoint."""

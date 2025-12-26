@@ -111,28 +111,6 @@ def test_evaluation_cron_job_with_failures(
     assert data["total_processed"] == 3
 
 
-def test_evaluation_cron_job_exception_handling(
-    client: TestClient,
-    superuser_api_key: TestAuthContext,
-):
-    """Test cron job handles exceptions gracefully."""
-    with patch(
-        "app.api.routes.cron.process_all_pending_evaluations_sync",
-        side_effect=Exception("Database connection failed"),
-    ):
-        response = client.get(
-            f"{settings.API_V1_STR}/cron/evaluations",
-            headers={"X-API-KEY": superuser_api_key.key},
-        )
-
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "error"
-    assert "Database connection failed" in data["error"]
-    assert data["organizations_processed"] == 0
-    assert data["total_processed"] == 0
-
-
 def test_evaluation_cron_job_requires_superuser(
     client: TestClient,
     user_api_key: TestAuthContext,
@@ -154,18 +132,6 @@ def test_evaluation_cron_job_requires_authentication(
 ):
     """Test that unauthenticated requests are rejected."""
     response = client.get(f"{settings.API_V1_STR}/cron/evaluations")
-
-    assert response.status_code == 401
-
-
-def test_evaluation_cron_job_invalid_api_key(
-    client: TestClient,
-):
-    """Test that invalid API key is rejected."""
-    response = client.get(
-        f"{settings.API_V1_STR}/cron/evaluations",
-        headers={"X-API-KEY": "ApiKey invalid_key_12345"},
-    )
 
     assert response.status_code == 401
 

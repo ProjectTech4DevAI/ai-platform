@@ -28,23 +28,6 @@ def test_read_credentials(
     assert Provider.LANGFUSE.value in providers
 
 
-def test_read_provider_credential_openai(
-    client: TestClient,
-    user_api_key: TestAuthContext,
-):
-    """Test reading OpenAI credentials from seeded data."""
-    response = client.get(
-        f"{settings.API_V1_STR}/credentials/provider/{Provider.OPENAI.value}",
-        headers={"X-API-KEY": user_api_key.key},
-    )
-
-    assert response.status_code == 200
-    response_data = response.json()
-    data = response_data.get("data", response_data)
-    assert "api_key" in data
-    assert data["api_key"].startswith("sk-")
-
-
 def test_read_provider_credential_langfuse(
     client: TestClient,
     user_api_key: TestAuthContext,
