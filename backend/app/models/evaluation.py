@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Literal, List, Dict, Sequence
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -16,11 +16,113 @@ if TYPE_CHECKING:
     from .project import Project
 
 
+class FileData(BaseModel):
+    file_id: str
+    audio_base64: str
+    ground_truth: str | None = None
+    media_type: str | None = None
+
+
+class ProviderConfig(BaseModel):
+    provider: Literal["openai", "gemini", "google-stt"]
+    model: str | None
+
+
+class TranscriptionRequest(BaseModel):
+    files: Sequence[FileData]  # [{file_id, audio_base64, ground_truth, media_type}]
+    providers: List[ProviderConfig]  # [{"provider:"openai", "model":"whisper-1"}]
+
+
 class DatasetItem(BaseModel):
     """Model for a single dataset item (Q&A pair)."""
 
     question: str = Field(..., description="The question/input")
     answer: str = Field(..., description="The expected answer/output")
+
+
+class WERResult(BaseModel):
+    wer: float
+    substitutions: int
+    deletions: int
+    insertions: int
+    semantic_errors: int
+    reference_word_count: int
+    hypothesis_word_count: int
+
+
+class WERComparisonResult(BaseModel):
+    """Result containing both strict and lenient WER calculations."""
+
+    ground_truth: str
+    hypothesis: str
+    strict: WERResult
+    lenient: WERResult
+
+
+class WERBatchItem(BaseModel):
+    """Input item for batch WER calculation."""
+
+    id: str | int
+    ground_truth: str
+    hypothesis: str
+    model: str | None = Field(
+        default=None,
+        description="Model/provider name for grouping (e.g., 'openai/gpt-4o-transcribe')",
+    )
+
+
+class WERBatchResult(BaseModel):
+    """Result of batch WER calculation."""
+
+    id: str | int
+    ground_truth: str
+    hypothesis: str
+    model: str | None = None
+    strict: WERResult
+    lenient: WERResult
+
+
+class WERSummaryStats(BaseModel):
+    """Summary statistics for WER calculations."""
+
+    count: int = Field(description="Number of items in this summary")
+    avg_wer: float = Field(description="Average WER across all items")
+    min_wer: float = Field(description="Minimum WER")
+    max_wer: float = Field(description="Maximum WER")
+    avg_substitutions: float = Field(description="Average substitution errors")
+    avg_deletions: float = Field(description="Average deletion errors")
+    avg_insertions: float = Field(description="Average insertion errors")
+    avg_semantic_errors: float = Field(description="Average semantic errors")
+    total_reference_words: int = Field(
+        description="Total reference words across all items"
+    )
+    total_hypothesis_words: int = Field(
+        description="Total hypothesis words across all items"
+    )
+
+
+class WERModelStats(BaseModel):
+    """WER statistics for a specific model."""
+
+    model: str = Field(description="Model/provider name")
+    strict: WERSummaryStats
+    lenient: WERSummaryStats
+
+
+class WERBatchSummary(BaseModel):
+    """Summary containing both strict and lenient statistics."""
+
+    overall: "WEROverallSummary"
+    by_model: List[WERModelStats] = Field(
+        default_factory=list, description="Statistics grouped by model"
+    )
+
+
+class WEROverallSummary(BaseModel):
+    """Overall summary for strict and lenient modes."""
+
+    strict: WERSummaryStats
+    lenient: WERSummaryStats
 
 
 class DatasetUploadResponse(BaseModel):

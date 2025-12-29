@@ -45,8 +45,9 @@ def transcribe_file(
         text = transcribe_audio(
             audio_file=str(wav_path),
             provider=provider,
-            openai_api_key=openai_key,
-            gemini_api_key=gemini_key,
+            model="gemini-3-pro-preview",
+            api_key=gemini_key
+            # api_key=openai_key
         )
         return text or f"ERROR: Empty response from {provider}"
     except Exception as e:

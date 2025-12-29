@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 from uuid import UUID
 
+from pydantic import BaseModel, Field
 from fastapi import (
     APIRouter,
     Body,
@@ -44,6 +45,21 @@ from app.utils import (
     get_langfuse_client,
     get_openai_client,
     load_description,
+)
+from app.services.audio.speech_to_text import (
+    process_batch_csv,
+    process_batch_transcription,
+    calculate_wer_batch_with_summary,
+)
+from app.models.evaluation import (
+    ProviderConfig,
+    TranscriptionRequest,
+    WERBatchItem,
+    WERBatchResult,
+    WERSummaryStats,
+    WERBatchSummary,
+    WERModelStats,
+    WEROverallSummary,
 )
 
 
@@ -699,126 +715,103 @@ def get_evaluation_run_status(
     return APIResponse.success_response(data=eval_run)
 
 
-# @router.post(
-#     "/evaluations/stt",
-#     description="Speech-to-text evaluation endpoint - accepts CSV with audio paths",
-# )
-# async def evaluate_stt(
-#     _session: SessionDep,
-#     auth_context: AuthContextDep,
-#     file: UploadFile = File(..., description="CSV file with 'audio_path' and 'expected_text' columns"),
-#     provider: str = Form(default="openai", description="STT provider: 'openai' or 'gemini'"),
-# ) -> APIResponse[dict]:
-#     """Temporary STT evaluation endpoint for PoC."""
-#     logger.info(
-#         f"[evaluate_stt] Starting STT evaluation | provider={provider} | "
-#         f"org_id={auth_context.organization.id} | project_id={auth_context.project.id}"
-#     )
+@router.post(
+    "/evaluations/stt/dataset",
+    description="Speech-to-text dataset upload endpoint - accepts CSV with audio paths",
+)
+async def upload_stt_dataset(
+    _session: SessionDep,
+    auth_context: AuthContextDep,
+    file: UploadFile = File(
+        ..., description="CSV file with 'audio_url' and 'ground_truth' columns"
+    ),
+):
+    file_extension = Path(file.filename).suffix.lower()
+    if file_extension not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=422, detail=f"Only CSV files are allowed. Got {file_extension}"
+        )
+    try:
+        processed_csv = await process_batch_csv(file)
+        return {"data": processed_csv}
 
-#     # Security validation: Check file extension
-#     file_ext = Path(file.filename).suffix.lower()
-#     if file_ext not in ALLOWED_EXTENSIONS:
-#         raise HTTPException(
-#             status_code=422,
-#             detail=f"Invalid file type. Only CSV files are allowed. Got: {file_ext}",
-#         )
+    except Exception as e:
+        logger.error(f"Failed to parse the CSV and download the audio bytes.")
+        raise HTTPException(status_code=422, detail=f"Invalide CSV file: {str(e)}")
 
-#     # Security validation: Check file size
-#     file.file.seek(0, 2)
-#     file_size = file.file.tell()
-#     file.file.seek(0)
 
-#     if file_size > MAX_FILE_SIZE:
-#         raise HTTPException(
-#             status_code=413,
-#             detail=f"File too large. Maximum size: {MAX_FILE_SIZE / (1024 * 1024):.0f}MB",
-#         )
+@router.post(
+    "/audio/transcriptions", description="Speech-to-text bulk transcription endpoint"
+)
+def transcribe(
+    _session: SessionDep, auth_context: AuthContextDep, request: TranscriptionRequest
+):
+    result = process_batch_transcription(
+        files=request.files, providers=request.providers
+    )
+    return APIResponse.success_response(data=result)
 
-#     if file_size == 0:
-#         raise HTTPException(status_code=422, detail="Empty file uploaded")
 
-#     # Read and parse CSV
-#     csv_content = await file.read()
-#     try:
-#         csv_text = csv_content.decode("utf-8")
-#         csv_reader = csv.DictReader(io.StringIO(csv_text))
+class WERBatchRequest(BaseModel):
+    """Request model for batch WER calculation."""
 
-#         if not csv_reader.fieldnames:
-#             raise HTTPException(status_code=422, detail="CSV file has no headers")
+    items: list[WERBatchItem]
+    mode: str = Field(
+        default="both", description="WER calculation mode: strict, lenient, or both"
+    )
 
-#         # Normalize headers
-#         clean_headers = {
-#             field.strip().lower(): field for field in csv_reader.fieldnames
-#         }
 
-#         # Validate required columns
-#         if "audio_path" not in clean_headers or "expected_text" not in clean_headers:
-#             raise HTTPException(
-#                 status_code=422,
-#                 detail=f"CSV must contain 'audio_path' and 'expected_text' columns. "
-#                 f"Found columns: {csv_reader.fieldnames}",
-#             )
+class WERBatchResponse(BaseModel):
+    """Response model for batch WER calculation."""
 
-#         audio_path_col = clean_headers["audio_path"]
-#         expected_text_col = clean_headers["expected_text"]
+    results: list[WERBatchResult]
+    summary: WERBatchSummary
+    total_items: int
+    processed: int
 
-#         # Process each row
-#         from app.services.audio.speech_to_text import transcribe_audio
-#         import os
 
-#         results = []
-#         for idx, row in enumerate(csv_reader):
-#             audio_path = row.get(audio_path_col, "").strip()
-#             expected_text = row.get(expected_text_col, "").strip()
+@router.post(
+    "/evaluations/stt/wer",
+    description="Calculate Word Error Rate (WER) for batch transcriptions. "
+    "Supports both strict and lenient modes for Hindi/Devanagari text.",
+    response_model=APIResponse[WERBatchResponse],
+)
+def calculate_batch_wer(
+    _session: SessionDep, auth_context: AuthContextDep, request: WERBatchRequest
+) -> APIResponse[WERBatchResponse]:
+    """
+    Calculate WER for multiple transcriptions in batch.
 
-#             if not audio_path or not expected_text:
-#                 logger.warning(f"[evaluate_stt] Skipping row {idx}: missing data")
-#                 continue
+    Each item should contain:
+    - id: Unique identifier for the transcription
+    - ground_truth: The reference/expected transcription
+    - hypothesis: The transcribed text to evaluate
 
-#             try:
-#                 # Get API keys from environment or credentials
-#                 openai_api_key = os.getenv("OPENAI_API_KEY")
-#                 gemini_api_key = os.getenv("GEMINI_API_KEY")
+    Returns both strict and lenient WER for each item with summary statistics:
+    - Strict: Exact word matching
+    - Lenient: Allows phonetic/spelling variations (e.g., मैं/में, हूँ/हूं)
 
-#                 # Transcribe audio
-#                 actual_text = transcribe_audio(
-#                     audio_file=audio_path,
-#                     provider=provider,
-#                     openai_api_key=openai_api_key,
-#                     gemini_api_key=gemini_api_key,
-#                 )
+    Summary includes average, min, max WER and error breakdowns.
+    """
+    if not request.items:
+        raise HTTPException(
+            status_code=422, detail="No items provided for WER calculation"
+        )
 
-#                 results.append({
-#                     "row": idx + 1,
-#                     "audio_path": audio_path,
-#                     "expected_text": expected_text,
-#                     "actual_text": actual_text,
-#                     "status": "success",
-#                 })
+    results, summary = calculate_wer_batch_with_summary(items=request.items)
 
-#                 logger.info(f"[evaluate_stt] Processed row {idx + 1} successfully")
+    logger.info(
+        f"[calculate_batch_wer] Batch WER completed | "
+        f"processed={len(results)}/{len(request.items)} | "
+        f"avg_strict_wer={summary.overall.strict.avg_wer:.4f} | "
+        f"avg_lenient_wer={summary.overall.lenient.avg_wer:.4f}"
+    )
 
-#             except Exception as e:
-#                 logger.error(f"[evaluate_stt] Failed to process row {idx + 1}: {e}", exc_info=True)
-#                 results.append({
-#                     "row": idx + 1,
-#                     "audio_path": audio_path,
-#                     "expected_text": expected_text,
-#                     "actual_text": None,
-#                     "status": "failed",
-#                     "error": str(e),
-#                 })
-
-#         logger.info(f"[evaluate_stt] Completed processing {len(results)} rows")
-
-#         return APIResponse.success_response(
-#             data={
-#                 "provider": provider,
-#                 "total_rows": len(results),
-#                 "results": results,
-#             }
-#         )
-
-#     except Exception as e:
-#         logger.error(f"[evaluate_stt] Failed to process CSV: {e}", exc_info=True)
-#         raise HTTPException(status_code=422, detail=f"Invalid CSV file: {e}")
+    return APIResponse.success_response(
+        data=WERBatchResponse(
+            results=results,
+            summary=summary,
+            total_items=len(request.items),
+            processed=len(results),
+        )
+    )
