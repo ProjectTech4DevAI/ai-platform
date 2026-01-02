@@ -9,13 +9,13 @@ from app.core.exception_handlers import HTTPException
 
 
 @pytest.fixture
-def store(db: Session):
+def store(db: Session) -> DocumentStore:
     project = get_project(db)
     return DocumentStore(db, project.id)
 
 
 class TestDatabaseReadOne:
-    def test_can_select_valid_id(self, db: Session, store: DocumentStore):
+    def test_can_select_valid_id(self, db: Session, store: DocumentStore) -> None:
         document = store.put()
 
         crud = DocumentCrud(db, store.project.id)
@@ -23,7 +23,7 @@ class TestDatabaseReadOne:
 
         assert result.id == document.id
 
-    def test_cannot_select_invalid_id(self, db: Session, store: DocumentStore):
+    def test_cannot_select_invalid_id(self, db: Session, store: DocumentStore) -> None:
         document = next(store.documents)
 
         crud = DocumentCrud(db, store.project.id)
@@ -34,7 +34,9 @@ class TestDatabaseReadOne:
         assert exc_info.value.status_code == 404
         assert "Document not found" in str(exc_info.value.detail)
 
-    def test_cannot_read_others_documents(self, db: Session, store: DocumentStore):
+    def test_cannot_read_others_documents(
+        self, db: Session, store: DocumentStore
+    ) -> None:
         document = store.put()
         other_project = create_test_project(db)
 

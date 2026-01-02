@@ -22,7 +22,7 @@ from app.crud.evaluations.dataset import delete_dataset
 class TestCreateEvaluationDataset:
     """Test creating evaluation datasets."""
 
-    def test_create_evaluation_dataset_minimal(self, db: Session):
+    def test_create_evaluation_dataset_minimal(self, db: Session) -> None:
         """Test creating a dataset with minimal required fields."""
         org = db.exec(select(Organization)).first()
         project = db.exec(
@@ -47,7 +47,7 @@ class TestCreateEvaluationDataset:
         assert dataset.object_store_url is None
         assert dataset.langfuse_dataset_id is None
 
-    def test_create_evaluation_dataset_complete(self, db: Session):
+    def test_create_evaluation_dataset_complete(self, db: Session) -> None:
         """Test creating a dataset with all fields."""
         org = db.exec(select(Organization)).first()
         project = db.exec(
@@ -82,7 +82,7 @@ class TestCreateEvaluationDataset:
 class TestGetDatasetById:
     """Test fetching datasets by ID."""
 
-    def test_get_dataset_by_id_success(self, db: Session):
+    def test_get_dataset_by_id_success(self, db: Session) -> None:
         """Test fetching an existing dataset by ID."""
         org = db.exec(select(Organization)).first()
         project = db.exec(
@@ -108,7 +108,7 @@ class TestGetDatasetById:
         assert fetched.id == dataset.id
         assert fetched.name == "test_dataset"
 
-    def test_get_dataset_by_id_not_found(self, db: Session):
+    def test_get_dataset_by_id_not_found(self, db: Session) -> None:
         """Test fetching a non-existent dataset."""
         org = db.exec(select(Organization)).first()
         project = db.exec(
@@ -124,7 +124,7 @@ class TestGetDatasetById:
 
         assert fetched is None
 
-    def test_get_dataset_by_id_wrong_org(self, db: Session):
+    def test_get_dataset_by_id_wrong_org(self, db: Session) -> None:
         """Test that datasets from other orgs can't be fetched."""
         org = db.exec(select(Organization)).first()
         project = db.exec(
@@ -152,7 +152,7 @@ class TestGetDatasetById:
 class TestGetDatasetByName:
     """Test fetching datasets by name."""
 
-    def test_get_dataset_by_name_success(self, db: Session):
+    def test_get_dataset_by_name_success(self, db: Session) -> None:
         """Test fetching an existing dataset by name."""
         org = db.exec(select(Organization)).first()
         project = db.exec(
@@ -177,7 +177,7 @@ class TestGetDatasetByName:
         assert fetched is not None
         assert fetched.name == "unique_dataset"
 
-    def test_get_dataset_by_name_not_found(self, db: Session):
+    def test_get_dataset_by_name_not_found(self, db: Session) -> None:
         """Test fetching a non-existent dataset by name."""
         org = db.exec(select(Organization)).first()
         project = db.exec(
@@ -197,7 +197,7 @@ class TestGetDatasetByName:
 class TestListDatasets:
     """Test listing datasets."""
 
-    def test_list_datasets_empty(self, db: Session):
+    def test_list_datasets_empty(self, db: Session) -> None:
         """Test listing datasets when none exist."""
         org = db.exec(select(Organization)).first()
         project = db.exec(
@@ -210,7 +210,7 @@ class TestListDatasets:
 
         assert len(datasets) == 0
 
-    def test_list_datasets_multiple(self, db: Session):
+    def test_list_datasets_multiple(self, db: Session) -> None:
         """Test listing multiple datasets."""
         org = db.exec(select(Organization)).first()
         project = db.exec(
@@ -234,7 +234,7 @@ class TestListDatasets:
         assert datasets[0].name == "dataset_4"
         assert datasets[4].name == "dataset_0"
 
-    def test_list_datasets_pagination(self, db: Session):
+    def test_list_datasets_pagination(self, db: Session) -> None:
         """Test pagination of datasets."""
         org = db.exec(select(Organization)).first()
         project = db.exec(
@@ -268,7 +268,7 @@ class TestListDatasets:
 class TestUploadCsvToObjectStore:
     """Test CSV upload to object store."""
 
-    def test_upload_csv_to_object_store_success(self):
+    def test_upload_csv_to_object_store_success(self) -> None:
         """Test successful object store upload."""
         mock_storage = MagicMock()
         mock_storage.put.return_value = "s3://bucket/datasets/test_dataset.csv"
@@ -282,7 +282,7 @@ class TestUploadCsvToObjectStore:
         assert object_store_url == "s3://bucket/datasets/test_dataset.csv"
         mock_storage.put.assert_called_once()
 
-    def test_upload_csv_to_object_store_cloud_storage_error(self):
+    def test_upload_csv_to_object_store_cloud_storage_error(self) -> None:
         """Test object store upload with CloudStorageError."""
         mock_storage = MagicMock()
         mock_storage.put.side_effect = CloudStorageError(
@@ -297,7 +297,7 @@ class TestUploadCsvToObjectStore:
 
         assert object_store_url is None
 
-    def test_upload_csv_to_object_store_unexpected_error(self):
+    def test_upload_csv_to_object_store_unexpected_error(self) -> None:
         """Test object store upload with unexpected error."""
         mock_storage = MagicMock()
         mock_storage.put.side_effect = Exception("Unexpected error")
@@ -314,7 +314,7 @@ class TestUploadCsvToObjectStore:
 class TestDownloadCsvFromObjectStore:
     """Test CSV download from object store."""
 
-    def test_download_csv_from_object_store_success(self):
+    def test_download_csv_from_object_store_success(self) -> None:
         """Test successful object store download."""
         mock_storage = MagicMock()
         mock_body = MagicMock()
@@ -328,7 +328,7 @@ class TestDownloadCsvFromObjectStore:
         assert csv_content == b"question,answer\nWhat is 2+2?,4\n"
         mock_storage.stream.assert_called_once_with("s3://bucket/datasets/test.csv")
 
-    def test_download_csv_from_object_store_empty_url(self):
+    def test_download_csv_from_object_store_empty_url(self) -> None:
         """Test download with empty URL."""
         mock_storage = MagicMock()
 
@@ -337,7 +337,7 @@ class TestDownloadCsvFromObjectStore:
         ):
             download_csv_from_object_store(storage=mock_storage, object_store_url=None)
 
-    def test_download_csv_from_object_store_error(self):
+    def test_download_csv_from_object_store_error(self) -> None:
         """Test download with storage error."""
         mock_storage = MagicMock()
         mock_storage.stream.side_effect = Exception("Object store download failed")
@@ -351,7 +351,7 @@ class TestDownloadCsvFromObjectStore:
 class TestUpdateDatasetLangfuseId:
     """Test updating Langfuse ID."""
 
-    def test_update_dataset_langfuse_id(self, db: Session):
+    def test_update_dataset_langfuse_id(self, db: Session) -> None:
         """Test updating Langfuse dataset ID."""
         org = db.exec(select(Organization)).first()
         project = db.exec(
@@ -375,7 +375,7 @@ class TestUpdateDatasetLangfuseId:
         db.refresh(dataset)
         assert dataset.langfuse_dataset_id == "langfuse_123"
 
-    def test_update_dataset_langfuse_id_nonexistent(self, db: Session):
+    def test_update_dataset_langfuse_id_nonexistent(self, db: Session) -> None:
         """Test updating Langfuse ID for non-existent dataset."""
         update_dataset_langfuse_id(
             session=db, dataset_id=99999, langfuse_dataset_id="langfuse_123"
@@ -385,7 +385,7 @@ class TestUpdateDatasetLangfuseId:
 class TestDeleteDataset:
     """Test deleting evaluation datasets."""
 
-    def test_delete_dataset_success(self, db: Session):
+    def test_delete_dataset_success(self, db: Session) -> None:
         """Test successfully deleting a dataset."""
         org = db.exec(select(Organization)).first()
         project = db.exec(
@@ -419,7 +419,7 @@ class TestDeleteDataset:
         )
         assert fetched is None
 
-    def test_delete_dataset_not_found(self, db: Session):
+    def test_delete_dataset_not_found(self, db: Session) -> None:
         """Test deleting a non-existent dataset."""
         org = db.exec(select(Organization)).first()
         project = db.exec(
@@ -436,7 +436,7 @@ class TestDeleteDataset:
         assert success is False
         assert "not found" in message.lower() or "not accessible" in message.lower()
 
-    def test_delete_dataset_wrong_org(self, db: Session):
+    def test_delete_dataset_wrong_org(self, db: Session) -> None:
         """Test deleting a dataset with wrong organization."""
         org = db.exec(select(Organization)).first()
         project = db.exec(
@@ -469,7 +469,7 @@ class TestDeleteDataset:
         )
         assert fetched is not None
 
-    def test_delete_dataset_with_evaluation_runs(self, db: Session):
+    def test_delete_dataset_with_evaluation_runs(self, db: Session) -> None:
         """Test that dataset cannot be deleted if it has evaluation runs."""
 
         org = db.exec(select(Organization)).first()

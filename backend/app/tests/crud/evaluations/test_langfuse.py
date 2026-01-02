@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -12,7 +13,7 @@ from app.crud.evaluations.langfuse import (
 class TestCreateLangfuseDatasetRun:
     """Test creating Langfuse dataset runs."""
 
-    def test_create_langfuse_dataset_run_success(self):
+    def test_create_langfuse_dataset_run_success(self) -> None:
         """Test successfully creating a dataset run with traces."""
         mock_langfuse = MagicMock()
         mock_dataset = MagicMock()
@@ -70,7 +71,7 @@ class TestCreateLangfuseDatasetRun:
         mock_langfuse.flush.assert_called_once()
         assert mock_langfuse.trace.call_count == 2
 
-    def test_create_langfuse_dataset_run_skips_missing_items(self):
+    def test_create_langfuse_dataset_run_skips_missing_items(self) -> None:
         """Test that missing dataset items are skipped."""
         mock_langfuse = MagicMock()
         mock_dataset = MagicMock()
@@ -120,7 +121,7 @@ class TestCreateLangfuseDatasetRun:
         assert "item_1" in trace_id_mapping
         assert "item_nonexistent" not in trace_id_mapping
 
-    def test_create_langfuse_dataset_run_handles_trace_error(self):
+    def test_create_langfuse_dataset_run_handles_trace_error(self) -> None:
         """Test that trace creation errors are handled gracefully."""
         mock_langfuse = MagicMock()
         mock_dataset = MagicMock()
@@ -174,7 +175,7 @@ class TestCreateLangfuseDatasetRun:
         assert "item_1" in trace_id_mapping
         assert "item_2" not in trace_id_mapping
 
-    def test_create_langfuse_dataset_run_empty_results(self):
+    def test_create_langfuse_dataset_run_empty_results(self) -> None:
         """Test with empty results list."""
         mock_langfuse = MagicMock()
         mock_dataset = MagicMock()
@@ -191,7 +192,7 @@ class TestCreateLangfuseDatasetRun:
         assert len(trace_id_mapping) == 0
         mock_langfuse.flush.assert_called_once()
 
-    def test_create_langfuse_dataset_run_with_cost_tracking(self):
+    def test_create_langfuse_dataset_run_with_cost_tracking(self) -> None:
         """Test that generation() is called with usage when model and usage are provided."""
         mock_langfuse = MagicMock()
         mock_dataset = MagicMock()
@@ -277,7 +278,7 @@ class TestCreateLangfuseDatasetRun:
 class TestUpdateTracesWithCosineScores:
     """Test updating Langfuse traces with cosine similarity scores."""
 
-    def test_update_traces_with_cosine_scores_success(self):
+    def test_update_traces_with_cosine_scores_success(self) -> None:
         """Test successfully updating traces with scores."""
         mock_langfuse = MagicMock()
 
@@ -304,7 +305,7 @@ class TestUpdateTracesWithCosineScores:
 
         mock_langfuse.flush.assert_called_once()
 
-    def test_update_traces_with_cosine_scores_missing_trace_id(self):
+    def test_update_traces_with_cosine_scores_missing_trace_id(self) -> None:
         """Test that items without trace_id are skipped."""
         mock_langfuse = MagicMock()
 
@@ -320,7 +321,7 @@ class TestUpdateTracesWithCosineScores:
 
         assert mock_langfuse.score.call_count == 2
 
-    def test_update_traces_with_cosine_scores_error_handling(self):
+    def test_update_traces_with_cosine_scores_error_handling(self) -> None:
         """Test that score errors don't stop processing."""
         mock_langfuse = MagicMock()
 
@@ -339,7 +340,7 @@ class TestUpdateTracesWithCosineScores:
         assert mock_langfuse.score.call_count == 3
         mock_langfuse.flush.assert_called_once()
 
-    def test_update_traces_with_cosine_scores_empty_list(self):
+    def test_update_traces_with_cosine_scores_empty_list(self) -> None:
         """Test with empty scores list."""
         mock_langfuse = MagicMock()
 
@@ -353,7 +354,7 @@ class TestUploadDatasetToLangfuse:
     """Test uploading datasets to Langfuse from pre-parsed items."""
 
     @pytest.fixture
-    def valid_items(self):
+    def valid_items(self) -> Any:
         """Valid parsed items."""
         return [
             {"question": "What is 2+2?", "answer": "4"},
@@ -410,7 +411,7 @@ class TestUploadDatasetToLangfuse:
         assert duplicate_numbers.count(2) == 3
         assert duplicate_numbers.count(3) == 3
 
-    def test_upload_dataset_to_langfuse_empty_items(self):
+    def test_upload_dataset_to_langfuse_empty_items(self) -> None:
         """Test with empty items list."""
         mock_langfuse = MagicMock()
         mock_dataset = MagicMock()

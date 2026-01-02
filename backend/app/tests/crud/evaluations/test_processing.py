@@ -1,3 +1,4 @@
+from typing import Any
 import json
 from unittest.mock import MagicMock, patch
 
@@ -20,7 +21,7 @@ from app.core.util import now
 class TestParseEvaluationOutput:
     """Test parsing evaluation batch output."""
 
-    def test_parse_evaluation_output_basic(self):
+    def test_parse_evaluation_output_basic(self) -> None:
         """Test basic parsing with valid data."""
         raw_results = [
             {
@@ -64,7 +65,7 @@ class TestParseEvaluationOutput:
         assert results[0]["response_id"] == "resp_123"
         assert results[0]["usage"]["total_tokens"] == 15
 
-    def test_parse_evaluation_output_simple_string(self):
+    def test_parse_evaluation_output_simple_string(self) -> None:
         """Test parsing with simple string output."""
         raw_results = [
             {
@@ -96,7 +97,7 @@ class TestParseEvaluationOutput:
         assert len(results) == 1
         assert results[0]["generated_output"] == "Simple text response"
 
-    def test_parse_evaluation_output_with_error(self):
+    def test_parse_evaluation_output_with_error(self) -> None:
         """Test parsing item with error."""
         raw_results = [
             {
@@ -119,7 +120,7 @@ class TestParseEvaluationOutput:
         assert len(results) == 1
         assert "ERROR: Rate limit exceeded" in results[0]["generated_output"]
 
-    def test_parse_evaluation_output_missing_custom_id(self):
+    def test_parse_evaluation_output_missing_custom_id(self) -> None:
         """Test parsing skips items without custom_id."""
         raw_results = [
             {
@@ -144,7 +145,7 @@ class TestParseEvaluationOutput:
 
         assert len(results) == 0
 
-    def test_parse_evaluation_output_missing_dataset_item(self):
+    def test_parse_evaluation_output_missing_dataset_item(self) -> None:
         """Test parsing skips items not in dataset."""
         raw_results = [
             {
@@ -165,7 +166,7 @@ class TestParseEvaluationOutput:
 
         assert len(results) == 0
 
-    def test_parse_evaluation_output_json_string(self):
+    def test_parse_evaluation_output_json_string(self) -> None:
         """Test parsing JSON string output."""
         raw_results = [
             {
@@ -201,7 +202,7 @@ class TestParseEvaluationOutput:
         assert len(results) == 1
         assert results[0]["generated_output"] == "Parsed JSON"
 
-    def test_parse_evaluation_output_multiple_items(self):
+    def test_parse_evaluation_output_multiple_items(self) -> None:
         """Test parsing multiple items."""
         raw_results = [
             {
@@ -238,7 +239,7 @@ class TestProcessCompletedEvaluation:
     """Test processing completed evaluation batch."""
 
     @pytest.fixture
-    def test_dataset(self, db: Session):
+    def test_dataset(self, db: Session) -> None:
         """Create a test dataset for evaluation runs."""
         org = db.exec(select(Organization)).first()
         project = db.exec(
@@ -256,7 +257,7 @@ class TestProcessCompletedEvaluation:
         )
 
     @pytest.fixture
-    def eval_run_with_batch(self, db: Session, test_dataset):
+    def eval_run_with_batch(self, db: Session, test_dataset) -> Any:
         """Create evaluation run with batch job."""
         # Create batch job
         batch_job = BatchJob(
@@ -426,7 +427,7 @@ class TestProcessCompletedEmbeddingBatch:
     """Test processing completed embedding batch."""
 
     @pytest.fixture
-    def test_dataset(self, db: Session):
+    def test_dataset(self, db: Session) -> None:
         """Create a test dataset."""
         org = db.exec(select(Organization)).first()
         project = db.exec(
@@ -444,7 +445,7 @@ class TestProcessCompletedEmbeddingBatch:
         )
 
     @pytest.fixture
-    def eval_run_with_embedding_batch(self, db: Session, test_dataset):
+    def eval_run_with_embedding_batch(self, db: Session, test_dataset) -> Any:
         """Create evaluation run with embedding batch job."""
         # Create embedding batch job
         embedding_batch = BatchJob(
@@ -564,7 +565,7 @@ class TestCheckAndProcessEvaluation:
     """Test check and process evaluation function."""
 
     @pytest.fixture
-    def test_dataset(self, db: Session):
+    def test_dataset(self, db: Session) -> None:
         """Create a test dataset."""
         org = db.exec(select(Organization)).first()
         project = db.exec(
@@ -711,7 +712,7 @@ class TestPollAllPendingEvaluations:
     """Test polling all pending evaluations."""
 
     @pytest.fixture
-    def test_dataset(self, db: Session):
+    def test_dataset(self, db: Session) -> None:
         """Create a test dataset."""
         org = db.exec(select(Organization)).first()
         project = db.exec(

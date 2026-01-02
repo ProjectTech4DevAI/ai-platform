@@ -18,7 +18,7 @@ class TestGetAuthContext:
 
     def test_get_auth_context_with_valid_api_key(
         self, db: Session, user_api_key: TestAuthContext
-    ):
+    ) -> None:
         """Test successful authentication with valid API key"""
         auth_context = get_auth_context(
             session=db,
@@ -31,7 +31,7 @@ class TestGetAuthContext:
         assert auth_context.project == user_api_key.project
         assert auth_context.organization == user_api_key.organization
 
-    def test_get_auth_context_with_invalid_api_key(self, db: Session):
+    def test_get_auth_context_with_invalid_api_key(self, db: Session) -> None:
         """Test authentication fails with invalid API key"""
         invalid_api_key = "ApiKey InvalidKeyThatDoesNotExist123456789"
 
@@ -47,7 +47,7 @@ class TestGetAuthContext:
 
     def test_get_auth_context_with_valid_token(
         self, db: Session, normal_user_token_headers: dict[str, str]
-    ):
+    ) -> None:
         """Test successful authentication with valid token"""
         token = normal_user_token_headers["Authorization"].replace("Bearer ", "")
         auth_context = get_auth_context(
@@ -60,7 +60,7 @@ class TestGetAuthContext:
         assert isinstance(auth_context, AuthContext)
         assert auth_context.user.email == settings.EMAIL_TEST_USER
 
-    def test_get_auth_context_with_invalid_token(self, db: Session):
+    def test_get_auth_context_with_invalid_token(self, db: Session) -> None:
         """Test authentication fails with invalid token"""
         invalid_token = "invalid.token"
 
@@ -73,7 +73,7 @@ class TestGetAuthContext:
 
         assert exc_info.value.status_code == 403
 
-    def test_get_auth_context_with_no_credentials(self, db: Session):
+    def test_get_auth_context_with_no_credentials(self, db: Session) -> None:
         """Test authentication fails when neither API key nor token is provided"""
         with pytest.raises(HTTPException) as exc_info:
             get_auth_context(
@@ -85,7 +85,7 @@ class TestGetAuthContext:
         assert exc_info.value.status_code == 401
         assert exc_info.value.detail == "Invalid Authorization format"
 
-    def test_get_auth_context_with_inactive_user_via_api_key(self, db: Session):
+    def test_get_auth_context_with_inactive_user_via_api_key(self, db: Session) -> None:
         """Test authentication fails when API key belongs to inactive user"""
         api_key = create_test_api_key(db)
 
@@ -105,7 +105,9 @@ class TestGetAuthContext:
         assert exc_info.value.status_code == 403
         assert exc_info.value.detail == "Inactive user"
 
-    def test_get_auth_context_with_inactive_user_via_token(self, db: Session, client):
+    def test_get_auth_context_with_inactive_user_via_token(
+        self, db: Session, client
+    ) -> None:
         """Test authentication fails when token belongs to inactive user"""
         user = create_random_user(db)
         token_headers = authentication_token_from_email(
@@ -129,7 +131,7 @@ class TestGetAuthContext:
 
     def test_get_auth_context_with_inactive_organization(
         self, db: Session, user_api_key: TestAuthContext
-    ):
+    ) -> None:
         """Test authentication fails when organization is inactive"""
         organization = user_api_key.organization
         organization.is_active = False
@@ -149,7 +151,7 @@ class TestGetAuthContext:
 
     def test_get_auth_context_with_inactive_project(
         self, db: Session, user_api_key: TestAuthContext
-    ):
+    ) -> None:
         """Test authentication fails when project is inactive"""
         project = user_api_key.project
         project.is_active = False

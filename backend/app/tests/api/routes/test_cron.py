@@ -9,7 +9,7 @@ from app.tests.utils.auth import TestAuthContext
 def test_evaluation_cron_job_success(
     client: TestClient,
     superuser_api_key: TestAuthContext,
-):
+) -> None:
     """Test successful cron job execution."""
     mock_result = {
         "status": "success",
@@ -47,7 +47,7 @@ def test_evaluation_cron_job_success(
 def test_evaluation_cron_job_no_organizations(
     client: TestClient,
     superuser_api_key: TestAuthContext,
-):
+) -> None:
     """Test cron job when no organizations exist."""
     mock_result = {
         "status": "success",
@@ -78,7 +78,7 @@ def test_evaluation_cron_job_no_organizations(
 def test_evaluation_cron_job_with_failures(
     client: TestClient,
     superuser_api_key: TestAuthContext,
-):
+) -> None:
     """Test cron job execution with some failed evaluations."""
     mock_result = {
         "status": "success",
@@ -114,7 +114,7 @@ def test_evaluation_cron_job_with_failures(
 def test_evaluation_cron_job_requires_superuser(
     client: TestClient,
     user_api_key: TestAuthContext,
-):
+) -> None:
     """Test that non-superuser cannot access cron endpoint."""
     response = client.get(
         f"{settings.API_V1_STR}/cron/evaluations",
@@ -129,7 +129,7 @@ def test_evaluation_cron_job_requires_superuser(
 
 def test_evaluation_cron_job_not_in_schema(
     client: TestClient,
-):
+) -> None:
     """Test that cron endpoint is not included in OpenAPI schema."""
     response = client.get(f"{settings.API_V1_STR}/openapi.json")
     assert response.status_code == 200

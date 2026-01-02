@@ -41,7 +41,7 @@ PROTECTED_ENDPOINTS = [
 @pytest.mark.parametrize("endpoint,method", PROTECTED_ENDPOINTS)
 def test_endpoints_reject_missing_auth_header(
     client: TestClient, endpoint: str, method: str
-):
+) -> None:
     """Test that all protected endpoints return 401 when no auth header is provided."""
     kwargs = {"json": {"name": "test"}} if method in ["POST", "PATCH"] else {}
     response = client.request(method, endpoint, **kwargs)
@@ -54,7 +54,7 @@ def test_endpoints_reject_missing_auth_header(
 @pytest.mark.parametrize("endpoint,method", PROTECTED_ENDPOINTS)
 def test_endpoints_reject_invalid_auth_format(
     client: TestClient, endpoint: str, method: str
-):
+) -> None:
     """Test that all protected endpoints return 401 when auth header has invalid format."""
     kwargs = {"json": {"name": "test"}} if method in ["POST", "PATCH"] else {}
     response = client.request(
@@ -69,7 +69,7 @@ def test_endpoints_reject_invalid_auth_format(
 @pytest.mark.parametrize("endpoint,method", PROTECTED_ENDPOINTS)
 def test_endpoints_reject_nonexistent_api_key(
     client: TestClient, endpoint: str, method: str
-):
+) -> None:
     """Test that all protected endpoints return 401 when API key doesn't exist."""
     kwargs = {"json": {"name": "test"}} if method in ["POST", "PATCH"] else {}
     response = client.request(

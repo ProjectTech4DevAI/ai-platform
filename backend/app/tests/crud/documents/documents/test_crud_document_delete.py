@@ -10,7 +10,7 @@ from app.core.exception_handlers import HTTPException
 
 
 @pytest.fixture
-def document(db: Session):
+def document(db: Session) -> Document:
     project = get_project(db)
     store = DocumentStore(db, project.id)
     document = store.put()
@@ -23,16 +23,16 @@ def document(db: Session):
 
 
 class TestDatabaseDelete:
-    def test_delete_is_soft(self, document: Document):
+    def test_delete_is_soft(self, document: Document) -> None:
         assert document is not None
 
-    def test_delete_marks_deleted(self, document: Document):
+    def test_delete_marks_deleted(self, document: Document) -> None:
         assert document.is_deleted is True
 
-    def test_delete_follows_insert(self, document: Document):
+    def test_delete_follows_insert(self, document: Document) -> None:
         assert document.inserted_at <= document.deleted_at
 
-    def test_cannot_delete_others_documents(self, db: Session):
+    def test_cannot_delete_others_documents(self, db: Session) -> None:
         project = get_project(db)
         store = DocumentStore(db, project.id)
         document = store.put()

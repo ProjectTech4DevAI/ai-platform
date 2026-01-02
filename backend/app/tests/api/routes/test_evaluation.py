@@ -1,11 +1,14 @@
 import io
+from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
-from sqlmodel import select
+from fastapi.testclient import TestClient
+from sqlmodel import Session, select
 
 from app.crud.evaluations.batch import build_evaluation_jsonl
 from app.models import EvaluationDataset, EvaluationRun
+from app.tests.utils.auth import TestAuthContext
 from app.tests.utils.test_data import create_test_evaluation_dataset
 
 
@@ -17,17 +20,17 @@ def create_csv_file(content: str) -> tuple[str, io.BytesIO]:
 
 
 @pytest.fixture
-def valid_csv_content():
+def valid_csv_content() -> str:
     """Valid CSV content with question and answer columns."""
     return """question,answer
 "Who is known as the strongest jujutsu sorcerer?","Satoru Gojo"
-"What is the name of Gojo’s Domain Expansion?","Infinite Void"
+"What is the name of Gojo's Domain Expansion?","Infinite Void"
 "Who is known as the King of Curses?","Ryomen Sukuna"
 """
 
 
 @pytest.fixture
-def invalid_csv_missing_columns():
+def invalid_csv_missing_columns() -> str:
     """CSV content missing required columns."""
     return """query,response
 "Who is known as the strongest jujutsu sorcerer?","Satoru Gojo"
@@ -35,7 +38,7 @@ def invalid_csv_missing_columns():
 
 
 @pytest.fixture
-def csv_with_empty_rows():
+def csv_with_empty_rows() -> str:
     """CSV content with some empty rows."""
     return """question,answer
 "Who is known as the strongest jujutsu sorcerer?","Satoru Gojo"
@@ -49,8 +52,12 @@ class TestDatasetUploadValidation:
     """Test CSV validation and parsing."""
 
     def test_upload_dataset_valid_csv(
-        self, client, user_api_key_header, valid_csv_content, db
-    ):
+        self,
+        client: TestClient,
+        user_api_key_header: dict[str, str],
+        valid_csv_content: str,
+        db: Session,
+    ) -> None:
         """Test uploading a valid CSV file."""
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
@@ -103,10 +110,10 @@ class TestDatasetUploadValidation:
 
     def test_upload_dataset_missing_columns(
         self,
-        client,
-        user_api_key_header,
-        invalid_csv_missing_columns,
-    ):
+        client: TestClient,
+        user_api_key_header: dict[str, str],
+        invalid_csv_missing_columns: str,
+    ) -> None:
         """Test uploading CSV with missing required columns."""
         filename, file_obj = create_csv_file(invalid_csv_missing_columns)
 
@@ -130,8 +137,11 @@ class TestDatasetUploadValidation:
         assert "question" in error_str.lower() or "answer" in error_str.lower()
 
     def test_upload_dataset_empty_rows(
-        self, client, user_api_key_header, csv_with_empty_rows
-    ):
+        self,
+        client: TestClient,
+        user_api_key_header: dict[str, str],
+        csv_with_empty_rows: str,
+    ) -> None:
         """Test uploading CSV with empty rows (should skip them)."""
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
@@ -175,8 +185,11 @@ class TestDatasetUploadDuplication:
     """Test duplication logic."""
 
     def test_upload_with_default_duplication(
-        self, client, user_api_key_header, valid_csv_content
-    ):
+        self,
+        client: TestClient,
+        user_api_key_header: dict[str, str],
+        valid_csv_content: str,
+    ) -> None:
         """Test uploading with default duplication factor (1)."""
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
@@ -216,8 +229,11 @@ class TestDatasetUploadDuplication:
             assert data["total_items"] == 3
 
     def test_upload_with_custom_duplication(
-        self, client, user_api_key_header, valid_csv_content
-    ):
+        self,
+        client: TestClient,
+        user_api_key_header: dict[str, str],
+        valid_csv_content: str,
+    ) -> None:
         """Test uploading with custom duplication factor."""
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
@@ -257,8 +273,12 @@ class TestDatasetUploadDuplication:
             assert data["total_items"] == 12  # 3 items * 4 duplication
 
     def test_upload_with_description(
-        self, client, user_api_key_header, valid_csv_content, db
-    ):
+        self,
+        client: TestClient,
+        user_api_key_header: dict[str, str],
+        valid_csv_content: str,
+        db: Session,
+    ) -> None:
         """Test uploading with a description."""
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
@@ -305,8 +325,11 @@ class TestDatasetUploadDuplication:
             assert dataset.description == "This is a test dataset for evaluation"
 
     def test_upload_with_duplication_factor_below_minimum(
-        self, client, user_api_key_header, valid_csv_content
-    ):
+        self,
+        client: TestClient,
+        user_api_key_header: dict[str, str],
+        valid_csv_content: str,
+    ) -> None:
         """Test uploading with duplication factor below minimum (0)."""
         filename, file_obj = create_csv_file(valid_csv_content)
 
@@ -327,8 +350,11 @@ class TestDatasetUploadDuplication:
         assert "greater than or equal to 1" in response_data["error"]
 
     def test_upload_with_duplication_factor_above_maximum(
-        self, client, user_api_key_header, valid_csv_content
-    ):
+        self,
+        client: TestClient,
+        user_api_key_header: dict[str, str],
+        valid_csv_content: str,
+    ) -> None:
         """Test uploading with duplication factor above maximum (6)."""
         filename, file_obj = create_csv_file(valid_csv_content)
 
@@ -349,8 +375,11 @@ class TestDatasetUploadDuplication:
         assert "less than or equal to 5" in response_data["error"]
 
     def test_upload_with_duplication_factor_boundary_minimum(
-        self, client, user_api_key_header, valid_csv_content
-    ):
+        self,
+        client: TestClient,
+        user_api_key_header: dict[str, str],
+        valid_csv_content: str,
+    ) -> None:
         """Test uploading with duplication factor at minimum boundary (1)."""
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
@@ -394,8 +423,11 @@ class TestDatasetUploadErrors:
     """Test error handling."""
 
     def test_upload_langfuse_configuration_fails(
-        self, client, user_api_key_header, valid_csv_content
-    ):
+        self,
+        client: TestClient,
+        user_api_key_header: dict[str, str],
+        valid_csv_content: str,
+    ) -> None:
         """Test when Langfuse client configuration fails."""
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
@@ -431,7 +463,9 @@ class TestDatasetUploadErrors:
                 or "unauthorized" in error_str.lower()
             )
 
-    def test_upload_invalid_csv_format(self, client, user_api_key_header):
+    def test_upload_invalid_csv_format(
+        self, client: TestClient, user_api_key_header: dict[str, str]
+    ) -> None:
         """Test uploading invalid CSV format."""
         invalid_csv = "not,a,valid\ncsv format here!!!"
         filename, file_obj = create_csv_file(invalid_csv)
@@ -463,7 +497,7 @@ class TestBatchEvaluation:
     """Test batch evaluation endpoint using OpenAI Batch API."""
 
     @pytest.fixture
-    def sample_evaluation_config(self):
+    def sample_evaluation_config(self) -> dict[str, Any]:
         """Sample evaluation configuration."""
         return {
             "model": "gpt-4o",
@@ -472,8 +506,11 @@ class TestBatchEvaluation:
         }
 
     def test_start_batch_evaluation_invalid_dataset_id(
-        self, client, user_api_key_header, sample_evaluation_config
-    ):
+        self,
+        client: TestClient,
+        user_api_key_header: dict[str, str],
+        sample_evaluation_config: dict[str, Any],
+    ) -> None:
         """Test batch evaluation fails with invalid/non-existent dataset_id."""
         response = client.post(
             "/api/v1/evaluations",
@@ -492,7 +529,9 @@ class TestBatchEvaluation:
         )
         assert "not found" in error_str.lower() or "not accessible" in error_str.lower()
 
-    def test_start_batch_evaluation_missing_model(self, client, user_api_key_header):
+    def test_start_batch_evaluation_missing_model(
+        self, client: TestClient, user_api_key_header: dict[str, str]
+    ) -> None:
         """Test batch evaluation fails when model is missing from config."""
         # We don't need a real dataset for this test - the validation should happen
         # before dataset lookup. Use any dataset_id and expect config validation error
@@ -524,7 +563,7 @@ class TestBatchEvaluation:
 class TestBatchEvaluationJSONLBuilding:
     """Test JSONL building logic for batch evaluation."""
 
-    def test_build_batch_jsonl_basic(self):
+    def test_build_batch_jsonl_basic(self) -> None:
         """Test basic JSONL building with minimal config."""
         dataset_items = [
             {
@@ -555,7 +594,7 @@ class TestBatchEvaluationJSONLBuilding:
         assert request["body"]["instructions"] == "You are a helpful assistant"
         assert request["body"]["input"] == "What is 2+2?"
 
-    def test_build_batch_jsonl_with_tools(self):
+    def test_build_batch_jsonl_with_tools(self) -> None:
         """Test JSONL building with tools configuration."""
         dataset_items = [
             {
@@ -584,7 +623,7 @@ class TestBatchEvaluationJSONLBuilding:
         assert request["body"]["tools"][0]["type"] == "file_search"
         assert "vs_abc123" in request["body"]["tools"][0]["vector_store_ids"]
 
-    def test_build_batch_jsonl_minimal_config(self):
+    def test_build_batch_jsonl_minimal_config(self) -> None:
         """Test JSONL building with minimal config (only model required)."""
         dataset_items = [
             {
@@ -604,7 +643,7 @@ class TestBatchEvaluationJSONLBuilding:
         assert request["body"]["model"] == "gpt-4o"
         assert request["body"]["input"] == "Test question"
 
-    def test_build_batch_jsonl_skips_empty_questions(self):
+    def test_build_batch_jsonl_skips_empty_questions(self) -> None:
         """Test that items with empty questions are skipped."""
         dataset_items = [
             {
@@ -635,7 +674,7 @@ class TestBatchEvaluationJSONLBuilding:
         assert len(jsonl_data) == 1
         assert jsonl_data[0]["custom_id"] == "item1"
 
-    def test_build_batch_jsonl_multiple_items(self):
+    def test_build_batch_jsonl_multiple_items(self) -> None:
         """Test JSONL building with multiple items."""
         dataset_items = [
             {
@@ -666,7 +705,9 @@ class TestGetEvaluationRunStatus:
     """Test GET /evaluations/{evaluation_id} endpoint."""
 
     @pytest.fixture
-    def create_test_dataset(self, db, user_api_key):
+    def create_test_dataset(
+        self, db: Session, user_api_key: TestAuthContext
+    ) -> EvaluationDataset:
         """Create a test dataset for evaluation runs."""
         return create_test_evaluation_dataset(
             db=db,
@@ -679,8 +720,13 @@ class TestGetEvaluationRunStatus:
         )
 
     def test_get_evaluation_run_trace_info_not_completed(
-        self, client, user_api_key_header, db, user_api_key, create_test_dataset
-    ):
+        self,
+        client: TestClient,
+        user_api_key_header: dict[str, str],
+        db: Session,
+        user_api_key: TestAuthContext,
+        create_test_dataset: EvaluationDataset,
+    ) -> None:
         """Test requesting trace info for incomplete evaluation returns error."""
         eval_run = EvaluationRun(
             run_name="test_pending_run",
@@ -710,8 +756,13 @@ class TestGetEvaluationRunStatus:
         assert response_data["data"]["id"] == eval_run.id
 
     def test_get_evaluation_run_trace_info_completed(
-        self, client, user_api_key_header, db, user_api_key, create_test_dataset
-    ):
+        self,
+        client: TestClient,
+        user_api_key_header: dict[str, str],
+        db: Session,
+        user_api_key: TestAuthContext,
+        create_test_dataset: EvaluationDataset,
+    ) -> None:
         """Test requesting trace info for completed evaluation returns cached scores."""
         eval_run = EvaluationRun(
             run_name="test_completed_run",
@@ -747,7 +798,9 @@ class TestGetEvaluationRunStatus:
         assert data["status"] == "completed"
         assert "traces" in data["score"]
 
-    def test_get_evaluation_run_not_found(self, client, user_api_key_header):
+    def test_get_evaluation_run_not_found(
+        self, client: TestClient, user_api_key_header: dict[str, str]
+    ) -> None:
         """Test getting non-existent evaluation run returns 404."""
         response = client.get(
             "/api/v1/evaluations/99999",
@@ -762,8 +815,13 @@ class TestGetEvaluationRunStatus:
         assert "not found" in error_str.lower() or "not accessible" in error_str.lower()
 
     def test_get_evaluation_run_without_trace_info(
-        self, client, user_api_key_header, db, user_api_key, create_test_dataset
-    ):
+        self,
+        client: TestClient,
+        user_api_key_header: dict[str, str],
+        db: Session,
+        user_api_key: TestAuthContext,
+        create_test_dataset: EvaluationDataset,
+    ) -> None:
         """Test getting evaluation run without requesting trace info."""
         eval_run = EvaluationRun(
             run_name="test_simple_run",
@@ -792,8 +850,13 @@ class TestGetEvaluationRunStatus:
         assert data["status"] == "completed"
 
     def test_get_evaluation_run_resync_without_trace_info_fails(
-        self, client, user_api_key_header, db, user_api_key, create_test_dataset
-    ):
+        self,
+        client: TestClient,
+        user_api_key_header: dict[str, str],
+        db: Session,
+        user_api_key: TestAuthContext,
+        create_test_dataset: EvaluationDataset,
+    ) -> None:
         """Test that resync_score=true requires get_trace_info=true."""
         eval_run = EvaluationRun(
             run_name="test_run",
@@ -830,7 +893,9 @@ class TestGetDataset:
     """Test GET /evaluations/datasets/{dataset_id} endpoint."""
 
     @pytest.fixture
-    def create_test_dataset(self, db, user_api_key):
+    def create_test_dataset(
+        self, db: Session, user_api_key: TestAuthContext
+    ) -> EvaluationDataset:
         """Create a test dataset."""
         return create_test_evaluation_dataset(
             db=db,
@@ -843,8 +908,11 @@ class TestGetDataset:
         )
 
     def test_get_dataset_success(
-        self, client, user_api_key_header, create_test_dataset
-    ):
+        self,
+        client: TestClient,
+        user_api_key_header: dict[str, str],
+        create_test_dataset: EvaluationDataset,
+    ) -> None:
         """Test successfully getting a dataset by ID."""
         response = client.get(
             f"/api/v1/evaluations/datasets/{create_test_dataset.id}",
@@ -864,7 +932,9 @@ class TestGetDataset:
         assert data["langfuse_dataset_id"].startswith("langfuse")
         assert data["object_store_url"].startswith("s3://test/")
 
-    def test_get_dataset_not_found(self, client, user_api_key_header):
+    def test_get_dataset_not_found(
+        self, client: TestClient, user_api_key_header: dict[str, str]
+    ) -> None:
         """Test getting non-existent dataset returns 404."""
         response = client.get(
             "/api/v1/evaluations/datasets/99999",
@@ -883,7 +953,9 @@ class TestDeleteDataset:
     """Test DELETE /evaluations/datasets/{dataset_id} endpoint."""
 
     @pytest.fixture
-    def create_test_dataset(self, db, user_api_key):
+    def create_test_dataset(
+        self, db: Session, user_api_key: TestAuthContext
+    ) -> EvaluationDataset:
         """Create a test dataset for deletion."""
         return create_test_evaluation_dataset(
             db=db,
@@ -896,8 +968,12 @@ class TestDeleteDataset:
         )
 
     def test_delete_dataset_success(
-        self, client, user_api_key_header, create_test_dataset, db
-    ):
+        self,
+        client: TestClient,
+        user_api_key_header: dict[str, str],
+        create_test_dataset: EvaluationDataset,
+        db: Session,
+    ) -> None:
         """Test successfully deleting a dataset."""
         dataset_id = create_test_dataset.id
 
@@ -919,7 +995,9 @@ class TestDeleteDataset:
         )
         assert verify_response.status_code == 404
 
-    def test_delete_dataset_not_found(self, client, user_api_key_header):
+    def test_delete_dataset_not_found(
+        self, client: TestClient, user_api_key_header: dict[str, str]
+    ) -> None:
         """Test deleting non-existent dataset returns 404."""
         response = client.delete(
             "/api/v1/evaluations/datasets/99999",

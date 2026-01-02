@@ -12,7 +12,7 @@ from app.tests.utils.auth import TestAuthContext
 def test_read_credentials(
     client: TestClient,
     user_api_key: TestAuthContext,
-):
+) -> None:
     response = client.get(
         f"{settings.API_V1_STR}/credentials/",
         headers={"X-API-KEY": user_api_key.key},
@@ -31,7 +31,7 @@ def test_read_credentials(
 def test_read_provider_credential_langfuse(
     client: TestClient,
     user_api_key: TestAuthContext,
-):
+) -> None:
     """Test reading Langfuse credentials from data."""
     response = client.get(
         f"{settings.API_V1_STR}/credentials/provider/{Provider.LANGFUSE.value}",
@@ -49,7 +49,7 @@ def test_read_provider_credential_langfuse(
 def test_read_provider_credential_not_found(
     client: TestClient,
     user_api_key: TestAuthContext,
-):
+) -> None:
     """Test reading credentials for non-existent provider returns 404."""
     client.delete(
         f"{settings.API_V1_STR}/credentials/provider/{Provider.OPENAI.value}",
@@ -68,7 +68,7 @@ def test_read_provider_credential_not_found(
 def test_update_credentials(
     client: TestClient,
     user_api_key: TestAuthContext,
-):
+) -> None:
     """Test updating existing OpenAI credentials."""
     new_api_key = "sk-" + generate_random_string()
     update_data = {
@@ -106,7 +106,7 @@ def test_update_credentials(
 def test_create_credential(
     client: TestClient,
     user_api_key: TestAuthContext,
-):
+) -> None:
     """Test deleting and recreating OpenAI credentials."""
     delete_response = client.delete(
         f"{settings.API_V1_STR}/credentials/provider/{Provider.OPENAI.value}",
@@ -144,13 +144,13 @@ def test_create_credential(
 def test_credential_encryption(
     db: Session,
     user_api_key: TestAuthContext,
-):
+) -> None:
     """Verify credentials are encrypted in database."""
     db_credential = db.exec(
         select(Credential).where(
             Credential.organization_id == user_api_key.organization_id,
             Credential.project_id == user_api_key.project_id,
-            Credential.is_active == True,
+            Credential.is_active,
             Credential.provider == Provider.OPENAI.value,
         )
     ).first()
@@ -166,7 +166,7 @@ def test_credential_encryption(
 def test_update_nonexistent_provider_returns_404(
     client: TestClient,
     user_api_key: TestAuthContext,
-):
+) -> None:
     """Test updating credentials for non-existent provider."""
     # Delete OpenAI first
     client.delete(
@@ -195,7 +195,7 @@ def test_update_nonexistent_provider_returns_404(
 def test_create_ignores_mismatched_ids(
     client: TestClient,
     user_api_key: TestAuthContext,
-):
+) -> None:
     """Test that route uses API key context, ignoring body IDs."""
     client.delete(
         f"{settings.API_V1_STR}/credentials/provider/{Provider.OPENAI.value}",
@@ -226,7 +226,7 @@ def test_create_ignores_mismatched_ids(
 def test_duplicate_credential_creation_fails(
     client: TestClient,
     user_api_key: TestAuthContext,
-):
+) -> None:
     """Test that creating duplicate credentials fails with 400."""
     api_key = "sk-" + generate_random_string(10)
     duplicate_credential = {
@@ -254,7 +254,7 @@ def test_duplicate_credential_creation_fails(
 def test_delete_all_credentials(
     client: TestClient,
     user_api_key: TestAuthContext,
-):
+) -> None:
     """Test deleting all credentials for a project."""
     response = client.delete(
         f"{settings.API_V1_STR}/credentials/",
@@ -275,7 +275,7 @@ def test_delete_all_credentials(
 def test_delete_all_when_none_exist_returns_404(
     client: TestClient,
     user_api_key: TestAuthContext,
-):
+) -> None:
     """Test deleting when no credentials exist."""
     client.delete(
         f"{settings.API_V1_STR}/credentials/",

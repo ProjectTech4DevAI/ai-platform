@@ -8,14 +8,14 @@ from app.tests.utils.test_data import create_test_project
 
 
 @pytest.fixture
-def documents(db: Session):
+def documents(db: Session) -> DocumentMaker:
     project = get_project(db)
     store = DocumentStore(db, project.id)
     return store.documents
 
 
 class TestDatabaseUpdate:
-    def test_update_adds_one(self, db: Session, documents: DocumentMaker):
+    def test_update_adds_one(self, db: Session, documents: DocumentMaker) -> None:
         crud = DocumentCrud(db, documents.project_id)
 
         before = crud.read_many()
@@ -28,7 +28,7 @@ class TestDatabaseUpdate:
         self,
         db: Session,
         documents: DocumentMaker,
-    ):
+    ) -> None:
         crud = DocumentCrud(db, documents.project_id)
         (a, b) = (crud.update(y) for (_, y) in zip(range(2), documents))
 
@@ -38,7 +38,7 @@ class TestDatabaseUpdate:
         self,
         db: Session,
         documents: DocumentMaker,
-    ):
+    ) -> None:
         crud = DocumentCrud(db, documents.project_id)
         document = crud.update(next(documents))
 
@@ -48,7 +48,7 @@ class TestDatabaseUpdate:
         self,
         db: Session,
         documents: DocumentMaker,
-    ):
+    ) -> None:
         crud = DocumentCrud(db, documents.project_id)
         document = next(documents)
         document.project_id = None
@@ -60,7 +60,7 @@ class TestDatabaseUpdate:
         self,
         db: Session,
         documents: DocumentMaker,
-    ):
+    ) -> None:
         document = next(documents)
         other_project = create_test_project(db)
         document.project_id = other_project.id
