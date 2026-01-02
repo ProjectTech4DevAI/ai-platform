@@ -1,4 +1,5 @@
 from unittest.mock import patch
+from typing import Any
 
 import pytest
 import openai_responses

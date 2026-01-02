@@ -1,5 +1,6 @@
 import os
 import mimetypes
+from typing import Any
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from urllib.parse import urlparse

@@ -5,9 +5,7 @@ from uuid import uuid4, UUID
 from sqlmodel import Session
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.models.collection import (
-    DeletionRequest,
-)
+from app.models.collection import DeletionRequest
 from app.tests.utils.utils import get_project
 from app.crud import CollectionJobCrud
 from app.models import CollectionJobStatus, CollectionActionType

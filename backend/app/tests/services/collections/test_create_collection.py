@@ -13,8 +13,8 @@ from sqlmodel import Session
 from app.core.cloud import AmazonCloudStorageClient
 from app.core.config import settings
 from app.crud import CollectionCrud, CollectionJobCrud, DocumentCollectionCrud
-from app.models import CollectionJobStatus, CollectionJob, CollectionActionType
-from app.models.collection import CreationRequest, Project
+from app.models import CollectionJobStatus, CollectionJob, CollectionActionType, Project
+from app.models.collection import CreationRequest
 from app.services.collections.create_collection import start_job, execute_job
 from app.tests.utils.openai import get_mock_openai_client_with_vector_store
 from app.tests.utils.utils import get_project
