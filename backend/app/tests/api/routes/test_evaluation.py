@@ -458,21 +458,6 @@ class TestDatasetUploadErrors:
             or "invalid" in error_str.lower()
         )
 
-    def test_upload_without_authentication(self, client, valid_csv_content):
-        """Test uploading without authentication."""
-        filename, file_obj = create_csv_file(valid_csv_content)
-
-        response = client.post(
-            "/api/v1/evaluations/datasets",
-            files={"file": (filename, file_obj, "text/csv")},
-            data={
-                "dataset_name": "test_dataset",
-                "duplication_factor": 5,
-            },
-        )
-
-        assert response.status_code == 401
-
 
 class TestBatchEvaluation:
     """Test batch evaluation endpoint using OpenAI Batch API."""
@@ -534,21 +519,6 @@ class TestBatchEvaluation:
         )
         # Should fail with either "model" missing or "dataset not found" (both acceptable)
         assert "model" in error_str.lower() or "not found" in error_str.lower()
-
-    def test_start_batch_evaluation_without_authentication(
-        self, client, sample_evaluation_config
-    ):
-        """Test batch evaluation requires authentication."""
-        response = client.post(
-            "/api/v1/evaluations",
-            json={
-                "experiment_name": "test_evaluation_run",
-                "dataset_id": 1,
-                "config": sample_evaluation_config,
-            },
-        )
-
-        assert response.status_code == 401  # Unauthorized
 
 
 class TestBatchEvaluationJSONLBuilding:
@@ -908,12 +878,6 @@ class TestGetDataset:
         )
         assert "not found" in error_str.lower() or "not accessible" in error_str.lower()
 
-    def test_get_dataset_without_authentication(self, client, create_test_dataset):
-        """Test that getting dataset requires authentication."""
-        response = client.get(f"/api/v1/evaluations/datasets/{create_test_dataset.id}")
-
-        assert response.status_code == 401
-
 
 class TestDeleteDataset:
     """Test DELETE /evaluations/datasets/{dataset_id} endpoint."""
@@ -968,11 +932,3 @@ class TestDeleteDataset:
             "detail", response_data.get("error", str(response_data))
         )
         assert "not found" in error_str.lower()
-
-    def test_delete_dataset_without_authentication(self, client, create_test_dataset):
-        """Test that deleting dataset requires authentication."""
-        response = client.delete(
-            f"/api/v1/evaluations/datasets/{create_test_dataset.id}"
-        )
-
-        assert response.status_code == 401

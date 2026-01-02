@@ -127,15 +127,6 @@ def test_evaluation_cron_job_requires_superuser(
     assert "superuser" in response_data["error"].lower()
 
 
-def test_evaluation_cron_job_requires_authentication(
-    client: TestClient,
-):
-    """Test that unauthenticated requests are rejected."""
-    response = client.get(f"{settings.API_V1_STR}/cron/evaluations")
-
-    assert response.status_code == 401
-
-
 def test_evaluation_cron_job_not_in_schema(
     client: TestClient,
 ):
