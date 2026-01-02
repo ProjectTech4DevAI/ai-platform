@@ -12,7 +12,7 @@ from app.crud.evaluations.processing import (
     process_completed_evaluation,
     poll_all_pending_evaluations,
 )
-from app.models import BatchJob, Organization, Project
+from app.models import BatchJob, Organization, Project, EvaluationDataset, EvaluationRun
 from app.tests.utils.test_data import create_test_evaluation_dataset
 from app.crud.evaluations.core import create_evaluation_run
 from app.core.util import now
@@ -239,7 +239,7 @@ class TestProcessCompletedEvaluation:
     """Test processing completed evaluation batch."""
 
     @pytest.fixture
-    def test_dataset(self, db: Session) -> None:
+    def test_dataset(self, db: Session) -> EvaluationDataset:
         """Create a test dataset for evaluation runs."""
         org = db.exec(select(Organization)).first()
         project = db.exec(
@@ -257,7 +257,7 @@ class TestProcessCompletedEvaluation:
         )
 
     @pytest.fixture
-    def eval_run_with_batch(self, db: Session, test_dataset) -> Any:
+    def eval_run_with_batch(self, db: Session, test_dataset) -> EvaluationRun:
         """Create evaluation run with batch job."""
         # Create batch job
         batch_job = BatchJob(
@@ -276,7 +276,6 @@ class TestProcessCompletedEvaluation:
         db.commit()
         db.refresh(batch_job)
 
-        # Create evaluation run
         eval_run = create_evaluation_run(
             session=db,
             run_name="test_run",
@@ -427,7 +426,7 @@ class TestProcessCompletedEmbeddingBatch:
     """Test processing completed embedding batch."""
 
     @pytest.fixture
-    def test_dataset(self, db: Session) -> None:
+    def test_dataset(self, db: Session) -> EvaluationDataset:
         """Create a test dataset."""
         org = db.exec(select(Organization)).first()
         project = db.exec(
@@ -445,7 +444,7 @@ class TestProcessCompletedEmbeddingBatch:
         )
 
     @pytest.fixture
-    def eval_run_with_embedding_batch(self, db: Session, test_dataset) -> Any:
+    def eval_run_with_embedding_batch(self, db: Session, test_dataset) -> EvaluationRun:
         """Create evaluation run with embedding batch job."""
         # Create embedding batch job
         embedding_batch = BatchJob(
@@ -565,7 +564,7 @@ class TestCheckAndProcessEvaluation:
     """Test check and process evaluation function."""
 
     @pytest.fixture
-    def test_dataset(self, db: Session) -> None:
+    def test_dataset(self, db: Session) -> EvaluationDataset:
         """Create a test dataset."""
         org = db.exec(select(Organization)).first()
         project = db.exec(
@@ -712,7 +711,7 @@ class TestPollAllPendingEvaluations:
     """Test polling all pending evaluations."""
 
     @pytest.fixture
-    def test_dataset(self, db: Session) -> None:
+    def test_dataset(self, db: Session) -> EvaluationRun:
         """Create a test dataset."""
         org = db.exec(select(Organization)).first()
         project = db.exec(

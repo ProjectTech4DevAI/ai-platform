@@ -15,7 +15,7 @@ from app.tests.utils.collection import get_collection, get_collection_job
 from app.services.collections.delete_collection import start_job, execute_job
 
 
-def test_start_job_creates_collection_job_and_schedules_task(db) -> None:
+def test_start_job_creates_collection_job_and_schedules_task(db: Session) -> None:
     """
     - start_job should update an existing CollectionJob (status=PENDING, action=DELETE)
     - schedule the task with the provided job_id and collection_id
@@ -76,8 +76,8 @@ def test_start_job_creates_collection_job_and_schedules_task(db) -> None:
 
 @patch("app.services.collections.delete_collection.get_openai_client")
 def test_execute_job_delete_success_updates_job_and_calls_delete(
-    mock_get_openai_client, db
-):
+    mock_get_openai_client, db: Session
+) -> None:
     """
     - execute_job should set task_id on the CollectionJob
     - call remote delete via OpenAIAssistantCrud.delete(...)
@@ -142,7 +142,7 @@ def test_execute_job_delete_success_updates_job_and_calls_delete(
 
 @patch("app.services.collections.delete_collection.get_openai_client")
 def test_execute_job_delete_failure_marks_job_failed(
-    mock_get_openai_client: Any, db
+    mock_get_openai_client: Any, db: Session
 ) -> None:
     """
     When the remote delete (OpenAIAssistantCrud.delete) raises,
@@ -212,8 +212,8 @@ def test_execute_job_delete_failure_marks_job_failed(
 @patch("app.services.collections.delete_collection.get_openai_client")
 def test_execute_job_delete_success_with_callback_sends_success_payload(
     mock_get_openai_client,
-    db,
-):
+    db: Session,
+) -> None:
     """
     When deletion succeeds and a callback_url is provided:
     - job is marked SUCCESSFUL
@@ -292,8 +292,8 @@ def test_execute_job_delete_success_with_callback_sends_success_payload(
 @patch("app.services.collections.delete_collection.get_openai_client")
 def test_execute_job_delete_remote_failure_with_callback_sends_failure_payload(
     mock_get_openai_client,
-    db,
-):
+    db: Session,
+) -> None:
     """
     When the remote delete raises AND a callback_url is provided:
     - job is marked FAILED with error_message set
