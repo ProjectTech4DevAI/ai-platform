@@ -49,7 +49,7 @@ class TestDocumentRoutePermanentRemove:
         db: Session,
         route: Route,
         crawler: WebCrawler,
-    ):
+    ) -> None:
         openai_mock = OpenAIMock()
         with openai_mock.router:
             client = OpenAI(api_key="sk-test-key")
@@ -90,7 +90,7 @@ class TestDocumentRoutePermanentRemove:
         db: Session,
         route: Route,
         crawler: WebCrawler,
-    ):
+    ) -> None:
         DocumentStore.clear(db)
 
         maker = DocumentMaker(project_id=crawler.user_api_key.project_id, session=db)

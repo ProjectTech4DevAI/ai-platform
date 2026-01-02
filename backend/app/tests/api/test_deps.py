@@ -1,6 +1,7 @@
 import pytest
 from sqlmodel import Session
 from fastapi import HTTPException
+from fastapi.testclient import TestClient
 
 from app.api.deps import get_auth_context
 from app.models import (
@@ -106,7 +107,7 @@ class TestGetAuthContext:
         assert exc_info.value.detail == "Inactive user"
 
     def test_get_auth_context_with_inactive_user_via_token(
-        self, db: Session, client
+        self, db: Session, client: TestClient
     ) -> None:
         """Test authentication fails when token belongs to inactive user"""
         user = create_random_user(db)

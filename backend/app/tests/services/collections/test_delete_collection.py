@@ -76,7 +76,7 @@ def test_start_job_creates_collection_job_and_schedules_task(db: Session) -> Non
 
 @patch("app.services.collections.delete_collection.get_openai_client")
 def test_execute_job_delete_success_updates_job_and_calls_delete(
-    mock_get_openai_client, db: Session
+    mock_get_openai_client: Any, db: Session
 ) -> None:
     """
     - execute_job should set task_id on the CollectionJob
@@ -211,7 +211,7 @@ def test_execute_job_delete_failure_marks_job_failed(
 
 @patch("app.services.collections.delete_collection.get_openai_client")
 def test_execute_job_delete_success_with_callback_sends_success_payload(
-    mock_get_openai_client,
+    mock_get_openai_client: Any,
     db: Session,
 ) -> None:
     """
@@ -291,7 +291,7 @@ def test_execute_job_delete_success_with_callback_sends_success_payload(
 
 @patch("app.services.collections.delete_collection.get_openai_client")
 def test_execute_job_delete_remote_failure_with_callback_sends_failure_payload(
-    mock_get_openai_client,
+    mock_get_openai_client: Any,
     db: Session,
 ) -> None:
     """

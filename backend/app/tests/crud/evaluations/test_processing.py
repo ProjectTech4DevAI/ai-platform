@@ -711,7 +711,7 @@ class TestPollAllPendingEvaluations:
     """Test polling all pending evaluations."""
 
     @pytest.fixture
-    def test_dataset(self, db: Session) -> EvaluationRun:
+    def test_dataset(self, db: Session) -> EvaluationDataset:
         """Create a test dataset."""
         org = db.exec(select(Organization)).first()
         project = db.exec(

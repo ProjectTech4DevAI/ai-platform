@@ -35,7 +35,7 @@ def create_collection_job_for_create(
     db: Session,
     project: Project,
     job_id: UUID,
-) -> Any:
+) -> CollectionJob:
     """Pre-create a CREATE job with the given id so start_job can update it."""
     return CollectionJobCrud(db, project.id).create(
         CollectionJob(
