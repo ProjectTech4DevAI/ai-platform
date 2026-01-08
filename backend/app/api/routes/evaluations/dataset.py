@@ -1,13 +1,13 @@
 """Evaluation dataset API routes."""
 
 import logging
-
 from fastapi import (
     APIRouter,
     Depends,
     File,
     Form,
     HTTPException,
+    Query,
     UploadFile,
 )
 
@@ -94,8 +94,10 @@ async def upload_dataset_endpoint(
 def list_datasets_endpoint(
     _session: SessionDep,
     auth_context: AuthContextDep,
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(
+        default=50, ge=1, le=100, description="Maximum number of datasets to return"
+    ),
+    offset: int = Query(default=0, ge=0, description="Number of datasets to skip"),
 ) -> APIResponse[list[DatasetUploadResponse]]:
     """List evaluation datasets."""
     # Enforce maximum limit

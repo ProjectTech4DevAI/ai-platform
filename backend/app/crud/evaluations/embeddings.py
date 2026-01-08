@@ -81,7 +81,7 @@ def build_embedding_jsonl(
     validate_embedding_model(embedding_model)
 
     logger.info(
-        f"Building embedding JSONL for {len(results)} items with model {embedding_model}"
+        f"[build_embedding_jsonl] Building JSONL | items={len(results)} | model={embedding_model}"
     )
 
     jsonl_data = []

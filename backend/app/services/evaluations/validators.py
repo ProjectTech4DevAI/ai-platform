@@ -82,6 +82,11 @@ async def validate_csv_file(file: UploadFile) -> bytes:
         HTTPException: If validation fails
     """
     # Security validation: Check file extension
+    if not file.filename:
+        raise HTTPException(
+            status_code=422,
+            detail="File must have a filename",
+        )
     file_ext = Path(file.filename).suffix.lower()
     if file_ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
