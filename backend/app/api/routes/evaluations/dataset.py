@@ -100,10 +100,6 @@ def list_datasets_endpoint(
     offset: int = Query(default=0, ge=0, description="Number of datasets to skip"),
 ) -> APIResponse[list[DatasetUploadResponse]]:
     """List evaluation datasets."""
-    # Enforce maximum limit
-    if limit > 100:
-        limit = 100
-
     datasets = list_datasets(
         session=_session,
         organization_id=auth_context.organization_.id,
