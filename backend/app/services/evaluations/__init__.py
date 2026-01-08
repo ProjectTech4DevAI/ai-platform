@@ -1,12 +1,12 @@
 """Evaluation services."""
 
-from app.services.evaluation.dataset import upload_dataset
-from app.services.evaluation.evaluation import (
+from app.services.evaluations.dataset import upload_dataset
+from app.services.evaluations.evaluation import (
     build_evaluation_config,
     get_evaluation_with_scores,
     start_evaluation,
 )
-from app.services.evaluation.validators import (
+from app.services.evaluations.validators import (
     ALLOWED_EXTENSIONS,
     ALLOWED_MIME_TYPES,
     MAX_FILE_SIZE,

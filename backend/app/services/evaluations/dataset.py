@@ -12,7 +12,7 @@ from app.crud.evaluations import (
     upload_dataset_to_langfuse,
 )
 from app.models.evaluation import EvaluationDataset
-from app.services.evaluation.validators import (
+from app.services.evaluations.validators import (
     parse_csv_items,
     sanitize_dataset_name,
 )
