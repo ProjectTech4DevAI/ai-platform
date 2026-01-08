@@ -54,13 +54,13 @@ class TestDatasetUploadValidation:
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
             patch(
-                "app.api.routes.evaluation.upload_csv_to_object_store"
+                "app.services.evaluations.dataset.upload_csv_to_object_store"
             ) as mock_store_upload,
             patch(
-                "app.api.routes.evaluation.get_langfuse_client"
+                "app.services.evaluations.dataset.get_langfuse_client"
             ) as mock_get_langfuse_client,
             patch(
-                "app.api.routes.evaluation.upload_dataset_to_langfuse"
+                "app.services.evaluations.dataset.upload_dataset_to_langfuse"
             ) as mock_langfuse_upload,
         ):
             # Mock object store upload
@@ -75,7 +75,7 @@ class TestDatasetUploadValidation:
             filename, file_obj = create_csv_file(valid_csv_content)
 
             response = client.post(
-                "/api/v1/evaluations/datasets",
+                "/api/v1/evaluations/datasets/",
                 files={"file": (filename, file_obj, "text/csv")},
                 data={
                     "dataset_name": "test_dataset",
@@ -116,7 +116,7 @@ class TestDatasetUploadValidation:
         # The CSV validation happens before any mocked functions are called
         # so this test checks the actual validation logic
         response = client.post(
-            "/api/v1/evaluations/datasets",
+            "/api/v1/evaluations/datasets/",
             files={"file": (filename, file_obj, "text/csv")},
             data={
                 "dataset_name": "test_dataset",
@@ -140,13 +140,13 @@ class TestDatasetUploadValidation:
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
             patch(
-                "app.api.routes.evaluation.upload_csv_to_object_store"
+                "app.services.evaluations.dataset.upload_csv_to_object_store"
             ) as mock_store_upload,
             patch(
-                "app.api.routes.evaluation.get_langfuse_client"
+                "app.services.evaluations.dataset.get_langfuse_client"
             ) as mock_get_langfuse_client,
             patch(
-                "app.api.routes.evaluation.upload_dataset_to_langfuse"
+                "app.services.evaluations.dataset.upload_dataset_to_langfuse"
             ) as mock_langfuse_upload,
         ):
             # Mock object store and Langfuse uploads
@@ -157,7 +157,7 @@ class TestDatasetUploadValidation:
             filename, file_obj = create_csv_file(csv_with_empty_rows)
 
             response = client.post(
-                "/api/v1/evaluations/datasets",
+                "/api/v1/evaluations/datasets/",
                 files={"file": (filename, file_obj, "text/csv")},
                 data={
                     "dataset_name": "test_dataset",
@@ -186,13 +186,13 @@ class TestDatasetUploadDuplication:
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
             patch(
-                "app.api.routes.evaluation.upload_csv_to_object_store"
+                "app.services.evaluations.dataset.upload_csv_to_object_store"
             ) as mock_store_upload,
             patch(
-                "app.api.routes.evaluation.get_langfuse_client"
+                "app.services.evaluations.dataset.get_langfuse_client"
             ) as mock_get_langfuse_client,
             patch(
-                "app.api.routes.evaluation.upload_dataset_to_langfuse"
+                "app.services.evaluations.dataset.upload_dataset_to_langfuse"
             ) as mock_langfuse_upload,
         ):
             mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
@@ -202,7 +202,7 @@ class TestDatasetUploadDuplication:
             filename, file_obj = create_csv_file(valid_csv_content)
 
             response = client.post(
-                "/api/v1/evaluations/datasets",
+                "/api/v1/evaluations/datasets/",
                 files={"file": (filename, file_obj, "text/csv")},
                 data={
                     "dataset_name": "test_dataset",
@@ -227,13 +227,13 @@ class TestDatasetUploadDuplication:
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
             patch(
-                "app.api.routes.evaluation.upload_csv_to_object_store"
+                "app.services.evaluations.dataset.upload_csv_to_object_store"
             ) as mock_store_upload,
             patch(
-                "app.api.routes.evaluation.get_langfuse_client"
+                "app.services.evaluations.dataset.get_langfuse_client"
             ) as mock_get_langfuse_client,
             patch(
-                "app.api.routes.evaluation.upload_dataset_to_langfuse"
+                "app.services.evaluations.dataset.upload_dataset_to_langfuse"
             ) as mock_langfuse_upload,
         ):
             mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
@@ -243,7 +243,7 @@ class TestDatasetUploadDuplication:
             filename, file_obj = create_csv_file(valid_csv_content)
 
             response = client.post(
-                "/api/v1/evaluations/datasets",
+                "/api/v1/evaluations/datasets/",
                 files={"file": (filename, file_obj, "text/csv")},
                 data={
                     "dataset_name": "test_dataset",
@@ -268,13 +268,13 @@ class TestDatasetUploadDuplication:
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
             patch(
-                "app.api.routes.evaluation.upload_csv_to_object_store"
+                "app.services.evaluations.dataset.upload_csv_to_object_store"
             ) as mock_store_upload,
             patch(
-                "app.api.routes.evaluation.get_langfuse_client"
+                "app.services.evaluations.dataset.get_langfuse_client"
             ) as mock_get_langfuse_client,
             patch(
-                "app.api.routes.evaluation.upload_dataset_to_langfuse"
+                "app.services.evaluations.dataset.upload_dataset_to_langfuse"
             ) as mock_langfuse_upload,
         ):
             mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
@@ -284,7 +284,7 @@ class TestDatasetUploadDuplication:
             filename, file_obj = create_csv_file(valid_csv_content)
 
             response = client.post(
-                "/api/v1/evaluations/datasets",
+                "/api/v1/evaluations/datasets/",
                 files={"file": (filename, file_obj, "text/csv")},
                 data={
                     "dataset_name": "test_dataset_with_description",
@@ -316,7 +316,7 @@ class TestDatasetUploadDuplication:
         filename, file_obj = create_csv_file(valid_csv_content)
 
         response = client.post(
-            "/api/v1/evaluations/datasets",
+            "/api/v1/evaluations/datasets/",
             files={"file": (filename, file_obj, "text/csv")},
             data={
                 "dataset_name": "test_dataset",
@@ -338,7 +338,7 @@ class TestDatasetUploadDuplication:
         filename, file_obj = create_csv_file(valid_csv_content)
 
         response = client.post(
-            "/api/v1/evaluations/datasets",
+            "/api/v1/evaluations/datasets/",
             files={"file": (filename, file_obj, "text/csv")},
             data={
                 "dataset_name": "test_dataset",
@@ -360,13 +360,13 @@ class TestDatasetUploadDuplication:
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
             patch(
-                "app.api.routes.evaluation.upload_csv_to_object_store"
+                "app.services.evaluations.dataset.upload_csv_to_object_store"
             ) as mock_store_upload,
             patch(
-                "app.api.routes.evaluation.get_langfuse_client"
+                "app.services.evaluations.dataset.get_langfuse_client"
             ) as mock_get_langfuse_client,
             patch(
-                "app.api.routes.evaluation.upload_dataset_to_langfuse"
+                "app.services.evaluations.dataset.upload_dataset_to_langfuse"
             ) as mock_langfuse_upload,
         ):
             mock_store_upload.return_value = "s3://bucket/datasets/test_dataset.csv"
@@ -376,7 +376,7 @@ class TestDatasetUploadDuplication:
             filename, file_obj = create_csv_file(valid_csv_content)
 
             response = client.post(
-                "/api/v1/evaluations/datasets",
+                "/api/v1/evaluations/datasets/",
                 files={"file": (filename, file_obj, "text/csv")},
                 data={
                     "dataset_name": "test_dataset",
@@ -405,7 +405,7 @@ class TestDatasetUploadErrors:
         with (
             patch("app.core.cloud.get_cloud_storage") as _mock_storage,
             patch(
-                "app.api.routes.evaluation.upload_csv_to_object_store"
+                "app.services.evaluations.dataset.upload_csv_to_object_store"
             ) as mock_store_upload,
             patch("app.crud.credentials.get_provider_credential") as mock_get_cred,
         ):
@@ -417,7 +417,7 @@ class TestDatasetUploadErrors:
             filename, file_obj = create_csv_file(valid_csv_content)
 
             response = client.post(
-                "/api/v1/evaluations/datasets",
+                "/api/v1/evaluations/datasets/",
                 files={"file": (filename, file_obj, "text/csv")},
                 data={
                     "dataset_name": "test_dataset",
@@ -444,7 +444,7 @@ class TestDatasetUploadErrors:
         filename, file_obj = create_csv_file(invalid_csv)
 
         response = client.post(
-            "/api/v1/evaluations/datasets",
+            "/api/v1/evaluations/datasets/",
             files={"file": (filename, file_obj, "text/csv")},
             data={
                 "dataset_name": "test_dataset",
@@ -470,7 +470,7 @@ class TestDatasetUploadErrors:
         filename, file_obj = create_csv_file(valid_csv_content)
 
         response = client.post(
-            "/api/v1/evaluations/datasets",
+            "/api/v1/evaluations/datasets/",
             files={"file": (filename, file_obj, "text/csv")},
             data={
                 "dataset_name": "test_dataset",
@@ -499,7 +499,7 @@ class TestBatchEvaluation:
         """Test batch evaluation fails with invalid dataset_id."""
         # Try to start evaluation with non-existent dataset_id
         response = client.post(
-            "/api/v1/evaluations",
+            "/api/v1/evaluations/",
             json={
                 "experiment_name": "test_evaluation_run",
                 "dataset_id": 99999,  # Non-existent
@@ -525,7 +525,7 @@ class TestBatchEvaluation:
         }
 
         response = client.post(
-            "/api/v1/evaluations",
+            "/api/v1/evaluations/",
             json={
                 "experiment_name": "test_no_model",
                 "dataset_id": 1,  # Dummy ID, error should come before this is checked
@@ -548,7 +548,7 @@ class TestBatchEvaluation:
     ):
         """Test batch evaluation requires authentication."""
         response = client.post(
-            "/api/v1/evaluations",
+            "/api/v1/evaluations/",
             json={
                 "experiment_name": "test_evaluation_run",
                 "dataset_id": 1,
