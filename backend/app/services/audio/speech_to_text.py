@@ -175,17 +175,33 @@ def transcribe_audio_with_chirp_v3(audio_file_path: str):
     return transcript
 
 
+def transcribe_audio_with_indic_conformer(audio_file_path: str):
+    indic_conformer_api_url = str(os.getenv("AI4B_STT_URL"))
+    with open(audio_file_path, "rb") as file:
+        audio_content = file.read()
+
+    response = requests.post(
+        url=indic_conformer_api_url,
+        data={"language_code": "hi", "decoding_strategy": "ctc"},
+        files={"audio_file": audio_content},
+    )
+    logger.info(response.json())
+    transcription = response.json()["transcription"]
+    return transcription
+
+
 # util functions for direct usage
 def transcribe_audio(
     audio_file: str,
-    provider: Literal["openai", "gemini", "google-stt"] = "openai",
+    provider: Literal["openai", "gemini", "google-stt", "ai4b"] = "openai",
     model: str | None = None,
     api_key: str | None = None,
     prompt: str | None = None,
 ):
     if provider == "google-stt":
         return transcribe_audio_with_chirp_v3(audio_file_path=audio_file)
-
+    if provider == "ai4b":
+        return transcribe_audio_with_indic_conformer(audio_file_path=audio_file)
     stt_service = SpeechToTextService(provider=provider, api_key=api_key)
     return stt_service.transcribe(
         audio_file=audio_file,
@@ -592,17 +608,23 @@ def calculate_wer_batch_with_summary(
 
 
 if __name__ == "__main__":
-    oai_api_key = os.getenv("OPENAI_API_KEY")
+    # oai_api_key = os.getenv("OPENAI_API_KEY")
     # gemini_api_key=os.getenv("GEMINI_API_KEY")
+    ai4b_file_path = "/Users/prajna/Downloads/audio_hindi_2.ogg"
+
     audio_file_path = "/Users/prajna/Desktop/t4d/ai-platform/backend/app/services/audio/sample_data/ogg_files/1756121051765345.ogg"
-    stt_eval_file_path = "/Users/prajna/Desktop/t4d/ai-platform/backend/app/services/audio/audio_sample_stt.csv"
+    ai4b_response = transcribe_audio_with_indic_conformer(
+        audio_file_path=ai4b_file_path
+    )
+    print(ai4b_response)
+    # stt_eval_file_path = "/Users/prajna/Desktop/t4d/ai-platform/backend/app/services/audio/audio_sample_stt.csv"
 
     # transcript=transcribe_audio(audio_file=audio_file_path, provider="google-stt")
     # transcript=transcribe_audio(audio_file=audio_file_path, provider="openai", api_key=oai_api_key)
     # transcript=transcribe_audio_with_chirp_v3(audio_file_path)
     # print(transcript)
 
-    with open(stt_eval_file_path, "rb") as file:
-        processed = process_batch_csv(file)
+    # with open(stt_eval_file_path, "rb") as file:
+    #     processed = process_batch_csv(file)
 
-    print(processed)
+    # print(processed)

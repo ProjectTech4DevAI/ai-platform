@@ -24,7 +24,7 @@ class FileData(BaseModel):
 
 
 class ProviderConfig(BaseModel):
-    provider: Literal["openai", "gemini", "google-stt"]
+    provider: Literal["openai", "gemini", "google-stt", "ai4b"]
     model: str | None
 
 
